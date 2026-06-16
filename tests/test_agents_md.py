@@ -154,13 +154,52 @@ def test_canonical_side_symlink_is_a_conflict_left_intact(tmp_path):
     assert not (tmp_path / "CLAUDE.md").exists()  # no synthesized link
 
 
-def test_peer_symlink_loop_is_a_conflict_not_created(tmp_path):
-    # AGENTS.md -> CLAUDE.md with no real CLAUDE.md: creating CLAUDE.md -> AGENTS.md would loop.
+# ── repair (a dangling rig-shaped link whose canonical went missing) ───────────────
+def test_broken_claude_link_to_missing_agents_is_repaired(tmp_path):
+    # CLAUDE.md -> AGENTS.md but AGENTS.md was deleted: a dangling rig-shaped link. apply heals it
+    # by recreating the canonical placeholder, so the existing link resolves again — the link
+    # itself is left exactly as the user has it.
+    (tmp_path / "CLAUDE.md").symlink_to("AGENTS.md")
+    assert resolve_agents_md(tmp_path).state == "repair"
+    res = _apply(tmp_path)
+    agents, claude = tmp_path / "AGENTS.md", tmp_path / "CLAUDE.md"
+    assert res.status == "created" and "repaired broken link" in res.detail
+    assert agents.is_file() and not agents.is_symlink()  # canonical recreated, real
+    assert claude.is_symlink() and str(claude.readlink()) == "AGENTS.md"  # link untouched
+    assert claude.read_text() == agents.read_text()  # link now resolves to canonical content
+
+
+def test_broken_agents_link_to_missing_claude_is_repaired(tmp_path):
+    # the mirror: AGENTS.md -> CLAUDE.md with CLAUDE.md missing. This is NOT a loop (only one side
+    # is a symlink) — recreating CLAUDE.md (the canonical the link names) heals it.
     (tmp_path / "AGENTS.md").symlink_to("CLAUDE.md")
+    r = resolve_agents_md(tmp_path)
+    assert r.state == "repair" and r.canonical == "CLAUDE.md"
+    res = _apply(tmp_path)
+    agents, claude = tmp_path / "AGENTS.md", tmp_path / "CLAUDE.md"
+    assert res.status == "created"
+    assert claude.is_file() and not claude.is_symlink()  # canonical recreated
+    assert agents.is_symlink() and str(agents.readlink()) == "CLAUDE.md"  # link untouched
+    assert agents.read_text() == claude.read_text()
+
+
+def test_repair_is_idempotent(tmp_path):
+    # after a repair the pair is a correct real-canonical + symlink, so a re-apply is a no-op.
+    (tmp_path / "CLAUDE.md").symlink_to("AGENTS.md")
+    assert _apply(tmp_path).status == "created"
+    assert resolve_agents_md(tmp_path).state == "ok"
+    assert _apply(tmp_path).status == "skipped"
+
+
+def test_repair_does_not_overwrite_a_foreign_broken_link(tmp_path):
+    # a dangling symlink to a FOREIGN target (not the paired name) is NOT rig-shaped — it stays a
+    # conflict and is never touched, so repair can't resurrect a file the user never managed here.
+    (tmp_path / "CLAUDE.md").symlink_to("somewhere-else.md")
     assert resolve_agents_md(tmp_path).state == "conflict"
     res = _apply(tmp_path)
     assert res.status == "skipped"
-    assert not (tmp_path / "CLAUDE.md").exists()  # no loop synthesized
+    assert str((tmp_path / "CLAUDE.md").readlink()) == "somewhere-else.md"  # untouched
+    assert not (tmp_path / "AGENTS.md").exists()  # nothing synthesized
 
 
 def test_directory_at_slot_is_a_conflict_not_clobbered(tmp_path):
@@ -254,6 +293,20 @@ def test_drift_flags_both_real_different(tmp_path):
     (tmp_path / "CLAUDE.md").write_text("b\n", encoding="utf-8")
     report = detect(_plan_with_action(tmp_path))
     assert any(i.category == "agents_md" and i.direction == "modified" for i in report.items)
+
+
+def test_drift_flags_broken_link_then_apply_repairs(tmp_path):
+    # a dangling rig-shaped link reads as missing drift (the canonical is gone); after apply
+    # recreates the canonical, the link resolves and drift is clean. status flags the broken link,
+    # apply repairs it — apply and drift switch on the SAME 'repair' state.
+    (tmp_path / "CLAUDE.md").symlink_to("AGENTS.md")
+    plan = _plan_with_action(tmp_path)
+    assert any(
+        i.category == "agents_md" and i.direction == "missing" and "broken link" in i.detail
+        for i in detect(plan).items
+    )
+    run_plan(plan)
+    assert not any(i.category == "agents_md" for i in detect(plan).items)
 
 
 def test_drift_flags_converge_then_apply_clears(tmp_path):

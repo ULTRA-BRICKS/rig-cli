@@ -262,6 +262,12 @@ def _check_agents_symlink(action: Action, report: DriftReport) -> None:
             DriftItem("missing", "agents_md", "symlink", r.link,
                       f"{r.link.name} missing (apply symlinks it → {r.canonical})")
         )
+    elif r.state == "repair":
+        report.items.append(
+            DriftItem("missing", "agents_md", "symlink", r.canonical_path,
+                      f"{r.link.name} is a broken link → {r.canonical} (missing); "
+                      f"apply recreates {r.canonical}")
+        )
     elif r.state == "converge":
         report.items.append(
             DriftItem("modified", "agents_md", "symlink", r.link,

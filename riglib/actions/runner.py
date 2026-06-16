@@ -1409,13 +1409,19 @@ class AgentsMdResolution:
     - ``ok``          — already a real canonical + a correct symlink: no-op.
     - ``create_both`` — both slots empty: write ``canonical`` placeholder + symlink the other.
     - ``create_link`` — one real canonical, the other empty: symlink the other → canonical.
+    - ``repair``      — one slot is a rig-shaped symlink (target is the OTHER managed name) but
+                        that target — the canonical — is MISSING (a dangling managed link): write
+                        the canonical placeholder, which heals the link. The link stays as the
+                        user left it; only the empty canonical slot is filled.
     - ``converge``    — both real & identical: collapse ``link`` to a symlink (honors on_conflict).
     - ``conflict``    — anything ambiguous/unsafe (both real & different, a real file at one slot
-                        with a foreign symlink/dir at the other, peer-link loops, neither-real
-                        with a stray symlink/dir): rig NEVER mutates these; ``detail`` says why.
+                        with a foreign symlink/dir at the other, a symlink to a FOREIGN target,
+                        neither-real with a stray symlink/dir): rig NEVER mutates these; ``detail``
+                        says why.
 
     ``canonical`` is the real source-of-truth filename; ``link`` is the slot that should be a
-    symlink → canonical (for ``converge`` that is ``CLAUDE.md``).
+    symlink → canonical (for ``converge`` that is ``CLAUDE.md``; for ``repair`` it is the slot
+    that already holds the dangling managed symlink).
     """
 
     agents: Path
@@ -1475,6 +1481,15 @@ def resolve_agents_md(repo_root: Path) -> AgentsMdResolution:
     claude_present = claude.is_symlink() or claude.exists()
     if not agents_present and not claude_present:
         return _r("create_both", "AGENTS.md", agents, claude)
+    # A dangling rig-shaped link: exactly one slot is a symlink whose target is the OTHER managed
+    # name, but that target (the canonical) is missing. This is rig's own broken state — heal it
+    # by writing the canonical placeholder, which makes the existing managed link resolve. The
+    # link itself is left as the user has it; only the empty canonical slot is filled. (A symlink
+    # to a FOREIGN target — not the paired name — falls through to conflict and is never touched.)
+    if claude.is_symlink() and not agents_present and symlink_points_to(claude, "AGENTS.md"):
+        return _r("repair", "AGENTS.md", agents, claude)
+    if agents.is_symlink() and not claude_present and symlink_points_to(agents, "CLAUDE.md"):
+        return _r("repair", "CLAUDE.md", claude, agents)
     return _r("conflict", "AGENTS.md", agents, claude,
               detail="AGENTS.md/CLAUDE.md present but neither is a real file (a symlink or "
                      "directory occupies a slot) — reconcile to one real file, then re-run")
@@ -1507,6 +1522,17 @@ def _do_provision_agents_symlink(action: Action, on_conflict: str) -> ActionResu
         return ActionResult(
             action, "created",
             f"agents-md: created {r.canonical_path.name} (canonical) + {r.link.name} → {r.canonical}",
+        )
+
+    if r.state == "repair":
+        # A rig-shaped link is dangling because its canonical target is missing: write the
+        # canonical placeholder so the existing link resolves. We touch only the empty canonical
+        # slot — the user's link stays exactly as it is.
+        r.canonical_path.write_text(_AGENTS_MD_PLACEHOLDER, encoding="utf-8")
+        return ActionResult(
+            action, "created",
+            f"agents-md: repaired broken link — recreated {r.canonical_path.name} (canonical) "
+            f"so {r.link.name} → {r.canonical} resolves",
         )
 
     if r.state == "converge":
