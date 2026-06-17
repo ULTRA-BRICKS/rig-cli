@@ -41,10 +41,13 @@ Invariants
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shlex
 import shutil
+import signal
 import subprocess
+import tempfile
 import time
 import uuid
 import socket
@@ -121,6 +124,11 @@ def _teardown_tmux_server(real_tmux: str, label: str, env: dict[str, str] | None
     try:
         subprocess.run(
             [real_tmux, "-L", label, "kill-server"],
+            # Run the kill under the SAME env the server launched with: tmux resolves a
+            # `-L <label>` socket from `$TMUX_TMPDIR:/tmp`, so a kill under a different env
+            # (e.g. an inherited absolute TMUX_TMPDIR) would contact the wrong path and
+            # orphan the server. `env=None` inherits os.environ, matching no-env callers.
+            env=env,
             capture_output=True, text=True, timeout=15,
         )
     except (subprocess.TimeoutExpired, OSError):
@@ -451,22 +459,33 @@ def test_old_continuum_boot_cleanup_removes_stale_entries(tmux_env, monkeypatch)
 
 
 # ── socket-leak regression (the leak in the module docstring: ~185 rigtest-* sockets) ───────
-def test_teardown_unlinks_the_private_socket_file():
+def test_teardown_unlinks_the_private_socket_file(monkeypatch):
     """REGRESSION for the socket leak described in the module docstring: ``_teardown_tmux_server``
     must leave NO socket file on disk (``kill-server`` alone leaks the inode on macOS). Drives the
     SAME teardown the fixture uses, against a REAL server, and asserts the file — not just the
-    process — is gone."""
+    process — is gone. Also exercises the env-mismatch case (launch TMUX_TMPDIR != parent env) so
+    the test fails if teardown's ``kill-server`` were to drop the launch env."""
     real_tmux = shutil.which("tmux")
     if not real_tmux:  # module-level pytestmark already skips when tmux is absent; belt-and-suspenders
         pytest.skip("tmux not installed")
     label = f"rigtest-leakcheck-{uuid.uuid4().hex[:8]}"
 
-    # scrub TMUX_TMPDIR/TMUX so the server lands at the default /tmp path, and resolve the socket
-    # path under that SAME env — the whole bug being guarded is an env/path mismatch here.
+    # Force an env MISMATCH to actually exercise the bug: the launch env pins an explicit
+    # absolute TMUX_TMPDIR (server lands under it), while the parent os.environ deliberately
+    # points elsewhere (popped below). If `_teardown_tmux_server` ran `kill-server` under the
+    # parent env instead of the launch env (the pre-fix behaviour), the kill would resolve the
+    # `-L <label>` socket to the WRONG dir and orphan the server — and the PID assertion fails.
+    # A SHORT tmpdir keeps the unix socket path under macOS's ~104-char limit (see fixture note).
+    tmpdir = Path(tempfile.mkdtemp(prefix="rt-", dir="/tmp"))
     env = dict(os.environ)
     env.pop("TMUX", None)
-    env.pop("TMUX_TMPDIR", None)
+    env["TMUX_TMPDIR"] = str(tmpdir)
+    # Parent env must NOT match the launch TMUX_TMPDIR, else the pre-fix kill would coincidentally
+    # hit the right path and the test would pass even with the bug present. monkeypatch auto-restores.
+    monkeypatch.delenv("TMUX_TMPDIR", raising=False)
     sock = _socket_path_for(label, env)
+    server_pid = None  # set once the server is up; the finally kills it independently of the helper
+    server_reaped = False  # True once we've CONFIRMED the server process died (don't raw-kill after)
     try:
         boot = subprocess.run(
             [real_tmux, "-L", label, "new-session", "-d", "-s", "probe", "tail -f /dev/null"],
@@ -475,9 +494,52 @@ def test_teardown_unlinks_the_private_socket_file():
         assert boot.returncode == 0, boot.stderr
         assert sock.exists(), f"server did not create its socket at {sock}"
 
+        # Capture the server PID before teardown so we can prove the PROCESS died, not just
+        # that the socket vanished — `has-session` after teardown is useless because teardown
+        # unlinks the socket, so the query fails whether the server was killed OR orphaned.
+        srv = subprocess.run(
+            [real_tmux, "-L", label, "display-message", "-p", "#{pid}"],
+            env=env, capture_output=True, text=True, timeout=15,
+        )
+        assert srv.returncode == 0, srv.stderr
+        try:
+            server_pid = int(srv.stdout.strip())
+        except ValueError as e:
+            raise AssertionError(f"unexpected display-message -p '#{{pid}}' output: {srv.stdout!r}") from e
+
         _teardown_tmux_server(real_tmux, label, env)
 
         assert not sock.exists(), f"LEAK: socket file lingered after teardown: {sock}"
+        # the kill must reach the PROCESS, not just unlink the socket: poll the captured PID until
+        # os.kill(pid, 0) raises ProcessLookupError (reaped). Guards the env-mismatch orphan case.
+        # Reaping a just-killed daemon is sub-ms in the happy path, so a generous window costs
+        # nothing there; it only matters when something is wrong, where a loaded CI runner needs
+        # slack before we declare an orphan. PID-recycle within the wait stays astronomically
+        # unlikely (the dead PID reassigned to another same-user process in the gap).
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            try:
+                os.kill(server_pid, 0)
+            except ProcessLookupError:
+                server_reaped = True
+                break
+            except PermissionError:
+                # Same-UID launch (the only mode here): a live server is always signalable by us,
+                # so EPERM means the PID was recycled to another owner — the original server is gone.
+                server_reaped = True
+                break
+            time.sleep(0.02)
+        else:
+            raise AssertionError(f"tmux server pid {server_pid} survived teardown (orphaned)")
     finally:
-        # belt-and-suspenders if an assert fired mid-way — reuse the production teardown.
-        _teardown_tmux_server(real_tmux, label, env)
+        # Orphan path only (regression OR an early assert before the reap was confirmed): kill the
+        # captured PID directly. A label-scoped `tmux kill-server` can't help here — the production
+        # teardown already UNLINKED the socket, so the daemon is no longer reachable by `-L <label>`;
+        # the PID is the only handle left. Recycle risk is negligible on this path: we reach it only
+        # because the PID was observed alive moments ago, leaving a ~0ms window before this kill. We
+        # never raw-kill after a CONFIRMED reap (server_reaped), where a recycled PID is the concern.
+        if server_pid is not None and not server_reaped:
+            with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+                os.kill(server_pid, signal.SIGKILL)
+        _teardown_tmux_server(real_tmux, label, env)  # belt-and-suspenders: reuse production teardown
+        shutil.rmtree(tmpdir, ignore_errors=True)
