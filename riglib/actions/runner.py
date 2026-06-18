@@ -42,12 +42,15 @@ from ..github_auth import ensure_browser_auth, ensure_gh_auth, reset_auth_gate
 from ..github_browser import build_command_plan as build_browser_plan
 from ..github_browser import desired_toggles as browser_desired_toggles
 from ..github_ghas import (
+    GHAS_UMBRELLA_FIELDS,
     SUBRESOURCE_KNOBS,
     build_security_analysis_body,
     desired_code_scanning,
     desired_subresource,
+    needs_ghas_umbrella,
     normalize_security_analysis,
 )
+from ..github_ghas import umbrella_enabled as ghas_umbrella_enabled
 from ..github_merge import build_merge_body, normalize_merge
 from ..github_ruleset import (
     build_ruleset_body,
@@ -3286,13 +3289,24 @@ def github_ghas_state(action: Action) -> tuple[str, dict]:
     except ValueError:
         info["detail"] = "gh api returned non-JSON repo object"
         return "gh_error", info
+    # On a PRIVATE repo, the dependent scanners (secret-scanning / CodeQL) require the GHAS umbrella
+    # (advanced_security) enabled FIRST, or they fail "Advanced Security must be enabled" and never
+    # converge. Record whether the umbrella needs flipping so apply can do it before the scanners.
+    # PUBLIC repos carry no umbrella field (it's implicit), so this is never set for them.
+    info["private"] = bool(repo_obj.get("private", False))
+    info["umbrella_on"] = ghas_umbrella_enabled(repo_obj)
+    info["needs_umbrella"] = (
+        info["private"] and needs_ghas_umbrella(action.options) and not info["umbrella_on"]
+    )
     desired_norm = {f: n["status"] for f, n in desired_sa.items()}
     # Record the security_and_analysis-block drift SEPARATELY so apply can gate the repo PATCH on it
     # (a PATCH when only a sub-resource / CodeQL drifted is a no-op that also prints a misleading
     # "security_and_analysis converged"). The aggregate `drifted` still drives the overall state.
     sa_drifted = normalize_security_analysis(repo_obj) != desired_norm
     info["sa_drifted"] = sa_drifted
-    drifted = sa_drifted
+    # A private repo whose umbrella must be flipped is drift even if the SA fields already read as
+    # desired — without the umbrella the scanners can't actually be on, so apply must run to enable it.
+    drifted = sa_drifted or info["needs_umbrella"]
     # the sub-resources: an UNREADABLE one is recorded as unverifiable (forces `update` so status
     # surfaces it and apply degrades it loudly) — NOT a whole-block gh_error that would also block
     # the free features. Distinct from "read OK but off", which is plain drift.
@@ -3345,11 +3359,32 @@ def _do_provision_github_ghas(action: Action, on_conflict: str) -> ActionResult:
     # GENUINE (non-plan-limit) write failures on a sub-resource / CodeQL go here — they make the
     # whole action an ERROR at the end, so a real auth/permission failure is never a silent green.
     hard_errors: list[str] = []
+    # 0) PREREQUISITE — enable the GHAS umbrella (advanced_security) FIRST on a private repo whose
+    # dependent scanners (secret-scanning / CodeQL) are requested but whose umbrella is off. Without
+    # this, those scanner calls fail "Advanced Security must be enabled" and degrade forever, never
+    # converging (the Codex review finding). Both schema field names are sent; the side that doesn't
+    # know one ignores it. A failure here is plan-limit (no GHAS license) → degrade; the dependent
+    # scanners below will then also degrade, which is the correct "not licensed" outcome.
+    if info.get("needs_umbrella"):
+        umbrella_body = {f: {"status": "enabled"} for f in GHAS_UMBRELLA_FIELDS}
+        rc, out, err = _gh_api(
+            ["--method", "PATCH", f"repos/{owner}/{repo}", "--input", "-"],
+            input_text=json.dumps({"security_and_analysis": umbrella_body}),
+        )
+        if rc != 0:
+            full = err.strip() or out.strip()
+            (degraded if _looks_like_ghas_unlicensed(full) else hard_errors).append(
+                f"advanced-security umbrella ({full[:80]})"
+            )
+        else:
+            notes.append("advanced-security umbrella enabled")
     # 1) security_and_analysis block (dep-graph + secret-scanning + push protection) via repo PATCH.
     # Gate on the SA-block's OWN drift (not the aggregate `state == update`): when only a sub-resource
     # or CodeQL drifted, the SA block already matches, so PATCHing it is a no-op that would also print
-    # a misleading "security_and_analysis converged". `sa_drifted` is computed by the classifier.
-    if info.get("sa_drifted"):
+    # a misleading "security_and_analysis converged". `sa_drifted` is computed by the classifier. Also
+    # run it right after a fresh umbrella enable — the scanners couldn't have been truly on without
+    # the umbrella, so re-assert them now that it is.
+    if info.get("sa_drifted") or info.get("needs_umbrella"):
         rc, out, err = _gh_api(
             ["--method", "PATCH", f"repos/{owner}/{repo}", "--input", "-"],
             input_text=json.dumps({"security_and_analysis": desired_sa}),

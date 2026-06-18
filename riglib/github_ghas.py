@@ -88,6 +88,47 @@ SUBRESOURCE_KNOBS: tuple[str, ...] = (
 CODE_SCANNING_KNOB = "code_scanning_default_setup"
 
 
+# The repo-level "umbrella" switches that GATE the dependent scanners on a PRIVATE/org repo. On
+# such repos GitHub requires GitHub Advanced Security (and, on the newer schema, Code Security) to be
+# enabled BEFORE secret-scanning / CodeQL can be turned on — otherwise the dependent calls fail
+# "Advanced Security must be enabled" and never converge. PUBLIC repos do NOT carry these fields (the
+# umbrella is implicit/free), so rig only ever sends them for a private repo whose umbrella is off.
+# Both names are sent because GitHub renamed the field across schema versions; an unknown one is a
+# tolerated no-op on the side that doesn't recognize it.
+GHAS_UMBRELLA_FIELDS: tuple[str, ...] = ("advanced_security", "code_security")
+
+
+def needs_ghas_umbrella(opts: dict) -> bool:
+    """True iff any rig-managed knob requires GHAS Advanced Security to be enabled first.
+
+    Secret scanning, push protection, and CodeQL default-setup are all GHAS-gated on a private repo.
+    Vuln-alerts / Dependabot are free (dependency-graph) features and do NOT need the umbrella, so
+    they don't force it on. Used by the apply to decide whether to flip the umbrella before the
+    dependent scanners — but ONLY on a private repo whose umbrella is currently off (see the action).
+    """
+    return any(
+        bool(opts.get(k, GITHUB_GHAS_DEFAULTS[k]))
+        for k in ("secret_scanning", "secret_scanning_push_protection", CODE_SCANNING_KNOB)
+    )
+
+
+def umbrella_enabled(repo_obj: dict) -> bool:
+    """True iff the live repo already has a GHAS umbrella switch enabled (so we needn't flip it).
+
+    Reads ``security_and_analysis.{advanced_security,code_security}.status``. A PUBLIC repo has
+    neither field → False here, but the caller only consults this for a PRIVATE repo, where absence
+    genuinely means "umbrella off, enable it first".
+    """
+    sa = repo_obj.get("security_and_analysis")
+    if not isinstance(sa, dict):
+        return False
+    for field in GHAS_UMBRELLA_FIELDS:
+        node = sa.get(field)
+        if isinstance(node, dict) and node.get("status") == "enabled":
+            return True
+    return False
+
+
 def build_security_analysis_body(opts: dict) -> dict[str, dict[str, str]]:
     """The desired ``security_and_analysis`` block for ``PATCH /repos/{owner}/{repo}``.
 
@@ -96,7 +137,9 @@ def build_security_analysis_body(opts: dict) -> dict[str, dict[str, str]]:
     ``_SECURITY_ANALYSIS_KNOBS``), each as the API's ``{"status": "enabled"|"disabled"}`` sub-object
     with a hard bool→status coercion (so a stray truthy config value can't send a bogus status).
     Shared by apply + drift. The body carries ONLY these security sub-objects — never a repo
-    name/visibility key — so a PATCH can never rename or expose the repo.
+    name/visibility key — so a PATCH can never rename or expose the repo. The umbrella
+    (``advanced_security``) is NOT in this comparable body — it's a private-repo-only PREREQUISITE the
+    apply flips first when needed, not a value rig diffs (see :func:`needs_ghas_umbrella`).
     """
     body: dict[str, dict[str, str]] = {}
     for knob, field in _SECURITY_ANALYSIS_KNOBS.items():
