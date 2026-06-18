@@ -347,6 +347,141 @@ def test_ghas_real_auth_error_is_not_swallowed_as_degrade(monkeypatch, gh_repo, 
     assert res.status == "error" and "403" in res.detail
 
 
+def test_ghas_private_repo_enables_advanced_security_umbrella_first(monkeypatch, gh_repo, tmp_path):
+    """Codex PR review: on a PRIVATE repo whose GHAS umbrella is OFF, rig must enable
+    advanced_security BEFORE the dependent scanners — else they fail 'Advanced Security must be
+    enabled' and never converge. The umbrella PATCH must come first."""
+    patches: list = []
+
+    def fake(args, *, input_text=None):
+        if "--method" in args:
+            method, path = args[args.index("--method") + 1], args[args.index("--method") + 2]
+            if method == "PATCH" and path == "repos/acme/widget" and input_text:
+                patches.append(json.loads(input_text)["security_and_analysis"])
+            return 0, "{}", ""
+        if args[0].endswith("/vulnerability-alerts"):
+            return 0, "", ""
+        if args[0].endswith("/automated-security-fixes"):
+            return 0, json.dumps({"enabled": True}), ""
+        if args[0].endswith("/default-setup"):
+            return 0, json.dumps({"state": "configured"}), ""
+        # live repo: PRIVATE, umbrella OFF (no advanced_security field), secret-scanning off → drift
+        return 0, json.dumps({"private": True, "security_and_analysis": {"secret_scanning": {"status": "disabled"}}}), ""
+
+    monkeypatch.setattr(runner, "_gh_api", fake)
+    res = runner._do_provision_github_ghas(_ghas_action(tmp_path), "backup")
+    assert res.status == "updated"
+    # the FIRST security_and_analysis PATCH must be the umbrella enable (advanced_security ONLY — not
+    # code_security, whose unknown-key 422 could fail the whole PATCH and regress the fix)
+    assert patches and patches[0] == {"advanced_security": {"status": "enabled"}}
+    # and a LATER PATCH carries the scanners (umbrella precedes them)
+    assert any("secret_scanning" in p for p in patches[1:])
+
+
+def test_ghas_private_repo_with_umbrella_already_on_skips_umbrella_patch(monkeypatch, gh_repo, tmp_path):
+    """Codex review follow-up: a private repo whose umbrella is ALREADY enabled must NOT re-PATCH it
+    — only the scanners reconcile on drift. Guards against a redundant umbrella write every apply."""
+    sa = {f2: n["status"] for f2, n in build_security_analysis_body(GITHUB_GHAS_DEFAULTS).items()}
+    patches: list = []
+
+    def fake(args, *, input_text=None):
+        if "--method" in args:
+            if args[args.index("--method") + 1] == "PATCH" and args[args.index("--method") + 2] == "repos/acme/widget" and input_text:
+                patches.append(json.loads(input_text)["security_and_analysis"])
+            return 0, "{}", ""
+        if args[0].endswith("/vulnerability-alerts"):
+            return 0, "", ""
+        if args[0].endswith("/automated-security-fixes"):
+            return 0, json.dumps({"enabled": True}), ""
+        if args[0].endswith("/default-setup"):
+            return 0, json.dumps({"state": "configured"}), ""
+        # private, umbrella ALREADY on, scanners already at desired → only the umbrella flag differs (it doesn't)
+        live_sa = {**{k: {"status": v} for k, v in sa.items()}, "advanced_security": {"status": "enabled"}}
+        return 0, json.dumps({"private": True, "security_and_analysis": live_sa}), ""
+
+    monkeypatch.setattr(runner, "_gh_api", fake)
+    res = runner._do_provision_github_ghas(_ghas_action(tmp_path), "backup")
+    assert res.status == "skipped"  # fully converged
+    assert not any("advanced_security" in p for p in patches)  # no redundant umbrella PATCH
+
+
+def test_ghas_umbrella_unlicensed_degrades_loud_not_hard_error(monkeypatch, gh_repo, tmp_path):
+    """A private repo without a GHAS license → the umbrella enable 422s with a plan-limit body; that
+    DEGRADES loudly (the dependent scanners then also degrade), it is not a hard error."""
+    def fake(args, *, input_text=None):
+        if "--method" in args:
+            path = args[args.index("--method") + 2]
+            if path == "repos/acme/widget" and input_text and "advanced_security" in json.loads(input_text).get("security_and_analysis", {}):
+                return 1, "", "HTTP 422: GitHub Advanced Security is not available for this repository"
+            return 0, "{}", ""
+        if args[0].endswith("/vulnerability-alerts"):
+            return 0, "", ""
+        if args[0].endswith("/automated-security-fixes"):
+            return 0, json.dumps({"enabled": True}), ""
+        if args[0].endswith("/default-setup"):
+            return 0, json.dumps({"state": "configured"}), ""
+        return 0, json.dumps({"private": True, "security_and_analysis": {"secret_scanning": {"status": "disabled"}}}), ""
+
+    monkeypatch.setattr(runner, "_gh_api", fake)
+    res = runner._do_provision_github_ghas(_ghas_action(tmp_path), "backup")
+    assert "DEGRADED" in res.detail and "advanced-security umbrella" in res.detail
+
+
+def test_ghas_umbrella_real_error_is_hard_error(monkeypatch, gh_repo, tmp_path):
+    """A GENUINE (non-plan-limit) failure on the umbrella enable is a hard error, not a silent
+    degrade — a no-admin 403 on the umbrella must surface as status=error."""
+    def fake(args, *, input_text=None):
+        if "--method" in args:
+            path = args[args.index("--method") + 2]
+            if path == "repos/acme/widget" and input_text and "advanced_security" in json.loads(input_text).get("security_and_analysis", {}):
+                return 1, "", "HTTP 403: Resource not accessible by integration"
+            return 0, "{}", ""
+        if args[0].endswith("/vulnerability-alerts"):
+            return 0, "", ""
+        if args[0].endswith("/automated-security-fixes"):
+            return 0, json.dumps({"enabled": True}), ""
+        if args[0].endswith("/default-setup"):
+            return 0, json.dumps({"state": "configured"}), ""
+        return 0, json.dumps({"private": True, "security_and_analysis": {"secret_scanning": {"status": "disabled"}}}), ""
+
+    monkeypatch.setattr(runner, "_gh_api", fake)
+    res = runner._do_provision_github_ghas(_ghas_action(tmp_path), "backup")
+    assert res.status == "error" and "FAILED" in res.detail and "advanced-security umbrella" in res.detail
+
+
+def test_ghas_codeql_off_does_not_force_umbrella(monkeypatch, gh_repo, tmp_path):
+    """Review #2 guard: explicitly disabling all GHAS-gated scanners (secret-scanning + CodeQL off)
+    on a private repo must NOT enable the paid umbrella — needs_ghas_umbrella resolves to False."""
+    from riglib.github_ghas import needs_ghas_umbrella
+    opts = {**GITHUB_GHAS_DEFAULTS, "secret_scanning": False, "secret_scanning_push_protection": False,
+            "code_scanning_default_setup": False}
+    assert needs_ghas_umbrella(opts) is False
+
+
+def test_ghas_public_repo_never_sends_advanced_security_umbrella(monkeypatch, gh_repo, tmp_path):
+    """Public repos carry no umbrella field (it's implicit); rig must NOT send advanced_security to
+    them (GitHub would reject an unknown field on a public repo)."""
+    patches: list = []
+
+    def fake(args, *, input_text=None):
+        if "--method" in args:
+            if args[args.index("--method") + 1] == "PATCH" and args[args.index("--method") + 2] == "repos/acme/widget" and input_text:
+                patches.append(json.loads(input_text)["security_and_analysis"])
+            return 0, "{}", ""
+        if args[0].endswith("/vulnerability-alerts"):
+            return 0, "", ""
+        if args[0].endswith("/automated-security-fixes"):
+            return 0, json.dumps({"enabled": True}), ""
+        if args[0].endswith("/default-setup"):
+            return 0, json.dumps({"state": "configured"}), ""
+        return 0, json.dumps({"private": False, "security_and_analysis": {"secret_scanning": {"status": "disabled"}}}), ""
+
+    monkeypatch.setattr(runner, "_gh_api", fake)
+    res = runner._do_provision_github_ghas(_ghas_action(tmp_path), "backup")
+    assert res.status == "updated"
+    assert not any("advanced_security" in p for p in patches)  # never sent to a public repo
+
+
 def test_ghas_sa_block_hard_error_still_applies_free_features(monkeypatch, gh_repo, tmp_path):
     """Review-finding (round 8) #1: a GENUINE security_and_analysis PATCH failure must NOT early-out
     and strand the free features — it goes to hard_errors (final status=error) but vuln-alerts /
