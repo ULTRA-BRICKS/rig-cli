@@ -234,6 +234,12 @@ AREAS: tuple[Area, ...] = (
                  "Emit the pull_request rule — require a PR to merge to the default branch."),
             _opt("github.ruleset.required_reviews", KIND_INT, 0,
                  "required_approving_review_count on the pull_request rule (0 = a PR but no required approval)."),
+            _opt("github.ruleset.required_conversation_resolution", KIND_BOOL, True,
+                 "Require every review thread to be resolved before merge (secure default ON). "
+                 "Works with required_reviews: 0 — never blocks a solo merge, only forces thread cleanup."),
+            _opt("github.ruleset.dismiss_stale_reviews", KIND_BOOL, True,
+                 "Dismiss stale pull-request approvals when new commits are pushed (secure default ON). "
+                 "Inert when required_reviews is 0."),
         ),
     ),
     Area(
