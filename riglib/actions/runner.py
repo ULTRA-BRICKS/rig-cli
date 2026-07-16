@@ -8555,6 +8555,68 @@ def _do_install_dev_reload_hook(action: Action, on_conflict: str) -> ActionResul
 
     return ActionResult(action, status, "; ".join(notes), backup)
 
+
+
+def pi_extension_policy_json(action: Action) -> str:
+    """The exact JSON bytes rig writes for the pi permission policy (shared with drift).
+
+    Canonical serialization (sorted keys, 2-space indent, trailing newline) so the install and the
+    drift read-back agree byte-for-byte and a re-apply is a true no-op. Reads ``options["policy"]``
+    strictly (KeyError on a malformed action, matching ``options["policy_file"]``) — the plan
+    always populates both, so a missing key is a bug, not a silent empty policy.
+    """
+    return json.dumps(action.options["policy"], indent=2, sort_keys=True) + "\n"
+
+
+def _do_provision_pi_extension(action: Action, on_conflict: str) -> ActionResult:
+    """Install the pi ``permission-guard`` extension + write the rig-owned policy it reads.
+
+    Two idempotent, backup-noted steps (rig-cli pi permission parity):
+
+    1. copy the extension dir (``pi-extensions/<name>/``) → pi's ``extensions/<name>/`` so pi
+       auto-discovers it. ``fsutil.copy_tree`` skips when identical, backs up on conflict.
+    2. write the policy JSON → ``~/.pi/agent/rig-permission-policy.json`` (the file the extension
+       loads; a missing/broken file makes the extension fall back to its baked baseline, so the
+       dangerous denies fire either way).
+
+    pi has NO built-in permission system, so this extension IS pi's permission belt — the deny/ask
+    effect the other harnesses get from their config allowlists. Fail-explicit on IO.
+    """
+    policy_file = Path(str(action.options["policy_file"]))
+    notes: list[str] = []
+    backup: Path | None = None
+    statuses: list[str] = []
+
+    ext_out = fsutil.copy_tree(action.source, action.target, on_conflict)
+    statuses.append(ext_out.status)
+    notes.append(f"extension {ext_out.detail}")
+    if ext_out.backup:
+        backup = ext_out.backup
+
+    policy_out = fsutil.write_file(policy_file, pi_extension_policy_json(action), on_conflict)
+    statuses.append(policy_out.status)
+    notes.append(f"policy {policy_out.detail}")
+    # ActionResult carries ONE structured backup slot; when BOTH artifacts back up, the second
+    # backup path is not lost — each WriteOutcome.detail (joined into notes above) already carries
+    # its own "backed up prior → <path>", so both restore paths are in the result detail.
+    if policy_out.backup and backup is None:
+        backup = policy_out.backup
+
+    # overall status precedence: `error` is the highest-priority outcome — a failure in EITHER step
+    # must never be masked by the other step's `backed_up`/`updated` (else a real failure reports
+    # success). Then backed_up > created/updated > skipped (any real change is not a skip).
+    if "error" in statuses:
+        overall = "error"
+    elif "backed_up" in statuses:
+        overall = "backed_up"
+    elif "created" in statuses or "updated" in statuses:
+        overall = "updated" if "updated" in statuses else "created"
+    else:
+        overall = "skipped"
+    return ActionResult(
+        action, overall, f"permissions/pi-extension {action.options.get('extension')}: " + "; ".join(notes), backup
+    )
+
 _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "record_mode": _do_record_mode,
     "copy_skill": _do_copy_skill,
@@ -8571,6 +8633,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_harness_approval": _do_provision_harness_approval,
     "provision_omp_web_search": _do_provision_omp_web_search,
     "provision_instruction_policy": _do_provision_instruction_policy,
+    "provision_pi_extension": _do_provision_pi_extension,
     "register_hook_bridge": _do_register_hook_bridge,
     "provision_omp_idle_ttl": _do_provision_omp_idle_ttl,
     "provision_schedule": _do_provision_schedule,
