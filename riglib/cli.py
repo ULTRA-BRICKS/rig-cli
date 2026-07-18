@@ -663,10 +663,6 @@ def _print_plan(
     _print_notes(plan.notes, expand=expand_notes)
 
 
-# Result statuses that mean the action CHANGED disk (vs "skipped" = already in sync).
-_CHANGED_STATUSES = ("created", "updated", "backed_up")
-
-
 def _print_results(report, *, verbose: bool = False, list_hint: str | None = None) -> None:
     """Print apply results grouped by what CHANGED vs what was already in sync.
 
@@ -1264,34 +1260,43 @@ def _apply_commit(plan, args: argparse.Namespace) -> int:
 
 def _write_apply_log(plan, report, elapsed: float, verify_ok: bool) -> Path | None:
     """Write the FULL apply record (every action + result, regardless of console verbosity) to
-    ``~/.cache/rig/apply-<UTC>.log`` and return its path. Best-effort: a log-write failure must
-    never fail the apply, so any OSError degrades to ``None`` (no log path reported)."""
+    ``~/.cache/rig/apply-<UTC>.log`` and return its path.
+
+    Best-effort: this runs AFTER ``run_plan`` has already mutated disk, so a logging failure must
+    NEVER turn a successful apply into a crash/non-zero. The ENTIRE body — path resolution and
+    line assembly included — is inside the guard, and it catches broad ``Exception`` (not just
+    ``OSError``): a malformed action or a stringify error degrades to ``None`` (no log reported),
+    never a traceback on the primary commit path.
+    """
     import datetime
 
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    log_dir = Path(_os.path.expanduser("~/.cache/rig"))
-    log_path = log_dir / f"apply-{stamp}.log"
-    lines = [
-        f"rig apply commit — {stamp}",
-        f"on_conflict={plan.on_conflict}  actions={len(plan.actions)}  elapsed={elapsed:.2f}s",
-        "",
-        "PLAN:",
-    ]
-    lines += [f"  {a.category}/{a.item} → {a.target}" for a in plan.actions]
-    if plan.notes:
-        lines += ["", "NOTES:"] + [f"  {n}" for n in plan.notes]
-    lines += ["", "RESULTS:"]
-    lines += [f"  [{r.status}] {r.action.category}/{r.action.item}: {r.detail}" for r in report.results]
-    summary = ", ".join(f"{k}={v}" for k, v in sorted(report.summary().items()))
-    lines += [
-        "",
-        f"SUMMARY: {summary}",
-        f"verify_ok={verify_ok}  errors={len(report.errors)}",
-    ]
     try:
+        stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        log_dir = Path(_os.path.expanduser("~/.cache/rig"))
+        log_path = log_dir / f"apply-{stamp}.log"
+        lines = [
+            f"rig apply commit — {stamp}",
+            f"on_conflict={plan.on_conflict}  actions={len(plan.actions)}  elapsed={elapsed:.2f}s",
+            "",
+            "PLAN:",
+        ]
+        lines += [f"  {a.category}/{a.item} → {a.target}" for a in plan.actions]
+        if plan.notes:
+            lines += ["", "NOTES:"] + [f"  {n}" for n in plan.notes]
+        lines += ["", "RESULTS:"]
+        lines += [
+            f"  [{r.status}] {r.action.category}/{r.action.item}: {r.detail}"
+            for r in report.results
+        ]
+        summary = ", ".join(f"{k}={v}" for k, v in sorted(report.summary().items()))
+        lines += [
+            "",
+            f"SUMMARY: {summary}",
+            f"verify_ok={verify_ok}  errors={len(report.errors)}",
+        ]
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    except OSError:
+    except Exception:  # noqa: BLE001 — logging is best-effort; never crash a completed apply
         return None
     return log_path
 
