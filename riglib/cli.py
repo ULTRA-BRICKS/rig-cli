@@ -8,7 +8,7 @@ needs them so ``rig --help`` and ``rig doctor`` stay fast and dependency-light.
 Subcommands:
 
     rig init     first-run onboarding — scaffold rig.yaml + wire the catalog in (the front door)
-    rig apply    PREVIEW the reconcile (bare = `apply info`); `apply commit` executes it
+    rig apply    declarative reconcile: read rig.yaml, converge disk to it (idempotent)
     rig setup    interactive config wizard (no TTY → usage for init/apply/config)
     rig config   get/set ONE config key by dot path, then reconcile (get|set)
     rig status   detect + report drift in BOTH directions (config↔disk)
@@ -25,7 +25,6 @@ import argparse
 import contextlib
 import json
 import math
-import shlex
 import sys
 import time
 from pathlib import Path
@@ -169,31 +168,18 @@ def build_parser() -> argparse.ArgumentParser:
         parser.add_argument("-C", "--cwd", default=".", help="repo root to operate on (default: cwd)")
         parser.add_argument("--config", help="apply this config file headlessly (non-interactive)")
         parser.add_argument("--yes", action="store_true", help="non-interactive; assume yes")
-        # The repo's stack preset (l1/lang[/framework]); overrides auto-detection. Written into the
-        # scaffolded rig.yaml and used to select the by-stack skill set.
-        parser.add_argument(
-            "--stack",
-            help="the repo stack preset l1/lang[/framework] (e.g. mobile/swift/swiftui, "
-            "frontend/ts/react, backend/python); default: auto-detect from the repo",
-        )
         # NOTE: there is intentionally NO --no-write-config flag. rig.yaml is the committed
         # source of truth and is NOT optional (AGENTS.md). Use --dry-run for a no-write preview.
         parser.add_argument("--dry-run", action="store_true", help="print the plan, write nothing")
         # init only SCAFFOLDS rig.yaml + PREVIEWS the plan; applying is a deliberate second step
-        # (`rig apply commit`). --apply opts into the one-shot "scaffold AND apply now".
+        # (`rig apply`). --apply opts into the one-shot "scaffold AND apply now".
         parser.add_argument(
             "--apply", action="store_true",
-            help="also apply the plan now (default: init only scaffolds rig.yaml; run `rig apply commit`)",
+            help="also apply the plan now (default: init only scaffolds rig.yaml; run `rig apply` to apply)",
         )
         parser.add_argument(
             "--plan", action="store_true",
             help="list every planned action (default: a per-carrier summary for a large plan)",
-        )
-        # --notes mirrors `rig apply --notes`: expand the collapsed informational notes so the
-        # collapse hint the shared plan renderer prints ("--notes to expand") is valid here too.
-        parser.add_argument(
-            "--notes", action="store_true",
-            help="expand every informational note (default: collapse them behind a one-line count)",
         )
         # a bare interactive `rig init` launches the TUI wizard (textual ships WITH rig); --no-tui
         # (or RIG_NO_TUI=1) opts out of the wizard, keeping the non-destructive preview path.
@@ -210,37 +196,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     ap = sub.add_parser(
         "apply",
-        help="preview the reconcile (bare = `apply info`); `apply commit` executes it",
-        description="Reconcile disk to rig.yaml (idempotent). PREVIEW-BY-DEFAULT: a bare "
-        "`rig apply` is an alias for `rig apply info` — it builds + prints the plan and MUTATES "
-        "NOTHING. Run `rig apply commit` to actually execute it. apply only ADDS/UPDATES the "
+        help="reconcile the repo to rig.yaml (idempotent)",
+        description="Reconcile disk to rig.yaml (idempotent). apply only ADDS/UPDATES the "
         "items your config declares — it NEVER deletes on-disk extras. Items present on disk "
         "but not declared in any layer (e.g. a hand-added skill) are reported by `rig status` "
         "and left untouched; apply will not nuke them.",
     )
-    # info | commit as a positional (NOT argparse sub-subparsers) so every flag stays on the one
-    # apply parser and works regardless of position — `rig apply commit -C x` and `rig apply -C x`
-    # both parse cleanly, with no per-subparser namespace to keep in sync.
-    ap.add_argument(
-        "mode", nargs="?", choices=("info", "commit"), default=None,
-        help="info: preview the plan, write nothing (default). commit: execute the plan.",
-    )
     ap.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
     ap.add_argument("--config", help="config file to apply (default: ./rig.yaml + global)")
-    ap.add_argument("--dry-run", action="store_true", help="force preview even under `commit`")
+    ap.add_argument("--dry-run", action="store_true", help="print the resolved plan, write nothing")
     ap.add_argument("--only", help="comma-separated categories to scope (e.g. skills,ci)")
-    ap.add_argument(
-        "--yes", action="store_true",
-        help="non-interactive commit intent: a bare `apply --yes` executes (automation back-compat)",
-    )
-    ap.add_argument(
-        "-v", "--verbose", action="store_true",
-        help="show already-in-sync (no-op) actions, which are collapsed behind a count by default",
-    )
-    ap.add_argument(
-        "--notes", action="store_true",
-        help="expand every informational note (default: collapse them behind a one-line count)",
-    )
     ap.add_argument(
         "--plan", action="store_true",
         help="list every planned action (default: a per-carrier summary for a large plan)",
@@ -596,60 +561,7 @@ def _plan_summary_line(plan) -> str:
     return ", ".join(parts)
 
 
-# A note is a free-text string; these substrings mark a REAL GAP the user should see — something
-# rig DECLINED to provision that the config asked for (a bridge/schedule/permission it could not
-# wire) — as opposed to informational policy/wiring/status chatter. Deliberately NARROW: broad
-# words ("has no", "not written", "missing", "cannot") also appear in intentional-state notes
-# (export-only CI, a harness that reads a global instruction file instead of a skills dir), so
-# they would cry wolf. Kept as one keyword set (single source of truth) rather than restructuring
-# every `plan.notes.append` call site into a typed severity — centralized here and covered by
-# tests. If a note class needs elevating, add its stable phrase here, not a generic word.
-_NOTE_ATTENTION_MARKERS = (
-    "skipped",  # "hook_bridge: skipped", "permissions: skipped", "models: schedule skipped"
-    "dropped",  # "allow rules dropped for harness …"
-    "not provisioned",
-    "not wired",
-    "no allowlist to provision",
-    "no rig auto",  # "has no rig auto/permission-mode writer yet"
-    "no supported agents-hooks bridge",
-)
-
-
-def _note_needs_attention(note: str) -> bool:
-    """True when a plan note reports a real provisioning gap (elevated), not just information."""
-    low = note.lower()
-    return any(marker in low for marker in _NOTE_ATTENTION_MARKERS)
-
-
-def _print_notes(notes: list[str], *, expand: bool = False) -> None:
-    """Print plan notes: real-gap notes elevated to a ``⚠`` line, informational ones collapsed.
-
-    By default the informational notes are hidden behind a one-line count (``notes: N
-    informational, M need attention — --notes to expand``) so they never form a wall; the gap
-    notes (e.g. the hook_bridge one) are always shown. ``expand=True`` (``--notes``) prints every
-    note verbatim.
-    """
-    if not notes:
-        return
-    attention = [n for n in notes if _note_needs_attention(n)]
-    info = [n for n in notes if not _note_needs_attention(n)]
-    for note in attention:
-        print(f"  {_warn('⚠')} {note}")
-    if expand:
-        for note in info:
-            print(f"  {_dim('note')}: {note}")
-        return
-    if info:
-        n, m = len(info), len(attention)
-        parts = [f"{n} informational"]
-        if m:
-            parts.append(f"{m} need attention")
-        print(_dim(f"  notes: {', '.join(parts)} — --notes to expand"))
-
-
-def _print_plan(
-    plan, *, full: bool = False, preview: bool = False, expand_notes: bool = False
-) -> None:
+def _print_plan(plan, *, full: bool = False, preview: bool = False) -> None:
     # `preview=True` marks the plan as NOT applied (the `rig init` scaffold/no-TUI paths): the
     # plan is what `rig apply` WOULD do, so it must never read as completed work.
     label = _dim("   — PREVIEW of `rig apply` (not applied)") if preview else ""
@@ -660,23 +572,11 @@ def _print_plan(
     else:
         print(f"  {_plan_summary_line(plan)}")
         print(_dim(f"  (run with --plan to list all {len(plan.actions)} actions)"))
-    _print_notes(plan.notes, expand=expand_notes)
+    for note in plan.notes:
+        print(f"  {_warn('note')}: {note}")
 
 
-# Result statuses that mean the action CHANGED disk (vs "skipped" = already in sync).
-_CHANGED_STATUSES = ("created", "updated", "backed_up")
-
-
-def _print_results(report, *, verbose: bool = False, list_hint: str | None = None) -> None:
-    """Print apply results grouped by what CHANGED vs what was already in sync.
-
-    Changed/error rows always print; already-in-sync (``skipped``) no-ops are collapsed behind a
-    one-line count unless ``verbose``. ``list_hint`` (e.g. ``"-v"``) is the flag the current
-    command exposes to reveal the collapsed rows — passed ONLY by front-ends that actually accept
-    it (``rig apply commit``), so the hint never advertises a flag the caller lacks (``init
-    --apply`` / ``config set`` reuse this renderer without a ``-v``). The trailing ``Summary:``
-    line is unchanged so existing status/parity assertions keep working.
-    """
+def _print_results(report) -> None:
     icon = {
         "created": _ok("✔"),
         "updated": _ok("✔"),
@@ -685,14 +585,8 @@ def _print_results(report, *, verbose: bool = False, list_hint: str | None = Non
         "planned": _dim("•"),
         "error": _err("✗"),
     }
-    in_sync = [r for r in report.results if r.status == "skipped"]
-    changed = [r for r in report.results if r.status != "skipped"]
-    rows = report.results if verbose else changed
-    for r in rows:
+    for r in report.results:
         print(f"  {icon.get(r.status, '?')} {r.action.category}/{r.action.item}: {r.detail}")
-    if in_sync and not verbose:
-        hint = f" (run {list_hint} to list)" if list_hint else ""
-        print(_dim(f"  {icon['skipped']} {len(in_sync)} already in sync{hint}"))
     summary = ", ".join(f"{k}={v}" for k, v in sorted(report.summary().items()))
     print(_bold(f"\nSummary: {summary}"))
 
@@ -842,9 +736,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
         from .tui import run_wizard
 
         try:
-            # thread --stack through so a TTY `rig init --stack …` is honored, not silently
-            # dropped at the interactive boundary (the headless path already respects it).
-            return run_wizard(Path(args.cwd).resolve(), stack=getattr(args, "stack", None))
+            return run_wizard(Path(args.cwd).resolve())
         except ImportError:
             return _setup_preview_no_tui(args, reason="no-textual")
 
@@ -864,14 +756,7 @@ def _resolve_init_plan(args: argparse.Namespace, *, use_default: bool):
     plan-resolvers share one convention so a caller can't mix them up.
     """
     from .catalog import Catalog
-    from .config import (
-        ConfigError,
-        LoadedConfig,
-        load,
-        read_yaml_file,
-        resolve_init_stack,
-        validate,
-    )
+    from .config import ConfigError, LoadedConfig, load, read_yaml_file, validate
     from .detect import detect_environment
     from .plan import build
     from .state import SetupState
@@ -887,19 +772,9 @@ def _resolve_init_plan(args: argparse.Namespace, *, use_default: bool):
         # honor a global-config-pinned agent_tools_source for the scan (the documented cascade
         # has a valid global layer), but do NOT pin it into the committed rig.yaml — that would
         # break the env/default fallback on other machines.
-        global_cfg = load(repo_root, include_global=True)
-        global_source = global_cfg.agent_tools_source
+        global_source = load(repo_root, include_global=True).agent_tools_source
         Catalog.scan(global_source)  # verify an agent-tools checkout exists (fail early)
-        # Stack preset: an explicit --stack wins, else the global default (cascade), else a
-        # best-guess from the repo files. Written into the committed rig.yaml so the by-stack
-        # skills are selected; left unset (→ soft-require warning) when nothing is known. The
-        # interactive TUI seeds its state through the SAME helper, so both front-ends agree.
-        stack = resolve_init_stack(
-            repo_root, explicit=getattr(args, "stack", None), global_stack=global_cfg.stack
-        )
-        state = SetupState.default(
-            agent_tools_source=None, project_type=env.project_type, stack=stack
-        )
+        state = SetupState.default(agent_tools_source=None, project_type=env.project_type)
         # Build the plan from the GENERATED state, not from disk: with --dry-run there may be no
         # rig.yaml on disk yet, so loading from disk would preview an empty/stale plan instead of
         # what setup decided. Carry the global source into the in-memory config so the catalog
@@ -963,9 +838,9 @@ def _print_init_next_steps(*, config_exists: bool, reason: str) -> None:
     print(_bold("\nNothing was written and nothing was applied — this is a PREVIEW."))
     print("To proceed, pick one:")
     if config_exists:
-        print(f"  {_dim('•')} rig.yaml already exists here  →  run `rig apply commit` to apply it")
+        print(f"  {_dim('•')} rig.yaml already exists here  →  run `rig apply` to apply it")
     else:
-        print(f"  {_dim('•')} rig init --yes           write rig.yaml (config only; then `rig apply commit`)")
+        print(f"  {_dim('•')} rig init --yes           write rig.yaml (config only; then `rig apply` to apply)")
         print(f"  {_dim('•')} rig init --yes --apply   write rig.yaml AND apply the plan in one step")
     if reason == "no-textual":
         print(f"  {_dim('•')} reinstall rig (`pipx install rig-cli` / `uv tool install rig-cli`), then re-run `rig init`")
@@ -1009,7 +884,7 @@ def _setup_preview_no_tui(args: argparse.Namespace, *, reason: str) -> int:
     except (ConfigError, CatalogError, PlanError) as exc:
         print(_err_block(exc))
         return 2
-    _print_plan(plan, full=getattr(args, "plan", False), preview=True, expand_notes=getattr(args, "notes", False))
+    _print_plan(plan, full=getattr(args, "plan", False), preview=True)
     _print_init_next_steps(config_exists=config_exists, reason=reason)
     return 0
 
@@ -1027,9 +902,9 @@ def _preview_existing_config(args: argparse.Namespace, repo_yaml: Path) -> int:
     except (ConfigError, CatalogError, PlanError) as exc:
         print(_err_block(exc))
         return 2
-    _print_plan(plan, full=getattr(args, "plan", False), preview=True, expand_notes=getattr(args, "notes", False))
+    _print_plan(plan, full=getattr(args, "plan", False), preview=True)
     print(_dim("\n(dry-run: nothing written, nothing applied)"))
-    print(_dim(f"rig.yaml already exists at {repo_yaml} — run `rig apply commit` to apply it."))
+    print(_dim(f"rig.yaml already exists at {repo_yaml} — run `rig apply` to apply it."))
     return 0
 
 
@@ -1055,7 +930,7 @@ def _setup_headless(args: argparse.Namespace, *, use_default: bool) -> int:
             # (preserving the pre-refactor error precedence). The explicit --config path instead
             # BACKS UP the old rig.yaml in _persist_rig_yaml — a template install is opt-in.
             print(_err(f"error: {repo_yaml} already exists."))
-            print(_dim("  run `rig apply commit` to apply it, or delete it to regenerate a default."))
+            print(_dim("  run `rig apply` to apply it, or delete it to regenerate a default."))
             return 2
 
     try:
@@ -1078,7 +953,7 @@ def _setup_headless(args: argparse.Namespace, *, use_default: bool) -> int:
     # --apply: show the plan (NOT a preview — it IS being applied), then run it and report what
     # was DONE. Printing the plan first mirrors `rig apply` and makes `--plan` meaningful here too.
     if apply_now:
-        _print_plan(plan, full=getattr(args, "plan", False), expand_notes=getattr(args, "notes", False))
+        _print_plan(plan, full=getattr(args, "plan", False))
         print(_bold(f"\nApplying {len(plan)} action(s)  [on_conflict={plan.on_conflict}]…"))
         report = run_plan(plan)
         _print_results(report)
@@ -1086,29 +961,25 @@ def _setup_headless(args: argparse.Namespace, *, use_default: bool) -> int:
         return 1 if (report.errors or not verify_ok) else 0
 
     # default: the plan is a PREVIEW of `rig apply` — init only scaffolds the config.
-    _print_plan(plan, full=getattr(args, "plan", False), preview=True, expand_notes=getattr(args, "notes", False))
+    _print_plan(plan, full=getattr(args, "plan", False), preview=True)
     if args.dry_run:
         print(_dim("\n(dry-run: nothing written, nothing applied)"))
     elif wrote_config:
         print(_bold("\nDone — rig.yaml scaffolded (config only; NOTHING applied yet)."))
-        print(_dim("Next: run `rig apply commit` to apply the plan above (or re-run init with --apply)."))
+        print(_dim("Next: run `rig apply` to apply the plan above (or re-run init with --apply)."))
     else:
         # --config pointed at the repo's existing rig.yaml: nothing was written, nothing applied.
         print(_bold("\nNothing written (rig.yaml already in place) and NOTHING applied."))
-        print(_dim("Next: run `rig apply commit` to apply the plan above (or re-run init with --apply)."))
+        print(_dim("Next: run `rig apply` to apply the plan above (or re-run init with --apply)."))
     return 0
 
 
 def _scope_categories(only: str) -> set[str]:
     """Parse ``--only`` into the set of ACTION categories to keep.
 
-    ``ship_env`` is a drift/status-only category (the machine env file): it has no standalone
-    action — it is reconciled by whichever action OWNS it. That is the ``ship_delegator`` action
-    normally, and the ``gh_ship_alias`` action in the ci-only combo (delegator disabled,
-    ``ci.items.ship.gh_alias`` on). This returns only the always-safe ``ship_delegator`` alias; the
-    ci-only owner is pulled in by :func:`_action_in_only_scope`, which keys on the ACTION contract
-    (a ``gh_ship_alias`` action that carries ``canonical_ship``) — a bare category add would also
-    drag the option-less alias action that does NOT own ``ship_env`` and could clobber a user alias.
+    ``ship_env`` is a drift/status-only category (the machine env file): the action that writes
+    it IS the ``ship_delegator`` action, so a status-guided ``apply --only ship_env`` must not
+    silently no-op — alias it to the owning action category.
     """
     wanted = {s.strip() for s in only.split(",")}
     if "ship_env" in wanted:
@@ -1116,23 +987,8 @@ def _scope_categories(only: str) -> set[str]:
     return wanted
 
 
-def _action_in_only_scope(action, wanted: set[str]) -> bool:
-    """Whether ``action`` survives an ``--only`` filter for the ``wanted`` categories.
-
-    A plain category match keeps the action. The one contract-level exception: ``ship_env`` has no
-    standalone action, so scoping to it must ALSO keep the ci-only owner — a ``gh_ship_alias``
-    action that carries ``canonical_ship`` (only then does it reconcile the env file). The
-    option-less ``gh_ship_alias`` action (normal delegator-enabled plan) does NOT own ``ship_env``
-    and is correctly excluded, so ``apply --only ship_env`` can never touch an unrelated alias.
-    """
-    if action.category in wanted:
-        return True
-    if "ship_env" in wanted and action.kind == "provision_gh_ship_alias":
-        return bool(str(action.options.get("canonical_ship", "")).strip())
-    return False
-
-
 def cmd_apply(args: argparse.Namespace) -> int:
+    from .actions import run_plan
     from .catalog import CatalogError
     from .config import ConfigError
     from .plan import PlanError
@@ -1153,178 +1009,16 @@ def cmd_apply(args: argparse.Namespace) -> int:
 
     if args.only:
         wanted = _scope_categories(args.only)
-        plan.actions = [a for a in plan.actions if _action_in_only_scope(a, wanted)]
+        plan.actions = [a for a in plan.actions if a.category in wanted]
 
-    if _resolve_apply_mode(args) == "info":
-        return _apply_info(plan, args)
-    return _apply_commit(plan, args)
-
-
-def _resolve_apply_mode(args: argparse.Namespace) -> str:
-    """Decide preview vs execute. Preview-by-default; `commit` (or a bare `--yes`) executes.
-
-    ``--dry-run`` always forces a preview (back-compat: `rig apply --dry-run` never mutated). A
-    bare `rig apply` (``mode is None``) is a preview UNLESS ``--yes`` is given — automation that
-    said `rig apply --yes` keeps executing (commit intent).
-    """
-    if getattr(args, "dry_run", False):
-        return "info"
-    if args.mode == "commit":
-        return "commit"
-    if args.mode == "info":
-        return "info"
-    return "commit" if getattr(args, "yes", False) else "info"
-
-
-def _apply_info(plan, args: argparse.Namespace) -> int:
-    """Preview: build + print the plan, mutate NOTHING, point at `rig apply commit`."""
-    _print_plan(
-        plan,
-        full=getattr(args, "plan", False),
-        preview=True,
-        expand_notes=getattr(args, "notes", False),
-    )
-    print()
-    if args.mode is None:
-        print(_dim("(`rig apply` is an alias for `rig apply info` — preview only, nothing applied)"))
-    else:
-        print(_dim("(preview only — nothing applied)"))
-    print(f"  run {_bold(_apply_commit_command(args))} to execute this plan")
-    return 0
-
-
-def _apply_commit_command(args: argparse.Namespace) -> str:
-    """The exact `rig apply commit …` line to execute THIS preview — carrying the plan-defining
-    flags the user passed (`-C`, `--config`, `--only`) so the suggested command reconciles the
-    SAME repo/config/scope, never a broader default plan.
-    """
-    parts = ["rig apply commit"]
-    cwd = getattr(args, "cwd", ".")
-    if cwd and cwd != ".":
-        parts.append(f"-C {shlex.quote(cwd)}")
-    if getattr(args, "config", None):
-        parts.append(f"--config {shlex.quote(args.config)}")
-    if getattr(args, "only", None):
-        parts.append(f"--only {shlex.quote(args.only)}")
-    return " ".join(parts)
-
-
-# Action kinds whose runners do slow, live-activation work (network clones, launchctl,
-# tg-ctl/schedule reloads, gh API). During a commit these get a per-phase progress line so a
-# long silent tail reads as progress, not a hang.
-_LIVE_ACTIVATION_KINDS = frozenset({
-    "provision_tmux",
-    "provision_tg_ctl",
-    "provision_schedule",
-    "provision_spotlight",
-    "provision_project_tool",
-    "provision_tools",
-    "provision_github_ruleset",
-    "provision_github_merge",
-    "provision_github_ghas",
-    "provision_github_actions",
-    "provision_github_browser",
-})
-
-
-def _apply_commit(plan, args: argparse.Namespace) -> int:
-    """Execute the plan (today's `rig apply` behavior): per-phase progress on the slow live
-    runners, a full log written to disk regardless of console verbosity, verify, then a single
-    completion line that reflects the verify result."""
-    from .actions import run_plan
-
-    verbose = getattr(args, "verbose", False)
-    _print_plan(
-        plan,
-        full=getattr(args, "plan", False),
-        expand_notes=getattr(args, "notes", False),
-    )
-    live_phases = [a for a in plan.actions if a.kind in _LIVE_ACTIVATION_KINDS]
-    if live_phases:
-        cats = ", ".join(sorted({a.category for a in live_phases}))
-        print(_dim(f"\napplying (live activation may take a moment: {cats})…"))
-
-    def _on_start(action) -> None:
-        # printed BEFORE the (slow) runner dispatches, so a hung clone/launchctl/gh call is
-        # visible as an in-flight phase — silence during the op ≠ hang.
-        if action.kind in _LIVE_ACTIVATION_KINDS:
-            print(_dim(f"  → {action.category}/{action.item}…"), flush=True)
-
-    started = time.monotonic()
-    report = run_plan(plan, on_start=_on_start)
-    elapsed = time.monotonic() - started
-    _print_results(report, verbose=verbose, list_hint="-v")
+    _print_plan(plan, full=getattr(args, "plan", False))
+    if args.dry_run:
+        print(_dim("\n(dry-run: nothing written)"))
+        return 0
+    report = run_plan(plan)
+    _print_results(report)
     verify_ok = _run_and_print_verify(plan, report.results)
-    log_path = _write_apply_log(plan, report, elapsed, verify_ok)
-    # the completion line is the LAST thing printed and reflects verify: a green ✓ never precedes
-    # a failed verify that flips the exit code to 1.
-    _print_completion_line(report, elapsed, verify_ok=verify_ok, log_path=log_path)
     return 1 if (report.errors or not verify_ok) else 0
-
-
-def _write_apply_log(plan, report, elapsed: float, verify_ok: bool) -> Path | None:
-    """Write the FULL apply record (every action + result, regardless of console verbosity) to
-    ``~/.cache/rig/apply-<UTC>.log`` and return its path. Best-effort: a log-write failure must
-    never fail the apply, so any OSError degrades to ``None`` (no log path reported)."""
-    import datetime
-
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    log_dir = Path(_os.path.expanduser("~/.cache/rig"))
-    log_path = log_dir / f"apply-{stamp}.log"
-    lines = [
-        f"rig apply commit — {stamp}",
-        f"on_conflict={plan.on_conflict}  actions={len(plan.actions)}  elapsed={elapsed:.2f}s",
-        "",
-        "PLAN:",
-    ]
-    lines += [f"  {a.category}/{a.item} → {a.target}" for a in plan.actions]
-    if plan.notes:
-        lines += ["", "NOTES:"] + [f"  {n}" for n in plan.notes]
-    lines += ["", "RESULTS:"]
-    lines += [f"  [{r.status}] {r.action.category}/{r.action.item}: {r.detail}" for r in report.results]
-    summary = ", ".join(f"{k}={v}" for k, v in sorted(report.summary().items()))
-    lines += [
-        "",
-        f"SUMMARY: {summary}",
-        f"verify_ok={verify_ok}  errors={len(report.errors)}",
-    ]
-    try:
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    except OSError:
-        return None
-    return log_path
-
-
-def _print_completion_line(
-    report, elapsed: float, *, verify_ok: bool = True, log_path: Path | None = None
-) -> None:
-    """The clear finish line on commit: ✓ applied N actions (C changed, M unchanged) in Xs.
-
-    A verify FAILURE or an action error downgrades the ✓ to ✗ so the marker never lies about a
-    run that exits non-zero. The full-detail log path is appended when one was written.
-    """
-    total = len(report.results)
-    changed = report.changed
-    unchanged = sum(1 for r in report.results if r.status == "skipped")
-    errs = len(report.errors)
-    failed = bool(errs) or not verify_ok
-    icon = _err("✗") if failed else _ok("✓")
-    reasons = []
-    if errs:
-        reasons.append(f"{errs} error(s)")
-    if not verify_ok:
-        reasons.append("verify FAILED")
-    tail = f" — {_err(', '.join(reasons))}" if reasons else ""
-    print(
-        _bold(
-            f"{icon} applied {total} action(s) "
-            f"({changed} changed, {unchanged} unchanged) in {elapsed:.1f}s"
-        )
-        + tail
-    )
-    if log_path is not None:
-        print(_dim(f"  full log: {log_path}"))
 
 
 def _harness_settings_paths(plan) -> list[Path]:
@@ -1429,7 +1123,7 @@ def _print_non_git_status(env, config: str | None = None) -> int:
 
     print(_bold("rig status"))
     print(f"  repo: {env.repo_root}")
-    print(f"  toolchain: {env.stack}  type: {env.project_type}")
+    print(f"  stack: {env.stack}  type: {env.project_type}")
     layers = "(none — built-in defaults)"
     try:
         explicit = _resolve_explicit_config(env, config)
@@ -1448,22 +1142,6 @@ def _print_non_git_status(env, config: str | None = None) -> int:
     print(f"  config layers: {layers}")
     _print_non_git_note()
     return 0
-
-
-def _print_stack_preset(loaded) -> None:
-    """Print the declared stack preset (or the soft-require warning + detected guess).
-
-    Distinct from the toolchain line above: this is the by-stack curation axis. A declared stack
-    is shown plainly; an absent one prints the migration-phase soft-require warning so the user
-    knows to set it (per-repo stack is mandatory by policy, warned-not-enforced for now)."""
-    from .config import stack_requirement_warning
-
-    if loaded.stack:
-        print(f"  stack-preset: {loaded.stack}")
-        return
-    warning = stack_requirement_warning(loaded)
-    if warning:
-        print(_warn(f"  {warning}"))
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -1498,8 +1176,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
     print(_bold("rig status"))
     print(f"  repo: {env.repo_root}")
-    print(f"  toolchain: {env.stack}  type: {env.project_type}")
-    _print_stack_preset(loaded)
+    print(f"  stack: {env.stack}  type: {env.project_type}")
     cfg_src = ", ".join(loaded.layers) or "(none — built-in defaults)"
     print(f"  config layers: {cfg_src}")
 
@@ -1650,7 +1327,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         print()
         print(_ok("  ✔ safe: `rig apply` NEVER deletes on-disk extras — items present on disk but"))
         print(_ok("    not declared in any layer are left for you to decide. apply only ADDS/UPDATES."))
-        print(_dim("\n  run `rig apply commit` to converge config→disk (extras above are left as-is)"))
+        print(_dim("\n  run `rig apply` to converge config→disk (extras above are left as-is)"))
 
     # EXIT-CODE PRECEDENCE — a dead target OUTRANKS ordinary drift. A missing hook script will
     # FAIL at runtime (a generic "PreToolUse error"); drift is merely "config and disk disagree".
@@ -1680,15 +1357,12 @@ def _declaring_config(category: str, loaded) -> str:
     """
     from .layers import GLOBAL, layer_for_category
 
-    # `ship_env`/`gh_ship_alias` are GLOBAL machine artifacts with no key of their own — their
-    # provenance is the layer that declares the delegator/alias combo. `source_for_key` tracks the
-    # REAL declaring layer per key (repo OR global), so a ci-only combo declared purely in the global
-    # cascade (`ship_delegator.enabled: false` + `ci.items.ship.gh_alias`) is attributed to the
-    # global config even when an UNRELATED repo `rig.yaml` also exists — the case a bare repo-vs-
-    # global lookup mislabels. Falls back to the primary config when the (default-on) delegator
-    # declares no key, matching "would live in the repo rig.yaml".
-    if category in ("ship_env", "gh_ship_alias"):
-        return str(loaded.source_for_key("ship_delegator"))
+    # `ship_env` is a GLOBAL artifact (the machine env file) DECLARED by the repo-scoped
+    # ship_delegator block — there is no ship_env key in any config. Point its provenance at
+    # the declaring repo config, not the global file (which never mentions it) and never a
+    # misleading "not declared in any layer" in a repo-only setup.
+    if category == "ship_env":
+        return _declaring_config("ship_delegator", loaded)
     layer = layer_for_category(category)
     path = loaded.global_path if layer == GLOBAL else loaded.repo_path
     return str(path) if path is not None else "not declared in any layer"
@@ -2029,7 +1703,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         return 0
     # a dead target (but no missing dep) is still a problem worth a non-zero exit.
     if only_deps_clean and dead_targets:
-        print(_warn("\n  a missing target above needs attention (re-run `rig apply commit` or remove the stale entry)"))
+        print(_warn("\n  a missing target above needs attention (re-run `rig apply` or remove the stale entry)"))
         return errors.EXIT_MISSING_TARGET
 
     if not args.yes:
@@ -2362,8 +2036,7 @@ def cmd_setup_wizard(args: argparse.Namespace) -> int:
         # reuse the SAME engine as `rig apply` (one executor, never forked for the wizard).
         # Build the namespace through the REAL `apply` subparser so it always carries every
         # attribute cmd_apply reads — no hand-kept field list that can drift from the parser.
-        # `commit` is the EXECUTE subcommand — the wizard applies, so it must NOT preview.
-        apply_args = build_parser().parse_args(["apply", "commit", "-C", str(root)])
+        apply_args = build_parser().parse_args(["apply", "-C", str(root)])
         return cmd_apply(apply_args)
 
     # color hook so the wizard's rendered state matches the rest of the CLI's NO_COLOR handling.

@@ -45,14 +45,6 @@ RIG="python3 $ROOT/bin/rig"
 # below relies on this too.)
 export RIG_TG_CTL_DRY_RUN=1
 
-# Provision the `gh ship` alias in DRY-RUN for the WHOLE smoke: gh_ship_alias is default-on, so the
-# apply leg would otherwise shell out to a REAL `gh alias set` and rewrite the developer's actual
-# `gh ship` alias (gh reads its config from $GH_CONFIG_DIR / $XDG_CONFIG_HOME, which smoke does NOT
-# isolate — only $HOME). RIG_GH_ALIAS_DRY_RUN skips the live `gh alias set` while still exercising
-# the plan/handler. Mirrors RIG_TG_CTL_DRY_RUN / RIG_TMUX_DRY_RUN — the hard "never touch real
-# machine state in a test" rule.
-export RIG_GH_ALIAS_DRY_RUN=1
-
 # Resolve an agent-tools checkout ONCE, up front, against the REAL HOME — the apply leg below
 # overwrites $HOME with an isolated tmp dir, so any later HOME-relative discovery would miss it.
 AGENT_TOOLS="${RIG_AGENT_TOOLS_SOURCE:-}"
@@ -149,9 +141,7 @@ _real_catalog_full_coverage() {
   # warn-and-exit-0 regression, so it must actually fire on every platform.
   echo "$out" | grep -Eqi "unknown .*item|unknown .*slot|unknown ci" \
     && fail "real-catalog coverage: an 'unknown item/slot' error against the REAL catalog"
-  # apply is preview-by-default: a bare `apply --dry-run` is a preview that MUTATES NOTHING and
-  # says so ("nothing applied"). Grep that marker to prove this leg never wrote.
-  echo "$out" | grep -q "nothing applied" || fail "real-catalog coverage: dry-run claims it wrote something"
+  echo "$out" | grep -q "dry-run: nothing written" || fail "real-catalog coverage: dry-run claims it wrote something"
   printf '%s\n' "$out" > "$repo/full-coverage.plan"
   _assert_every_ci_slot_planned "$repo/full-coverage.plan" "$src"
   ci_count="$(grep -c '• ci/' "$repo/full-coverage.plan" || true)"
@@ -304,9 +294,8 @@ PY
   grep -q "\.claude/worktrees/" "$excludes_file" || fail "worktrees entry missing from global excludes file"
   pass "rig init --yes set core.excludesfile + wrote the rig-managed global-excludes block"
 
-  # idempotency: a second apply changes nothing (no created/updated/backed_up in summary).
-  # `apply commit` is the EXECUTE subcommand — a bare `apply` is preview-only (mutates nothing).
-  out="$($RIG apply commit -C "$TMP" --config "$TMP/rig.yaml" 2>&1)"
+  # idempotency: a second apply changes nothing (no created/updated/backed_up in summary)
+  out="$($RIG apply -C "$TMP" --config "$TMP/rig.yaml" 2>&1)"
   summary="$(echo "$out" | grep '^Summary:' || true)"
   if echo "$summary" | grep -Eq "(created|updated|backed_up)=[1-9]"; then
     fail "second apply was not idempotent: $summary"
@@ -434,7 +423,7 @@ tg_ctl:
   config_dir: $TG_HOME/.config/tg-cli
 YAML
   PLIST="$TG_HOME/Library/LaunchAgents/ai.hyperide.tg-ctl.plist"
-  HOME="$TG_HOME" $RIG apply commit -C "$TG_TMP" --config "$TG_TMP/rig.yaml" >/dev/null 2>&1 \
+  HOME="$TG_HOME" $RIG apply -C "$TG_TMP" --config "$TG_TMP/rig.yaml" >/dev/null 2>&1 \
     || { rm -rf "$TG_TMP"; fail "tg-ctl apply (dry-run) nonzero"; }
   [[ -f "$PLIST" ]] || { rm -rf "$TG_TMP"; fail "tg-ctl plist not written under isolated HOME"; }
   grep -q "<string>ai.hyperide.tg-ctl</string>" "$PLIST" \
@@ -444,7 +433,7 @@ YAML
   # here: under dry-run the plist is written but never bootstrapped, and drift's loaded-state check
   # queries the REAL launchd domain — a machine-dependent result the smoke can't control. The
   # deterministic drift/in-sync coverage lives in test_tg_ctl.py with the launchctl seams stubbed.)
-  out="$(HOME="$TG_HOME" $RIG apply commit -C "$TG_TMP" --config "$TG_TMP/rig.yaml" 2>&1)"
+  out="$(HOME="$TG_HOME" $RIG apply -C "$TG_TMP" --config "$TG_TMP/rig.yaml" 2>&1)"
   summary="$(echo "$out" | grep '^Summary:' || true)"
   if echo "$summary" | grep -Eq "(created|updated|backed_up)=[1-9]"; then
     rm -rf "$TG_TMP"; fail "tg-ctl second apply was not idempotent: $summary"

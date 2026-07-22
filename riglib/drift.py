@@ -174,8 +174,6 @@ def detect(
             _check_agents_symlink(action, report)
         elif action.kind == "provision_ship_delegator":
             _check_ship_delegator(action, report)
-        elif action.kind == "provision_gh_ship_alias":
-            _check_gh_ship_alias(action, report)
         elif action.kind == "provision_linter_config":
             _check_linter_config(action, report)
         elif action.kind == "provision_project_tool":
@@ -537,54 +535,6 @@ def _check_ship_delegator(action: Action, report: DriftReport) -> None:
                           "pr-ship.sh present but NOT git-ignored (apply adds it to .git/info/exclude "
                           "so it can't dirty the worktree)")
             )
-
-
-def _check_gh_ship_alias(action: Action, report: DriftReport) -> None:
-    """Flag drift on the machine-global ``gh ship`` alias (gh config, ``aliases.ship``).
-
-    Switches on the SAME :func:`resolve_gh_ship_alias` state apply uses, so status and apply read
-    one classification:
-
-    - ``ok``/``no_gh`` → no drift (either already correct, or gh is absent and neither side can
-      manage the alias — reporting a "missing" alias rig could never set would break status/apply
-      parity).
-    - ``create``       → ``missing``: gh has no ``ship`` alias (apply sets it).
-    - ``update``       → ``modified``: a ``ship`` alias exists but differs from the rig-managed
-      expansion (apply overwrites it unless ``on_conflict=skip``).
-
-    The alias is a machine-wide artifact (``gh_ship_alias`` is classified GLOBAL in
-    :mod:`riglib.layers`), so ``rig status`` renders it under the machine layer, not this repo's.
-
-    ci-only combo (``ship_delegator`` disabled, ``ci.items.ship.gh_alias`` on): the plan builder
-    carries ``canonical_ship`` on this action because no ``provision_ship_delegator`` action owns
-    the machine env file — so this check must also byte-compare that file (apply reconciles it here,
-    :func:`riglib.actions.runner._do_provision_gh_ship_alias`, so status must flag its drift or the
-    two disagree). No self-hosting skip: the machine-global alias needs the env file regardless of
-    the current repo. When the delegator owns the env file this option is absent — its own drift
-    check covers the file, so we do NOT double-report it here.
-    """
-    from .gh_ship_alias import GH_SHIP_ALIAS_CATEGORY, gh_config_path, resolve_gh_ship_alias
-
-    raw_canonical = str(action.options.get("canonical_ship", "")).strip()
-    if raw_canonical:
-        _check_ship_env_file(Path(raw_canonical), report)
-
-    r = resolve_gh_ship_alias()
-    # ok → correct; no_gh → gh absent (unmanageable); unknown → gh config unreadable (rig refuses
-    # to clobber). All three are apply no-ops, so status reports no drift (status/apply parity).
-    if r.state in ("ok", "no_gh", "unknown"):
-        return
-    target = gh_config_path()
-    if r.state == "create":
-        report.items.append(
-            DriftItem("missing", GH_SHIP_ALIAS_CATEGORY, "alias", target,
-                      "`gh ship` alias not set (apply sets it so `gh ship <PR>` reaches the ship gate)")
-        )
-    elif r.state == "update":
-        report.items.append(
-            DriftItem("modified", GH_SHIP_ALIAS_CATEGORY, "alias", target,
-                      "`gh ship` alias differs from the rig-managed expansion (apply reconciles it)")
-        )
 
 
 def _check_linter_config(action: Action, report: DriftReport) -> None:
@@ -1407,24 +1357,12 @@ def _check_opencode_hook_bridge(action: Action, config_file: Path, report: Drift
     plugin_path, dest = opencode_hook_bridge_plugin_target(action)
     from .actions.runner import (
         legacy_opencode_bridge_needs_cleanup,
-        _link_targets_itself,
         _opencode_bridge_exclude_context,
         _opencode_exclude_has_entry,
         _same_link_dest,
         opencode_hook_bridge_uses_wrapper,
         opencode_hook_bridge_wrapper_text,
     )
-
-    if _link_targets_itself(plugin_path, dest) and dest.is_file():
-        # source == target with the real plugin present: the runner skips UNCONDITIONALLY here
-        # (before the wrapper/symlink split, after its own dest.is_file() check) — it never
-        # self-symlinks nor overwrites the real module. Drift must read this as in sync, else
-        # status reports "real file (apply will replace it)" forever while apply keeps skipping,
-        # an apply/status loop. Gated on the SAME `dest.is_file()` the runner checks first (same
-        # path, same symlink-following semantics), so drift and apply agree on "real file
-        # present": when it is ABSENT (or a broken self-symlink loop) the runner errors ("bridge
-        # plugin missing"), so we fall through to the normal checks that surface it — never mask.
-        return
 
     if opencode_hook_bridge_uses_wrapper(action):
         if not plugin_path.is_file() or plugin_path.is_symlink():
@@ -1653,7 +1591,7 @@ def _check_spotlight(action: Action, report: DriftReport) -> None:
             DriftItem(
                 "missing", "spotlight", action.item, uncovered[0],
                 f"{len(uncovered)}/{len(targets)} dependency/build dirs lack "
-                f"{spotlight.SENTINEL_NAME} — run `rig apply commit` (or `rig spotlight-sweep`) to re-cover",
+                f"{spotlight.SENTINEL_NAME} — run `rig apply` (or `rig spotlight-sweep`) to re-cover",
             )
         )
 

@@ -17,18 +17,6 @@ They are distinct, NOT synonyms. Interactivity (full TUI / semi / non-interactiv
 **orthogonal** to the command — both `init` and `apply` run in any of the three modes,
 decided by TTY + config + flags. `init` is the canonical onboarding command (the front door).
 
-**`rig apply` is PREVIEW-BY-DEFAULT — it splits into `info` and `commit`.** A bare `rig apply`
-is an ALIAS for **`rig apply info`**: it builds + prints the plan (grouped, notes collapsed),
-states it is a preview, and points at `rig apply commit` — it MUTATES NOTHING. **`rig apply
-commit`** is the subcommand that ACTUALLY executes the plan (per-phase progress on the slow
-live-activation runners, then a `✓ applied N actions (C changed, M unchanged) in Xs` completion
-line). `--dry-run` still forces a preview (even under `commit`). For automation back-compat, a
-bare `rig apply --yes` is read as commit intent and executes; the explicit CI form is `rig apply
-commit --yes`. Both `info` and `commit` share the SAME `plan.build` — only `commit` calls
-`actions.run_plan` (never fork the executor). The user must always be able to review the plan
-before anything mutates. NOTE for call sites: a bare `rig apply` in a script now applies NOTHING
-— scripts/tests/CI that mean to execute MUST say `rig apply commit`.
-
 **`rig setup` is the INTERACTIVE config wizard** (NOT an alias for `init`/`apply`). In a TTY it
 shows what is enabled across every reconciled area (the same areas as `rig status`), lets you
 change options in the local `rig.yaml` AND the global `~/.config/rig/config.yaml` — each option
@@ -98,7 +86,7 @@ when a lifecycle verb actually needs it). The server binds `127.0.0.1` only and 
   `~/.claude/skills`, codex → `~/.codex/skills`; rig symlinks each skill in via a
   `link_skill_harness` action), native discovery (opencode auto-loads `~/.agents/skills`, so rig
   records a note and links nothing when skills install to the default target), and global
-  instruction files (codex/pi/commandcode → `AGENTS.md`). Codex is dual:
+  instruction files (codex/gemini/pi/commandcode → `AGENTS.md`/`GEMINI.md`). Codex is dual:
   `~/.codex/skills` carries skills and `~/.codex/AGENTS.md` carries global instructions. Add a
   new harness as one entry there — never scatter the path across plan/config/schema. The config
   schema ACCEPTS every kind in that registry; the runner/drift for skill links are
@@ -153,54 +141,24 @@ should hard-code agent-tools paths.
 
 ## Harness workflow guards (worktree-only + orchestrator-only)
 
-`rig apply` installs agent-hooks from THREE hook directories (from agent-tools, via
-`agent_hooks.all`) that provision the harness workflow. Each is configured PER REPO by a boolean
-in that repo's committed `rig.yaml`
+`rig apply` installs two agent-hooks (from agent-tools, via `agent_hooks.all`) that provision
+the harness workflow, each configured PER REPO by a boolean in that repo's committed `rig.yaml`
 (the hook scripts self-read `agent_hooks.<key>` at fire time — `rig apply` does not consume the
 value, so changing enforcement needs no re-apply):
 
-- **`agent_hooks.worktree_only`** (default **false**, opt-IN) — gates TWO hooks together (one
-  feature, one flag):
-  - `worktree-only-writes` (pre-write) denies an Edit/Write while the checkout is on the repo's
-    default branch.
-  - `pin-primary-worktree` (pre-bash, agent-tools#182/#183) denies a `git checkout`/`git switch`
-    that would move the repo's PRIMARY worktree (never a linked `git worktree add` tree) onto
-    anything but the default branch. Added after `worktree-only-writes` alone failed to catch a
-    real incident (Alex tg#6462/tg#6477, 2026-07-04): a bare `git checkout <branch>` in the
-    shared primary checkout is invisible to a pre-*write* hook, and once ON a feature branch,
-    `worktree-only-writes`'s own branch check can't tell "the primary checkout" from "a linked
-    worktree" — this hook is the piece that actually distinguishes them.
-  Together: all authoring goes in a SEPARATE worktree on a feature branch; the PRIMARY checkout
-  is for merge/pull/read-only. Enrol `hyperide` + the agent-ecosystem repos (`worktree_only:
-  true`); leave it off for repos that legitimately work on main (`3d-cli`). **Caution when
-  enrolling a repo**: audit any sanctioned automated flow (release scripts, `gh ship` wrappers)
-  for a `git checkout`/`switch` to a non-default branch in the primary checkout FIRST — this
-  guard will block it too, with no special-casing. No self-service env bypass — each hook has its
-  OWN hatch var, not a shared one: a deliberate one-off Edit/Write on main is requested via
-  `RIG_HATCH_REQUEST_WORKTREE_ONLY_WRITES="<justification>"`; a one-off `git checkout`/`switch` in
-  the primary checkout is requested separately via
-  `RIG_HATCH_REQUEST_PIN_PRIMARY_WORKTREE="<justification>"` (both: tg approval, deny-by-default,
-  bare `1` rejected). (Alex tg#5742, tg#6462/tg#6477.)
+- **`agent_hooks.worktree_only`** (default **false**, opt-IN) — the `worktree-only-writes`
+  pre-write hook denies an Edit/Write while the checkout is on the repo's default branch. All
+  authoring goes in a worktree on a feature branch; the default branch is for merge/pull/
+  read-only. Enrol `hyperide` + the agent-ecosystem repos (`worktree_only: true`); leave it off
+  for repos that legitimately work on main (`3d-cli`). Escape hatch: `RIG_ALLOW_MAIN_EDIT=1`.
+  (Alex tg#5742.)
 - **`agent_hooks.orchestrator_only`** (default **true**, opt-OUT) — the `orchestrator-stays-thin`
-  hook warns on the first implementation-shaped Bash/code-Edit by the main thread, then blocks a
-  repeat within its TTL (both descriptors, `pre-bash` and `pre-write`, are provisioned — the
-  catalog installs every descriptor a hook directory ships, not just the first alphabetically).
-  Read-only inspection (`git status`/`ls`/`cat`/`grep`/`find`, `git worktree list`) is never
-  gated; `tg`/`review` are sanctioned orchestration, also never gated. **ALL `gh` is delegated to
-  a subagent, not inline orchestrator work** — `gh ship`, `gh pr list/view/checks`, `gh run`,
-  `gh api` included; the main thread issuing any of these is warned-then-blocked the same as any
-  other implementation-shaped Bash. Set `false` to exempt a repo. No self-service env bypass; a
-  one-off is requested via `RIG_HATCH_REQUEST_ORCHESTRATOR_STAYS_THIN="<justification>"` (tg
-  approval, deny-by-default; bare `1` rejected). (Alex tg#5743, tg#7103.)
+  hook blocks inline implementation by the main thread while allowing read-only inspection and
+  orchestration (`gh pr list/view/checks`, `gh ship`, `tg`, `review`, `git worktree list`). Set
+  `false` to exempt a repo. Escape hatch: `ALLOW_ORCHESTRATOR_WORK=1` + reason. (Alex tg#5743.)
 
-All three are complementary to the pre-push `protect-main` git-hook: that blocks a *push* to
-main, these block the *authoring* / inline work that precedes it. Scope note: these are Claude
-Code agent-hooks specifically — a different harness (e.g. a raw Codex/script invocation) issuing
-`git checkout` is not intercepted by them; git itself has no `pre-checkout` hook to fall back on.
-The primary-vs-linked-worktree distinction (`--git-dir` vs `--git-common-dir`) is the most fragile
-part of `pin-primary-worktree`'s logic — its regression coverage lives in agent-tools'
-`tests/test_pin_primary_worktree.py` (real temp repos + real `git worktree add` trees, not
-mocks), not in this repo. See `docs/config-schema.md#agent_hooks`.
+Both are complementary to the pre-push `protect-main` git-hook: that blocks a *push* to main,
+these block the *authoring* / inline work that precedes it. See `docs/config-schema.md#agent_hooks`.
 
 ## Tests
 

@@ -344,25 +344,9 @@ def test_validate_rejects_non_string_harness_kind():
 def test_validate_accepts_all_supported_harness_kinds():
     # rig-cli#9: every harness rig knows a skill/instruction discovery convention for is now
     # ACCEPTED in harness.kind (skills-dir harnesses claude-code/opencode + instruction-file
-    # harnesses codex/pi/commandcode). Previously opencode (and the rest) were rejected.
-    # gemini is DEPRECATED (removed everywhere) — see the dedicated rejection test below.
-    for kind in ("claude-code", "opencode", "codex", "pi", "commandcode"):
+    # harnesses codex/gemini/pi/commandcode). Previously opencode (and the rest) were rejected.
+    for kind in ("claude-code", "opencode", "codex", "gemini", "pi", "commandcode"):
         config.validate({"version": 1, "harness": {"kind": kind}})
-
-
-def test_validate_rejects_deprecated_gemini_harness_kind():
-    # gemini is deprecated and no longer a supported harness; a config that still names it
-    # fails closed with a clear "no longer supported (deprecated)" message, not the generic
-    # typo error — so a user migrating off gemini knows WHY, not just that it's unknown.
-    with pytest.raises(config.ConfigError, match="no longer supported") as ei:
-        config.validate({"version": 1, "harness": {"kind": "gemini"}})
-    assert ei.value.schema_path == "harness.kind"
-    assert "gemini" in str(ei.value)
-
-
-def test_validate_rejects_deprecated_gemini_in_additional_kinds():
-    with pytest.raises(config.ConfigError, match="no longer supported"):
-        config.validate({"version": 1, "harness": {"kind": "claude-code", "kinds": ["gemini"]}})
 
 
 def test_validate_accepts_additional_harness_kinds():
@@ -467,66 +451,3 @@ def test_validate_spotlight_rejects_bad_max_depth():
 def test_validate_spotlight_rejects_non_string_label():
     with pytest.raises(config.ConfigError, match="spotlight.label must be a string"):
         config.validate({"version": 1, "spotlight": {"label": 5}})
-
-
-# ── stack preset validation (config._validate_stack via validate) ───────────────────────
-@pytest.mark.parametrize(
-    "value",
-    ["mobile/swift/swiftui", "frontend/ts/react", "backend/python", "system/rust", "backend/zig"],
-)
-def test_validate_accepts_well_formed_stack(value):
-    config.validate({"version": 1, "stack": value})
-
-
-@pytest.mark.parametrize(
-    "value",
-    ["", "mobile", "web/ts/react", "a/b/c/d", "mobile//swiftui", "backend/python/"],
-)
-def test_validate_rejects_malformed_stack(value):
-    with pytest.raises(config.ConfigError) as exc:
-        config.validate({"version": 1, "stack": value})
-    assert exc.value.schema_path == "stack"
-
-
-def test_validate_rejects_non_string_stack():
-    with pytest.raises(config.ConfigError):
-        config.validate({"version": 1, "stack": ["mobile", "swift"]})
-
-
-def test_validate_allows_missing_stack_soft_require():
-    # a MISSING stack is not a hard error (soft-require migration phase)
-    config.validate({"version": 1})
-
-
-def test_loaded_config_exposes_stack(tmp_path):
-    lc = config.LoadedConfig(data={"version": 1, "stack": "  backend/go  "}, repo_root=tmp_path)
-    assert lc.stack == "backend/go"
-    lc2 = config.LoadedConfig(data={"version": 1}, repo_root=tmp_path)
-    assert lc2.stack is None
-
-
-def test_stack_requirement_warning(tmp_path):
-    lc = config.LoadedConfig(data={"version": 1, "stack": "backend/go"}, repo_root=tmp_path)
-    assert config.stack_requirement_warning(lc) is None
-    lc2 = config.LoadedConfig(data={"version": 1}, repo_root=tmp_path)
-    warn = config.stack_requirement_warning(lc2)
-    assert warn and "stack: not set" in warn
-
-
-@pytest.mark.parametrize(
-    "items",
-    [
-        {"by-stack/mobile/swift/x": "yes"},  # spec not a mapping
-        {"by-stack/mobile/swift/x": {"enabled": "false"}},  # enabled not a bool
-    ],
-)
-def test_validate_rejects_malformed_by_stack_items(items):
-    with pytest.raises(config.ConfigError) as exc:
-        config.validate({"version": 1, "skills": {"by_stack": {"items": items}}})
-    assert exc.value.schema_path.startswith("skills.by_stack.items")
-
-
-def test_validate_accepts_well_formed_by_stack_items():
-    config.validate(
-        {"version": 1, "skills": {"by_stack": {"items": {"by-stack/mobile/swift/x": {"enabled": False}}}}}
-    )

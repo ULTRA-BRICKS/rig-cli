@@ -40,7 +40,6 @@ _VALID_TOP_KEYS = {
     "version",
     "defaults",
     "agent_tools_source",
-    "stack",
     "skills",
     "agent_hooks",
     "git_hooks",
@@ -74,7 +73,7 @@ _VALID_MODE_NAMES = {"standard", "autonomous"}
 _VALID_AUTONOMOUS_UNTIL = {"clean", "budget", "manual"}
 # Harness kinds rig knows a skill/instruction discovery convention for — the union of the
 # skills-DIRECTORY harnesses (claude-code, opencode) and the INSTRUCTION-FILE harnesses
-# (codex, pi, commandcode). A ``harness.kind`` in this set is ACCEPTED: rig can
+# (codex, gemini, pi, commandcode). A ``harness.kind`` in this set is ACCEPTED: rig can
 # provision skill discovery (and, for the supported kinds, the auto-mode write / allowlist)
 # for it. The single source of truth is :mod:`riglib.harness_skills`. The narrower
 # auto-mode-write capability is gated separately in plan.py (``_HARNESS_SETTINGS``) — a kind
@@ -83,12 +82,6 @@ _VALID_HARNESS_KINDS = set(_KNOWN_HARNESS_KINDS)
 # No kind is "reserved + rejected" any longer — every documented kind is now provisionable for
 # skills. Kept as an (empty) set so the validator's reserved-kind branch stays well-defined.
 _RESERVED_HARNESS_KINDS: set[str] = set()
-# DEPRECATED harness kinds — removed everywhere (CTO 2026-07). Still recognized ONLY so a config
-# that names one fails with a helpful "no longer supported (deprecated)" message instead of the
-# generic typo error. gemini was an instruction-file harness (~/.gemini/GEMINI.md); it is gone.
-_DEPRECATED_HARNESS_KINDS: dict[str, str] = {
-    "gemini": "Gemini is deprecated and no longer provisioned by rig.",
-}
 
 
 class ConfigError(ValueError):
@@ -394,17 +387,6 @@ class LoadedConfig:
         v = self.data.get("agent_tools_source")
         return str(v) if v else None
 
-    @property
-    def stack(self) -> str | None:
-        """The declared stack preset (``l1/lang[/framework]``), or ``None`` when unset.
-
-        This is the STACK PRESET (the by-stack curation axis), distinct from the build-toolchain
-        ``detect.Environment.stack``. Cascaded like every value: a repo ``stack`` overrides the
-        global default. Shape is validated in :func:`validate`; here we only surface the raw value.
-        """
-        v = self.data.get("stack")
-        return str(v).strip() if isinstance(v, str) and v.strip() else None
-
     def category(self, name: str) -> dict[str, Any]:
         cat = self.data.get(name)
         return cat if isinstance(cat, dict) else {}
@@ -574,7 +556,6 @@ def validate(data: dict[str, Any]) -> None:
         if project_block in data and not isinstance(data[project_block], dict):
             raise ConfigError(f"{project_block} must be a mapping", schema_path=project_block)
 
-    _validate_stack(data)
     _validate_ci(data.get("ci", {}))
     _validate_agent_hooks(data.get("agent_hooks", {}))
     _validate_mcp(data.get("mcp", {}))
@@ -594,71 +575,6 @@ def validate(data: dict[str, Any]) -> None:
     _validate_ship_delegator(data.get("ship_delegator", {}))
     _validate_linters(data.get("linters", {}))
     _validate_project_tools(data.get("project_tools", {}))
-
-
-def _validate_stack(data: dict[str, Any]) -> None:
-    """Validate the top-level ``stack`` preset value's SHAPE, if present.
-
-    A MISSING stack is NOT an error here — per-repo mandatoriness is a SOFT requirement surfaced
-    as a warning by init/apply/status (see :func:`stack_requirement_warning`), not a hard
-    validation failure (which would break every existing committed rig.yaml on the next apply).
-    Only a PRESENT, malformed value fails: wrong shape or an l1 outside the six-enum. lang and
-    framework are open vocabulary. The parse/enum logic lives in :mod:`riglib.stack` (one source).
-    """
-    if "stack" not in data:
-        return
-    value = data["stack"]
-    if not isinstance(value, str):
-        raise ConfigError(
-            f"stack must be a string like 'l1/lang[/framework]', got {value!r}",
-            schema_path="stack",
-        )
-    from .stack import STACK_L1, StackError, parse_stack
-
-    try:
-        parse_stack(value)
-    except StackError as exc:
-        raise ConfigError(
-            str(exc),
-            why="stack is the repo's stack preset (l1/lang[/framework]); it selects by-stack skills",
-            fix=f"use l1/lang[/framework] with l1 in {list(STACK_L1)} "
-            "(e.g. mobile/swift/swiftui, frontend/ts/react, backend/python)",
-            schema_path="stack",
-        ) from exc
-
-
-def resolve_init_stack(
-    repo_root: Path, *, explicit: str | None = None, global_stack: str | None = None
-) -> str | None:
-    """Resolve the stack preset a fresh ``rig init`` writes into the committed rig.yaml.
-
-    Cascade (mirrors the headless init resolver so the interactive wizard and the headless
-    path agree): an explicit ``--stack`` wins, else the global-config default, else a
-    best-guess from the repo files, else ``None`` (unset → :func:`stack_requirement_warning`).
-    Both the headless `_resolve_init_plan` and the interactive TUI go through here so the
-    two front-ends can never seed a different stack."""
-    from .detect import detect_stack_preset
-
-    return explicit or global_stack or detect_stack_preset(repo_root)
-
-
-def stack_requirement_warning(config: "LoadedConfig") -> str | None:
-    """A soft-require warning when a repo config carries no ``stack``, else ``None``.
-
-    Per-repo ``stack`` is mandatory by POLICY but enforced softly during the migration phase: a
-    missing value warns (and points at the detected guess) rather than failing. Callers (init /
-    apply / status) print the returned line. A present stack → ``None`` (no warning)."""
-    if config.stack:
-        return None
-    from .detect import detect_stack_preset
-
-    guess = detect_stack_preset(config.repo_root)
-    hint = f"; rig detected '{guess}'" if guess else ""
-    return (
-        "stack: not set — declare it in rig.yaml as l1/lang[/framework] "
-        f"(e.g. mobile/swift/swiftui, frontend/ts/react, backend/python){hint}. "
-        "Run `rig init` to set it, or `rig config set stack <value>`."
-    )
 
 
 def _validate_ci(ci: dict[str, Any]) -> None:
@@ -846,47 +762,20 @@ def _validate_skills(sk: dict[str, Any]) -> None:
         )
     # Reject a typo'd FIXED key in the universal / by_type sub-blocks too (the schema closes them).
     # The catalog-keyed `by_type.items` map stays open; only OTHER unknown keys are rejected.
-    for sub in ("universal", "by_type", "by_stack"):
+    for sub in ("universal", "by_type"):
         block = sk.get(sub)
         if block is None:
             continue
         if not isinstance(block, dict):
             raise ConfigError(f"skills.{sub} must be a mapping, got {block!r}", schema_path=f"skills.{sub}")
         _reject_unknown_keys(block, f"skills.{sub}")
-    _validate_by_stack_items(sk.get("by_stack"))
-
-
-def _validate_by_stack_items(bs: Any) -> None:
-    """Fail-closed on a malformed ``skills.by_stack.items.<name>`` spec.
-
-    Mirrors the per-item shape checks in ``_validate_mcp`` / ``_validate_agent_hooks`` so by_stack
-    is not the one lax corner: each item value must be a mapping, and a present ``enabled`` must be
-    a real bool (not a truthy string that ``bool()`` would silently coerce). Without this a typo'd
-    ``items.foo: "yes"`` or ``enabled: "false"`` would be accepted then silently ignored/misread."""
-    if not isinstance(bs, dict):
-        return
-    items = bs.get("items")
-    if items is None:
-        return
-    if not isinstance(items, dict):
-        raise ConfigError("skills.by_stack.items must be a mapping", schema_path="skills.by_stack.items")
-    for name, spec in items.items():
-        path = f"skills.by_stack.items.{name}"
-        if not isinstance(spec, dict):
-            raise ConfigError(f"{path} must be a mapping, got {spec!r}", schema_path=path)
-        enabled = spec.get("enabled")
-        if enabled is not None and not isinstance(enabled, bool):
-            raise ConfigError(
-                f"{path}.enabled must be a bool, got {enabled!r}", schema_path=f"{path}.enabled"
-            )
 
 
 def _validate_harness(h: dict[str, Any]) -> None:
     """Validate the ``harness`` block — the agent harness's skill + auto/permission provisioning.
 
-    Fail-closed on an unknown ``kind`` (typo guard), a DEPRECATED ``kind`` (``gemini`` — helpful
-    "no longer supported" message), and a non-bool ``auto_mode``. Every harness
-    rig knows a skill/instruction discovery convention for (claude-code, opencode, codex,
+    Fail-closed on an unknown ``kind`` (typo guard) and a non-bool ``auto_mode``. Every harness
+    rig knows a skill/instruction discovery convention for (claude-code, opencode, codex, gemini,
     pi, commandcode — :data:`_VALID_HARNESS_KINDS`) is ACCEPTED here: rig provisions its SKILL
     discovery. The narrower auto/permission-MODE write is only implemented for some of them
     (claude-code today) and self-skips the rest with a plan note (see plan.py ``_build_harness``)
@@ -901,13 +790,6 @@ def _validate_harness(h: dict[str, Any]) -> None:
     kind = h.get("kind", "claude-code")
     if not isinstance(kind, str):
         raise ConfigError(f"harness.kind must be a string, got {kind!r}", schema_path="harness.kind")
-    if kind in _DEPRECATED_HARNESS_KINDS:
-        raise ConfigError(
-            f"harness.kind '{kind}' is no longer supported (deprecated). "
-            f"{_DEPRECATED_HARNESS_KINDS[kind]}",
-            fix=f"remove the harness block or use one of: {', '.join(sorted(_VALID_HARNESS_KINDS))}",
-            schema_path="harness.kind",
-        )
     if kind in _RESERVED_HARNESS_KINDS:
         raise ConfigError(
             f"harness.kind '{kind}' is documented but not implemented in this rig "
@@ -930,13 +812,6 @@ def _validate_harness(h: dict[str, Any]) -> None:
                 schema_path="harness.kinds",
             )
         for extra_kind in kinds:
-            if extra_kind in _DEPRECATED_HARNESS_KINDS:
-                raise ConfigError(
-                    f"harness.kinds entry '{extra_kind}' is no longer supported (deprecated). "
-                    f"{_DEPRECATED_HARNESS_KINDS[extra_kind]}",
-                    fix=f"use one of: {', '.join(sorted(_VALID_HARNESS_KINDS))}",
-                    schema_path="harness.kinds",
-                )
             if extra_kind in _RESERVED_HARNESS_KINDS:
                 raise ConfigError(
                     f"harness.kinds entry '{extra_kind}' is documented but not implemented in this rig "
@@ -1109,10 +984,10 @@ _PERMISSIONS_KEYS = {"enabled", "kind", "tools", "extra", "disable", "settings_p
                      "allow", "deny", "ask"}
 # Harness kinds the ALLOWLIST provisioning supports — broader than the auto-mode write
 # (_VALID_HARNESS_KINDS), since opencode HAS an additively-mergeable allowlist even though its
-# auto-mode write is not yet implemented. codex/pi have no such mechanism → recorded N/A
+# auto-mode write is not yet implemented. codex/gemini/pi have no such mechanism → recorded N/A
 # (rejected here with a clear message rather than silently writing nothing / breaking the harness).
 _VALID_PERMISSIONS_KINDS = {"claude-code", "opencode"}
-_NA_PERMISSIONS_KINDS = {"codex", "pi"}
+_NA_PERMISSIONS_KINDS = {"codex", "gemini", "pi"}
 # A pre-allowed tool is a single command token: it must START with an alphanumeric or ``/`` (an
 # absolute path) — never a dash (a leading-dash entry like ``-rf`` / ``--flag`` would render a
 # nonsensical/surprising allowlist entry) — and otherwise contain only letters, digits, and the
@@ -1150,13 +1025,6 @@ def _validate_permissions(p: dict[str, Any]) -> None:
     if kind is not None:
         if not isinstance(kind, str):
             raise ConfigError(f"permissions.kind must be a string, got {kind!r}", schema_path="permissions.kind")
-        if kind in _DEPRECATED_HARNESS_KINDS:
-            raise ConfigError(
-                f"permissions.kind '{kind}' is no longer supported (deprecated). "
-                f"{_DEPRECATED_HARNESS_KINDS[kind]}",
-                fix=f"remove permissions.kind or use one of: {', '.join(sorted(_VALID_PERMISSIONS_KINDS))}",
-                schema_path="permissions.kind",
-            )
         if kind in _NA_PERMISSIONS_KINDS:
             raise ConfigError(
                 f"permissions.kind '{kind}' has no additively-mergeable command allowlist "
@@ -1936,7 +1804,6 @@ _TMUX_TOP_KEYS = {
     "boot",
     "login_shell",
     "autosave",
-    "pane_titles",
 }
 _TMUX_SUBKEYS = {
     "resurrect": {"processes", "capture_pane_contents"},
@@ -1947,7 +1814,6 @@ _TMUX_SUBKEYS = {
     "boot": {"enabled", "label"},
     "login_shell": {"enabled", "shell"},
     "autosave": {"enabled", "label", "stale_after"},
-    "pane_titles": {"enabled", "position", "format", "clear_status_right"},
 }
 
 
@@ -2030,52 +1896,12 @@ def _validate_tmux(t: dict[str, Any]) -> None:
                 f"tmux.continuum.save_interval must be an int >= 1, got {interval!r}"
             )
 
-    for sub in ("moshi", "cc_restore", "anti_sprawl", "boot", "login_shell", "autosave", "pane_titles"):
+    for sub in ("moshi", "cc_restore", "anti_sprawl", "boot", "login_shell", "autosave"):
         block = t.get(sub, {})
         if isinstance(block, dict):
             value = block.get("enabled")
             if value is not None and not isinstance(value, bool):
                 raise ConfigError(f"tmux.{sub}.enabled must be a bool, got {value!r}")
-    pane_titles = t.get("pane_titles", {})
-    if isinstance(pane_titles, dict):
-        # Import here (not at module top) only to sidestep import-order churn in this large
-        # module; tmux.py itself has zero internal riglib imports, so there is no cycle risk —
-        # this is the ONE source for both the valid-position set and the format-safety check,
-        # shared with tmux.build_tmux's own defense-in-depth clamp (review: the two must never
-        # independently drift).
-        from .tmux import VALID_PANE_TITLES_POSITIONS, _pane_titles_format_is_safe
-
-        position = pane_titles.get("position")
-        if position is not None and (
-            not isinstance(position, str) or position not in VALID_PANE_TITLES_POSITIONS
-        ):
-            raise ConfigError(
-                f"tmux.pane_titles.position must be one of "
-                f"{sorted(VALID_PANE_TITLES_POSITIONS)}, got {position!r}",
-                fix=f"use one of: {', '.join(sorted(VALID_PANE_TITLES_POSITIONS))}",
-                schema_path="tmux.pane_titles.position",
-            )
-        fmt = pane_titles.get("format")
-        if fmt is not None:
-            if not isinstance(fmt, str):
-                raise ConfigError(f"tmux.pane_titles.format must be a string, got {fmt!r}")
-            if not _pane_titles_format_is_safe(fmt):
-                raise ConfigError(
-                    r"""tmux.pane_titles.format must not contain '"', '\', '$', '#(' (a """
-                    "shell-exec token), or a non-printable character other than a plain tab "
-                    "(they can corrupt, inject into, or execute code from the generated tmux "
-                    f"config), got {fmt!r}",
-                    fix=(
-                        "drop the offending character/sequence — tmux format variables use "
-                        r"""'#{...}', never '$' or '#('"""
-                    ),
-                    schema_path="tmux.pane_titles.format",
-                )
-        clear_sr = pane_titles.get("clear_status_right")
-        if clear_sr is not None and not isinstance(clear_sr, bool):
-            raise ConfigError(
-                f"tmux.pane_titles.clear_status_right must be a bool, got {clear_sr!r}"
-            )
     autosave = t.get("autosave", {})
     if isinstance(autosave, dict):
         label = autosave.get("label")

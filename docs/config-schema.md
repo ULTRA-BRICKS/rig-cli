@@ -219,6 +219,7 @@ and harnesses split into three families by *how* they discover skills:
   invents a directory) and `rig status` reports the kind as *N/A — uses `<file>`* so the empty
   link area is explained, not silent. The [`agents_md`](#agents_md) area is repo-local
   AGENTS.md/CLAUDE.md provisioning, not a writer for these global files:
+  - **gemini** → `~/.gemini/GEMINI.md`
   - **pi** → `~/.config/pi/AGENTS.md`
   - **commandcode** → `~/.commandcode/AGENTS.md`
 
@@ -281,24 +282,19 @@ non-default custom path. Claude behavior is unchanged: `claude-code` still defau
 
 ### Per-repo workflow knobs — `worktree_only` / `orchestrator_only`
 
-Two booleans that configure the **runtime behaviour** of three installed hooks per repo
-(`worktree-only-writes`, `pin-primary-worktree`, `orchestrator-stays-thin`). They
+Two booleans that configure the **runtime behaviour** of two installed hooks per repo. They
 are read by the hook scripts from **this committed `rig.yaml`** at fire time — `rig apply`
 does **not** consume them (nothing to install; the hooks self-read the knob). They live in the
 `agent_hooks` block so the strict validator accepts them.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `worktree_only` | bool | `false` | **opt-IN.** Gates TWO hooks together (one feature, one flag): (1) `worktree-only-writes` (pre-write) **denies an Edit/Write while the checkout is on the repo's default branch** (main/master, detected via `origin/HEAD` / `init.defaultBranch`, never hardcoded); (2) `pin-primary-worktree` (pre-bash, agent-tools#182/#183) **denies a `git checkout`/`git switch` that would move the repo's PRIMARY worktree (never a linked `git worktree add` tree, detected via `--git-dir` vs `--git-common-dir`) onto anything but the default branch** — added because (1) alone never sees a bare `git checkout` (not an Edit/Write call) and, once on a feature branch, can't distinguish the primary checkout from a legitimate linked worktree (Alex tg#6462/tg#6477, a real incident this closed). Together: all authoring happens in a SEPARATE worktree on a feature branch; the primary checkout is for merge/pull/read-only. Default **off** so a repo that legitimately works on main (e.g. `3d-cli`) is never blocked. **Before enrolling a repo, audit its sanctioned automated flows (release scripts, `gh ship` wrappers) for a non-default `git checkout`/`switch` in the primary checkout — this guard has no special-casing for them.** No self-service env bypass — each hook has its OWN hatch var, not a shared one: a deliberate one-off Edit/Write on main is requested via `RIG_HATCH_REQUEST_WORKTREE_ONLY_WRITES="<justification>"`; a one-off `git checkout`/`switch` in the primary checkout is requested separately via `RIG_HATCH_REQUEST_PIN_PRIMARY_WORKTREE="<justification>"` (both: tg approval, deny-by-default, bare `1` rejected). (Alex tg#5742, tg#6462/tg#6477.) |
-| `orchestrator_only` | bool | `true` | **opt-OUT.** By DESIGN, when `true` (default), the `orchestrator-stays-thin` hook warns on the first implementation-shaped Bash/code-Edit by the main thread (delegate to a subagent), then blocks a repeat within its TTL — both descriptors, `pre-bash` and `pre-write`, are provisioned (the catalog installs every descriptor a hook directory ships, not just the first alphabetically). Read-only inspection (`git status`/`ls`/`cat`/`grep`/`find`, `git worktree list`) is never gated; `tg`/`review` are sanctioned orchestration, also never gated. **ALL `gh` is delegated to a subagent, not inline orchestrator work** — `gh ship`, `gh pr list/view/checks`, `gh run`, `gh api` included. Set `false` to exempt a repo that works inline (e.g. `3d-cli`). Default **on** = no behaviour change for a repo that omits the key. No self-service env bypass; a one-off is requested via `RIG_HATCH_REQUEST_ORCHESTRATOR_STAYS_THIN="<justification>"` (tg approval, deny-by-default; bare `1` rejected). (Alex tg#5743, tg#7103.) |
+| `worktree_only` | bool | `false` | **opt-IN.** When `true`, the `worktree-only-writes` pre-write hook **denies an Edit/Write while the checkout is on the repo's default branch** (main/master, detected via `origin/HEAD` / `init.defaultBranch`, never hardcoded). Authoring must happen in a separate worktree on a feature branch; main is for merge/pull/read-only. Default **off** so a repo that legitimately works on main (e.g. `3d-cli`) is never blocked. Escape hatch for a deliberate one-off: `RIG_ALLOW_MAIN_EDIT=1`. (Alex tg#5742.) |
+| `orchestrator_only` | bool | `true` | **opt-OUT.** When `true` (default), the `orchestrator-stays-thin` hook blocks inline implementation Bash / code Edits by the main thread (delegate to a subagent). It allows read-only inspection **and** orchestration (`gh pr list/view/checks`, `gh ship`, `tg`, `review`, `git worktree list`). Set `false` to exempt a repo that works inline (e.g. `3d-cli`). Default **on** = no behaviour change for a repo that omits the key. Escape hatch: `ALLOW_ORCHESTRATOR_WORK=1` + reason. (Alex tg#5743.) |
 
 Both take effect only where the corresponding hook is installed (`agent_hooks.all: true`, or
 the item enabled). They are **runtime** signals, not provisioning — a fresh clone reads the
 committed value directly; no re-`apply` is needed to change enforcement.
-
-**Harness scope**: these are Claude Code agent-hooks. A different harness invoking `git
-checkout` directly (a raw script, a different agent CLI) is not intercepted — git itself has
-no `pre-checkout` hook to fall back on.
 
 ---
 
@@ -346,7 +342,7 @@ ci:
     ship:
       enabled: true
       install_to: ~/bin              # ship is a client command, not a workflow
-      gh_alias: true                 # set the `gh ship` alias to the portable dispatcher
+      gh_alias: true                 # gh alias set ship
 ```
 
 | Per-item key | Type | Default | Meaning |
@@ -354,7 +350,7 @@ ci:
 | `enabled` | bool | per-item | install this gate |
 | `tier` | `block`/`warn` | `block` | enforcement strength (recorded; the workflow itself encodes it) |
 | `variant` | str | — | e.g. codeql `selfgate` selects `workflow-selfgate.yml` |
-| `install_to` / `gh_alias` | path/bool | — | ship-specific (it is a client command). `gh_alias: true` sets the `gh ship` alias to the **portable dispatcher** (same body the `ship_delegator` area writes — see below), NOT a `~/bin/ship` copy path, so the two provisioning paths never conflict. |
+| `install_to` / `gh_alias` | path/bool | — | ship-specific (it is a client command) |
 
 `target: export-only` records the choices without writing files (an agent applies later or
 a non-GitHub CI uses each slot's `*.sh`).
@@ -483,7 +479,7 @@ are installed in the same apply and catch the dangerous tool calls before the si
 ```yaml
 harness:
   enabled: true
-  kind: claude-code            # skills-dir: claude-code | codex · native: opencode · instruction-file: pi | commandcode
+  kind: claude-code            # skills-dir: claude-code | codex · native: opencode · instruction-file: gemini | pi | commandcode
   # kinds: [codex]             # optional additional harnesses to provision alongside kind
   auto_mode: true              # true → auto-accept tool calls; false → interactive prompts (claude-code write only)
   self_merge: true             # auto-mode: let the agent self-merge its OWN PRs via gh ship (permissions.allow ship rules + autoMode.allow carve-out)
@@ -497,7 +493,7 @@ harness:
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `enabled` | bool | `true` | provision the harness setting (set `false` to leave the harness config untouched) |
-| `kind` | enum | `claude-code` | which harness to provision. Skills-dir (`claude-code`, `codex`) get per-skill symlinks; native-discovery (`opencode`) auto-loads `~/.agents/skills`; instruction-file (`pi`, `commandcode`) get their skill discovery via `AGENTS.md`. The auto/permission-MODE write below is `claude-code`-only today; other kinds still get skill discovery |
+| `kind` | enum | `claude-code` | which harness to provision. Skills-dir (`claude-code`, `codex`) get per-skill symlinks; native-discovery (`opencode`) auto-loads `~/.agents/skills`; instruction-file (`gemini`, `pi`, `commandcode`) get their skill discovery via `AGENTS.md`/`GEMINI.md`. The auto/permission-MODE write below is `claude-code`-only today; other kinds still get skill discovery |
 | `kinds` | list | `[]` | additional harnesses to provision alongside `kind`. Use this when one machine runs multiple harnesses: the primary kind keeps its auto-mode/settings_path behavior, while additional kinds get skill discovery, agent-hook descriptors, supported hook bridges, and supported permissions allowlists. `agent_hooks.target` or a non-legacy `defaults.hooks_target` pins descriptors to one explicit target; supported bridges stay registered with a descriptor-dir override |
 | `auto_mode` | bool | `false` (scaffold writes `true`) | `true` = auto-accept; maps to the harness's non-interactive permission value |
 | `self_merge` | bool | `true` | auto-mode self-merge unblock. `true` adds the ship allow rules (`Bash(gh ship:*)`, `Bash(*/pr-ship.sh:*)`, `Bash(*/ship.sh:*)`) to `permissions.allow` so the auto-mode Bash gate stops vetoing `gh ship`, AND appends a `$defaults`-preserving carve-out to `autoMode.allow` clearing the Merge-Without-Review + Self-Approval soft blocks for the agent's OWN PRs. Effective only under auto-mode; inert otherwise. The `Bash(gh pr merge:*)` deny and every other classifier rule — notably the anti-exfil hard rule — stay (`gh ship` is still the only merge path) |
@@ -541,7 +537,7 @@ is configured. Set `self_merge: false` to keep the gate/soft block (the agent as
 its own PR). An agent cannot write these to its own live settings (that trips the Self-Modification
 soft block) — run `rig apply` yourself to activate it.
 
-**Auto-mode write is claude-code-only (for now).** `kind: opencode` (and `codex`/
+**Auto-mode write is claude-code-only (for now).** `kind: opencode` (and `codex`/`gemini`/
 `pi`/`commandcode`) are now **accepted** — rig provisions their **skill discovery** (see
 [Harness skill discovery](#harness-skill-discovery-why-harness_link)). But the auto/permission-
 **mode** write is still implemented only for `claude-code`. If you set `auto_mode`/`mode` on a
@@ -579,7 +575,7 @@ Claude and Codex bridge commands run `PYTHONPATH=<agent-tools>/lib python3 -m <b
 <Event>` from the harness config; opencode loads the JS plugin, which shells into the Python
 bridge with the same `PYTHONPATH`. The merge/symlink is idempotent and preserves unrelated
 config; `rig status` reports the bridge as missing/stale drift if a managed hook is absent or
-points at an old checkout. Pi and CommandCode still skip the bridge with a note when
+points at an old checkout. Gemini, Pi, and CommandCode still skip the bridge with a note when
 explicitly enabled.
 
 When `agent_hooks.target` or a non-legacy `defaults.hooks_target` pins descriptors to one custom
@@ -655,7 +651,7 @@ existing committed configs.
 permissions:
   enabled: true                # provision the permissions layer (false → leave the harness config alone)
   # kind: opencode             # target one harness allowlist explicitly (default: supported harness.kind + harness.kinds)
-  # tools: [tg, review, draw, 3d, rig, task, dev, pm, research, gh, git, rg, uv, bun, jq, gitleaks]  # REPLACES the default set
+  # tools: [tg, review, draw, 3d, rig, task, dev, gh, git, rg, uv, bun, jq, gitleaks]  # REPLACES the default set
   # extra: [kubectl]           # ADD to the (default or explicit) set
   # disable: [gitleaks]        # drop from rig's desired set (won't ADD it; never removes a live entry)
   # allow:                     # RAW rule entries asserted present in the allow list (on TOP of tools)
@@ -669,7 +665,7 @@ permissions:
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `enabled` | bool | `true` | provision the permissions layer (set `false` to leave the harness config untouched) |
-| `kind` | `claude-code` \| `opencode` \| `null` | supported `harness.kind` plus `harness.kinds`, else `claude-code` | which harness's permissions to provision. When absent or `null`, rig fans out to every configured harness kind with a supported additive allowlist and records N/A notes for unsupported kinds. Set `permissions.kind` to target one supported harness explicitly; `codex`/`pi` are rejected (N/A) |
+| `kind` | `claude-code` \| `opencode` \| `null` | supported `harness.kind` plus `harness.kinds`, else `claude-code` | which harness's permissions to provision. When absent or `null`, rig fans out to every configured harness kind with a supported additive allowlist and records N/A notes for unsupported kinds. Set `permissions.kind` to target one supported harness explicitly; `codex`/`gemini`/`pi` are rejected (N/A) |
 | `tools` | str[] | the default set | the command names to pre-allow; **replaces** the default set wholesale |
 | `extra` | str[] | `[]` | command names to ADD on top of the (default or explicit) set |
 | `disable` | str[] | `[]` | command names to drop from rig's **desired** set, so rig won't ADD them. NB: this is additive-only — it does NOT delete an entry already in your allowlist (rig never removes the user's entries; that stays your call) |
@@ -678,11 +674,8 @@ permissions:
 | `ask` | str[] | the baked ask baseline | rule entries asserted present in the ask list; **replaces** the baseline wholesale (`[]` disables it). claude-code only — see below |
 | `settings_path` | path (JSON) | per-harness default | override the settings file to merge into (default: `~/.claude/settings.json` for claude-code, `~/.config/opencode/opencode.json` for opencode). A suffixed path is treated as the file; a suffixless path is treated as a directory. With multiple harnesses and no explicit `permissions.kind`, one override can only name one file, so rig targets the first supported harness and notes the skipped kinds |
 
-**Default tool set.** Our ecosystem CLIs — `tg`, `review`, `draw`, `3d`, `rig`, `task`, `dev`,
-`pm`, `research` — plus the external tools we lean on: `gh`, `git`, `rg`, `uv`, `bun`, `jq`,
-`gitleaks`. `pm` (pm-cli) and `research` (research-cli) are read-only ecosystem coordinators — an
-observing/reconciling project manager and a multi-provider research/panel CLI — that never edit
-code, so they share the safe profile of `review`/`task`. For
+**Default tool set.** Our ecosystem CLIs — `tg`, `review`, `draw`, `3d`, `rig`, `task`, `dev` —
+plus the external tools we lean on: `gh`, `git`, `rg`, `uv`, `bun`, `jq`, `gitleaks`. For
 claude-code, the `dev` entry is written as `Bash(dev:*)`, which is the provisioned `dev:*`
 permission surface for project-local development workflows. The `dev` implementation lives in
 agent-tools; rig provisions the harness permission for it but does not implement its runtime
@@ -746,8 +739,9 @@ markers, and `rig status` surfaces it as `missing`/`modified` drift.
   IS delivered: rig writes a managed `prefix_rule(...)` block into `~/.codex/rules/rig-managed.rules`
   (a `provision_execpolicy` action; codex auto-scans that dir at startup). Flag-position denies stay
   in the PreToolUse hook bridge.
-- **pi** — **N/A**. No documented per-command auto-approve allowlist that leaves the toolset
-  intact, so it is recorded N/A, never written.
+- **gemini / pi** — **N/A**. Gemini's `tools.core`/`coreTools` is a *toolset restriction* list,
+  not a per-command auto-approve: writing it to pre-allow a command would disable every unlisted
+  built-in tool. No safe per-command allowlist exists, so it is recorded N/A, never written.
 
 The write is **idempotent** (a re-apply with the same config is a no-op) and **backup-noted** (the
 prior file is backed up per `defaults.on_conflict` before converging; a file that fails to parse as
@@ -861,13 +855,12 @@ sync.
 
 ## `ship_delegator`
 
-Provisions the per-repo **`gh ship` delegator** — `.claude/scripts/pr-ship.sh` — **and the
-machine-global `gh ship` gh alias that runs it** — so `gh ship <PR>` works in **this** repo on a
-clean machine. Historically the delegator existed **only in agent-tools** (so `gh ship` failed in
-every other managed repo) **and the `gh ship` alias itself was hand-set** (so on a fresh machine or
-after a gh-config reset `gh ship` became "unknown command"); this is the durable fix — rig
-provisions **both** everywhere. Default **ON** — on `rig init` AND `rig apply` rig writes/reconciles
-the delegator and the alias; idempotent (a re-apply that finds them correct is a no-op).
+Provisions the per-repo **`gh ship` delegator** — `.claude/scripts/pr-ship.sh` — so the global
+`gh ship` alias (which runs `<repo>/.claude/scripts/pr-ship.sh`) works in **this** repo on a clean
+machine. Historically that delegator existed **only in agent-tools**, so `gh ship` failed in every
+other managed repo (papered over by a runtime alias fallback); this is the durable fix — rig
+provisions it everywhere. Default **ON** — on `rig init` AND `rig apply` rig writes/reconciles the
+delegator; idempotent (a re-apply that finds it correct is a no-op).
 
 ```yaml
 ship_delegator:
@@ -887,19 +880,6 @@ writes idempotently from the agent-tools checkout it applied from. The rendered 
 is a **portable constant** — no machine-specific path is ever baked into it — so a repo may even
 commit the file verbatim (agent-tools does) and a re-apply stays a byte-for-byte no-op. A clean
 machine therefore gets a working `gh ship` in every repo with no alias hacks.
-
-**The `gh ship` alias itself is rig-provisioned too (machine-global).** Alongside the per-repo
-delegator, rig sets the `gh ship` **gh alias** (`gh alias set --clobber ship …`) to a **portable
-dispatcher**: it runs `<repo>/.claude/scripts/pr-ship.sh` in a managed repo, else falls back to the
-canonical `ci/ship/ship.sh` resolved via the same machine env file. The expansion is a **portable
-constant** — no machine path baked in — so a re-apply is a byte-exact no-op. One alias serves every
-repo, so it is a **global** artifact (shown in the **global** status section under `gh_ship_alias`)
-even though the action rides along with the repo-scoped `ship_delegator`. When `gh` is not
-installed, rig **self-skips** the alias (status and apply both no-op — no phantom "missing alias"
-it could never set). Honors `on_conflict`: a **differing** existing alias is overwritten (the old
-value noted) under the default `backup`/`overwrite`, or left as-is under `skip`. This supersedes the
-older ci-`ship` `gh_alias` copy-path form — that flag now writes the same portable dispatcher, not a
-`~/bin/ship` copy path, so the two never fight.
 
 **Repo-local shadowing is intentional (and a debugging footgun to know about).** Because the
 delegator runs a repo-local `ci/ship/ship.sh` first, any repo that happens to carry one — a stale,
@@ -926,21 +906,12 @@ from the rig-generated delegator, or the file is present but **not** git-ignored
 delegator would dirty the worktree). `rig apply` reconciles. Shown in the **repo** section.
 The **machine env file** is checked too, under its own `ship_env` category — shown in the
 **global** section, since the file is a machine-wide artifact (`rig apply --only ship_env`
-scopes to whichever action owns it: the `ship_delegator` action normally). A repo that carries its own `ci/ship/ship.sh`
+scopes to the owning `ship_delegator` action). A repo that carries its own `ci/ship/ship.sh`
 never reads the env file, so both `status` and `apply` leave it entirely alone for that repo —
 no check, no write, no backup (status/apply parity in both directions). The env-file check also
 survives a **non-git** cwd: `status` there drops repo-scoped areas, but `apply` still reconciles
 the machine env file, so the `ship_env` check keeps running (parity again — a missing/stale env
 file surfaces even from `rig status` in `~`).
-
-**ci-only combo (`ship_delegator: { enabled: false }` + `ci.items.ship.gh_alias: true`).** With the
-delegator area disabled but a CI `ship` item still requesting the alias, there is no delegator
-action to reconcile the machine env file — so the **`gh_ship_alias`** action owns it instead (it is
-where the alias's out-of-repo fallback reads `AGENT_TOOLS_ROOT`; without it `gh ship` outside a
-managed repo would exit 127). `rig apply` writes the env file, `rig status` checks it, and
-`rig apply --only ship_env` includes that alias action (but never the option-less alias of a normal
-delegator-enabled plan). Provenance points at the config layer that declares the combo — the repo
-`rig.yaml`, or the global config when it is declared purely there.
 
 ---
 
@@ -1358,11 +1329,6 @@ tmux:
   login_shell:
     enabled: true               # restored panes are LOGIN shells (so ~/.zprofile/PATH is sourced)
     shell: ""                   # "" → resolve the user's $SHELL at apply; else an absolute path
-  pane_titles:
-    enabled: true               # pane-border-status: a compact per-pane title
-    position: top                # "top" or "bottom"
-    format: "#{session_name} #{window_index}:#{window_name}#{window_flags}"
-    clear_status_right: true    # separately clear tmux's default clock+date status-right
 ```
 
 | Key | Type | Default | Meaning |
@@ -1385,10 +1351,6 @@ tmux:
 | `autosave.enabled` | bool | `true` | provision an **independent** launchd saver (`StartInterval` = `continuum.save_interval` minutes) that calls resurrect `save.sh` directly — decoupled from continuum's fragile status-right hook. When on, rig emits `@continuum-save-interval '0'` so there is exactly **one** authoritative saver (no racing writers over the `last` symlink). The wrapper guards against no-server, empty servers, and a **degenerate save** (a bare boot-time `main` never clobbers a richer prior snapshot), and writes a health-state file + log line so a silent month-long death is impossible. |
 | `autosave.label` | str | `ai.hyperide.tmux-autosave` | the autosave launchd agent label (and plist filename stem) |
 | `autosave.stale_after` | int ≥ 1 | `45` | minutes: the freshness threshold. After each run the saver logs a `WARN` in the health file when the newest snapshot is older than this; **`rig status` reads that health record and surfaces a `tmux autosave agent: STALE …` line** when the agent's last run is older than `stale_after` (i.e. the saver stopped firing) — the observability that turns a silent month-long death into a visible one within one interval. The line is advisory (it does not change the status exit code) and only appears when the agent's launchd plist is actually installed. |
-| `pane_titles.enabled` | bool | `true` | provision `pane-border-status`/`pane-border-format` (a compact per-pane title). `false` emits neither, makes `position`/`format` moot, and disables `clear_status_right` too (it is nested under `enabled`, not independent of it). **Behavior change on upgrade**: with this on (the default whenever `tmux.enabled` is also on), rig now clears tmux's default clock+date `status-right` for everyone — see `clear_status_right` below for the opt-out. |
-| `pane_titles.position` | enum | `top` | `pane-border-status` placement: `top` or `bottom`. An invalid stored value (e.g. from a replayed plan that bypassed validation) is defensively clamped back to `top` at render time rather than emitting a `set` tmux would reject. |
-| `pane_titles.format` | str | `"#{session_name} #{window_index}:#{window_name}#{window_flags}"` | `pane-border-format` value. The default carries **no date/time token** by design. Must **not** contain `"`, `\`, `$`, `#(` (tmux's shell-exec format token — tmux runs it through the shell on every render, the actual code-execution vector), or a non-printable character other than a plain tab — those would corrupt, inject into, or execute code from the generated tmux config; rejected at validate time (and in the published JSON schema), and defensively substituted back to the default if an unsafe value ever reaches the renderer some other way. |
-| `pane_titles.clear_status_right` | bool | `true` | when `pane_titles.enabled` is also true, additionally clear tmux's built-in `status-right` default — which is otherwise a clock+date (`%H:%M %d-%b-%y`), wasted space once the pane title carries the session/window context. A SEPARATE toggle from `enabled` (not independent of it): set this `false` to keep the border title while preserving an existing custom `status-right`. |
 | `login_shell.enabled` | bool | `true` | set a **login-shell** `default-command` so restored panes source `~/.zprofile`/PATH (resurrect otherwise restores a non-login shell with a broken env) |
 | `login_shell.shell` | str | `""` | login shell path. `""` resolves the user's `$SHELL` at apply (falling back to `/bin/zsh` then `/bin/sh`); a non-empty override **must be an absolute path** to the shell binary (a relative name or a command-with-args is rejected, so it can't silently produce a broken `default-command`) and is used verbatim. The path is **baked at generation** — NOT a tmux `${SHELL}` reference, because tmux rejects `${VAR:-default}` and would abort the whole config |
 
@@ -1448,13 +1410,9 @@ boot plist, the import line / managed block) — never on the user's hand-writte
 **The root-cause ordering guarantee.** tmux-continuum's autosave timer lives in `status-right`.
 A hand-written conf that ran `set -g status-right ''` (a Moshi tweak) **after**
 `run-shell …/continuum.tmux` silently wiped continuum's hook → autosave died → a reboot restored
-a weeks-stale session. rig's generator pins the order: plugin options → cc-restore hooks →
-**pane_titles (default-on) + the Moshi tweak (opt-in), BOTH BEFORE continuum init** → resurrect
-init → **continuum init LAST** → tpm init last-of-all. So neither tweak can ever wipe continuum's
-hook. `pane_titles.clear_status_right` (default-on when `pane_titles.enabled` is also on) also
-clears `status-right` — not gated on `$MOSHI_CLIENT`; it's a separate feature, dropping tmux's
-default clock+date rather than the Moshi gesture fix — but the same BEFORE-continuum-init
-placement applies for the same reason.
+a weeks-stale session. rig's generator pins the order: plugin options → cc-restore hooks → the
+**Moshi tweak (opt-in, BEFORE continuum init)** → resurrect init → **continuum init LAST** → tpm
+init last-of-all. So the Moshi tweak can never wipe continuum's hook again.
 
 **Boot + live activation (clean machine → fully working, zero manual steps).** A `rig apply`
 with `boot.enabled` writes a launchd agent whose entrypoint is the generated **boot script**

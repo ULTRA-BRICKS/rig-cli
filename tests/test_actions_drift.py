@@ -92,44 +92,6 @@ def test_apply_is_idempotent(fake_agent_tools, tmp_path):
     assert all(r.status in ("skipped",) for r in second.results), second.summary()
 
 
-def test_multi_descriptor_hook_installs_all_stays_clean(fake_agent_tools, tmp_path):
-    """A hook dir with TWO descriptors: both write, re-apply skips both, drift is clean (#184).
-
-    End-to-end proof (not just planned actions): the fake ``dual-guard`` hook ships a pre-bash
-    AND a pre-write descriptor. Both must land on disk, a second ``run_plan`` must skip both,
-    and ``detect`` must report neither missing nor extra.
-    """
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    hooks_dir = tmp_path / "hooks"
-    cat = Catalog.scan(str(fake_agent_tools))
-    cfg = LoadedConfig(
-        data={
-            "agent_tools_source": str(fake_agent_tools),
-            "skills": {"enabled": False},
-            "agent_hooks": {"all": True, "target": str(hooks_dir)},
-            "ci": {"enabled": False},
-            "mcp": {"enabled": False},
-        },
-        repo_root=repo,
-    )
-    plan = build(cfg, cat, project_type="unknown")
-
-    first = run_plan(plan)
-    assert not first.errors, [r.detail for r in first.errors]
-    assert (hooks_dir / "dual-guard.pre-bash.json").is_file()
-    assert (hooks_dir / "dual-guard.pre-write.json").is_file()
-
-    second = run_plan(plan)
-    dual = [r for r in second.results if r.action.item == "dual-guard"]
-    assert len(dual) == 2
-    assert all(r.status == "skipped" for r in dual), [r.detail for r in dual]
-
-    report = detect(plan, scan_hook_dirs=[hooks_dir])
-    hook_drift = [i for i in report.items if i.category == "agent_hooks" and "dual-guard" in i.item]
-    assert not hook_drift, [(i.direction, i.item) for i in hook_drift]
-
-
 def test_dispatcher_idempotent_status(fake_agent_tools, tmp_path, monkeypatch):
     """The dispatcher action rolls sub-outcomes up: a no-op second run reports 'skipped'."""
     repo = tmp_path / "repo"
@@ -869,14 +831,14 @@ def test_skills_dir_harness_link_idempotent_and_drift(fake_agent_tools, tmp_path
 
 @pytest.mark.parametrize(
     "kind, instr_marker",
-    [("pi", "AGENTS.md"), ("commandcode", "AGENTS.md")],
+    [("gemini", "GEMINI.md"), ("pi", "AGENTS.md"), ("commandcode", "AGENTS.md")],
 )
 def test_instruction_file_harness_emits_no_link_but_a_note(fake_agent_tools, tmp_path, monkeypatch, kind, instr_marker):
-    """An INSTRUCTION-FILE harness (pi/commandcode) links no skill but records WHY.
+    """An INSTRUCTION-FILE harness (gemini/pi/commandcode) links no skill but records WHY.
 
     No skills dir exists for these kinds, so rig emits zero ``link_skill_harness`` actions (it never
     guesses a dir). The skill is still COPIED to skills_target; a plan note explains the kind reads a
-    global AGENTS.md instead — so ``rig status`` isn't a silent empty area.
+    global AGENTS.md/GEMINI.md instead — so ``rig status`` isn't a silent empty area.
     """
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -896,15 +858,15 @@ def test_instruction_file_harness_emits_no_link_but_a_note(fake_agent_tools, tmp
 
 
 def test_instruction_file_harness_with_explicit_dir_does_link(fake_agent_tools, tmp_path):
-    """An explicit ``harness_skill_dir`` overrides the no-link default even for pi (user opt-in).
+    """An explicit ``harness_skill_dir`` overrides the no-link default even for gemini (user opt-in).
 
-    pi is instruction-file-only (no skills dir), so it links nothing by default; an explicit
+    gemini is instruction-file-only (no skills dir), so it links nothing by default; an explicit
     dir forces a real link and suppresses the instruction-file note.
     """
     repo = tmp_path / "repo"
     repo.mkdir()
-    harness = repo / "pi-skills"
-    cfg = _harness_skill_cfg(repo, fake_agent_tools, "pi")
+    harness = repo / "gemini-skills"
+    cfg = _harness_skill_cfg(repo, fake_agent_tools, "gemini")
     cfg.data["skills"]["harness_skill_dir"] = str(harness)
     cat = Catalog.scan(str(fake_agent_tools))
     plan = build(cfg, cat, project_type="unknown")
@@ -966,7 +928,7 @@ def test_native_discovery_harness_custom_target_links_back_to_native_root(
     assert link.resolve() == (repo / "skills-out" / "naming").resolve()
 
 
-@pytest.mark.parametrize("kind", ["opencode", "codex", "pi", "commandcode"])
+@pytest.mark.parametrize("kind", ["opencode", "codex", "gemini", "pi", "commandcode"])
 def test_auto_mode_on_non_claude_kind_skips_write_with_note(fake_agent_tools, tmp_path, kind):
     """A kind with no auto/permission-MODE writer self-skips the write — but says so, not silently.
 
@@ -985,7 +947,7 @@ def test_auto_mode_on_non_claude_kind_skips_write_with_note(fake_agent_tools, tm
     assert any("auto-mode write skipped" in n and kind in n for n in plan.notes), plan.notes
 
 
-@pytest.mark.parametrize("kind", ["pi", "commandcode"])
+@pytest.mark.parametrize("kind", ["gemini", "pi", "commandcode"])
 def test_explicit_hook_bridge_on_non_claude_kind_notes_skip(fake_agent_tools, tmp_path, kind):
     """Explicitly enabling hook_bridge on an unsupported kind is reported skipped, not silently dropped."""
     repo = tmp_path / "repo"
