@@ -3,8 +3,7 @@
 What this is
 ------------
 rig provisions each agent harness's permission ALLOWLIST so our ecosystem CLIs (``tg``,
-``review``, ``draw``, ``3d``, ``rig``, ``task``, ``dev``, ``pm``, ``research``) and the
-recommended external tools we
+``review``, ``draw``, ``3d``, ``rig``, ``task``, ``dev``) and the recommended external tools we
 rely on (``gh``, ``git``, ``rg``, ``uv``, ``bun``, ``jq``, ``gitleaks``) are pre-allowed — the agent
 never stops to ask permission for a known-safe command. The tool list is CONFIG-DRIVEN
 (declared in ``rig.yaml`` / the global config under the ``permissions`` block) with a sensible
@@ -25,8 +24,10 @@ Each harness expresses "auto-allow command ``foo`` and its subcommands" in a DIF
   (``prefix_rule(pattern=[...], decision="allow"|"forbidden")``) — a SEPARATE surface rig now
   provisions through :data:`HARNESS_EXECPOLICY` (the ``provision_execpolicy`` action), not this
   additive-array allowlist. Recorded N/A *here* (the allowlist registry); provisioned there.
-- **pi** — N/A. No documented per-command auto-approve allowlist that leaves the toolset intact;
-  recorded N/A rather than write a setting that could break the harness.
+- **gemini / pi** — N/A. Gemini's ``tools.core``/``coreTools`` is a TOOLSET RESTRICTION list, not
+  a per-command auto-approve: setting it disables every unlisted built-in tool, so writing it to
+  pre-allow ``git`` would BREAK the harness by removing read_file/write_file/etc. There is no
+  separate per-command allowlist that leaves the toolset intact. Recorded N/A rather than risk it.
 
 Keeping the per-harness shape behind :data:`HARNESS_ALLOWLISTS` means the plan/runner/drift code
 keys off ``harness.kind`` exactly like the existing skill/hook provisioning, and a new harness is
@@ -48,16 +49,11 @@ from typing import Callable
 # we already lean on, NEVER inherently-destructive standalone commands (``rm``/``sudo``/``dd``),
 # which are deliberately absent so they stay behind a prompt.
 #
-# Our ecosystem CLIs (tg/review/draw/3d/rig/task/dev/pm/research) and the external tools we lean
-# on. ``task`` is alex-mextner/task-cli (the binary is ``task``). ``dev`` is the agent-tools
-# project-local development command surface: rig provisions the permission entry, while the dev
-# helper's own implementation/provenance stays in agent-tools. ``pm`` (pm-cli) and ``research``
-# (research-cli) are read-only ecosystem coordinators — a project-manager observer/reconciler and
-# a multi-provider research/panel CLI; both observe and never edit code, matching the safe
-# read-only profile of ``review``/``task``. ``rg`` is ripgrep's binary name.
-DEFAULT_ECOSYSTEM_TOOLS: tuple[str, ...] = (
-    "tg", "review", "draw", "3d", "rig", "task", "dev", "pm", "research",
-)
+# Our ecosystem CLIs (tg/review/draw/3d/rig/task/dev) and the external tools we lean on. ``task``
+# is alex-mextner/task-cli (the binary is ``task``). ``dev`` is the agent-tools project-local
+# development command surface: rig provisions the permission entry, while the dev helper's own
+# implementation/provenance stays in agent-tools. ``rg`` is ripgrep's binary name.
+DEFAULT_ECOSYSTEM_TOOLS: tuple[str, ...] = ("tg", "review", "draw", "3d", "rig", "task", "dev")
 DEFAULT_EXTERNAL_TOOLS: tuple[str, ...] = ("gh", "git", "rg", "uv", "bun", "jq", "gitleaks")
 DEFAULT_TOOLS: tuple[str, ...] = DEFAULT_ECOSYSTEM_TOOLS + DEFAULT_EXTERNAL_TOOLS
 
@@ -129,7 +125,7 @@ class HarnessAllowlist:
 
 # The harness kinds rig can provision an allowlist for. claude-code is the primary, proven one
 # (its ``permissions.allow`` array is exactly what the live ~/.claude/settings.json already uses);
-# opencode's ``permission.bash`` object is the second. codex + pi have NO additively-
+# opencode's ``permission.bash`` object is the second. codex + gemini/pi have NO additively-
 # mergeable per-command allowlist (see the module docstring) and are absent here → recorded N/A by
 # :func:`harness_supported` / the harness matrix, never written.
 HARNESS_ALLOWLISTS: dict[str, HarnessAllowlist] = {
@@ -158,6 +154,10 @@ HARNESS_ALLOWLIST_NA: dict[str, str] = {
         "no per-command allowlist in config.toml — command execution is gated by "
         "approval_policy/sandbox_mode (coarse) and Starlark execpolicy .rules files, a separate "
         "mechanism rig does not additively merge"
+    ),
+    "gemini": (
+        "tools.core/coreTools is a TOOLSET RESTRICTION list, not a per-command auto-approve — "
+        "writing it would disable every unlisted built-in tool; no safe per-command allowlist exists"
     ),
     "pi": "no documented command-allowlist mechanism",
 }

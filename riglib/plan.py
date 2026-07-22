@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from .catalog import Catalog, Item
@@ -80,8 +80,8 @@ _DEFAULTS_KEY = {
 # scan the default
 # ``skills_target`` directly; when the user customizes ``skills_target``, rig links back into the
 # native root so the harness still sees the installed skills. INSTRUCTION-FILE harnesses
-# (pi/commandcode) have no skills dir — they surface guidance via a global
-# AGENTS.md (the ``agents_md`` area), so the plural skill-dir resolver emits no link
+# (gemini/pi/commandcode) have no skills dir — they surface guidance via a global
+# AGENTS.md/GEMINI.md (the ``agents_md`` area), so the plural skill-dir resolver emits no link
 # for them and records a status note.
 # (The module-level alias name is preserved so ``plan._HARNESS_SKILL_DIRS`` keeps resolving.)
 _DEFAULT_HARNESS_KIND = "claude-code"
@@ -107,11 +107,7 @@ class Action:
     options: dict[str, Any] = field(default_factory=dict)
 
     def describe(self) -> str:
-        # A hook item can emit several actions into one target dir (one per descriptor);
-        # append the descriptor name so plan/dry-run lines stay distinguishable.
-        descriptor = self.options.get("descriptor")
-        dest = self.target / descriptor if descriptor else self.target
-        return f"{self.category}/{self.item} → {dest}"
+        return f"{self.category}/{self.item} → {self.target}"
 
 
 @dataclass
@@ -278,8 +274,8 @@ def _resolve_harness_skill_dir(config: LoadedConfig) -> Path | None:
     """Resolve the harness skill-discovery dir to symlink installed skills into.
 
     Returns ``None`` when ``skills.harness_link`` is disabled or the harness kind has no
-    known discovery dir — either an INSTRUCTION-FILE harness (pi/commandcode,
-    which surface skills via AGENTS.md, not a symlinked dir) or an unknown kind. We
+    known discovery dir — either an INSTRUCTION-FILE harness (gemini/pi/commandcode,
+    which surface skills via AGENTS.md/GEMINI.md, not a symlinked dir) or an unknown kind. We
     never guess a path. An explicit ``skills.harness_skill_dir`` overrides the per-harness
     default (and forces the link even for an instruction-file harness — the user pointed at a
     real dir on purpose).
@@ -331,8 +327,8 @@ def _skill_discovery_notes(config: LoadedConfig) -> list[str]:
     """A status note explaining why no harness skill-link is emitted for an instruction-file
     harness, or ``None`` when one is (skills-dir harness) or linking is disabled / overridden.
 
-    Keeps ``rig status`` honest: a pi/commandcode config that links no skills isn't a
-    silent gap — the note says the kind reads a global AGENTS.md instead, so the skill
+    Keeps ``rig status`` honest: a gemini/pi/commandcode config that links no skills isn't a
+    silent gap — the note says the kind reads a global AGENTS.md/GEMINI.md instead, so the skill
     content reaches it through the ``agents_md`` area, not a per-skill symlink.
     """
     sk = config.category("skills")
@@ -447,15 +443,6 @@ def _skills_enabled(config: LoadedConfig, catalog: Catalog, project_type: str) -
     if not isinstance(bt_items_cfg, dict):
         bt_items_cfg = {}
 
-    bs_cfg = sk.get("by_stack", {})
-    if not isinstance(bs_cfg, dict):
-        bs_cfg = {}
-    bs_disable = set(bs_cfg.get("disable", []) or [])
-    bs_items_cfg = bs_cfg.get("items", {})
-    if not isinstance(bs_items_cfg, dict):
-        bs_items_cfg = {}
-    declared_stack = config.stack
-
     for item in catalog.by_category("skills"):
         if item.group == "universal":
             if _item_enabled(uni_cfg, item, type_enabled=True):
@@ -472,40 +459,7 @@ def _skills_enabled(config: LoadedConfig, catalog: Catalog, project_type: str) -
                     continue
             if type_on:
                 out.append(item)
-        elif item.group.startswith("by-stack/"):
-            if _by_stack_item_enabled(item, declared_stack, bs_disable, bs_items_cfg):
-                out.append(item)
     return out
-
-
-def _by_stack_item_enabled(
-    item: Item,
-    declared_stack: str | None,
-    disable: set[str],
-    items_cfg: dict[str, Any],
-) -> bool:
-    """Whether a by-stack skill is provisioned for the repo's declared stack.
-
-    Auto-selected when the item's stack path is a PREFIX of the declared stack (hierarchical
-    inheritance — see :mod:`riglib.stack`), unless dropped via ``skills.by_stack.disable`` or a
-    ``skills.by_stack.items.<name>.enabled: false`` override. An explicit
-    ``items.<name>.enabled: true`` FORCES the skill in even without a matching stack (the
-    escape hatch for pulling one stack skill into an off-stack repo).
-
-    NOTE: this is a deliberately-separate resolver from :func:`_item_enabled` (universal/by_type):
-    by_stack has no ``enable``/``all`` axis — selection is driven by the declared ``stack`` prefix
-    match, not a bundle-enable list — so the two do not share a code path. The only overlap is the
-    per-item ``enabled`` override + the ``disable`` list, kept explicit here for readability."""
-    from .stack import stack_matches
-
-    spec = items_cfg.get(item.name)
-    if isinstance(spec, dict) and "enabled" in spec:
-        return bool(spec["enabled"])
-    if item.name in disable:
-        return False
-    if not declared_stack:
-        return False
-    return stack_matches(declared_stack, item.meta.get("stack", ""))
 
 
 def _validate_item_names(config: LoadedConfig, catalog: Catalog) -> None:
@@ -556,15 +510,6 @@ def _validate_item_names(config: LoadedConfig, catalog: Catalog) -> None:
         if isinstance(bt_items, dict):
             _check("skills", set(bt_items), bt_known, "skills.by_type.items")
         _check("skills", set(bt.get("enable", []) or []), bt_kinds, "skills.by_type.enable")
-    # skills — by_stack group (fully-qualified `by-stack/<l1>/<lang>[/<fw>]/<name>` item keys)
-    bs = sk.get("by_stack", {}) if isinstance(sk, dict) else {}
-    if isinstance(bs, dict):
-        bs_known = {i.name for i in catalog.by_category("skills") if i.group.startswith("by-stack/")}
-        bs_items = bs.get("items", {})
-        refs = set(bs.get("disable", []) or [])
-        if isinstance(bs_items, dict):
-            refs |= set(bs_items)
-        _check("skills", refs, bs_known, "skills.by_stack.items")
 
     # agent_hooks + mcp — flat items/enable/disable
     for cat_name in ("agent_hooks", "mcp"):
@@ -586,56 +531,6 @@ def _validate_item_names(config: LoadedConfig, catalog: Catalog) -> None:
         _check("git_hooks", set(gh), gh_known, "git_hooks")
 
 
-def _plan_agent_hooks(plan: InstallPlan, config: LoadedConfig, catalog: Catalog) -> None:
-    """Emit one ``install_agent_hook`` action per descriptor of every enabled hook.
-
-    A hook dir may ship MORE THAN ONE ``*.json`` descriptor (e.g. a pre-bash AND a pre-write
-    guard). Emit one action per descriptor so all of them land — taking only the first
-    silently drops the rest (#184 gap). Fail-closed on a destination collision: descriptors
-    from different hooks share one flat target dir, so two hooks shipping the same basename
-    would clobber each other (one guard silently lost, drift never clean).
-    """
-    ah = config.category("agent_hooks")
-    if ah.get("enabled") is False:
-        return
-    ah.setdefault("all", True)
-    hook_targets = _resolve_agent_hooks_targets(config)
-    seen: dict[Path, str] = {}
-    for item in catalog.by_category("agent_hooks"):
-        if not _item_enabled(ah, item, type_enabled=False):
-            continue
-        spec = ah.get("items", {}).get(item.name, {})
-        # Drop empty names so a descriptor-less item can't produce a degenerate
-        # ``hooks_target / ""`` (which collapses to the bare dir). A catalog item always
-        # carries ≥1 descriptor; the meta fallback only guards hand-built Items.
-        descriptors = tuple(d for d in (item.descriptors or (item.meta.get("descriptor", ""),)) if d)
-        for hooks_target in hook_targets:
-            for descriptor in descriptors:
-                dest = hooks_target / descriptor
-                if dest in seen and seen[dest] != item.name:
-                    raise PlanError(
-                        f"agent-hook descriptor collision: '{item.name}' and "
-                        f"'{seen[dest]}' both install '{descriptor}' into {hooks_target} — "
-                        f"one guard would silently clobber the other. Rename the descriptor "
-                        f"in agent-tools so hook basenames are unique."
-                    )
-                seen[dest] = item.name
-                plan.actions.append(
-                    Action(
-                        kind="install_agent_hook",
-                        category="agent_hooks",
-                        item=item.name,
-                        source=item.path,
-                        target=hooks_target,
-                        options={
-                            "descriptor": descriptor,
-                            "on_error": spec.get("on_error") if isinstance(spec, dict) else None,
-                            "agent_tools_source": str(catalog.source),
-                        },
-                    )
-                )
-
-
 def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknown") -> InstallPlan:
     """Build the ordered :class:`InstallPlan` from config + catalog."""
     plan = InstallPlan(on_conflict=str(config.defaults.get("on_conflict", "backup")))
@@ -653,8 +548,8 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
         for _kind, link_dir in harness_link_dirs
         if not _same_dir(link_dir, skills_target)
     ]
-    # Instruction-file harness (pi/commandcode) → no skill-link dir; record WHY so
-    # ``rig status`` shows "uses <AGENTS.md>" instead of a silent empty skill-link area.
+    # Instruction-file harness (gemini/pi/commandcode) → no skill-link dir; record WHY so
+    # ``rig status`` shows "uses <AGENTS.md/GEMINI.md>" instead of a silent empty skill-link area.
     plan.notes.extend(_skill_discovery_notes(config))
     for item in _skills_enabled(config, catalog, project_type):
         installed = skills_target / item.path.name
@@ -682,7 +577,28 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
             )
 
     # ── agent_hooks ──────────────────────────────────────────────────────────────
-    _plan_agent_hooks(plan, config, catalog)
+    ah = config.category("agent_hooks")
+    if ah.get("enabled") is not False:
+        ah.setdefault("all", True)
+        hook_targets = _resolve_agent_hooks_targets(config)
+        for item in catalog.by_category("agent_hooks"):
+            if _item_enabled(ah, item, type_enabled=False):
+                spec = ah.get("items", {}).get(item.name, {})
+                for hooks_target in hook_targets:
+                    plan.actions.append(
+                        Action(
+                            kind="install_agent_hook",
+                            category="agent_hooks",
+                            item=item.name,
+                            source=item.path,
+                            target=hooks_target,
+                            options={
+                                "descriptor": item.meta.get("descriptor", ""),
+                                "on_error": spec.get("on_error") if isinstance(spec, dict) else None,
+                                "agent_tools_source": str(catalog.source),
+                            },
+                        )
+                    )
 
     # ── git_hooks (dispatcher) ───────────────────────────────────────────────────
     gh = config.category("git_hooks")
@@ -908,7 +824,7 @@ def _build_harness(config: LoadedConfig, plan: InstallPlan) -> None:
         return
     kind = str(h.get("kind", "claude-code"))
     if kind not in _HARNESS_SETTINGS:
-        # The config schema now ACCEPTS opencode/codex/pi/commandcode (rig provisions their
+        # The config schema now ACCEPTS opencode/codex/gemini/pi/commandcode (rig provisions their
         # SKILL discovery), but the auto/permission-MODE write is only implemented for the kinds in
         # ``_HARNESS_SETTINGS`` (claude-code today). Skip the auto-mode write for the others — but
         # say so, so a config that set ``auto_mode``/``mode`` on such a kind isn't a silent no-op.
@@ -968,7 +884,7 @@ def _build_permissions(config: LoadedConfig, plan: InstallPlan) -> None:
     baked rule baselines. The action carries the RESOLVED lists (so the runner stays config-pure)
     and is keyed off ``harness.kind`` (exactly like the auto-mode write), targeting the SAME
     per-harness user-scope settings file. A harness whose kind has no additively-mergeable
-    allowlist (codex, pi — see :mod:`riglib.permissions`) emits NO action and is recorded
+    allowlist (codex, gemini/pi — see :mod:`riglib.permissions`) emits NO action and is recorded
     N/A; a note explains why so ``rig status`` isn't silently empty.
     """
     from .permissions import (
@@ -1082,35 +998,13 @@ def _build_execpolicy(config: LoadedConfig, plan: InstallPlan) -> None:
         if not execpolicy_supported(kind):
             continue
         spec = HARNESS_EXECPOLICY[kind]
-        # codex's rules root honors RIG_CODEX_HOME (same resolver as its hooks/skills/config
-        # targets); other kinds fall back to the generic ~-expansion of the declared path. The
-        # RIG_CODEX_HOME-aware root is joined with the SAME suffix declared in spec.rules_path
-        # (relative to codex's default ~/.codex root) so the two never drift.
-        rules_path = spec.rules_path
-        if kind == "codex":
-            codex_prefix = "~/.codex/"
-            if not rules_path.startswith(codex_prefix):
-                raise PlanError(
-                    f"codex execpolicy rules_path must live under {codex_prefix!r}: {rules_path!r}"
-                )
-            suffix = rules_path[len(codex_prefix) :]
-            # The suffix is a hardcoded spec constant today (never user input), but this is the
-            # one seam where a future spec/config change could smuggle a `..`/absolute component
-            # and escape RIG_CODEX_HOME (Codex review of #169). PurePosixPath normalizes `.`/`//`
-            # but leaves `..` and a leading `/` visible for us to reject explicitly.
-            suffix_path = PurePosixPath(suffix)
-            if not suffix.strip() or suffix_path.is_absolute() or ".." in suffix_path.parts:
-                raise PlanError(
-                    f"codex execpolicy rules_path suffix must not escape RIG_CODEX_HOME: {suffix!r}"
-                )
-            rules_path = _codex_user_path(suffix)
         plan.actions.append(
             Action(
                 kind="provision_execpolicy",
                 category="permissions",
                 item=kind,
                 source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
-                target=_expand(rules_path, config.repo_root),
+                target=_expand(spec.rules_path, config.repo_root),
                 options={"kind": kind, "tools": tools},
             )
         )
@@ -1364,7 +1258,7 @@ def _build_hook_bridge_for_kind(
     bridge_spec = _hook_bridge_spec_for_kind(kind)
     if bridge_spec is None:
         # Reaching this branch means the harness has skill/instruction discovery but no known
-        # hook bridge surface yet (currently pi/commandcode). If a config EXPLICITLY
+        # hook bridge surface yet (currently gemini/pi/commandcode). If a config EXPLICITLY
         # asked for the bridge on such a kind, say it is not wired; the default-on case stays
         # quiet.
         if isinstance(bridge_cfg, dict) and bridge_cfg.get("enabled") is True:
@@ -1504,19 +1398,8 @@ def _build_ship_delegator(config: LoadedConfig, catalog: Catalog, plan: InstallP
         sd = {}
     if not isinstance(sd, dict):
         return  # validate() already fail-closed on a non-mapping block
-    delegator_enabled = sd.get("enabled") is not False
-    # The `gh ship` gh alias is provisioned by ONE action, gated by EITHER path that wants it: the
-    # (default-on) ship_delegator area, OR a ci `ship` item with `gh_alias: true`. `_build_ci` runs
-    # BEFORE this, so its already-resolved ship action is in the plan — reading it here (rather than
-    # re-deriving the ci enable logic) keeps a single source of truth AND guarantees exactly one
-    # alias action (never a second, unconditional writer racing the reconciler). When ONLY the ci
-    # path asks (delegator disabled), the alias is still provisioned but no delegator file is.
-    ci_alias_requested = any(
-        a.kind == "install_ci" and a.options.get("slot") == "ship" and a.options.get("gh_alias")
-        for a in plan.actions
-    )
-    if not (delegator_enabled or ci_alias_requested):
-        return  # nothing to do — neither path wants the delegator or the alias
+    if sd.get("enabled") is False:
+        return
     canonical = catalog.source / "ci" / "ship" / "ship.sh"
     if not canonical.is_file():
         plan.notes.append(
@@ -1525,44 +1408,14 @@ def _build_ship_delegator(config: LoadedConfig, catalog: Catalog, plan: InstallP
             "that ships the ship gate)"
         )
         return
-    if delegator_enabled:
-        plan.actions.append(
-            Action(
-                kind="provision_ship_delegator",
-                category="ship_delegator",
-                item="delegator",
-                source=catalog.source,
-                target=config.repo_root,
-                options={"canonical_ship": str(canonical)},
-            )
-        )
-    # The machine-global `gh ship` alias is the ENTRY POINT the delegator serves: `gh ship <PR>`
-    # runs it, and it dispatches to `<repo>/.claude/scripts/pr-ship.sh` (or the canonical fallback).
-    # It was historically HAND-SET; provision it so a clean machine has a working `gh ship` and it
-    # can't silently go missing. A GLOBAL artifact (the expansion is a portable constant, so the
-    # action carries no options) — its target is gh's config file, matching the drift row's target.
-    from .gh_ship_alias import GH_SHIP_ALIAS_CATEGORY, gh_config_path
-
-    # The alias's out-of-repo fallback resolves AGENT_TOOLS_ROOT from the machine-level env file,
-    # which `_do_provision_ship_delegator` reconciles. In the ci-only combo (delegator DISABLED but
-    # a ci `ship` item asks for the alias) NO delegator action is emitted, so the alias action must
-    # own the env file itself — else `gh ship` outside a managed repo resolves nothing and exits 127
-    # on a clean machine (codex P2, PR #151). Carry canonical_ship ONLY then: when the delegator is
-    # emitted it reconciles the env file, so the alias stays a portable, option-less constant (no
-    # double writer). The runner + drift read this option to decide whether to reconcile/check it.
-    # (KNOWN GAP, pre-existing and out of this thread's scope: a SELF-HOSTING repo — agent-tools —
-    # with the delegator enabled skips the env reconcile entirely, so a clean machine that only ever
-    # applies agent-tools has no env file and `gh ship` outside it exits 127. The durable fix is to
-    # make the machine-global alias the SOLE owner of the machine-global env file; tracked separately.)
-    alias_options: dict[str, str] = {} if delegator_enabled else {"canonical_ship": str(canonical)}
     plan.actions.append(
         Action(
-            kind="provision_gh_ship_alias",
-            category=GH_SHIP_ALIAS_CATEGORY,
-            item="alias",
+            kind="provision_ship_delegator",
+            category="ship_delegator",
+            item="delegator",
             source=catalog.source,
-            target=gh_config_path(),
-            options=alias_options,
+            target=config.repo_root,
+            options={"canonical_ship": str(canonical)},
         )
     )
 
@@ -2037,7 +1890,6 @@ def _build_tmux(config: LoadedConfig, plan: InstallPlan) -> None:
                 "boot": dict(t.get("boot", {}) or {}),
                 "login_shell": login_shell,
                 "autosave": autosave,
-                "pane_titles": dict(t.get("pane_titles", {}) or {}),
             },
         )
         )

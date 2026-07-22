@@ -101,21 +101,13 @@ def run_plan(
     *,
     dry_run: bool = False,
     progress: Callable[[ActionResult], None] | None = None,
-    on_start: Callable[[Action], None] | None = None,
 ) -> ApplyReport:
-    """Execute (or dry-run) every action in the plan. Returns the collected report.
-
-    ``on_start(action)`` fires BEFORE each action dispatches (so a caller can show a slow phase as
-    in-flight — silence during a hung runner ≠ hang); ``progress(result)`` fires AFTER it
-    completes. Both are optional and best-effort in caller code.
-    """
+    """Execute (or dry-run) every action in the plan. Returns the collected report."""
     # Fresh auth-gate state per run: a new apply re-notifies + re-waits for a missing login (the user
     # may have logged in since), but WITHIN this run the per-action gate dedups (no ~5× push/wait).
     reset_auth_gate()
     report = ApplyReport()
     for action in plan.actions:
-        if on_start is not None and not dry_run:
-            on_start(action)
         if dry_run:
             res = ActionResult(action, "planned", action.describe())
         else:
@@ -199,13 +191,6 @@ def _do_link_skill_harness(action: Action, on_conflict: str) -> ActionResult:
         # the installed skill the link should point at isn't on disk — the copy_skill action
         # surfaces that failure; don't create a dangling link on top of it.
         return ActionResult(action, "error", f"skill-link/{action.item}: install target missing: {dest}")
-    if _link_targets_itself(link_path, dest):
-        # link would point the installed skill at itself — never clobber the real dir/file
-        # with a self-referential symlink (see _link_targets_itself).
-        return ActionResult(
-            action, "skipped",
-            f"skill-link/{action.item}: source == target ({dest}), skipping to avoid self-symlink",
-        )
     link_path.parent.mkdir(parents=True, exist_ok=True)
 
     if link_path.is_symlink():
@@ -232,27 +217,6 @@ def _do_link_skill_harness(action: Action, on_conflict: str) -> ActionResult:
 
     link_path.symlink_to(dest)
     return ActionResult(action, "created", f"skill-link/{action.item}: linked {link_path} → {dest}")
-
-
-def _link_targets_itself(link_path: Path, dest: Path) -> bool:
-    """True when a symlink ``link_path -> dest`` would point the file at its OWN location.
-
-    Normalizes both to an absolute path with the PARENT resolved (collapsing any symlinked
-    ancestor dirs) but the leaf name kept verbatim — we must NOT ``resolve()`` ``link_path``
-    itself: it may already BE the self-referential symlink we are guarding against (whose
-    ``resolve()`` raises ``OSError: Too many levels of symbolic links``). When both normalize
-    to the same path, creating the link would replace the real source file with a symlink to
-    itself — the 2026-07-15 opencode-bridge corruption. Callers must skip in that case.
-    """
-    try:
-        a = link_path.parent.resolve(strict=False) / link_path.name
-        b = dest.parent.resolve(strict=False) / dest.name
-    except OSError:
-        # cannot prove the link is NOT self-referential (e.g. an ancestor symlink loop or a
-        # permissions error on resolve) — fail SAFE: treat it as self and let the caller skip,
-        # never fall through to the clobber-and-symlink path on an unresolvable parent.
-        return True
-    return a == b
 
 
 def _same_link_dest(link_path: Path, current: Path, dest: Path) -> bool:
@@ -418,11 +382,6 @@ def _do_install_dispatcher(action: Action, on_conflict: str) -> ActionResult:
     # 2. the composers (core.hooksPath target). Git ignores a non-executable hook, so the
     # exec bit must be set even when the content is already identical (else a re-apply
     # leaves the dispatcher silently disabled). Only a CONFLICT-skip leaves them untouched.
-    # This relies on `fsutil.dirs_identical` being MODE-BLIND (compares file set + content
-    # only): the chmod below runs unconditionally on a content-"identical" skip too, so a
-    # source that (for whatever reason — a test fixture, a checkout that dropped the bit)
-    # isn't executable still converges the target to executable without that mode-only
-    # divergence being misread as drift on the next idempotent re-apply (rig-cli#175 review).
     src_hooks = src / "hooks"
     if src_hooks.is_dir():
         out = fsutil.copy_tree(src_hooks, composer_target, on_conflict)
@@ -547,14 +506,9 @@ def _do_install_ci(action: Action, on_conflict: str) -> ActionResult:
         out = fsutil.copy_file(ship, target, on_conflict)
         _chmod_x_if_changed(target, out)
         detail = f"ship {out.detail}"
-        # NOTE: `gh_alias: true` on the ci ship item does NOT set the alias HERE. The `gh ship`
-        # alias is provisioned by the single `provision_gh_ship_alias` action (the plan builder
-        # emits it when this item requests it OR ship_delegator is on), so it honors on_conflict,
-        # is idempotent, and is drift-tracked. A direct writer here would be a SECOND, unconditional
-        # setter racing that reconciler (clobbering even under on_conflict=skip, rewriting an
-        # already-correct alias every apply). The option is consumed at plan-build time.
         if action.options.get("gh_alias"):
-            detail += "; gh ship alias via provision_gh_ship_alias"
+            rc = _gh_alias_set("ship", str(target))
+            detail += "; gh alias set" if rc == 0 else "; gh alias FAILED (gh missing?)"
         return ActionResult(action, out.status, detail, out.backup)
 
     # fail-closed on a requested variant the catalog doesn't ship — a variant is a config
@@ -1826,13 +1780,6 @@ def _do_register_opencode_hook_bridge(action: Action, on_conflict: str) -> Actio
     plugin_path, dest = opencode_hook_bridge_plugin_target(action)
     if not dest.is_file():
         return ActionResult(action, "error", f"hook_bridge/{action.item}: bridge plugin missing: {dest}")
-    if _link_targets_itself(plugin_path, dest):
-        # plugin_path IS the source plugin.js — linking (or wrapper-writing) here would replace
-        # the real git-tracked module with a self-symlink (or overwrite it). Refuse; leave it.
-        return ActionResult(
-            action, "skipped",
-            f"hook_bridge/{action.item}: source == target ({dest}), skipping to avoid self-symlink",
-        )
     plugin_path.parent.mkdir(parents=True, exist_ok=True)
 
     def finalize(status: str, detail: str) -> ActionResult:
@@ -2739,6 +2686,18 @@ def _set_git_global(key: str, value: str) -> int:
     return res.returncode
 
 
+def _gh_alias_set(name: str, path: str) -> int:
+    if not shutil.which("gh"):
+        return 1
+    try:
+        res = subprocess.run(
+            ["gh", "alias", "set", name, f"!{path}"], capture_output=True, text=True, timeout=15
+        )
+    except (OSError, subprocess.SubprocessError):
+        return 1
+    return res.returncode
+
+
 # ── tmux configuration provisioning (generate + migrate) ───────────────────────────
 def tmux_plan_from_action(action: Action):
     """Rebuild the pure :class:`~riglib.tmux.TmuxPlan` an action describes.
@@ -2764,7 +2723,6 @@ def tmux_plan_from_action(action: Action):
         boot=dict(opts.get("boot", {}) or {}),
         login_shell=dict(opts.get("login_shell", {}) or {}),
         autosave=dict(opts.get("autosave", {}) or {}),
-        pane_titles=dict(opts.get("pane_titles", {}) or {}),
     )
 
 
@@ -3153,7 +3111,7 @@ def _tmux_activate(
             if rc != 0:
                 warnings.append(
                     f"boot agent reload FAILED (launchctl rc={rc}) — it may be left unloaded; "
-                    f"re-run `rig apply commit` or `launchctl load -w {plan.boot_plist_path}`"
+                    f"re-run `rig apply` or `launchctl load -w {plan.boot_plist_path}`"
                 )
             else:
                 changes.append(f"reloaded boot agent {plan.boot_plist_path.name} (plist changed)")
@@ -3185,7 +3143,7 @@ def _tmux_activate(
             rc = _launchctl_bootstrap(pstr)
             if rc != 0:
                 warnings.append(
-                    f"autosave agent reload FAILED (launchctl rc={rc}); re-run `rig apply commit` or "
+                    f"autosave agent reload FAILED (launchctl rc={rc}); re-run `rig apply` or "
                     f"`launchctl bootstrap {_gui_domain()} {pstr}`"
                 )
             else:
@@ -4228,7 +4186,7 @@ def transient_ship_root_skip_reason(canonical_ship: Path) -> str | None:
             f"refused to pin the machine-level agent-tools pointer at a transient checkout ({root}) "
             f"— left {ship_env_file_path()} unchanged; it would vanish on tempdir cleanup and break "
             "`gh ship` machine-wide. Set agent_tools_source to a durable checkout "
-            "(e.g. ~/xp/agent-tools) and re-run `rig apply commit`."
+            "(e.g. ~/xp/agent-tools) and re-run `rig apply`."
         )
     return None
 
@@ -4727,118 +4685,6 @@ def _do_provision_ship_delegator(action: Action, on_conflict: str) -> ActionResu
     # change reports "updated" (the exclude was added); a written file reports its own write status.
     status = out.status if out is not None else "updated"
     return ActionResult(action, status, f"ship-delegator: {file_note}; {exclude_note}{env_suffix}", backup)
-
-
-# ── machine-global `gh ship` alias (the entry point the delegator serves) ──────────
-def _do_provision_gh_ship_alias(action: Action, on_conflict: str) -> ActionResult:
-    """Provision/reconcile the machine-global ``gh ship`` alias (idempotent, drift-parity).
-
-    apply and drift switch on the SAME :func:`resolve_gh_ship_alias` state so status never
-    misreports. gh-missing self-skips (status/apply parity): a machine without ``gh`` is a clean
-    no-op, not a "missing alias" rig could never repair. The live ``gh alias set`` is guarded by
-    ``RIG_GH_ALIAS_DRY_RUN`` (the unit suite + CI set it) so no test touches the real gh config.
-
-    Conflict policy (the alias is gh-owned config, so the "backup" is recording the prior value in
-    the result detail, not a ``.rig-bak`` file): ``create`` always sets it; a DIFFERING existing
-    alias is left as-is under ``on_conflict=skip`` (with the current value noted) and overwritten
-    otherwise, the old value recorded. A ``gh alias set`` failure is a soft, noted error, never a
-    hard apply abort — gh being absent/erroring is not a rig failure.
-
-    ci-only combo (``ship_delegator`` disabled but ``ci.items.ship.gh_alias`` on): the plan builder
-    carries ``canonical_ship`` on this action because NO ``provision_ship_delegator`` action is in
-    the plan to reconcile the machine-level env file — the one place the alias's out-of-repo
-    fallback reads ``AGENT_TOOLS_ROOT``. Provision it here in that combo so ``gh ship`` doesn't exit
-    127 on a clean machine (mirrors the delegator's own env reconcile — same
-    :func:`_reconcile_ship_env_file`, same transient-source guard). No self-hosting skip: the alias
-    is machine-global, so out-of-repo invocations need the env file even from a self-hosting repo's
-    cwd. When the delegator IS enabled it owns the env file and this option is absent (no double
-    writer). A failed env write is a hard error — the alias would otherwise resolve to nothing.
-    """
-    raw_canonical = str(action.options.get("canonical_ship", "")).strip()
-    env_status, env_note = "unchanged", ""
-    if raw_canonical:
-        env_ok, env_note, env_status = _reconcile_ship_env_file(Path(raw_canonical), on_conflict)
-        if not env_ok:
-            return ActionResult(
-                action, "error",
-                f"gh-ship-alias: {env_note} — the `gh ship` fallback cannot resolve the agent-tools "
-                "checkout without it (gh ship would exit 127 unless AGENT_TOOLS_ROOT is set)",
-            )
-    alias_result, alias_in_sync = _reconcile_gh_alias(action, on_conflict)
-    return _merge_env_into_alias_result(alias_result, env_status, env_note, alias_in_sync)
-
-
-def _merge_env_into_alias_result(
-    result: ActionResult, env_status: str, env_note: str, alias_in_sync: bool
-) -> ActionResult:
-    """Fold a ci-only-combo env-file reconcile outcome into the alias-set result.
-
-    Mirrors the delegator's partial-outcome contract so the two never disagree:
-
-    - ``unchanged`` env → the alias result stands untouched (a true no-op env reconcile adds nothing).
-    - alias ``error`` → still surface the env note in the detail (the env file may have been written
-      before the alias failed), but keep the hard ``error`` status.
-    - ``skipped_user`` / ``skipped_transient`` env → the machine file was intentionally LEFT AS-IS
-      (a user file under ``on_conflict=skip``, or a transient source refused): the reconcile is
-      INCOMPLETE, so the action is NOT clean-green even when the alias itself was set. Report
-      ``skipped`` (with the note) so ``rig status`` keeps surfacing the env drift.
-    - ``written`` env → a real change: bump a would-be ``skipped`` to ``updated`` ONLY when the alias
-      is genuinely in sync (``alias_in_sync`` — the skip was "already correct"). A skip that hides
-      REMAINING alias drift (a user alias left under ``on_conflict=skip``, gh absent/unreadable, or a
-      dry-run "would create") stays ``skipped`` — bumping it to ``updated`` would falsely claim full
-      reconciliation while ``rig status`` immediately re-reports the alias drift. A ``created`` /
-      ``updated`` alias already reflects a change and keeps its status.
-    """
-    if env_status == "unchanged":
-        return result
-    detail = f"{result.detail}; {env_note}"
-    if result.status == "error":
-        return ActionResult(result.action, "error", detail, result.backup)
-    if env_status in ("skipped_user", "skipped_transient"):
-        return ActionResult(result.action, "skipped", detail, result.backup)
-    # env_status == "written": a real machine-file change.
-    status = "updated" if (result.status == "skipped" and alias_in_sync) else result.status
-    return ActionResult(result.action, status, detail, result.backup)
-
-
-def _reconcile_gh_alias(action: Action, on_conflict: str) -> tuple[ActionResult, bool]:
-    """Reconcile ONLY the ``gh ship`` alias (no env file). See :func:`_do_provision_gh_ship_alias`.
-
-    Returns ``(result, alias_in_sync)``. ``alias_in_sync`` is True ONLY when the alias already
-    equals the desired expansion (a clean no-op) — the single case where a ``skipped`` alias carries
-    no remaining drift. Every other ``skipped`` (a conflicting user alias left as-is, gh absent, an
-    unreadable config, a dry-run) leaves drift or is unmanageable, so it is NOT in sync; the caller
-    uses this to decide whether a companion env write may promote the action to ``updated``.
-    """
-    from ..gh_ship_alias import resolve_gh_ship_alias, set_gh_ship_alias
-
-    r = resolve_gh_ship_alias()
-    if r.state == "no_gh":
-        return ActionResult(
-            action, "skipped",
-            "gh-ship-alias: `gh` CLI not found — skipped (install gh, then re-run rig apply)",
-        ), False
-    if r.state == "unknown":
-        return ActionResult(
-            action, "skipped",
-            "gh-ship-alias: gh config present but unreadable/malformed — left as-is (rig won't clobber it)",
-        ), False
-    if r.state == "ok":
-        return ActionResult(action, "skipped", "gh-ship-alias: `gh ship` already set"), True
-    if r.state == "update" and on_conflict == "skip":
-        return ActionResult(
-            action, "skipped",
-            f"gh-ship-alias: `gh ship` differs but left as-is (on_conflict=skip; current: {r.current})",
-        ), False
-    if os.environ.get("RIG_GH_ALIAS_DRY_RUN"):
-        verb = "would create" if r.state == "create" else "would update"
-        return ActionResult(action, "skipped", f"gh-ship-alias: {verb} `gh ship` (dry-run)"), False
-    rc = set_gh_ship_alias()
-    if rc != 0:
-        return ActionResult(action, "error", "gh-ship-alias: `gh alias set` failed (rc != 0)"), False
-    if r.state == "update":
-        return ActionResult(action, "updated", f"gh-ship-alias: `gh ship` updated (was: {r.current})"), True
-    return ActionResult(action, "created", "gh-ship-alias: `gh ship` set"), True
 
 
 # ── linter / formatter config files (the `linters` block) ──────────────────────────
@@ -6249,7 +6095,6 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_schedule": _do_provision_schedule,
     "provision_agents_symlink": _do_provision_agents_symlink,
     "provision_ship_delegator": _do_provision_ship_delegator,
-    "provision_gh_ship_alias": _do_provision_gh_ship_alias,
     "provision_linter_config": _do_provision_linter_config,
     "provision_project_tool": _do_provision_project_tool,
     "provision_github_ruleset": _do_provision_github_ruleset,
