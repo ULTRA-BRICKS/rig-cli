@@ -100,6 +100,7 @@ AREAS: tuple[Area, ...] = (
     Area("linters", "linter / formatter config files", REPO, ("linters",)),
     Area("project_tools", "project tools (Haft / Serena / Sverklo)", REPO, ("project_tools",)),
     Area("ecosystem_readme", "README ecosystem block", REPO, ("ecosystem_readme",)),
+    Area("task", "task-cli code prefix (.ship-config SHIP_TASK_CODE_PREFIX)", REPO, ("task",)),
     Area("agents_md", "AGENTS.md / CLAUDE.md symlinks", REPO, ("agents_md",)),
     Area("github", "repo settings (branch protection / GHAS / merge / actions, gh api + agent-browser)", REPO, ("github",)),
 )
@@ -155,3 +156,22 @@ def area_matches_drift(area: Area, category: str, item: str, direction: str = "m
     # disk→config extras are workflow files, never the ~/bin ship script → always the CI area.
     is_ship = direction != "extra" and item == "ship"
     return is_ship == area.ship_slot
+
+⚠ 1 unresolved conflict detected
+- ours = HEAD
+- theirs = a530cf2 (feat(task): add task.code_prefix, reconciled into .ship-config)
+- base = parent of a530cf2 (feat(task): add task.code_prefix, reconciled into .ship-config)
+NOTICE: Inspect a block by reading `conflict://<N>` (add `/ours` / `/theirs` / `/base` to render a single side). Resolve with `write({ path: "conflict://<N>", content })`, or bulk-resolve every registered conflict with `write({ path: "conflict://*", content })`. Writes replace ONLY the marker block (markers + all sides) — never repeat the lines before/after it; they stay in place.
+`content` shorthand: a line that is exactly `@ours` / `@theirs` / `@base` / `@both` expands to that recorded section. `@both` is ours-then-theirs with no separator — only for additive conflicts where each side adds something different; NEVER for competing edits of the same lines (pick a side or write the combined text). Lines that are not a token pass through verbatim, so `"// keep both\n@ours\n@theirs"` literally writes the comment, then ours, then theirs.
+Per-id bulk: `write({ path: "conflict://*", content: "1: @ours\n2: @theirs\n…" })` resolves each listed id with that side in ONE call — the cheapest way through many pick-one conflicts; unlisted ids stay registered.
+Resolve each block faithfully: keep one side (`@ours`/`@theirs`), or combine them when both intents apply — never invent content beyond the recorded sides, and never stack both sides of competing edits. Resolve several conflicts in a single turn by issuing multiple `write` calls at once; ids stay valid as earlier blocks are resolved.
+
+──── #3  L101-109 ────
+<<< ours
+    Area("project_tools", "project tools (Haft / Serena / Sverklo)", REPO, ("project_tools",)),
+    Area("ecosystem_readme", "README ecosystem block", REPO, ("ecosystem_readme",)),
+=== base
+    Area("project_tools", "project tools (Haft / Serena / Sverklo)", REPO, ("project_tools",)),
+>>> theirs
+    Area("project_tools", "project tools (Haft / Serena / Sverklo)", REPO, ("project_tools",)),
+    Area("task", "task-cli code prefix (.ship-config SHIP_TASK_CODE_PREFIX)", REPO, ("task",)),

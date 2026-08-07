@@ -1924,8 +1924,15 @@
     },
     "task": {
       "type": "object",
-      "description": "task-cli ticket-tracker routing for THIS repo (CTO decision #4136.4: hyperide -> Linear/HYP, every other repo -> GitHub Issues by default). task-cli reads this block directly (tasklib/config.py's rig_task_overlay) with LOWER precedence than a repo's own native task.yaml, so a repo that already keeps one is unaffected. Flat shorthands (team/project/repo/attachment_mode) and the nested github:/linear: sections may be used together in the same block; task-cli itself rejects a genuine collision between the two forms (e.g. both `team: X` and `linear: {team: Y}` set to different values) — this schema only checks the KEY SET, not that kind of cross-field conflict.",
+      "description": "task-cli ticket-tracker routing for THIS repo (CTO decision #4136.4: hyperide -> Linear/HYP, every other repo -> GitHub Issues by default). task-cli reads this block directly (tasklib/config.py's rig_task_overlay) with LOWER precedence than a repo's own native task.yaml, so a repo that already keeps one is unaffected. Flat shorthands (team/project/repo/attachment_mode) and the nested github:/linear: sections may be used together in the same block; task-cli itself rejects a genuine collision between the two forms (e.g. both `team: X` and `linear: {team: Y}` set to different values) — this schema only checks the KEY SET, not that kind of cross-field conflict. `code_prefix` is a SEPARATE, unrelated concern folded into the same top-level `task:` block (rig-cli#217): a repo-unique task-code prefix consumed by ship.sh's review-quorum gate, reconciled by `rig apply` into `.ship-config` — see the leaf's own doc below.",
       "properties": {
+        "code_prefix": {
+          "type": "string",
+          "description": "set when this repo's task-cli backend is GitHub Issues (bare #NNN, no ticket-code convention of its own). `rig apply` writes it into .ship-config's SHIP_TASK_CODE_PREFIX line, which ship.sh synthesizes into <PREFIX>-NNN from a bare #NNN in the branch name/PR body — never the bare number itself (review-cli's review-quorum store is a single global file keyed only by the code string, with no per-repo scoping, so two repos both deriving bare \"#346\" would collide). Must be 1-40 uppercase letters/digits — ship.sh ignores the whole .ship-config file otherwise. Unset = bare issue numbers are never picked up as task codes.",
+          "not": {
+            "pattern": "[^A-Z0-9]|^.{41,}$"
+          }
+        },
         "backend": {
           "type": [
             "string",

@@ -181,6 +181,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "provision_gh_ship_alias", "edits_file", AUDIENCE_HUMAN,
         "Installs the `gh ship` alias script + registers it with the gh CLI.",
     ),
+    "provision_ship_task_prefix": _tag(
+        "provision_ship_task_prefix", "edits_file", AUDIENCE_HUMAN,
+        "Upserts the SHIP_TASK_CODE_PREFIX= line into .ship-config from task.code_prefix, "
+        "consumed by ci/ship/ship.sh's review-quorum gate.",
+    ),
     "lint_policy_blocked": _tag(
         "lint_policy_blocked", "policy_only", AUDIENCE_BOTH,
         "Records that a linter policy could not be applied (e.g. no matching carrier); writes "
