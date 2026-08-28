@@ -87,6 +87,7 @@ def test_pretooluse_matchers_cover_the_full_managed_set():
         "Agent|Task",
         "Skill",
         "Monitor",
+        "EnterWorktree",
     }
 
 

@@ -2093,10 +2093,13 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
     is the feedback channel for the agent-tools ``post-write`` point. Claude Code uses its
     pipe-alternation tool matcher for writes, ``Agent|Task`` for subagent dispatch (the
     agent-tools ``pre-agent`` point), ``Skill`` for a skill invocation (the agent-tools
-    ``pre-skill`` point), and ``Monitor`` for a background event-stream watch (the agent-tools
-    ``pre-monitor`` point). Codex uses the hook matchers exposed by its TOML contract here:
-    ``Bash`` and ``apply_patch`` (no ``pre-agent``/``pre-skill``/``pre-monitor`` mapping yet —
-    same gap, tracked upstream in agent-tools; Codex has no Monitor-equivalent tool today either).
+    ``pre-skill`` point), ``Monitor`` for a background event-stream watch (the agent-tools
+    ``pre-monitor`` point), and ``EnterWorktree`` for switching into a worktree (the agent-tools
+    ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created).
+    Codex uses the hook matchers exposed by its TOML contract here: ``Bash`` and
+    ``apply_patch`` (no ``pre-agent``/``pre-skill``/``pre-monitor``/``pre-worktree-enter``
+    mapping yet — same gap, tracked upstream in agent-tools; Codex has no Monitor-equivalent
+    tool today either, and Codex/opencode have no worktree-switching tool of their own today).
 
     Entries are unconditional by design, not capability-probed against the bridge package at
     plan time: the plan already verifies the runnable module files exist, and drift/apply share
@@ -2110,8 +2113,8 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
     the safety property this unconditional-registration design relies on. The mirror case — an
     agent-hook installed for a point with no matcher registered yet — is likewise inert rather
     than broken: the descriptor simply never fires
-    until this function is updated, exactly the state ``pre-skill`` was in before this matcher
-    was added.
+    until this function is updated, exactly the state ``pre-skill``/``pre-worktree-enter`` were
+    in before their matcher was added.
 
     ``action.options["extra_stop_hooks"]`` (codex only) is a list of already-rendered,
     already-quoted command strings appended as additional ``Stop`` entries after the bridge's
@@ -2160,6 +2163,7 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
             ("Agent|Task", cmd("PreToolUse")),
             ("Skill", cmd("PreToolUse")),
             ("Monitor", cmd("PreToolUse")),
+            ("EnterWorktree", cmd("PreToolUse")),
         ],
         "PostToolUse": [
             ("Edit|Write|MultiEdit|NotebookEdit", cmd("PostToolUse")),

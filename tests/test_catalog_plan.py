@@ -1417,6 +1417,9 @@ def test_plan_codex_bridge_does_not_wire_pre_agent_yet(fake_agent_tools, tmp_pat
     # pre-monitor (the Monitor matcher) is CC-only too — Codex has no Monitor-equivalent
     # tool today, so a future accidental addition here would be wrong for the same reason.
     assert "Monitor" not in str(entries)
+    # pre-worktree-enter (the EnterWorktree matcher) is CC-only too — Codex has no
+    # worktree-switching tool of its own, same undocumented-payload gap.
+    assert "EnterWorktree" not in str(entries)
 
 
 def test_plan_codex_agent_hooks_preserve_custom_target(fake_agent_tools, tmp_path):
