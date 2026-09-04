@@ -1228,25 +1228,7 @@ def _build_harness_claude_code(config: LoadedConfig, plan: InstallPlan, h: dict[
         )
 
 
-def _claude_settings_targets(config: LoadedConfig, kind: str, primary: Path) -> list[SettingsTarget]:
-    """The settings files a claude-code user-scope write must reach (primary + account dirs).
 
-    Every other harness kind (and any non-user-scope claude-code target) resolves to the
-    primary alone — the fan-out registry (:mod:`riglib.claude_config_dirs`) decides.
-    """
-    if kind != "claude-code":
-        return [SettingsTarget(primary, None)]
-    if not primary.suffix:
-        # the documented directory form (`settings_path: ~/.claude`) — the writers append the
-        # native filename at write time; resolve it HERE too, so the user-scope check sees the
-        # same file the writer converges instead of silently skipping the fan-out
-        primary = primary / SETTINGS_FILENAME
-    h = config.data.get("harness")
-    # explicit extra files go through the SAME resolver as settings_path (``$VAR`` + ``~`` +
-    # repo-root relative) — shared with `rig doctor`, so a relative entry never reaches a
-    # writer (or the doctor inventory) as a cwd-dependent path
-    harness = resolve_settings_paths(h if isinstance(h, dict) else {}, config.repo_root)
-    return fan_out_settings(primary, harness)
 
 
 def _build_permissions(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> None:
@@ -1258,9 +1240,11 @@ def _build_permissions(config: LoadedConfig, catalog: Catalog, plan: InstallPlan
     with no config at all.
 
     Everything is CONFIG-DRIVEN — ``permissions.tools`` (a list) REPLACES the default set;
-    ``permissions.extra`` adds; ``permissions.disable`` removes; ``permissions.allow`` adds RAW
-    rule entries on top of the tool-derived allowlist; ``permissions.deny``/``ask`` REPLACE the
-    baked rule baselines. The action carries the RESOLVED lists (so the runner stays config-pure)
+    ``permissions.extra`` adds; ``permissions.disable`` removes; ``permissions.allow_gh: false``
+    is sugar that folds ``gh`` into ``disable`` (see :func:`_resolved_permission_tools`);
+    ``permissions.allow`` adds RAW rule entries on top of the tool-derived allowlist;
+    ``permissions.deny``/``ask`` REPLACE the baked rule baselines. The action carries the RESOLVED
+    lists (so the runner stays config-pure)
     and is keyed off ``harness.kind`` (exactly like the auto-mode write), targeting the SAME
     per-harness user-scope settings file. A harness whose kind has no additively-mergeable
     allowlist (codex, pi — see :mod:`riglib.permissions`) emits NO action and is recorded
@@ -1270,7 +1254,6 @@ def _build_permissions(config: LoadedConfig, catalog: Catalog, plan: InstallPlan
         HARNESS_ALLOWLISTS,
         HARNESS_ALLOWLIST_NA,
         harness_supported,
-        resolve_tools,
     )
 
     p = config.data.get("permissions")
@@ -1281,12 +1264,7 @@ def _build_permissions(config: LoadedConfig, catalog: Catalog, plan: InstallPlan
     if p.get("enabled") is False:
         return
 
-    tools_cfg = p.get("tools")
-    tools = resolve_tools(
-        list(tools_cfg) if isinstance(tools_cfg, list) else None,
-        list(p.get("extra", []) or []) if isinstance(p.get("extra"), list) else [],
-        list(p.get("disable", []) or []) if isinstance(p.get("disable"), list) else [],
-    )
+    tools = _resolved_permission_tools(p)
     kinds = _permissions_kinds(config, p)
     if p.get("settings_path") and len(kinds) > 1:
         # settings_path picks ONE settings file, which is only meaningful for kinds that write a
@@ -1398,7 +1376,7 @@ def _build_execpolicy(config: LoadedConfig, plan: InstallPlan) -> None:
     flag-position denies stay in the PreToolUse hook bridge. A kind with no execpolicy surface emits
     nothing here (the allowlist builder already noted it).
     """
-    from .permissions import HARNESS_EXECPOLICY, execpolicy_supported, resolve_tools
+    from .permissions import HARNESS_EXECPOLICY, execpolicy_supported
 
     p = config.data.get("permissions")
     if p is None:
@@ -1408,12 +1386,7 @@ def _build_execpolicy(config: LoadedConfig, plan: InstallPlan) -> None:
     if p.get("enabled") is False:
         return
 
-    tools_cfg = p.get("tools")
-    tools = resolve_tools(
-        list(tools_cfg) if isinstance(tools_cfg, list) else None,
-        list(p.get("extra", []) or []) if isinstance(p.get("extra"), list) else [],
-        list(p.get("disable", []) or []) if isinstance(p.get("disable"), list) else [],
-    )
+    tools = _resolved_permission_tools(p)
     for kind in _permissions_kinds(config, p):
         if not execpolicy_supported(kind):
             continue
