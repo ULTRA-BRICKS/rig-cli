@@ -1716,7 +1716,9 @@ def _report_permission_extras(action: Action, ps, extras: list[str], config_file
     if not extras:
         return
     dotted = ".".join(ps.key_path)
-    harness_kind = action.item
+    # the harness KIND lives in the options; `action.item` is the display label, which a
+    # claude-code fan-out target suffixes (`claude-code@account-1`) — never a rules key
+    harness_kind = str(action.options.get("kind") or action.item)
     rules = DEFAULT_RULES.get(harness_kind, {})
     # Origin lookups are scoped to the container: an ARRAY container (claude-code) holds ONE role,
     # so only that role's baseline (and, for allow, the retired defaults) can explain an entry; an

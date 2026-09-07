@@ -19,6 +19,8 @@ from riglib import errors
 from riglib.actions import run_plan
 from riglib.catalog import Catalog
 from riglib.claude_config_dirs import (
+    ROLE_ACCOUNT,
+    ROLE_DEFAULT,
     config_dir_gaps,
     discover_claude_config_dirs,
     doctor_config_dirs,
@@ -190,6 +192,18 @@ def _managed(settings: Path) -> dict:
     }
 
 
+def test_plan_fans_out_for_the_directory_form_of_settings_path(home, repo, fake_agent_tools):
+    # `settings_path: ~/.claude` (the documented suffixless directory form) IS the user-scope
+    # file — the writers append settings.json at write time, so the plan must fan out too
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_config(home, repo, fake_agent_tools, settings_path=str(home / ".claude")), cat, project_type="unknown")
+    fanned = sorted({a.item for a in plan.actions if a.kind in WRITERS and "@account-" in a.item})
+    assert fanned, [(a.kind, a.item) for a in plan.actions if a.kind in WRITERS]
+    assert all(a.target.name == "settings.json" for a in plan.actions if a.kind in WRITERS), [
+        a.target for a in plan.actions if a.kind in WRITERS
+    ]
+
+
 def test_apply_writes_every_config_dir_and_reapply_is_noop(home, repo, fake_agent_tools):
     cat = Catalog.scan(str(fake_agent_tools))
     plan = build(_config(home, repo, fake_agent_tools), cat, project_type="unknown")
@@ -313,6 +327,19 @@ def test_doctor_malformed_settings_is_always_a_gap(tmp_path):
     (home / ".claude-accounts" / "account-0" / "settings.json").write_text("{not json")
     gaps = config_dir_gaps(doctor_config_dirs(home, {}))
     assert len(gaps) == 1 and "malformed" in gaps[0].what
+
+
+def test_doctor_env_dir_that_is_a_managed_account_dir_keeps_the_managed_fix(tmp_path):
+    # claude-rotate exports CLAUDE_CONFIG_DIR=<account dir> into the shell running doctor; that
+    # dir is ALSO a discovered fan-out target, so the fix must be `rig apply commit` (which
+    # converges it), not the settings_paths advice meant for a foreign, unmanaged dir
+    home = _fake_home(tmp_path, ("account-0",))
+    _write_settings(home / ".claude" / "settings.json", bridge=True, mode="auto")
+    acct = home / ".claude-accounts" / "account-0"
+    rows = doctor_config_dirs(home, {"CLAUDE_CONFIG_DIR": str(acct)}, {})
+    assert [r.role for r in rows] == [ROLE_DEFAULT, ROLE_ACCOUNT]
+    gaps = config_dir_gaps(rows)
+    assert len(gaps) == 1 and "rig apply commit" in gaps[0].fix and "settings_paths" not in gaps[0].fix
 
 
 def test_doctor_gap_names_a_missing_settings_file(tmp_path):
@@ -501,6 +528,78 @@ def test_load_harness_fan_out_falls_back_when_pyyaml_is_missing(tmp_path, monkey
 
     monkeypatch.setattr(config_module, "read_yaml_file", no_yaml)
     assert load_harness_fan_out(repo) == {"discover_config_dirs": False, "settings_paths": ["~/x/settings.json"]}
+
+
+def test_fan_out_keys_without_yaml_header_with_inline_comment():
+    from riglib.config import _fan_out_keys_without_yaml
+
+    text = "harness:  # claude-code settings\n  discover_config_dirs: false\n"
+    assert _fan_out_keys_without_yaml(text) == {"discover_config_dirs": False}
+
+
+def test_load_harness_fan_out_survives_a_non_mapping_config(tmp_path, monkeypatch):
+    pytest.importorskip("yaml")
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "rig.yaml").write_text("\n   \n")  # whitespace-only parses to None, not a mapping
+    assert load_harness_fan_out(repo) == {}
+    (repo / "rig.yaml").write_text("- just\n- a list\n")
+    assert load_harness_fan_out(repo) == {}
+
+
+def test_cmd_doctor_resolves_a_relative_settings_path_at_the_repo_root(tmp_path, monkeypatch, capsys):
+    # the plan anchors a relative settings_paths entry at the repo root; doctor run from a
+    # SUBDIRECTORY must inspect that same file, not <cwd>/<relative>
+    import subprocess
+
+    home = _fake_home(tmp_path, ())
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    _write_settings(home / ".claude" / "settings.json", bridge=True, mode="auto")
+    repo = tmp_path / "repo"
+    (repo / "sub" / "dir").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / "rig.yaml").write_text("harness:\n  settings_paths: [local-dir/settings.json]\n")
+    _write_settings(repo / "local-dir" / "settings.json", bridge=True, mode="auto")
+    from riglib import doctor as doctor_module
+    from riglib.cli import main
+
+    monkeypatch.setattr(doctor_module, "DEPENDENCIES", [])
+    monkeypatch.chdir(repo / "sub" / "dir")
+    main(["doctor"])
+    out = capsys.readouterr().out
+    assert str(repo / "local-dir" / "settings.json") in out, out
+    assert "sub/dir/local-dir" not in out, out
+    assert "rig-provisioned guard" not in out, out  # the resolved file carries the bridge: no gap
+
+
+def test_permission_provenance_uses_the_kind_not_the_fan_out_label(home, repo, fake_agent_tools):
+    # `claude-code@account-1` is a display label; the rules/retired-defaults lookup must use the
+    # harness kind, so a retired rig default in an ACCOUNT file is named as such, not as a
+    # hand-added extra
+    from riglib.permissions import RETIRED_DEFAULT_TOOLS, desired_entries
+    from riglib.provenance import KIND_RETIRED_DEFAULT
+
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_config(home, repo, fake_agent_tools), cat, project_type="unknown")
+    assert not run_plan(plan).errors
+    acct1 = home / ".claude-accounts" / "account-1" / "settings.json"
+    data = json.loads(acct1.read_text())
+    # only the retired defaults the fake catalog does NOT still allow are extras
+    retired = [
+        e for e in desired_entries("claude-code", list(RETIRED_DEFAULT_TOOLS))
+        if e not in data["permissions"]["allow"]
+    ]
+    data["permissions"]["allow"] += retired
+    acct1.write_text(json.dumps(data))
+    report = detect(plan)
+    assert report.in_sync
+    known = {k.name: k.kind for k in report.known if k.category == "permissions"}
+    assert retired and all(known[e] == KIND_RETIRED_DEFAULT for e in retired), known
 
 
 def test_cmd_doctor_reads_the_repo_layer_from_a_subdirectory(tmp_path, monkeypatch, capsys):

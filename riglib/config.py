@@ -912,9 +912,11 @@ def _harness_block(path: Path) -> Any:
     fallback that reads ONLY the two fan-out keys. ``rig doctor`` is documented to run with zero
     third-party imports, so a missing PyYAML must not make it blind to a configured opt-out."""
     try:
-        return read_yaml_file(path).get("harness")
+        doc = read_yaml_file(path)
     except ImportError:
         return _fan_out_keys_without_yaml(path.read_text(encoding="utf-8"))
+    # an empty / whitespace-only file parses to None, a scalar or a list is not a mapping
+    return doc.get("harness") if isinstance(doc, dict) else None
 
 
 _YAML_TRUE = ("true", "yes", "on")  # the YAML 1.1 booleans PyYAML itself accepts
@@ -953,7 +955,8 @@ def _fan_out_keys_without_yaml(text: str) -> dict[str, Any]:
         if not stripped or stripped.startswith("#"):
             continue
         if not line[0].isspace():
-            in_harness = stripped.rstrip(":") == "harness" and stripped.endswith(":")
+            # `harness:  # a comment` is still the header — strip the comment like every value
+            in_harness = stripped.split("#", 1)[0].strip() == "harness:"
             child_indent = None
             paths = None
             continue

@@ -110,6 +110,30 @@ def _explicit_settings_paths(harness: dict[str, Any] | None) -> list[Path]:
     return [Path(os.path.expanduser(str(p))) for p in raw if isinstance(p, str) and p]
 
 
+def resolve_settings_paths(harness: dict[str, Any] | None, repo_root: Path) -> dict[str, Any]:
+    """``harness`` with every ``settings_paths`` entry resolved the way the plan resolves
+    ``settings_path``: ``$VAR`` + ``~`` (+ the portable ``~/.config`` prefix) expanded and a
+    relative remainder anchored at the REPO ROOT — never at the cwd. The plan and ``rig
+    doctor`` both go through this one resolver, so a doctor run from a subdirectory inspects
+    the same file apply wrote."""
+    from .paths import expand_user_path
+
+    out = dict(harness or {})
+    raw = out.get("settings_paths")
+    if not isinstance(raw, list):
+        return out
+    resolved: list[str] = []
+    for entry in raw:
+        if not isinstance(entry, str) or not entry:
+            continue
+        p = expand_user_path(entry)
+        if not p.is_absolute():
+            p = (repo_root / p).resolve()
+        resolved.append(str(p))
+    out["settings_paths"] = resolved
+    return out
+
+
 def discovery_enabled(harness: dict[str, Any] | None) -> bool:
     """``harness.discover_config_dirs`` — default on; only an explicit ``false`` opts out."""
     return (harness or {}).get("discover_config_dirs", True) is not False
@@ -242,15 +266,24 @@ def _doctor_candidates(
     harness: dict[str, Any] | None, home: Path | None, env: dict[str, str]
 ) -> list[tuple[Path, str]]:
     """``$CLAUDE_CONFIG_DIR`` first, then the SAME managed targets the plan fans out to, then
-    the account dirs a ``discover_config_dirs: false`` opted OUT of (listed as unmanaged)."""
+    the account dirs a ``discover_config_dirs: false`` opted OUT of (listed as unmanaged).
+
+    An env dir that IS one of the managed targets (claude-rotate exports
+    ``CLAUDE_CONFIG_DIR=~/.claude-accounts/account-N`` into the very shell running doctor)
+    keeps its managed role, so its gap names ``rig apply commit`` — the fix that actually
+    converges it — instead of the ad-hoc ``settings_paths`` advice meant for a foreign dir."""
+    primary = primary_config_dir(home) / SETTINGS_FILENAME
+    managed: list[tuple[Path, str]] = []
+    for target in fan_out_settings(primary, harness, home)[1:]:
+        role = ROLE_ACCOUNT if target.origin == ORIGIN_DISCOVERED else ROLE_CONFIGURED
+        managed.append((target.path.parent, role))
     candidates: list[tuple[Path, str]] = []
     env_dir = env.get(CONFIG_DIR_ENV)
     if env_dir:
-        candidates.append((Path(os.path.expanduser(env_dir)), ROLE_ENV))
-    primary = primary_config_dir(home) / SETTINGS_FILENAME
-    for target in fan_out_settings(primary, harness, home)[1:]:
-        role = ROLE_ACCOUNT if target.origin == ORIGIN_DISCOVERED else ROLE_CONFIGURED
-        candidates.append((target.path.parent, role))
+        env_path = Path(os.path.expanduser(env_dir))
+        role = next((r for d, r in managed if _same_file(d, env_path)), ROLE_ENV)
+        candidates.append((env_path, role))
+    candidates.extend(managed)
     if not discovery_enabled(harness):
         candidates.extend((d, ROLE_UNMANAGED_ACCOUNT) for d in discover_claude_config_dirs(home))
     return candidates
