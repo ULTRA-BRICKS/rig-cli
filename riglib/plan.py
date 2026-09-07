@@ -1481,11 +1481,20 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
         # rig-managed permissions artifacts are left in place (rig never auto-deletes), but
         # a relaxed posture with the feature OFF must not be silent — note ONLY when there
         # is evidence something was actually provisioned (no noise on fresh machines).
+        from .harness_skills import pi_user_path as _pi_user_path
         from .permissions import (
             HARNESS_APPROVAL,
             HARNESS_INSTRUCTION_POLICY,
             guard_extension_path_for,
+            harness_permission_extension,
         )
+
+        # The TRUE historical default (pre-rig-cli#171): every rig-cli release before the pi
+        # instruction-policy path was fixed/made dynamic wrote here — NOT the current
+        # HARNESS_INSTRUCTION_POLICY["pi"] value below, which is already the FIXED default and
+        # so is indistinguishable from "no override set" (review finding, task PR171: checking
+        # only the current default as the "legacy" candidate misses the actual stale location).
+        _PI_TRUE_LEGACY_INSTRUCTION_FILE = "~/.config/pi/AGENTS.md"
 
         for kind in _permissions_kinds(config, p):
             leftovers = []
@@ -1496,7 +1505,34 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
                             config.repo_root)
                 )
             if kind in HARNESS_INSTRUCTION_POLICY:
-                leftovers.append(_expand(HARNESS_INSTRUCTION_POLICY[kind], config.repo_root))
+                # route through the DYNAMIC resolver (honors PI_CODING_AGENT_DIR for pi), not the
+                # static HARNESS_INSTRUCTION_POLICY[kind] snapshot — see the identical fix + note
+                # at the actual provisioning site below.
+                instr_target = _instruction_file_for(kind)
+                if instr_target:
+                    leftovers.append(_expand(instr_target, config.repo_root))
+                # ALSO check known-historical locations that differ from the resolved one (review
+                # finding, task PR171): a machine that ran an OLDER rig-cli can carry a stale
+                # managed block at a location this fixed release no longer targets. Checking only
+                # the current dynamic target would miss it: the leftover note (and thus the
+                # visible "still active" warning) silently disappears, even though the legacy file
+                # remains a LIVE managed block pi would read again the moment nothing overrides it.
+                legacy_candidates = {HARNESS_INSTRUCTION_POLICY.get(kind)}
+                if kind == "pi":
+                    legacy_candidates.add(_PI_TRUE_LEGACY_INSTRUCTION_FILE)
+                for legacy_target in legacy_candidates:
+                    if legacy_target and legacy_target != instr_target:
+                        leftovers.append(_expand(legacy_target, config.repo_root))
+            if kind == "pi":
+                # The extension + JSON policy file are pi's OTHER enforcement artifacts
+                # (_build_pi_extension below) — the disabled-state check must cover them too, or
+                # a machine with a live guard extension but a since-deleted/never-provisioned
+                # AGENTS.md advisory block gets no leftover warning at all even though pi still
+                # auto-loads and enforces the extension (review finding, task PR171).
+                ext_name = harness_permission_extension(kind)
+                if ext_name:
+                    leftovers.append(_expand(_pi_user_path(f"extensions/{ext_name}"), config.repo_root))
+                    leftovers.append(_expand(_pi_user_path("rig-permission-policy.json"), config.repo_root))
             if any(p_.exists() for p_ in leftovers):
                 plan.notes.append(
                     f"permissions: disabled — rig-managed guard/approval artifacts for '{kind}' "
@@ -1549,13 +1585,22 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
                 )
             )
         if instruction_policy_supported(kind):
+            # DYNAMIC resolver, not the static HARNESS_INSTRUCTION_POLICY[kind] dict value: the
+            # dict is a module-import-time snapshot that never re-derives, so for "pi" specifically
+            # it silently ignores a PI_CODING_AGENT_DIR override at plan-build time — the SAME
+            # override the pi permission-guard extension (_build_pi_extension, via pi_user_path)
+            # already honors. Without this, the advisory instruction-policy block would be written
+            # to the default ~/.pi/agent/AGENTS.md even when pi is actually rooted elsewhere,
+            # silently invisible to the running pi instance (review finding, task PR171).
+            instr_target = _instruction_file_for(kind)
+            assert instr_target, f"instruction_policy_supported({kind!r}) but no instruction file"
             plan.actions.append(
                 Action(
                     kind="provision_instruction_policy",
                     category="permissions",
                     item=kind,
                     source=config.repo_root,
-                    target=_expand(HARNESS_INSTRUCTION_POLICY[kind], config.repo_root),
+                    target=_expand(instr_target, config.repo_root),
                     options={"kind": kind},
                 )
             )

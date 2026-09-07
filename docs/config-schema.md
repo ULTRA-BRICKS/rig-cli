@@ -223,7 +223,7 @@ and harnesses split into three families by *how* they discover skills:
   invents a directory) and `rig status` reports the kind as *N/A — uses `<file>`* so the empty
   link area is explained, not silent. The [`agents_md`](#agents_md) area is repo-local
   AGENTS.md/CLAUDE.md provisioning, not a writer for these global files:
-  - **pi** → `~/.config/pi/AGENTS.md`
+  - **pi** → `~/.pi/agent/AGENTS.md` (or `$PI_CODING_AGENT_DIR/AGENTS.md` when set)
   - **commandcode** → `~/.commandcode/AGENTS.md`
 
 A skill copied into `~/.agents/skills` (the default `target`) is invisible to a skills-dir

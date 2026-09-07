@@ -115,6 +115,28 @@ def test_plan_emits_pi_extension_action(tmp_path, fake_agent_tools, monkeypatch)
     assert not any("has no allowlist to provision" in n and "pi" in n for n in plan.notes)
 
 
+def test_plan_instruction_policy_and_extension_share_pi_coding_agent_dir_root(
+    tmp_path, fake_agent_tools, monkeypatch
+):
+    """Review finding (task PR171, cross-file consistency): the extension target
+    (`provision_pi_extension`, via `_build_pi_extension`/`pi_user_path`) and the advisory
+    instruction-policy target (`provision_instruction_policy`, via `_build_guard_policy`) must
+    resolve under the SAME root when `PI_CODING_AGENT_DIR` is overridden — a split root means the
+    advisory AGENTS.md block is written where the running pi instance never looks. Both must route
+    through the dynamic resolver (`instruction_file_for`/`pi_user_path`), never the static
+    `HARNESS_INSTRUCTION_POLICY[kind]` dict snapshot, which does not honor the override."""
+    piroot = tmp_path / "piroot"
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(piroot))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    plan = build(_pi_cfg(repo, fake_agent_tools), Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    extension_action = _pi_action(plan)
+    assert extension_action.target == piroot / "extensions" / "permission-guard"
+    instr_actions = [a for a in plan.actions if a.kind == "provision_instruction_policy" and a.options["kind"] == "pi"]
+    assert len(instr_actions) == 1, plan.actions
+    assert instr_actions[0].target == piroot / "AGENTS.md"
+
+
 def test_plan_keeps_baseline_when_deny_ask_absent_for_pi(tmp_path, fake_agent_tools, monkeypatch):
     # Pins the invariant the override logic rests on: an ABSENT deny/ask key (not an empty list)
     # must still yield the full baked baseline, never an empty policy.

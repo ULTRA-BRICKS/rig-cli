@@ -52,7 +52,10 @@ Harnesses split into three families by HOW they surface skills:
       Codex CLI reads ``AGENTS.md``-style global instructions
       IN ADDITION to its ``~/.codex/skills`` dir above — dual membership).
     - **commandcode** → ``~/.commandcode/AGENTS.md`` (its global instruction dir, AGENTS.md-style).
-    - **pi** → ``~/.config/pi/AGENTS.md`` (AGENTS.md-style global instructions).
+    - **pi** → ``~/.pi/agent/AGENTS.md`` (or ``$PI_CODING_AGENT_DIR/AGENTS.md`` when explicitly
+      set, resolved dynamically via :func:`pi_agent_dir`/:func:`instruction_file_for` — NOT the
+      static :data:`HARNESS_INSTRUCTION_FILES` literal the other rows above use, since pi's root
+      is overridable and the static value would go stale under an override (rig-cli#171).
 
 Stdlib-only (the repo import rule): this is a pure registry; callers expand/serialize.
 """
