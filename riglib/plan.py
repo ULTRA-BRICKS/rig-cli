@@ -22,7 +22,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .catalog import Catalog, Item, rule_provider_carrier
-from .claude_config_dirs import SettingsTarget, fan_out_item, fan_out_settings
+from .claude_config_dirs import (
+    SETTINGS_FILENAME,
+    SettingsTarget,
+    fan_out_item,
+    fan_out_settings,
+    resolve_settings_paths,
+)
 from .config import (
     GITIGNORE_DEFAULT_ENTRIES,
     GITIGNORE_DEFAULT_EXCLUDESFILE,
@@ -1190,15 +1196,16 @@ def _claude_settings_targets(config: LoadedConfig, kind: str, primary: Path) -> 
     """
     if kind != "claude-code":
         return [SettingsTarget(primary, None)]
+    if not primary.suffix:
+        # the documented directory form (`settings_path: ~/.claude`) — the writers append the
+        # native filename at write time; resolve it HERE too, so the user-scope check sees the
+        # same file the writer converges instead of silently skipping the fan-out
+        primary = primary / SETTINGS_FILENAME
     h = config.data.get("harness")
-    harness = dict(h) if isinstance(h, dict) else {}
-    # explicit extra files go through the SAME resolver as settings_path (``~`` + repo-root
-    # relative), so a relative entry never reaches a writer as a cwd-dependent path
-    raw_paths = harness.get("settings_paths")
-    if isinstance(raw_paths, list):
-        harness["settings_paths"] = [
-            str(_expand(str(p), config.repo_root)) for p in raw_paths if isinstance(p, str) and p
-        ]
+    # explicit extra files go through the SAME resolver as settings_path (``$VAR`` + ``~`` +
+    # repo-root relative) — shared with `rig doctor`, so a relative entry never reaches a
+    # writer (or the doctor inventory) as a cwd-dependent path
+    harness = resolve_settings_paths(h if isinstance(h, dict) else {}, config.repo_root)
     return fan_out_settings(primary, harness)
 
 

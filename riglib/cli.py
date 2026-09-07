@@ -2858,10 +2858,19 @@ def _print_claude_config_dirs() -> list:
     folds them into its exit code; each gap names a fix that actually converges THAT dir.
     Prints nothing when only the default dir exists.
     """
-    from .claude_config_dirs import CONFIG_DIR_ENV, config_dir_gaps, doctor_config_dirs
+    from .claude_config_dirs import (
+        CONFIG_DIR_ENV,
+        config_dir_gaps,
+        doctor_config_dirs,
+        resolve_settings_paths,
+    )
     from .config import load_harness_fan_out
 
-    rows = doctor_config_dirs(harness=load_harness_fan_out(_doctor_repo_root()))
+    repo_root = _doctor_repo_root()
+    # the SAME resolver the plan uses: a relative settings_paths entry is anchored at the repo
+    # root, so doctor from a subdirectory inspects the file apply actually wrote
+    harness = resolve_settings_paths(load_harness_fan_out(repo_root), repo_root)
+    rows = doctor_config_dirs(harness=harness)
     gaps = config_dir_gaps(rows)
     if len(rows) < 2 and not gaps:
         return []
