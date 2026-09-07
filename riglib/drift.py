@@ -1892,13 +1892,29 @@ def _check_pi_extension(action: Action, report: DriftReport) -> None:
                 f"installed pi extension '{ext_name}' differs from the agent-tools source",
             )
         )
-    policy_file = Path(str(action.options["policy_file"]))
+    policy_file = Path(action.options["policy_file"])
     desired = pi_extension_policy_json(action)
-    if not policy_file.is_file():
+    # No separate `is_file()` pre-check: `read_text()` itself raises `FileNotFoundError` when the
+    # path is absent, so checking first would only duplicate the "missing" DriftItem AND open a
+    # TOCTOU window (a delete between the check and the read). One read, one set of outcomes: a
+    # path that IS a directory now reports "unreadable" via the OSError branch below instead of
+    # a bogus "missing" — arguably more accurate anyway (something IS there, just not a file).
+    try:
+        current = policy_file.read_text(encoding="utf-8")
+    except FileNotFoundError:
         report.items.append(
             DriftItem("missing", "permissions", action.item, policy_file, "pi permission policy file not written")
         )
-    elif policy_file.read_text(encoding="utf-8") != desired:
+        return
+    except (OSError, UnicodeDecodeError) as exc:
+        # The permission-guard extension itself fails CLOSED on an unreadable/invalid policy file
+        # (falls back to its baked baseline) — drift must report the same broken artifact, not
+        # crash `rig status`/config-web out from under the caller.
+        report.items.append(
+            DriftItem("modified", "permissions", action.item, policy_file, f"pi permission policy file unreadable: {exc}")
+        )
+        return
+    if current != desired:
         report.items.append(
             DriftItem("modified", "permissions", action.item, policy_file, "pi permission policy file differs from rig-desired")
         )

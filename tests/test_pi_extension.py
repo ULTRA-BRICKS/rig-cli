@@ -10,6 +10,7 @@ wiring that stops pi being an N/A skip.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -25,7 +26,7 @@ from riglib.permissions import (
     harness_permission_extension,
     pi_policy_document,
 )
-from riglib.plan import Action, InstallPlan, build
+from riglib.plan import Action, InstallPlan, PlanError, build
 
 
 # ── registry + policy document ────────────────────────────────────────────────────
@@ -118,7 +119,7 @@ def test_plan_emits_pi_extension_action(tmp_path, fake_agent_tools, monkeypatch)
 def test_plan_instruction_policy_and_extension_share_pi_coding_agent_dir_root(
     tmp_path, fake_agent_tools, monkeypatch
 ):
-    """Review finding (task PR171, cross-file consistency): the extension target
+    """The extension target
     (`provision_pi_extension`, via `_build_pi_extension`/`pi_user_path`) and the advisory
     instruction-policy target (`provision_instruction_policy`, via `_build_guard_policy`) must
     resolve under the SAME root when `PI_CODING_AGENT_DIR` is overridden — a split root means the
@@ -148,13 +149,29 @@ def test_plan_keeps_baseline_when_deny_ask_absent_for_pi(tmp_path, fake_agent_to
     assert len(action.options["policy"]["rules"]) > 1  # the full baked baseline, not wiped
 
 
-def test_plan_notes_non_list_deny_for_pi(tmp_path, fake_agent_tools, monkeypatch):
-    # A scalar deny (a plausible YAML typo, e.g. `deny: "Bash(rm:*)"` instead of a list) must not
-    # be silently dropped with zero feedback — it matches neither `== []` nor a populated list.
+def test_plan_rejects_non_list_deny_for_pi_sole_target(tmp_path, fake_agent_tools, monkeypatch):
+    # A scalar deny (a plausible YAML typo, e.g. `deny: "Bash(rm:*)"` instead of a list) is
+    # STILL "accepted then enforced nowhere" on the sole target — it must get the SAME treatment
+    # as a well-formed non-empty list (no `isinstance(val, list)` carve-out that would silently
+    # downgrade a malformed override to a mere note while a well-formed one raises).
     monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
     repo = tmp_path / "repo"
     repo.mkdir()
     cfg = _pi_cfg(repo, fake_agent_tools)
+    cfg.data["permissions"]["deny"] = "Bash(rm:*)"
+    with pytest.raises(PlanError, match="permissions.deny"):
+        build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+
+
+def test_plan_notes_non_list_deny_when_pi_is_one_of_several_targets(tmp_path, fake_agent_tools, monkeypatch):
+    # Same malformed-scalar shape as above, but pi is one of SEVERAL configured targets — dropped
+    # with a note like any other non-empty override in that case, not raised.
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _pi_cfg(repo, fake_agent_tools)
+    del cfg.data["permissions"]["kind"]
+    cfg.data["harness"] = {"enabled": True, "kind": "claude-code", "kinds": ["claude-code", "pi"]}
     cfg.data["permissions"]["deny"] = "Bash(rm:*)"
     plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
     assert any("raw deny entries dropped" in n and "pi" in n for n in plan.notes)
@@ -188,8 +205,6 @@ def test_plan_honors_empty_deny_ask_override_for_pi(tmp_path, fake_agent_tools, 
 
 def test_plan_wipes_only_the_overridden_role_for_pi(tmp_path, fake_agent_tools, monkeypatch):
     # deny/ask overrides are independent — wiping deny must NOT also wipe ask, and vice versa.
-    from riglib.permissions import pi_policy_document
-
     full_baseline_count = len(pi_policy_document()["rules"])
     ask_only_count = len(pi_policy_document(deny_override=[])["rules"])
     assert 0 < ask_only_count < full_baseline_count  # sanity: baseline has BOTH deny and ask rules
@@ -219,19 +234,104 @@ def test_plan_provisions_pi_extension_when_permissions_kind_pinned_off_harness_k
     assert action.options["kind"] == "pi"
 
 
-def test_plan_drops_non_empty_deny_ask_override_for_pi_with_note(tmp_path, fake_agent_tools, monkeypatch):
+def test_plan_rejects_override_when_permissions_kind_pins_pi_despite_claude_code_in_harness_kinds(
+    tmp_path, fake_agent_tools, monkeypatch
+):
+    # Discriminating case: `permissions.kind: pi` (pinned) alongside `harness.kinds: [claude-code,
+    # pi]`. `_permissions_kinds` honors the EXPLICIT `permissions.kind` pin over the harness-derived
+    # list — claude-code's allowlist is NOT built at all in this config (only "pi" is a permissions
+    # target), so a non-empty deny/ask override truly lands nowhere and must still raise, even
+    # though claude-code superficially "looks" configured via `harness.kinds`. Pins down that the
+    # `kinds` passed into `_build_pi_extension` is the PERMISSIONS-resolved list, not the raw
+    # harness-derived one — the two diverge exactly in this shape.
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _pi_cfg(repo, fake_agent_tools)  # permissions.kind: pi
+    cfg.data["harness"] = {"enabled": True, "kind": "claude-code", "kinds": ["claude-code", "pi"]}
+    cfg.data["permissions"]["deny"] = ["Bash(sudo rm:*)"]
+    with pytest.raises(PlanError, match="permissions.deny"):
+        build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+
+
+def test_plan_rejects_non_empty_deny_ask_override_when_pi_is_the_sole_target(tmp_path, fake_agent_tools, monkeypatch):
     # A populated deny/ask override is in claude-code's rule-STRING dialect (Bash(x:*)), which
-    # doesn't translate into pi's structured argvAll/flagsAny rule dicts — it must be dropped
-    # with a visible note, never silently ignored while still reconciling the baked baseline.
+    # doesn't translate into pi's structured argvAll/flagsAny rule dicts. When pi is the ONLY
+    # configured permissions target, silently dropping it would mean the override is accepted at
+    # config time but enforced NOWHERE at all — a real misconfiguration must fail loudly (PlanError)
+    # instead of a plan note nobody is guaranteed to read.
     monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
     repo = tmp_path / "repo"
     repo.mkdir()
     cfg = _pi_cfg(repo, fake_agent_tools)
     cfg.data["permissions"]["deny"] = ["Bash(sudo rm:*)"]
+    with pytest.raises(PlanError, match="permissions.deny"):
+        build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+
+
+def test_plan_rejects_non_empty_ask_override_when_pi_is_the_sole_target(tmp_path, fake_agent_tools, monkeypatch):
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _pi_cfg(repo, fake_agent_tools)
+    cfg.data["permissions"]["ask"] = ["Bash(pkill:*)"]
+    with pytest.raises(PlanError, match="permissions.ask"):
+        build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+
+
+def test_plan_rejects_and_reports_both_roles_when_deny_and_ask_both_set_on_sole_target(
+    tmp_path, fake_agent_tools, monkeypatch
+):
+    # When BOTH deny and ask are set on a sole target, the error must name both — reporting only
+    # the first would make the user fix deny, rerun, and only then discover ask is equally broken.
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _pi_cfg(repo, fake_agent_tools)
+    cfg.data["permissions"]["deny"] = ["Bash(sudo rm:*)"]
+    cfg.data["permissions"]["ask"] = ["Bash(pkill:*)"]
+    with pytest.raises(PlanError, match=r"permissions\.deny/permissions\.ask"):
+        build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+
+
+def test_plan_drops_non_empty_deny_override_with_note_when_pi_is_one_of_several_targets(
+    tmp_path, fake_agent_tools, monkeypatch
+):
+    # Unlike the sole-target case above: when pi is one of SEVERAL configured permissions
+    # targets, the override still takes effect for the other (compatible) harnesses — dropping it
+    # for pi alone with a visible note is a reasonable partial application, not a config-time
+    # error (mirrors the opencode dialect-mismatch drop).
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _pi_cfg(repo, fake_agent_tools)
+    del cfg.data["permissions"]["kind"]
+    cfg.data["harness"] = {"enabled": True, "kind": "claude-code", "kinds": ["claude-code", "pi"]}
+    cfg.data["permissions"]["deny"] = ["Bash(sudo rm:*)"]
     plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
     action = _pi_action(plan)
     assert action.options["policy"]["rules"]  # baseline still applied, not silently emptied
     assert any("raw deny entries dropped" in n and "pi" in n for n in plan.notes)
+
+
+def test_plan_rejects_non_empty_deny_override_when_pi_plus_opencode_neither_consumes_it(
+    tmp_path, fake_agent_tools, monkeypatch
+):
+    # Regression: "pi is the only configured target" (`kinds == [kind]`) is the WRONG predicate
+    # for "this override is enforced nowhere" — a `kinds=[pi, opencode]` config is EQUALLY dead,
+    # since opencode also drops a claude-code-dialect override (it uses its own baked
+    # opencode-dialect deny/ask baseline instead — see `_resolve_permission_rules`). The correct
+    # check is "does any configured kind actually consume the claude-code rule-string dialect"
+    # (only claude-code does), not "is pi literally the sole entry in `kinds`".
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _pi_cfg(repo, fake_agent_tools)
+    del cfg.data["permissions"]["kind"]
+    cfg.data["harness"] = {"enabled": True, "kind": "pi", "kinds": ["opencode"]}
+    cfg.data["permissions"]["deny"] = ["Bash(sudo rm:*)"]
+    with pytest.raises(PlanError, match="permissions.deny"):
+        build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
 
 
 def test_plan_notes_when_extension_missing_from_catalog(tmp_path, fake_agent_tools, monkeypatch):
@@ -244,6 +344,26 @@ def test_plan_notes_when_extension_missing_from_catalog(tmp_path, fake_agent_too
     plan = build(_pi_cfg(repo, fake_agent_tools), Catalog.scan(str(fake_agent_tools)), project_type="unknown")
     assert not any(a.kind == "provision_pi_extension" for a in plan.actions)
     assert any("not found in the agent-tools catalog" in n for n in plan.notes)
+
+
+def test_plan_rejects_non_empty_override_even_when_extension_missing_from_catalog(
+    tmp_path, fake_agent_tools, monkeypatch
+):
+    # Regression: the "enforced nowhere" validation must fire REGARDLESS of whether the pi
+    # extension carrier is present in the catalog — an earlier version returned early on a
+    # missing carrier (with just a "not found in catalog" note) before ever reaching the deny/ask
+    # check, silently accepting an override that plainly can never be enforced (there is no
+    # extension to write a policy file for at all).
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
+    import shutil
+
+    shutil.rmtree(fake_agent_tools / "pi-extensions")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _pi_cfg(repo, fake_agent_tools)
+    cfg.data["permissions"]["deny"] = ["Bash(sudo rm:*)"]
+    with pytest.raises(PlanError, match="permissions.deny"):
+        build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
 
 
 # ── validate ────────────────────────────────────────────────────────────────────────
@@ -290,12 +410,12 @@ def test_runner_backs_up_conflicting_policy(tmp_path, fake_agent_tools, monkeypa
     policy_file.parent.mkdir(parents=True, exist_ok=True)
     policy_file.write_text('{"version":1,"default":"allow","rules":[{"id":"stale"}]}\n')
     report = run_plan(plan)  # on_conflict defaults to backup
-    assert any(r.backup is not None for r in report.results)
-    # the desired policy is now in place; a backup of the stale one exists alongside
+    # look up by action kind, not index — robust against a future change to plan action ordering
+    result = next(r for r in report.results if r.action.kind == "provision_pi_extension")
+    assert result.backup is not None
+    # the desired policy is now in place; the concrete backup path holds the stale content
     assert "stale" not in policy_file.read_text()
-    assert any(p.name.startswith("rig-permission-policy") for p in policy_file.parent.glob("*.bak*")) or any(
-        "stale" in p.read_text() for p in policy_file.parent.iterdir() if p.is_file() and p != policy_file
-    )
+    assert "stale" in result.backup.read_text()
 
 
 # ── drift ─────────────────────────────────────────────────────────────────────────
@@ -347,6 +467,44 @@ def test_drift_modified_when_installed_extension_differs(tmp_path, fake_agent_to
     (tmp_path / "piroot" / "extensions" / "permission-guard" / "index.ts").write_text("tampered\n")
     report = detect(plan)
     assert any(d.direction == "modified" and "differs from the agent-tools source" in d.detail for d in report.items)
+
+
+def test_drift_reports_modified_instead_of_crashing_on_invalid_utf8_policy(tmp_path, fake_agent_tools, monkeypatch):
+    # The permission-guard extension itself fails CLOSED on an unreadable/invalid policy file
+    # (falls back to its baked baseline) — drift (and therefore `rig status`/config-web) must
+    # report the same broken artifact as `modified`, not crash the whole command with an
+    # uncaught UnicodeDecodeError.
+    plan = _build_pi_plan(tmp_path, fake_agent_tools, monkeypatch)
+    run_plan(plan)
+    policy_file = tmp_path / "piroot" / "rig-permission-policy.json"
+    policy_file.write_bytes(b"\xff\xfe not valid utf-8")
+    report = detect(plan)  # must not raise
+    assert any(
+        d.direction == "modified" and "policy file unreadable" in d.detail for d in report.items
+    ), report.items
+
+
+def test_drift_reports_modified_instead_of_crashing_on_unreadable_policy_permissions(
+    tmp_path, fake_agent_tools, monkeypatch
+):
+    # Same fail-explicit contract for an OSError (e.g. a permission-denied policy file), not
+    # just UnicodeDecodeError.
+    plan = _build_pi_plan(tmp_path, fake_agent_tools, monkeypatch)
+    run_plan(plan)
+    policy_file = tmp_path / "piroot" / "rig-permission-policy.json"
+    policy_file.chmod(0o000)
+    try:
+        # root bypasses file-mode read checks entirely, so chmod(0o000) would silently fail to
+        # exercise the OSError path under a root-run CI container — fail loudly rather than
+        # silently not testing anything.
+        if os.access(policy_file, os.R_OK):
+            pytest.skip("running as a user that can read a 0o000 file (root?) — cannot exercise this path")
+        report = detect(plan)  # must not raise
+    finally:
+        policy_file.chmod(0o644)  # restore so cleanup can remove tmp_path
+    assert any(
+        d.direction == "modified" and "policy file unreadable" in d.detail for d in report.items
+    ), report.items
 
 
 def test_pi_policy_document_does_not_alias_baseline_lists():

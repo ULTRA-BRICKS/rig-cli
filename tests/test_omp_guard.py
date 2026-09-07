@@ -1164,7 +1164,7 @@ def test_plan_notes_leftover_artifacts_when_permissions_disabled(fake_agent_tool
 
 
 def test_plan_notes_legacy_pi_instruction_leftover_under_override(fake_agent_tools, tmp_path, monkeypatch):
-    """Review finding (task PR171): a machine that ran an OLDER rig-cli — before the pi
+    """A machine that ran an OLDER rig-cli — before the pi
     instruction-policy target was resolved dynamically — could carry a stale managed block at
     the static default path (~/.pi/agent/AGENTS.md) even while PI_CODING_AGENT_DIR now points
     pi somewhere else. Disabling permissions must still surface that legacy leftover, not just
@@ -1190,7 +1190,7 @@ def test_plan_notes_legacy_pi_instruction_leftover_under_override(fake_agent_too
 
 
 def test_plan_notes_true_historical_pi_instruction_leftover(fake_agent_tools, tmp_path, monkeypatch):
-    """Review finding (task PR171, round 2): the TRUE pre-rig-cli#171 default was
+    """The TRUE pre-rig-cli#171 default was
     ~/.config/pi/AGENTS.md (the wrong path HARNESS_INSTRUCTION_FILES["pi"] held before that fix)
     — not ~/.pi/agent/AGENTS.md, which is already the CURRENT (fixed) default and so is only a
     meaningful 'legacy' candidate when an override is set (covered by the sibling test above).
@@ -1214,7 +1214,7 @@ def test_plan_notes_true_historical_pi_instruction_leftover(fake_agent_tools, tm
 
 
 def test_plan_notes_pi_extension_leftover_when_instruction_file_absent(fake_agent_tools, tmp_path, monkeypatch):
-    """Review finding (task PR171, round 2): pi's OTHER enforcement artifact — the installed
+    """pi's OTHER enforcement artifact — the installed
     permission-guard extension + its JSON policy file — must ALSO be checked when permissions
     are disabled, not just the advisory AGENTS.md block. Without this, a live guard extension
     with a since-deleted/never-provisioned AGENTS.md gets no leftover warning at all, even

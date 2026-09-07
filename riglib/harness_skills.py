@@ -115,6 +115,17 @@ HARNESS_INSTRUCTION_FILES: dict[str, str] = {
     "commandcode": "~/.commandcode/AGENTS.md",
 }
 
+# Stale locations a PAST rig-cli release wrote the instruction-policy block to, before the
+# location became dynamic (``instruction_file_for``) or was otherwise corrected. A machine
+# provisioned under an older release can still carry a live managed block here even though the
+# CURRENT resolver never targets it again — the disabled-state leftover check needs to know about
+# it too, or a "still active" warning silently disappears for anyone on that history. Keyed by
+# kind so a future migration adds one entry here rather than an ad-hoc local constant at the call
+# site.
+LEGACY_INSTRUCTION_FILES: dict[str, str] = {
+    "pi": "~/.config/pi/AGENTS.md",
+}
+
 # Every harness kind rig knows a skill/instruction discovery convention for — the union of the
 # three families. ``harness.kind`` is accepted when it is in this set (rig can provision SOMETHING
 # for it), even if a specific area (auto-mode write, allowlist) does not yet support it.

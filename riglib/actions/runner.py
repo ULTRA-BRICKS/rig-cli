@@ -87,6 +87,11 @@ class ActionResult:
     action: Action
     status: str  # created | updated | skipped | backed_up | error
     detail: str
+    # SINGLE backup slot — a handler that backs up TWO independently-conflicting artifacts (e.g.
+    # ``_do_provision_pi_extension``'s extension dir + policy file) can only surface ONE of the two
+    # paths here; carry the other in ``detail``'s free text instead of losing it. Do not widen this
+    # to a list without also auditing every caller/test that assumes ``backup`` is a single
+    # ``Path | None`` (the dispatcher/mcp/workflow handlers all read it that way today).
     backup: Path | None = None
 
     @property
@@ -8582,7 +8587,7 @@ def _do_provision_pi_extension(action: Action, on_conflict: str) -> ActionResult
     pi has NO built-in permission system, so this extension IS pi's permission belt — the deny/ask
     effect the other harnesses get from their config allowlists. Fail-explicit on IO.
     """
-    policy_file = Path(str(action.options["policy_file"]))
+    policy_file = Path(action.options["policy_file"])
     notes: list[str] = []
     backup: Path | None = None
     statuses: list[str] = []
@@ -8604,15 +8609,12 @@ def _do_provision_pi_extension(action: Action, on_conflict: str) -> ActionResult
 
     # overall status precedence: `error` is the highest-priority outcome — a failure in EITHER step
     # must never be masked by the other step's `backed_up`/`updated` (else a real failure reports
-    # success). Then backed_up > created/updated > skipped (any real change is not a skip).
-    if "error" in statuses:
-        overall = "error"
-    elif "backed_up" in statuses:
-        overall = "backed_up"
-    elif "created" in statuses or "updated" in statuses:
-        overall = "updated" if "updated" in statuses else "created"
-    else:
-        overall = "skipped"
+    # success). Then backed_up > updated > created > skipped (any real change is not a skip). Every
+    # individual status is one of these 5 values today and `statuses` always has 2 entries, so
+    # "skipped" is expected to always match — but the explicit `"skipped"` default (rather than
+    # relying on that invariant to avoid `StopIteration`) means a future 6th status value fails
+    # safe into "skipped" instead of raising a raw, uninformative `StopIteration`.
+    overall = next((s for s in ("error", "backed_up", "updated", "created", "skipped") if s in statuses), "skipped")
     return ActionResult(
         action, overall, f"permissions/pi-extension {action.options.get('extension')}: " + "; ".join(notes), backup
     )

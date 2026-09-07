@@ -46,8 +46,9 @@ Stdlib-only (the repo import rule): no yaml/json here; callers serialize.
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Literal, TypedDict
 
 from .harness_skills import HARNESS_INSTRUCTION_FILES, omp_agent_root
 
@@ -200,12 +201,40 @@ HARNESS_PERMISSION_EXTENSIONS: dict[str, str] = {
     "pi": "permission-guard",
 }
 
+
+class _PiPolicyRuleRequired(TypedDict):
+    """The fields present on EVERY baked rule (verified: all 8 entries across ``PI_DENY_RULES``/
+    ``PI_ASK_RULES`` carry every one of these) — split out so :class:`PiPolicyRule` can require
+    them while still leaving the match-criteria fields optional (a plain ``total=False`` TypedDict
+    would let a dict missing any of them type-check, defeating the point of documenting the shape
+    at all)."""
+
+    id: str
+    action: Literal["deny", "ask"]
+    command: str
+    reason: str
+
+
+class PiPolicyRule(_PiPolicyRuleRequired, total=False):
+    """One rule in the pi ``permission-guard`` extension's policy JSON (``rig-permission-policy.json``).
+
+    Mirrors the extension's own rule shape (agent-tools ``pi-extensions/permission-guard/policy.ts``):
+    ``id``/``action``/``command``/``reason`` are always present on a baked rule (required, via
+    :class:`_PiPolicyRuleRequired`); ``argvAll`` (every listed token must appear, in any position)
+    and ``flagsAny`` (at least one listed flag must appear) are the only genuinely OPTIONAL match
+    criteria — a rule may carry either, both, or neither (matching on ``command`` alone).
+    """
+
+    argvAll: list[str]
+    flagsAny: list[str]
+
+
 # The pi policy dialect is argv-intent / flag-ANYWHERE (what the extension's matcher enforces), NOT
 # claude-code's prefix globs — so it can catch e.g. `git commit -m "..." --no-verify` that prefix
 # rules miss. SYNC: keep in step with the extension's baked DEFAULT_POLICY in agent-tools
 # ``pi-extensions/permission-guard/policy.ts`` (rig writes these rules into the policy file the
 # extension reads; the extension embeds the same set as its fail-closed fallback).
-PI_DENY_RULES: tuple[dict[str, object], ...] = (
+PI_DENY_RULES: tuple[PiPolicyRule, ...] = (
     {
         "id": "gh-pr-merge",
         "action": "deny",
@@ -242,7 +271,7 @@ PI_DENY_RULES: tuple[dict[str, object], ...] = (
         "reason": "screenshots go through Playwright/CDP; screencapture black-frames off-Space windows",
     },
 )
-PI_ASK_RULES: tuple[dict[str, object], ...] = (
+PI_ASK_RULES: tuple[PiPolicyRule, ...] = (
     {
         "id": "pkill",
         "action": "ask",
@@ -276,8 +305,8 @@ def harness_permission_extension(kind: str) -> str | None:
 
 
 def pi_policy_document(
-    deny_override: list[dict[str, object]] | None = None,
-    ask_override: list[dict[str, object]] | None = None,
+    deny_override: list[PiPolicyRule] | None = None,
+    ask_override: list[PiPolicyRule] | None = None,
 ) -> dict[str, object]:
     """The policy JSON rig writes for the pi ``permission-guard`` extension to read.
 
@@ -289,8 +318,6 @@ def pi_policy_document(
     # deepcopy so the returned document owns its nested argvAll/flagsAny lists — a shallow dict(r)
     # would alias the module-level PI_DENY_RULES/PI_ASK_RULES lists, and any in-place mutation of the
     # returned rules would corrupt the baseline for every subsequent call in the process.
-    import copy
-
     deny = list(deny_override) if deny_override is not None else copy.deepcopy(list(PI_DENY_RULES))
     ask = list(ask_override) if ask_override is not None else copy.deepcopy(list(PI_ASK_RULES))
     return {"version": 1, "default": "allow", "rules": [*deny, *ask]}
