@@ -705,6 +705,17 @@ def test_allow_gh_false_revokes_only_one_copy_of_a_hand_duplicated_entry(fake_ag
     allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
     assert allow_after.count("Bash(gh:*)") == 1, "one copy revoked, the hand-added duplicate kept"
 
+    # round-13 review finding: a SECOND identical apply (idempotent re-apply of the same config)
+    # must not treat the user's surviving duplicate as rig's own and revoke it too. Before the
+    # fix, the receipt kept claiming the entry as granted after rig's own copy was already taken
+    # back (presence is boolean, doesn't distinguish WHICH physical copy remains) — so a re-apply
+    # would delete the user's last remaining copy, violating both idempotency and the
+    # "only one rig-proven copy is ever revoked" contract.
+    plan3 = build(_cfg(repo, fake_agent_tools, settings, allow_gh=False), cat, project_type="unknown")
+    run_plan(plan3)
+    allow_after_reapply = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert allow_after_reapply.count("Bash(gh:*)") == 1, "re-apply must not delete the user's copy"
+
 
 def test_opencode_allow_gh_false_revokes_a_rig_granted_default_entry(fake_agent_tools, tmp_path):
     # the opencode mirror: same receipt mechanism, object-form container (`gh *` key).
@@ -1101,6 +1112,31 @@ def test_malformed_json_backup_then_rewrites_under_backup(fake_agent_tools, tmp_
     report = run_plan(build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown"))
     perm = _perm_results(report)
     assert perm and perm[0].status == "backed_up" and "malformed" in perm[0].detail
+    assert any(p.name.startswith("settings.json.rig-bak-") for p in repo.iterdir())
+    assert json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"] == ["Bash(git:*)"]
+
+
+def test_malformed_json_still_backed_up_under_on_conflict_overwrite(fake_agent_tools, tmp_path):
+    # round-13 review finding: the round-11 refactor deferred the malformed-file backup to write
+    # time but accidentally gated it on `_should_backup` (the WELL-FORMED-file predicate,
+    # `on_conflict == "backup"` only) instead of the original, policy-independent
+    # `on_conflict != "skip"` — silently dropping the backup for `on_conflict: overwrite` and
+    # resetting the malformed file to `{}` with zero recovery copy, contradicting the function's
+    # own "never a blind overwrite of the user's data" docstring line.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    settings.write_text("{ broken", encoding="utf-8")
+    cfg = _cfg(repo, fake_agent_tools, settings, tools=["git"])
+    cfg.data["defaults"] = {"on_conflict": "overwrite"}
+    report = run_plan(build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown"))
+    perm = _perm_results(report)
+    assert perm
+    # NB: don't assert bare "malformed" in perm[0].detail here — pytest's tmp_path embeds this
+    # test's own NAME in the temp dir it hands back (e.g. .../test_malformed_json_still_back0/...),
+    # so that substring is present in the path portion of `detail` regardless of whether a backup
+    # actually happened, silently defeating the check either way. Assert the specific backup-note
+    # phrase instead, plus (the real signal) that a backup file actually landed on disk.
+    assert "(backed up malformed config" in perm[0].detail
     assert any(p.name.startswith("settings.json.rig-bak-") for p in repo.iterdir())
     assert json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"] == ["Bash(git:*)"]
 

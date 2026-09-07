@@ -1968,7 +1968,7 @@ def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
         # it). Safe to sync here unconditionally: no write to `config_file` happens in this
         # branch, so there is no failure window between "receipt says rig owns it" and "the file
         # actually reflects that".
-        _sync_permissions_receipt(ctx, data, present_before)
+        _sync_permissions_receipt(ctx, data, present_before, revoked)
         return ActionResult(
             action, "skipped",
             f"permissions/{action.item}: all {total_desired} entries already in {ctx.config_file}",
@@ -1986,7 +1986,17 @@ def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
     # to revoke) — closing the SAME "spurious backup for an action that ends up writing nothing"
     # class the fully-empty-action guard above (finding #3) closes, just reached via the
     # revoke-only path that guard doesn't cover on its own.
-    if was_malformed and _should_backup(on_conflict):
+    #
+    # Gated on `on_conflict != "skip"`, NEVER on `_should_backup` (review finding, rig-cli#333
+    # round 13): `_should_backup` is the WELL-FORMED-file predicate (`on_conflict == "backup"`
+    # only — "overwrite" deliberately skips that ceremony for a file rig can already parse and
+    # safely re-merge into). A MALFORMED file is different: rig is about to blow away content it
+    # never parsed and can't merge into, which is a real, one-way information loss regardless of
+    # the well-formed-file policy — the round-11 refactor accidentally reused `_should_backup` here
+    # and silently dropped the always-back-up-malformed-unless-skip guarantee for `on_conflict:
+    # overwrite`, contradicting this function's own "never a blind overwrite of the user's data"
+    # docstring line. Restored to the original, policy-independent condition.
+    if was_malformed and on_conflict != "skip":
         bak = fsutil.backup_path(ctx.config_file)
         shutil.copy2(str(ctx.config_file), str(bak))
         backup_note = f" (backed up malformed config → {bak})"
@@ -2020,7 +2030,7 @@ def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
     # receipt module comment) — so this is a deliberate trade, not an oversight: a rare double
     # fault (two independent writes to two different files, one succeeding and one not) degrades
     # to "fix it by hand" rather than reopening the adoption hole for a common case.
-    _sync_permissions_receipt(ctx, data, present_before)
+    _sync_permissions_receipt(ctx, data, present_before, revoked)
     # "backed_up" when we preserved a prior copy; else "updated" if the file pre-existed (we merged
     # entries into it), or "created" if we wrote it fresh. Don't report "created" for a file we
     # actually modified under a non-backup policy (the review's misleading-status finding).
@@ -2069,6 +2079,7 @@ def _load_permissions_settings(
 
 def _sync_permissions_receipt(
     ctx: _PermissionRevocationContext, data: dict, present_before: frozenset[str],
+    revoked: list[str],
 ) -> None:
     """Write the sidecar receipt so it reflects what rig owns AFTER this apply.
 
@@ -2092,6 +2103,17 @@ def _sync_permissions_receipt(
     before rig's own default merge would have added it, was ALSO "absent before" — but it is the
     user's explicit, config-owned assertion (documented as never receipted), not something rig can
     claim credit for granting.
+
+    ``revoked`` (the entries :func:`_revoke_stale_default_grants` actually removed THIS apply) is
+    also subtracted, unconditionally (review finding, rig-cli#333 round 13): array-form revocation
+    removes AT MOST ONE occurrence per string, so a hand-DUPLICATED entry (rig's receipted copy
+    plus an identical user-added copy) still shows up in ``present_after`` — the physical copy
+    left behind is the user's, not rig's, but ``present_after`` can't tell the copies apart by
+    string alone. Without this subtraction the receipt kept claiming the entry as granted after
+    rig's own copy was already taken back, so a SECOND identical apply would revoke the user's
+    surviving copy too — an idempotency violation (a re-apply of the same config must be a no-op)
+    and a silent violation of the "only one rig-proven copy is ever revoked" contract on the second
+    pass. Once rig has taken its copy back, it never again claims ownership of whatever remains.
     """
     present_after = _default_allow_presence(data, ctx.allow_spec)
     newly_added = (ctx.desired_default_allow - present_before) - ctx.never_receipt
@@ -2105,7 +2127,7 @@ def _sync_permissions_receipt(
     # than at the very first apply. Subtracting from the union means an explicit declaration
     # ALWAYS drops the entry from the receipt, in every apply where it's present, regardless of
     # which earlier apply originally granted it.
-    granted = ((ctx.prior_granted | newly_added) - ctx.never_receipt) & present_after
+    granted = ((ctx.prior_granted | newly_added) - ctx.never_receipt - frozenset(revoked)) & present_after
     if not granted and not ctx.receipt_file.exists():
         return
     content = json.dumps({"template": 1, "kind": ctx.kind, "granted": sorted(granted)}, indent=2) + "\n"
