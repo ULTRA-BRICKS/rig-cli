@@ -52,6 +52,7 @@ def _full_hook_bridge_settings() -> dict:
                 {"matcher": "Agent|Task", "hooks": [command("PreToolUse")]},
                 {"matcher": "Skill", "hooks": [command("PreToolUse")]},
                 {"matcher": "Monitor", "hooks": [command("PreToolUse")]},
+                {"matcher": "EnterWorktree", "hooks": [command("PreToolUse")]},
             ],
             "PostToolUse": [
                 {"matcher": "Edit|Write|MultiEdit|NotebookEdit", "hooks": [command("PostToolUse")]},
