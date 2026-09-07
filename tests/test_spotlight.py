@@ -239,7 +239,7 @@ def test_drift_spotlight_scans_full_set_not_just_sample(tmp_path, monkeypatch):
         covered.append(d)
     missed = root / "zzz_missed/node_modules"
     missed.mkdir(parents=True)  # the sweep should have covered this one and did not
-    spotlight.record_sweep(_sel(root), 1000.0, [*covered, missed])
+    spotlight.record_sweep(_sel(root), 1000.0, spotlight.identities_of([*covered, missed]))
     # Deterministic order: the uncovered dir is LAST, beyond the first-N window the old code sampled.
     monkeypatch.setattr(spotlight, "iter_target_dirs", lambda *a, **k: [*covered, missed])
     drift = _spotlight_drift(action)
@@ -378,7 +378,7 @@ def test_scan_coverage_splits_stale_from_pending(tmp_path):
     assert list(cov.pending) == [fresh] and not cov.stale
 
     # a sweep that DID visit it and left it uncovered → the sweep missed it: stale
-    spotlight.record_sweep(_sel(root), 1000.0, [fresh])
+    spotlight.record_sweep(_sel(root), 1000.0, spotlight.identities_of([fresh]))
     cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
     assert list(cov.stale) == [fresh] and not cov.pending
 
@@ -404,24 +404,64 @@ def test_recreated_dir_at_the_same_path_is_pending_not_stale(tmp_path):
     """`rm -rf dist && mkdir dist` after the sweep: the path is in the record but the dir is NEW.
 
     Pathname membership alone would call it stale (the sweep "visited" that path) and turn
-    `rig status` red after every build; identity (inode) tells the recreated dir apart.
+    `rig status` red after every build; identity (inode) tells the recreated dir apart. The
+    rebuild is simulated by giving the recorded entry another inode, so the test does not depend
+    on the filesystem refusing to hand the freed inode straight back (ext4 may; APFS never does).
     """
-    import shutil
-
     root = tmp_path / "work"
     _make_tree(root)
     spotlight.perform_sweep((root,), frozenset(spotlight.DEFAULT_DENY))
     rebuilt = root / "proj/node_modules"
-    shutil.rmtree(rebuilt)
-    rebuilt.mkdir()
+    spotlight.sentinel_path(rebuilt).unlink()
+    record = spotlight.last_sweep(_sel(root))
+    dev, ino = record.seen[str(rebuilt)]
+    spotlight.record_sweep(_sel(root), record.at, {**record.seen, str(rebuilt): (dev, ino + 1)})
     cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
     assert list(cov.pending) == [rebuilt] and not cov.stale and cov.covered == 4
+
+
+def test_sweep_records_the_identity_seen_at_the_visit_not_after_the_walk(tmp_path, monkeypatch):
+    """A dir rebuilt while the sweep is still walking the REST of the tree must be recorded under
+    the inode the sweep actually touched — re-stat'ing after the walk would store the rebuilt
+    dir's inode and read the (sentinel-less) rebuild back as stale (PR #387 review round 3)."""
+    import shutil
+
+    root = tmp_path / "work"
+    _make_tree(root)
+    victim = root / "proj/node_modules"
+    real_iter, real_identity = spotlight.iter_target_dirs, spotlight.dir_identity
+    # visit the victim FIRST so the rest of the walk still lies ahead when it gets rebuilt
+    monkeypatch.setattr(
+        spotlight, "iter_target_dirs",
+        lambda *a, **k: [victim, *[d for d in real_iter(*a, **k) if d != victim]],
+    )
+    rebuilt = False
+
+    def identity_then_rebuild(d):
+        nonlocal rebuilt
+        ident = real_identity(d)
+        if d != victim and not rebuilt:
+            # the sweep has moved past the victim: a build replaces it while the walk goes on
+            rebuilt = True
+            shutil.rmtree(victim)
+            victim.mkdir()
+        if d == victim and rebuilt and ident is not None:
+            # the rebuilt dir is another inode, whether or not this filesystem reuses numbers
+            return (ident[0], ident[1] + 1)
+        return ident
+
+    monkeypatch.setattr(spotlight, "dir_identity", identity_then_rebuild)
+    spotlight.perform_sweep((root,), frozenset(spotlight.DEFAULT_DENY))
+    assert rebuilt and not spotlight.has_sentinel(victim)
+    monkeypatch.setattr(spotlight, "iter_target_dirs", real_iter)
+    cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
+    assert list(cov.pending) == [victim] and not cov.stale
 
 
 def test_last_sweep_ignores_a_record_made_for_other_roots(tmp_path):
     """After a config change adds a root, the old record says nothing about it — treat as never."""
     a, b = tmp_path / "a", tmp_path / "b"
-    spotlight.record_sweep(_sel(a), 1000.0, [])
+    spotlight.record_sweep(_sel(a), 1000.0, {})
     assert spotlight.last_sweep(_sel(a)).at == 1000.0
     assert spotlight.last_sweep(_sel(a, b)) is None
 
@@ -447,13 +487,13 @@ def test_last_sweep_ignores_a_record_made_with_another_denylist_or_depth(tmp_pat
 def test_last_sweep_is_insensitive_to_root_and_deny_order(tmp_path):
     """Reordering the configured roots or denylist changes nothing about what was swept."""
     a, b = tmp_path / "a", tmp_path / "b"
-    spotlight.record_sweep(_sel(a, b, deny=["x", "y"]), 1000.0, [])
+    spotlight.record_sweep(_sel(a, b, deny=["x", "y"]), 1000.0, {})
     assert spotlight.last_sweep(_sel(b, a, deny=["y", "x"])).at == 1000.0
 
 
 def test_last_sweep_treats_a_corrupt_record_as_no_sweep(tmp_path):
     """A truncated / hand-edited record reads as "never swept" — strict, never permissive."""
-    spotlight.record_sweep(_sel(tmp_path / "a"), 1000.0, [])
+    spotlight.record_sweep(_sel(tmp_path / "a"), 1000.0, {})
     spotlight.state_path().write_text('{"at": 1000.0, "roots": [', encoding="utf-8")
     assert spotlight.last_sweep(_sel(tmp_path / "a")) is None
 
@@ -532,7 +572,7 @@ def test_drift_names_the_stale_count(tmp_path, monkeypatch):
     missed = root / "zzz/node_modules"
     missed.mkdir(parents=True)
     record = spotlight.last_sweep(_sel(root))
-    spotlight.record_sweep(_sel(root), record.at, [*(Path(p) for p in record.seen), missed])
+    spotlight.record_sweep(_sel(root), record.at, {**record.seen, **spotlight.identities_of([missed])})
     drift = _spotlight_drift(action)
     assert [d.direction for d in drift] == ["missing"]
     assert "1/6" in drift[0].detail and spotlight.SENTINEL_NAME in drift[0].detail

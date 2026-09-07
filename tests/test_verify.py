@@ -211,7 +211,7 @@ def test_verify_spotlight_checks_every_dir_not_a_sample(tmp_path, monkeypatch):
     sel = spotlight.SweepSelector((root,), frozenset(spotlight.DEFAULT_DENY))
     record = spotlight.last_sweep(sel)
     # the sweep DID visit it and left it uncovered → a real miss, not a newcomer
-    spotlight.record_sweep(sel, record.at, [*(Path(p) for p in record.seen), missed])
+    spotlight.record_sweep(sel, record.at, {**record.seen, **spotlight.identities_of([missed])})
     plan = InstallPlan()
     plan.actions.append(_spotlight_action(root, "ai.hyperide.spotlight-exclude"))
     report = verify.verify_plan(plan)

@@ -346,7 +346,10 @@ class SweepRecord:
     sweep" and be excused. Identity, not the bare pathname, because ``rm -rf dist && mkdir dist``
     is how builds work: the NEW ``dist`` at the old path was never swept — it is pending, not a
     sweep failure — and a fresh inode is what tells the two apart (PR #387 review). The same
-    inode with no sentinel is the hand-deleted case: stale.
+    inode with no sentinel is the hand-deleted case: stale. (A filesystem that hands the freed
+    inode straight back to the next ``mkdir`` — ext4 can — cannot tell the two apart and files
+    the rebuilt dir as stale, which is no worse than the pathname-only behaviour; APFS, the
+    Spotlight target, never reuses inode numbers.)
     """
 
     at: float
@@ -359,12 +362,26 @@ def dir_identity(directory: Path) -> tuple[int, int] | None:
         st = os.stat(directory)
     except OSError:
         return None
-    return (int(st.st_dev), int(st.st_ino))
+    return (st.st_dev, st.st_ino)
 
 
-def record_sweep(selector: SweepSelector, started_at: float, seen: "list[Path]") -> None:
-    """Record a completed sweep: its selector, start time and every matched dir it visited.
-    Best-effort.
+def identities_of(dirs: "list[Path]") -> dict[str, tuple[int, int]]:
+    """The identity map for dirs that exist right now (a vanished dir is simply left out)."""
+    out: dict[str, tuple[int, int]] = {}
+    for d in dirs:
+        ident = dir_identity(d)
+        if ident is not None:
+            out[str(d)] = ident
+    return out
+
+
+def record_sweep(
+    selector: SweepSelector, started_at: float, seen: dict[str, tuple[int, int]]
+) -> None:
+    """Record a completed sweep: its selector, start time and every matched dir it visited, each
+    with the identity it had AT THE VISIT (:func:`identities_of` / :func:`dir_identity`) —
+    never re-stat'ed here, because a dir rebuilt while the rest of the tree was still being
+    walked would otherwise be recorded under its NEW inode and read back as stale. Best-effort.
 
     Written atomically (temp file + ``os.replace``) because the launchd re-sweep job and an
     interactive ``rig status`` can touch this file at the same moment; a half-written file would
@@ -374,13 +391,11 @@ def record_sweep(selector: SweepSelector, started_at: float, seen: "list[Path]")
     uncovered counts as stale), which is the safe direction to fail in.
     """
     path = state_path()
-    identities = {str(d): dir_identity(d) for d in seen}
     payload = json.dumps(
         {
             "at": float(started_at),
             **selector.fingerprint(),
-            # a dir that vanished between the walk and the record is simply not recorded
-            "seen": {p: list(ident) for p, ident in identities.items() if ident is not None},
+            "seen": {p: list(ident) for p, ident in seen.items()},
         }
     )
     tmp = path.with_name(path.name + f".tmp-{os.getpid()}")
@@ -468,7 +483,11 @@ def scan_coverage(selector: SweepSelector, record: SweepRecord | None = None) ->
     for directory in iter_target_dirs(selector.roots, selector.deny, selector.max_depth):
         if has_sentinel(directory):
             covered += 1
-        elif record is not None and record.seen.get(str(directory)) != dir_identity(directory):
+            continue
+        identity = dir_identity(directory)
+        if identity is None:
+            continue  # vanished between the walk and this stat — nothing here to classify
+        if record is not None and record.seen.get(str(directory)) != identity:
             # never visited, or visited and RECREATED since (`rm -rf dist && mkdir dist`): the
             # dir standing here now was never swept — pending. Same inode, no sentinel → stale.
             pending.append(directory)
@@ -494,8 +513,13 @@ def perform_sweep(
     missing: list[Path] = []
     for root in roots:
         (scanned if root.is_dir() else missing).append(root)
-    visited = iter_target_dirs(roots, deny, max_depth)
-    for directory in visited:
+    visited: dict[str, tuple[int, int]] = {}
+    for directory in iter_target_dirs(roots, deny, max_depth):
+        # identity taken NOW, at the visit — a rebuild later in the walk must not be recorded
+        identity = dir_identity(directory)
+        if identity is None:
+            continue  # vanished since the walk listed it
+        visited[str(directory)] = identity
         sentinel = sentinel_path(directory)
         if sentinel.is_file():
             existing.append(sentinel)
