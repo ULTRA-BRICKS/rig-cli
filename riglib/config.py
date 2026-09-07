@@ -917,11 +917,21 @@ def _harness_block(path: Path) -> Any:
         return _fan_out_keys_without_yaml(path.read_text(encoding="utf-8"))
 
 
+_YAML_TRUE = ("true", "yes", "on")  # the YAML 1.1 booleans PyYAML itself accepts
+_YAML_FALSE = ("false", "no", "off")
+
+
 def _yaml_scalar(raw: str) -> Any:
     text = raw.split("#", 1)[0].strip().strip("'\"")
-    if text.lower() in ("true", "false"):
-        return text.lower() == "true"
+    if text.lower() in _YAML_TRUE:
+        return True
+    if text.lower() in _YAML_FALSE:
+        return False
     return text
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
 
 
 def _fan_out_keys_without_yaml(text: str) -> dict[str, Any]:
@@ -929,11 +939,14 @@ def _fan_out_keys_without_yaml(text: str) -> dict[str, Any]:
 
     Understands the shapes ``rig setup`` / ``config set`` write and the docs show: a top-level
     ``harness:`` block, ``discover_config_dirs: <bool>``, and ``settings_paths`` as a flow list
-    (``[a, b]``) or a block list (``- a``). Anything else is ignored (the caller falls back to
-    the defaults for that key) — never a parse error.
+    (``[a, b]``) or a block list (``- a``). The block's child indent is whatever its first key
+    uses (2 or 4 spaces — a hand-edited file must not lose keys); deeper lines are nested
+    mappings and skipped. Anything else is ignored (the caller falls back to the defaults for
+    that key) — never a parse error.
     """
     out: dict[str, Any] = {}
     in_harness = False
+    child_indent: int | None = None
     paths: list[str] | None = None
     for line in text.splitlines():
         stripped = line.strip()
@@ -941,6 +954,7 @@ def _fan_out_keys_without_yaml(text: str) -> dict[str, Any]:
             continue
         if not line[0].isspace():
             in_harness = stripped.rstrip(":") == "harness" and stripped.endswith(":")
+            child_indent = None
             paths = None
             continue
         if not in_harness:
@@ -949,8 +963,10 @@ def _fan_out_keys_without_yaml(text: str) -> dict[str, Any]:
             paths.append(str(_yaml_scalar(stripped[2:])))
             continue
         paths = None
+        if child_indent is None:
+            child_indent = _indent(line)
         key, sep, value = stripped.partition(":")
-        if not sep or line.startswith("    "):
+        if not sep or _indent(line) != child_indent:
             continue
         key = key.strip()
         if key == "discover_config_dirs":
@@ -970,9 +986,9 @@ def load_harness_fan_out(repo_root: Path) -> dict[str, Any]:
     For ``rig doctor``, which loads no config: read the global layer and the repo's ``rig.yaml``
     (when present), merge only the ``harness`` block and validate only the two fan-out keys.
     Without PyYAML the two keys are read by a stdlib fallback (:func:`_fan_out_keys_without_yaml`).
-    Any failure — an unreadable file, a config that fails validation elsewhere (a stale key
-    another rig version added) — yields ``{}``: the built-in defaults, so doctor never goes
-    blind because the rest of the config is broken.
+    Any failure — an unreadable or non-UTF-8 file, a config that fails validation elsewhere (a
+    stale key another rig version added) — yields ``{}``: the built-in defaults, so doctor
+    never goes blind because the rest of the config is broken.
     """
     harness: dict[str, Any] = {}
     for path in (global_config_path(), repo_root / "rig.yaml"):
@@ -980,7 +996,7 @@ def load_harness_fan_out(repo_root: Path) -> dict[str, Any]:
             continue
         try:
             block = _harness_block(path)
-        except (ConfigError, OSError):
+        except (ConfigError, OSError, ValueError):  # ValueError: UnicodeDecodeError
             return {}
         if isinstance(block, dict):
             harness = _deep_merge(harness, block)
