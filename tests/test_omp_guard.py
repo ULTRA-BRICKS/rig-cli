@@ -1237,6 +1237,62 @@ def test_plan_notes_pi_extension_leftover_when_instruction_file_absent(fake_agen
     assert any("disabled" in n and "pi" in n and "never auto-deletes" in n for n in plan.notes), plan.notes
 
 
+def test_plan_notes_pi_extension_leftover_at_default_root_under_override(fake_agent_tools, tmp_path, monkeypatch):
+    # Regression: a machine that provisioned pi at the DEFAULT root (~/.pi/agent), then later set
+    # PI_CODING_AGENT_DIR to move pi elsewhere, must still get a leftover warning for the
+    # still-live guard extension left behind at the OLD (default) root — checking only the
+    # dynamic (override-resolved) root would miss it, mirroring the AGENTS.md legacy-candidate
+    # fix above but for the extension + policy file artifacts.
+    home = tmp_path / "home"
+    _pin_home(monkeypatch, home)
+    custom_root = tmp_path / "custom-pi"
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(custom_root))
+    repo = tmp_path / "repo"; repo.mkdir(exist_ok=True)
+    cfg = _instr_cfg(repo, fake_agent_tools, "pi")
+    cfg.data["permissions"] = {"enabled": False}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert not any("never auto-deletes" in n for n in plan.notes), plan.notes
+    # seed ONLY the stale extension at the DEFAULT root — nothing at the custom (current) root.
+    ext_dir = home / ".pi" / "agent" / "extensions" / "permission-guard"
+    ext_dir.mkdir(parents=True, exist_ok=True)
+    (ext_dir / "index.ts").write_text("export default function () {}\n", encoding="utf-8")
+    assert not (custom_root / "extensions" / "permission-guard").exists()
+    assert not (custom_root / "rig-permission-policy.json").exists()
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert any("disabled" in n and "pi" in n and "never auto-deletes" in n for n in plan.notes), plan.notes
+
+
+def test_plan_notes_pi_policy_file_leftover_at_default_root_under_override(fake_agent_tools, tmp_path, monkeypatch):
+    # Sibling of the extension-only case above: seeds ONLY the stale policy file at the default
+    # root (no extension dir anywhere) — exercises the independent `static_policy != dynamic_policy`
+    # branch as its own code path, distinct from the extension-dir branch above. NOTE: like its
+    # sibling, this hand-seeds the file at the SAME literal path the check looks for (matching
+    # this file's existing `test_plan_notes_legacy_pi_instruction_leftover_under_override`
+    # convention) — it does not run real provisioning first, so it does NOT independently confirm
+    # that `~/.pi/agent` is where provisioning actually writes by default; only that the check
+    # looks in the right place given that assumption. That assumption is pinned separately by
+    # `test_pi_agent_dir_honors_env` (asserts the unset-env default) in tests/test_pi_extension.py.
+    home = tmp_path / "home"
+    _pin_home(monkeypatch, home)
+    custom_root = tmp_path / "custom-pi"
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(custom_root))
+    repo = tmp_path / "repo"; repo.mkdir(exist_ok=True)
+    cfg = _instr_cfg(repo, fake_agent_tools, "pi")
+    cfg.data["permissions"] = {"enabled": False}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert not any("never auto-deletes" in n for n in plan.notes), plan.notes
+    # seed ONLY the stale policy file at the DEFAULT root — no extension dir anywhere, nothing at
+    # the custom (current) root.
+    default_root = home / ".pi" / "agent"
+    default_root.mkdir(parents=True, exist_ok=True)
+    (default_root / "rig-permission-policy.json").write_text('{"version":1,"default":"allow","rules":[]}\n')
+    assert not (default_root / "extensions" / "permission-guard").exists()
+    assert not (custom_root / "extensions" / "permission-guard").exists()
+    assert not (custom_root / "rig-permission-policy.json").exists()
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert any("disabled" in n and "pi" in n and "never auto-deletes" in n for n in plan.notes), plan.notes
+
+
 def test_render_guard_ts_bakes_marker_dir_safely():
     ts = render_guard_ts(marker_dir='/tmp/weird "quoted" \\ dir')
     assert 'BAKED_DIR = "/tmp/weird \\"quoted\\" \\\\ dir";' in ts

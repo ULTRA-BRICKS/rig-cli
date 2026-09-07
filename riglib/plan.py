@@ -1522,8 +1522,21 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
                 # auto-loads and enforces the extension.
                 ext_name = harness_permission_extension(kind)
                 if ext_name:
-                    leftovers.append(_expand(_pi_user_path(f"extensions/{ext_name}"), config.repo_root))
-                    leftovers.append(_expand(_pi_user_path("rig-permission-policy.json"), config.repo_root))
+                    dynamic_ext = _expand(_pi_user_path(f"extensions/{ext_name}"), config.repo_root)
+                    dynamic_policy = _expand(_pi_user_path("rig-permission-policy.json"), config.repo_root)
+                    leftovers.append(dynamic_ext)
+                    leftovers.append(dynamic_policy)
+                    # ALSO check the static default root (~/.pi/agent), mirroring the AGENTS.md
+                    # legacy-candidate treatment above: provision at the default root, THEN set
+                    # PI_CODING_AGENT_DIR to move pi elsewhere, and the dynamic-only check above
+                    # would only look at the NEW root — missing a still-live guard extension +
+                    # policy file left behind at the OLD (default) root.
+                    static_ext = _expand(f"~/.pi/agent/extensions/{ext_name}", config.repo_root)
+                    static_policy = _expand("~/.pi/agent/rig-permission-policy.json", config.repo_root)
+                    if static_ext != dynamic_ext:
+                        leftovers.append(static_ext)
+                    if static_policy != dynamic_policy:
+                        leftovers.append(static_policy)
             if any(p_.exists() for p_ in leftovers):
                 plan.notes.append(
                     f"permissions: disabled — rig-managed guard/approval artifacts for '{kind}' "
