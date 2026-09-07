@@ -216,33 +216,32 @@ def test_drift_spotlight_in_sync_after_apply(tmp_path, monkeypatch):
 
 
 def test_drift_spotlight_missing_sentinel(tmp_path, monkeypatch):
-    """A matched dir that lost its sentinel (or a new project appeared) is surfaced as drift."""
+    """A matched dir that LOST its sentinel is drift: it predates the sweep, so it was covered once."""
     action, root, _home = _spotlight_darwin_applied(tmp_path, monkeypatch)
-    # a fresh project appears without a sentinel (simulates a new checkout after the last sweep)
-    (root / "fresh/node_modules").mkdir(parents=True)
+    spotlight.sentinel_path(root / "proj/node_modules").unlink()
     drift = _spotlight_drift(action)
     assert any(d.direction == "missing" and spotlight.SENTINEL_NAME in d.detail for d in drift)
 
 
 def test_drift_spotlight_scans_full_set_not_just_sample(tmp_path, monkeypatch):
-    """Drift must catch an uncovered project even when it sorts PAST the first SAMPLE_LIMIT dirs.
+    """Drift must catch an uncovered project even when it sorts PAST the first 20 matched dirs.
 
-    Verify's post-apply spot-check samples the head of the matched list; reusing that bound for
-    drift would silently miss a freshly-added project whenever it lands beyond the sample —
-    defeating the check's stated purpose. This pins the fresh dir at the tail of a >SAMPLE_LIMIT
-    list so the old first-N slice would have skipped it.
+    The post-apply verify step used to spot-check only the head of the matched list; reusing that
+    bound for drift would silently miss an uncovered project whenever it lands beyond the sample.
+    This pins the uncovered dir at the tail of a 25-dir list so a first-N slice would skip it.
     """
     action, root, _home = _spotlight_darwin_applied(tmp_path, monkeypatch)
     covered = []
-    for i in range(spotlight.SAMPLE_LIMIT + 5):
+    for i in range(25):
         d = root / f"covered{i:03d}/node_modules"
         d.mkdir(parents=True)
         spotlight.sentinel_path(d).touch()  # already covered
         covered.append(d)
-    fresh = root / "zzz_fresh/node_modules"
-    fresh.mkdir(parents=True)  # a new project appeared, no sentinel — must be flagged
+    missed = root / "zzz_missed/node_modules"
+    missed.mkdir(parents=True)  # the sweep should have covered this one and did not
+    spotlight.record_sweep(_sel(root), 1000.0, spotlight.identities_of([*covered, missed]))
     # Deterministic order: the uncovered dir is LAST, beyond the first-N window the old code sampled.
-    monkeypatch.setattr(spotlight, "iter_target_dirs", lambda *a, **k: [*covered, fresh])
+    monkeypatch.setattr(spotlight, "iter_target_dirs", lambda *a, **k: [*covered, missed])
     drift = _spotlight_drift(action)
     assert any(d.direction == "missing" and spotlight.SENTINEL_NAME in d.detail for d in drift)
 
@@ -339,3 +338,290 @@ def test_cmd_spotlight_sweep_reads_deny_from_config(tmp_path, monkeypatch, capsy
     # custom deny took effect; the default node_modules is NOT swept (deny REPLACES the default).
     assert (work / "proj/weirddir/.metadata_never_index").is_file()
     assert not (work / "proj/node_modules/.metadata_never_index").exists()
+
+
+def _sel(*roots: Path, deny=None, max_depth: int = spotlight.DEFAULT_MAX_DEPTH) -> spotlight.SweepSelector:
+    """The selector every test here sweeps with: the given roots, the default denylist, depth 8."""
+    return spotlight.SweepSelector(
+        tuple(roots), frozenset(spotlight.DEFAULT_DENY) if deny is None else frozenset(deny), max_depth
+    )
+
+
+# ── coverage predicate: stale (the sweep visited it) vs pending (it appeared since) ────────
+# The split is decided by SET MEMBERSHIP in the last sweep's recorded dir list, so every test pins
+# that list explicitly (`record_sweep`). No filesystem timestamp is involved, which is why these
+# behave identically on APFS, ext4 and any CI filesystem.
+
+
+def test_scan_coverage_with_no_recorded_sweep_calls_everything_stale(tmp_path):
+    """A machine that never swept has no excuse for an uncovered dir — all of them are real drift."""
+    root = tmp_path / "work"
+    _make_tree(root)
+    deny = frozenset(spotlight.DEFAULT_DENY)
+    cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
+    assert cov.total == 5 and cov.covered == 0
+    assert len(cov.stale) == 5 and not cov.pending
+
+
+def test_scan_coverage_splits_stale_from_pending(tmp_path):
+    """A dir the last sweep never saw is pending; one it visited and left uncovered is stale."""
+    root = tmp_path / "work"
+    _make_tree(root)
+    deny = frozenset(spotlight.DEFAULT_DENY)
+    spotlight.perform_sweep((root,), deny)
+    fresh = root / "fresh/node_modules"
+    fresh.mkdir(parents=True)
+
+    # the recorded sweep never visited `fresh` (it did not exist yet) → pending, not a failure
+    cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
+    assert cov.total == 6 and cov.covered == 5
+    assert list(cov.pending) == [fresh] and not cov.stale
+
+    # a sweep that DID visit it and left it uncovered → the sweep missed it: stale
+    spotlight.record_sweep(_sel(root), 1000.0, spotlight.identities_of([fresh]))
+    cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
+    assert list(cov.stale) == [fresh] and not cov.pending
+
+
+def test_hand_deleted_sentinel_is_stale_on_every_platform(tmp_path):
+    """Deleting a sentinel out of a swept dir is drift — no filesystem timestamp is consulted.
+
+    Dating the dir instead would excuse exactly this case wherever ``st_birthtime`` is missing:
+    the unlink bumps the parent dir's ``st_ctime`` past the sweep, so a timestamp-based split
+    would call a hand-deleted sentinel "created since the last sweep" and pass it.
+    """
+    root = tmp_path / "work"
+    _make_tree(root)
+    deny = frozenset(spotlight.DEFAULT_DENY)
+    spotlight.perform_sweep((root,), deny)
+    victim = root / "proj/node_modules"
+    spotlight.sentinel_path(victim).unlink()
+    cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
+    assert list(cov.stale) == [victim] and not cov.pending
+
+
+def test_recreated_dir_at_the_same_path_is_pending_not_stale(tmp_path):
+    """`rm -rf dist && mkdir dist` after the sweep: the path is in the record but the dir is NEW.
+
+    Pathname membership alone would call it stale (the sweep "visited" that path) and turn
+    `rig status` red after every build; identity (inode) tells the recreated dir apart. The
+    rebuild is simulated by giving the recorded entry another inode, so the test does not depend
+    on the filesystem refusing to hand the freed inode straight back (ext4 may; APFS never does).
+    """
+    root = tmp_path / "work"
+    _make_tree(root)
+    spotlight.perform_sweep((root,), frozenset(spotlight.DEFAULT_DENY))
+    rebuilt = root / "proj/node_modules"
+    spotlight.sentinel_path(rebuilt).unlink()
+    record = spotlight.last_sweep(_sel(root))
+    dev, ino = record.seen[str(rebuilt)]
+    spotlight.record_sweep(_sel(root), record.at, {**record.seen, str(rebuilt): (dev, ino + 1)})
+    cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
+    assert list(cov.pending) == [rebuilt] and not cov.stale and cov.covered == 4
+
+
+def test_sweep_records_the_identity_seen_at_the_visit_not_after_the_walk(tmp_path, monkeypatch):
+    """A dir rebuilt while the sweep is still walking the REST of the tree must be recorded under
+    the inode the sweep actually touched — re-stat'ing after the walk would store the rebuilt
+    dir's inode and read the (sentinel-less) rebuild back as stale (PR #387 review round 3)."""
+    import shutil
+
+    root = tmp_path / "work"
+    _make_tree(root)
+    victim = root / "proj/node_modules"
+    real_iter, real_identity = spotlight.iter_target_dirs, spotlight.dir_identity
+    # visit the victim FIRST so the rest of the walk still lies ahead when it gets rebuilt
+    monkeypatch.setattr(
+        spotlight, "iter_target_dirs",
+        lambda *a, **k: [victim, *[d for d in real_iter(*a, **k) if d != victim]],
+    )
+    rebuilt = False
+
+    def identity_then_rebuild(d):
+        nonlocal rebuilt
+        ident = real_identity(d)
+        if d != victim and not rebuilt:
+            # the sweep has moved past the victim: a build replaces it while the walk goes on
+            rebuilt = True
+            shutil.rmtree(victim)
+            victim.mkdir()
+        if d == victim and rebuilt and ident is not None:
+            # the rebuilt dir is another inode, whether or not this filesystem reuses numbers
+            return (ident[0], ident[1] + 1)
+        return ident
+
+    monkeypatch.setattr(spotlight, "dir_identity", identity_then_rebuild)
+    spotlight.perform_sweep((root,), frozenset(spotlight.DEFAULT_DENY))
+    assert rebuilt and not spotlight.has_sentinel(victim)
+    monkeypatch.setattr(spotlight, "iter_target_dirs", real_iter)
+    cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
+    assert list(cov.pending) == [victim] and not cov.stale
+
+
+def test_last_sweep_ignores_a_record_made_for_other_roots(tmp_path):
+    """After a config change adds a root, the old record says nothing about it — treat as never."""
+    a, b = tmp_path / "a", tmp_path / "b"
+    spotlight.record_sweep(_sel(a), 1000.0, {})
+    assert spotlight.last_sweep(_sel(a)).at == 1000.0
+    assert spotlight.last_sweep(_sel(a, b)) is None
+
+
+def test_last_sweep_ignores_a_record_made_with_another_denylist_or_depth(tmp_path):
+    """A `.venv` newly added to `deny` (or a deeper walk) is uncovered because NOTHING swept it.
+
+    Review round 1 (rig-cli#375) reproduced the excuse a roots-only key gives: change `deny`,
+    skip `rig apply`, and every never-swept dir files as pending → `rig status` says in sync.
+    The record is keyed on the whole selector, so that state reads as "never swept" instead.
+    """
+    root = tmp_path / "work"
+    _make_tree(root)
+    spotlight.perform_sweep((root,), frozenset({"node_modules"}))
+    assert spotlight.last_sweep(_sel(root, deny={"node_modules"})) is not None
+    assert spotlight.last_sweep(_sel(root, deny={"node_modules", "target"})) is None
+    assert spotlight.last_sweep(_sel(root, deny={"node_modules"}, max_depth=9)) is None
+    # and through the predicate: the unswept `target` dirs are STALE (drift), not pending
+    cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
+    assert not cov.pending and cov.covered == 2 and len(cov.stale) == 3  # the 3 non-node_modules dirs
+
+
+def test_last_sweep_is_insensitive_to_root_and_deny_order(tmp_path):
+    """Reordering the configured roots or denylist changes nothing about what was swept."""
+    a, b = tmp_path / "a", tmp_path / "b"
+    spotlight.record_sweep(_sel(a, b, deny=["x", "y"]), 1000.0, {})
+    assert spotlight.last_sweep(_sel(b, a, deny=["y", "x"])).at == 1000.0
+
+
+def test_last_sweep_treats_a_corrupt_record_as_no_sweep(tmp_path):
+    """A truncated / hand-edited record reads as "never swept" — strict, never permissive."""
+    spotlight.record_sweep(_sel(tmp_path / "a"), 1000.0, {})
+    spotlight.state_path().write_text('{"at": 1000.0, "roots": [', encoding="utf-8")
+    assert spotlight.last_sweep(_sel(tmp_path / "a")) is None
+
+
+def test_last_sweep_rejects_a_record_with_the_wrong_json_types(tmp_path):
+    """Valid JSON of the wrong shape is not a record: a string is iterable too, and iterating its
+    characters would mint a nonsense `seen` set that excuses real drift as pending."""
+    import json
+
+    sel = _sel(tmp_path / "a")
+    good = {"at": 1000.0, **sel.fingerprint(), "seen": {str(tmp_path / "a/node_modules"): [1, 2]}}
+    spotlight.state_path().parent.mkdir(parents=True, exist_ok=True)
+    spotlight.state_path().write_text(json.dumps(good), encoding="utf-8")
+    assert spotlight.last_sweep(sel) is not None
+    for field, bad in (("roots", "abc"), ("seen", "xyz"), ("deny", {"a": 1}), ("max_depth", "8"),
+                       ("seen", ["p"]), ("seen", {"p": "x"}), ("seen", {"p": [1]}),
+                       ("seen", {"p": [True, 2]}), ("at", "soon")):
+        spotlight.state_path().write_text(json.dumps({**good, field: bad}), encoding="utf-8")
+        assert spotlight.last_sweep(sel) is None, field
+
+
+def test_perform_sweep_records_when_it_ran_and_what_it_visited(tmp_path):
+    """The record carries the start time (for the message) and every dir the walk visited."""
+    import time
+
+    root = tmp_path / "work"
+    _make_tree(root)
+    before = time.time()
+    result = spotlight.perform_sweep((root,), frozenset(spotlight.DEFAULT_DENY))
+    record = spotlight.last_sweep(_sel(root))
+    assert record is not None and before - 1 <= record.at <= time.time()
+    assert len(record.seen) == result.matched == 5
+    assert str(root / "proj/node_modules") in record.seen
+
+
+def test_apply_marks_every_unmarked_dir_and_a_second_apply_changes_nothing(tmp_path, monkeypatch):
+    """`rig apply commit` covers EVERY unmarked dir (not a sample) and reports how many it wrote."""
+    import sys
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    root = tmp_path / "work"
+    for i in range(25):
+        (root / f"p{i:03d}/node_modules").mkdir(parents=True)
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("RIG_SPOTLIGHT_DRY_RUN", "1")
+    action = _spotlight_action(root)
+
+    first = _do_provision_spotlight(action, "backup")
+    assert first.status == "created" and "25 new" in first.detail
+    assert all(spotlight.has_sentinel(root / f"p{i:03d}/node_modules") for i in range(25))
+
+    second = _do_provision_spotlight(action, "backup")
+    assert second.status == "skipped" and "0 new" in second.detail
+
+
+def test_status_agrees_with_apply_right_after_it(tmp_path, monkeypatch):
+    """25 unmarked dirs → apply → `rig status` sees no spotlight drift (the parity acceptance)."""
+    import sys
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    root = tmp_path / "work"
+    for i in range(25):
+        (root / f"p{i:03d}/node_modules").mkdir(parents=True)
+    home = tmp_path / "home"
+    home.mkdir()
+    action = _apply_spotlight(root, home, monkeypatch)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    assert not _spotlight_drift(action)
+
+
+def test_drift_names_the_stale_count(tmp_path, monkeypatch):
+    """A dir the sweep should have covered but did not is drift, and the message names how many."""
+    action, root, _home = _spotlight_darwin_applied(tmp_path, monkeypatch)
+    missed = root / "zzz/node_modules"
+    missed.mkdir(parents=True)
+    record = spotlight.last_sweep(_sel(root))
+    spotlight.record_sweep(_sel(root), record.at, {**record.seen, **spotlight.identities_of([missed])})
+    drift = _spotlight_drift(action)
+    assert [d.direction for d in drift] == ["missing"]
+    assert "1/6" in drift[0].detail and spotlight.SENTINEL_NAME in drift[0].detail
+
+
+def test_drift_reports_a_dir_the_sweep_never_saw_as_a_note_not_drift(tmp_path, monkeypatch):
+    """A cache dir created since the last sweep is EXPECTED — informational, never a red status."""
+    action, root, _home = _spotlight_darwin_applied(tmp_path, monkeypatch)
+    (root / "fresh/node_modules").mkdir(parents=True)
+    from riglib.drift import detect
+    from riglib.plan import InstallPlan
+
+    report = detect(InstallPlan(actions=[action]))
+    assert not [d for d in report.items if d.category == "spotlight"]
+    notes = [n for n in report.notes if n.category == "spotlight"]
+    assert len(notes) == 1 and "1 of 6" in notes[0].detail and "since the last sweep" in notes[0].detail
+    # the age of the last sweep is what exposes a loaded-but-failing re-sweep agent
+    assert "(just now)" in notes[0].detail
+
+
+def test_describe_age_is_coarse_and_never_negative():
+    assert spotlight.describe_age(1000.0, now=1000.0) == "just now"
+    assert spotlight.describe_age(1000.0, now=1000.0 + 59) == "just now"
+    assert spotlight.describe_age(1000.0, now=1000.0 + 61) == "1 minute ago"
+    assert spotlight.describe_age(1000.0, now=1000.0 + 3 * 3600 + 5) == "3 hours ago"
+    assert spotlight.describe_age(1000.0, now=1000.0 + 2 * 86400) == "2 days ago"
+    assert spotlight.describe_age(2000.0, now=1000.0) == "just now"  # clock went backwards
+
+
+# ── the re-sweep agent's argv must work for the install shape actually on the machine ──────
+# launchd runs the job from `/` with no PYTHONPATH. On the reference machine rig is the symlink-
+# shim install (`~/.local/bin/rig` → `<checkout>/bin/rig`), and `-m riglib` cannot import a
+# checkout that is not on sys.path: the agent failed every one of its 9 runs (rig-cli#375).
+
+
+def test_default_sweep_cmd_runs_the_checkout_shim_when_there_is_one():
+    """This repo IS a checkout with `bin/rig`, so the argv re-enters it through the shim."""
+    import sys
+
+    shim = Path(spotlight.__file__).resolve().parent.parent / "bin" / "rig"
+    assert shim.is_file()
+    assert spotlight.default_sweep_cmd() == (sys.executable, str(shim), "spotlight-sweep")
+
+
+def test_default_sweep_cmd_falls_back_to_the_module_form_for_a_package_install(tmp_path, monkeypatch):
+    """riglib in site-packages has no sibling `bin/rig` → `-m riglib` is the only entry point."""
+    import sys
+
+    fake_pkg = tmp_path / "site-packages" / "riglib"
+    fake_pkg.mkdir(parents=True)
+    monkeypatch.setattr(spotlight, "__file__", str(fake_pkg / "spotlight.py"))
+    assert spotlight.default_sweep_cmd() == (sys.executable, "-m", "riglib", "spotlight-sweep")

@@ -172,11 +172,16 @@ def compute_scope_drift(scope_plan: ScopePlan) -> dict[str, Any]:
         }
         for k in report.known
     ]
+    # informational notes (rig-cli#375) — facts a checker wants visible that are NOT drift, e.g.
+    # the Spotlight dirs created since the last sweep. Like ``known`` they never touch ``in_sync``;
+    # carried into the panel so this surface does not silently drop what the CLI prints.
+    notes = [{"category": n.category, "item": n.item, "detail": n.detail} for n in report.notes]
     return {
         "scope": scope_plan.scope.id,
         "in_sync": report.in_sync and not dead_targets,
         "items": items,
         "known": known,
+        "notes": notes,
         "missing_targets": missing_targets,
     }
 

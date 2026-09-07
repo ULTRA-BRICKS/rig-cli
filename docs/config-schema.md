@@ -2062,19 +2062,52 @@ re-crawls (a forced reindex would be the opposite of the goal).
 
 **The re-sweep agent.** `rig apply` writes `~/Library/LaunchAgents/<label>.plist` and
 `launchctl load`s it. The plist runs `rig spotlight-sweep` (the same sweep, headless) at login and
-daily. `RIG_SPOTLIGHT_DRY_RUN=1` writes the plist but skips the live `launchctl load` (used by
+daily, pinned to the interpreter that ran `rig apply`: with a checkout install (`install.sh`
+symlinks `~/.local/bin/rig` → `<checkout>/bin/rig`) the argv is `<python> <checkout>/bin/rig
+spotlight-sweep`; with a pip/pipx install it is `<python> -m riglib spotlight-sweep`. (The
+module form alone never worked for a checkout install — launchd runs from `/` with no
+`PYTHONPATH`, so every daily run died with `No module named riglib`; rig-cli#375.)
+`RIG_SPOTLIGHT_DRY_RUN=1` writes the plist but skips the live `launchctl load` (used by
 tests/CI); a HOME-overridden run skips it automatically (rig-cli#116, see the `models` dry-run
 note). `rig spotlight-sweep` is also runnable by hand to re-cover new dirs immediately.
 
-**Verification.** After `rig apply`/`rig init`, the post-apply **verify** framework confirms a
-sample of matched dirs carry the sentinel AND the launchd agent is loaded (see the verify note at
-the top of this doc's companion — every provisioner declares its own check).
+**Missed vs not-yet-swept (rig-cli#375).** A dependency dir with no sentinel is one of two very
+different things, and rig reports them differently. Every sweep records **which matched dirs it
+visited** (plus when it started) in `~/.cache/rig/spotlight-last-sweep.json`, and every read-back
+classifies an uncovered dir against that record:
 
-**Drift.** `rig status` reports Spotlight-exclude drift: a sample of matched dependency/build dirs
-lacking the sentinel (a new project appeared since the last sweep → `missing`), and — on macOS —
-the launchd re-sweep plist being absent, hand-modified, or not loaded. Remediation differs by
-surface: `rig spotlight-sweep` re-covers only the missing **sentinels** (it touches no launchd
-state); `rig apply` reconverges **both** — it re-sweeps AND rewrites/reloads the launchd plist. The
+- **stale** — the last sweep visited this dir and it still has no sentinel. The sweep genuinely
+  failed it (a permission error, or the sentinel was deleted afterwards). This is **drift**, and
+  it **fails** the post-apply verification.
+- **pending** — the last sweep never saw this dir, so it appeared afterwards. Every `pytest` run
+  mints a batch of `__pycache__` dirs; a machine that builds anything has some at any moment. This
+  is **not** drift — it is reported as an informational count beside "in sync", and the next sweep
+  covers it (off macOS, where rig installs no re-sweep agent, the note says to run `rig
+  spotlight-sweep` instead).
+
+If there is no usable record — never swept, unreadable or wrongly-typed file, or a record made
+for a different selector (other `roots`, `deny` or `max_depth`: a `.venv` newly added to `deny`
+is uncovered because nothing ever swept it, not because it appeared since) — every uncovered dir
+counts as stale. The record stores each visited dir's
+filesystem identity (device + inode), and that — not a file timestamp — decides: directory birth
+time only exists on macOS/BSD, and elsewhere `st_ctime` is bumped by deleting a file *out of* the
+directory, so a timestamp-based split would excuse the single case this feature most needs to
+catch — a hand-deleted sentinel (same inode, no sentinel → stale). Identity rather than the bare
+pathname because `rm -rf dist && mkdir dist` is how builds work: the new `dist` at the old path
+was never swept (new inode → pending), not failed by the sweep.
+
+**Verification.** After `rig apply`/`rig init`, the post-apply **verify** framework confirms that
+**every** matched dir carries the sentinel (not a sample) AND that the launchd agent is loaded.
+Only *stale* dirs fail it; *pending* ones are named in the evidence line. Full-set checking is
+free: the directory walk is the entire cost and it was already being paid — classifying each dir
+adds one `stat`.
+
+**Drift.** `rig status` reports Spotlight-exclude drift through the **same** coverage predicate the
+verify step uses, so the two can never contradict each other: *stale* dirs (→ `missing`, with the
+count) and — on macOS — the launchd re-sweep plist being absent, hand-modified, or not loaded.
+*Pending* dirs print as a dim note next to the area's state. Remediation differs by surface: `rig
+spotlight-sweep` re-covers only the missing **sentinels** (it touches no launchd state); `rig
+apply` reconverges **both** — it re-sweeps AND rewrites/reloads the launchd plist. The
 sentinel-coverage check runs cross-platform; the launchd surface is macOS-only (no plist is written
 elsewhere).
 

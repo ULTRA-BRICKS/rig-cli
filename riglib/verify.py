@@ -202,26 +202,41 @@ def _verify_launchd_agent(
 # ── spotlight ─────────────────────────────────────────────────────────────────────────
 @register_verifier("provision_spotlight")
 def _verify_spotlight(action: Action) -> list[VerifyResult]:
-    """The sentinel exists in a SAMPLE of matched dirs AND the launchd sweep agent is loaded."""
+    """EVERY matched dir carries the sentinel AND the launchd sweep agent is loaded.
+
+    The full set, never a sample: a sample that passes while ``rig status`` (which scans them all)
+    fails is exactly the contradiction rig-cli#375 was filed for, and a genuinely uncovered dir
+    beyond the sample would have been invisible. It costs nothing — the walk was already being
+    paid for; checking every dir is one extra ``stat`` each.
+
+    Only ``stale`` dirs FAIL — see :class:`riglib.spotlight.Coverage` for the split. A dir the
+    last sweep never saw (``pending``) is named in the evidence but is not a failure: the sweep
+    cannot cover what did not exist when it ran.
+    """
     from . import spotlight
 
     opts = action.options
     roots, deny, max_depth = spotlight.sweep_args_from_options(opts)
     results: list[VerifyResult] = []
 
-    matched = spotlight.iter_target_dirs(roots, deny, max_depth)
-    sample = matched[:spotlight.SAMPLE_LIMIT]
-    if not sample:
+    selector = spotlight.SweepSelector(roots, deny, max_depth)
+    cov = spotlight.scan_coverage(selector, spotlight.last_sweep(selector))
+    if cov.total == 0:
         results.append(
-            VerifyResult("spotlight", "sweep", None, "no dependency/build dirs found under roots (nothing to sample)")
+            VerifyResult("spotlight", "sweep", None, "no dependency/build dirs found under roots (nothing to check)")
         )
     else:
-        missing = [d for d in sample if not spotlight.has_sentinel(d)]
-        passed = not missing
-        detail = f"{len(sample) - len(missing)}/{len(sample)} sampled matched dirs carry {spotlight.SENTINEL_NAME}"
-        if missing:
-            detail += f" — missing in e.g. {missing[0]}"
-        results.append(VerifyResult("spotlight", "sweep", passed, detail))
+        detail = f"{cov.covered}/{cov.total} matched dirs carry {spotlight.SENTINEL_NAME}"
+        # both facts are independent and both get said: an apply can leave stale dirs AND have new
+        # ones appear under it. Only the stale ones decide pass/fail.
+        if cov.stale:
+            detail += (
+                f" — {len(cov.stale)} the last sweep visited are still uncovered "
+                f"(e.g. {cov.stale[0]})"
+            )
+        if cov.pending:
+            detail += f"; {len(cov.pending)} appeared after the last sweep"
+        results.append(VerifyResult("spotlight", "sweep", not cov.stale, detail))
 
     label = str(opts.get("label") or spotlight.DEFAULT_BOOT_LABEL)
     plist_path = Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"

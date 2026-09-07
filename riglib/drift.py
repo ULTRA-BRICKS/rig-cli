@@ -119,6 +119,23 @@ class DriftItem:
 
 
 @dataclass
+class DriftNote:
+    """A fact about a reconciled area that is NOT drift but must stay visible (rig-cli#375).
+
+    Unlike :class:`KnownItem` (an on-disk item rig could place but does not manage), a note is a
+    free-form observation a checker wants printed next to its area's state — today: the Spotlight
+    dependency dirs created since the last sweep, which no sweep could have covered yet. Reporting
+    them as drift makes ``rig status`` permanently red on a machine that builds anything; dropping
+    them silently is how a dead sweep agent hides for a month. So: shown dim beside "in sync",
+    never counted in the drift totals, never part of the exit code.
+    """
+
+    category: str
+    item: str
+    detail: str
+
+
+@dataclass
 class KnownItem:
     """An on-disk item rig does NOT manage but CAN place (rig-cli#357) — informational, never drift.
 
@@ -143,6 +160,7 @@ class KnownItem:
 class DriftReport:
     items: list[DriftItem] = field(default_factory=list)
     known: list[KnownItem] = field(default_factory=list)
+    notes: list[DriftNote] = field(default_factory=list)
 
     @property
     def in_sync(self) -> bool:
@@ -2329,11 +2347,15 @@ def _check_spotlight(action: Action, report: DriftReport) -> None:
     are each surfaced): an ABSENT plist is the only short-circuit — you can't probe the loaded
     state of a plist that isn't there. A content-drifted plist still reports its load state.
 
-    missing  — a SAMPLE of matched dependency/build dirs lacks the ``.metadata_never_index``
-               sentinel (a new project appeared since the last sweep, or one was hand-deleted) →
-               ``rig apply`` / ``rig spotlight-sweep`` re-covers it. On macOS the launchd re-sweep
-               plist is absent, or (when live) its agent is not loaded.
+    missing  — dependency/build dirs the last sweep VISITED still lack the
+               ``.metadata_never_index`` sentinel (the sweep failed them, or one was hand-deleted)
+               → ``rig apply`` / ``rig spotlight-sweep`` re-covers them. On macOS the launchd
+               re-sweep plist is absent, or (when live) its agent is not loaded.
     modified — the launchd re-sweep plist on disk differs from the configured schedule/argv.
+    note     — uncovered dirs the last sweep NEVER SAW, i.e. they appeared since. Not drift: every
+               test run mints ``__pycache__`` dirs and the next sweep covers them. Printed dim
+               beside "in sync" so a stalled sweep is still visible. The split lives in
+               :class:`riglib.spotlight.Coverage`.
 
     Cross-platform: the sentinel sweep is cross-platform, so its coverage is checked everywhere; the
     launchd plist only exists on macOS (the runner writes none elsewhere), so the plist surface is
@@ -2347,21 +2369,37 @@ def _check_spotlight(action: Action, report: DriftReport) -> None:
     roots, deny, max_depth = spotlight.sweep_args_from_options(opts)
     label = str(opts.get("label") or spotlight.DEFAULT_BOOT_LABEL)
 
-    # 1) sentinel coverage — DRIFT scans the FULL matched set, not verify's bounded first-N sample.
-    # `iter_target_dirs` already walks the whole tree and returns every matched dir (the dominant
-    # cost, unavoidable here), so checking each for the sentinel is only one extra stat per dir —
-    # cheap. Sampling the head (verify's post-apply spot-check) would miss a NEW project that sorts
-    # past the sample ~(1 - N/total) of the time, defeating drift's stated purpose ("a new project
-    # appeared since the last sweep → missing"): the fresh uncovered dir must be caught wherever it
-    # lands in the walk order, not only when it happens to fall in the first N.
-    targets = spotlight.iter_target_dirs(roots, deny, max_depth)
-    uncovered = [d for d in targets if not spotlight.has_sentinel(d)]
-    if uncovered:
+    # 1) sentinel coverage — the SAME `scan_coverage` predicate the post-apply verify step uses, on
+    # the FULL matched set. `iter_target_dirs` already walks the whole tree (the dominant cost,
+    # unavoidable here), so classifying each dir is one extra stat — cheap. The stale/pending split
+    # is what keeps this honest: only dirs the sweep should have covered count as drift.
+    selector = spotlight.SweepSelector(roots, deny, max_depth)
+    record = spotlight.last_sweep(selector)
+    cov = spotlight.scan_coverage(selector, record)
+    if cov.stale:
         report.items.append(
             DriftItem(
-                "missing", "spotlight", action.item, uncovered[0],
-                f"{len(uncovered)}/{len(targets)} dependency/build dirs lack "
-                f"{spotlight.SENTINEL_NAME} — run `rig apply commit` (or `rig spotlight-sweep`) to re-cover",
+                "missing", "spotlight", action.item, cov.stale[0],
+                f"{len(cov.stale)}/{cov.total} dependency/build dirs the last sweep visited still "
+                f"lack {spotlight.SENTINEL_NAME} — run `rig apply commit` "
+                f"(or `rig spotlight-sweep`) to re-cover",
+            )
+        )
+    if cov.pending:
+        # `pending` exists only relative to a consulted record (the Coverage invariant).
+        assert record is not None
+        # Off macOS rig installs no re-sweep agent, so promising "the next sweep" there would be a
+        # promise nothing keeps — name the manual command instead. The age of the last sweep is
+        # what exposes a loaded-but-failing agent (it happened: 9 runs, 9 import errors).
+        next_sweep = (
+            "the daily re-sweep agent covers them" if _on_darwin()
+            else "run `rig spotlight-sweep` to cover them (no periodic sweep agent off macOS)"
+        )
+        report.notes.append(
+            DriftNote(
+                "spotlight", action.item,
+                f"{len(cov.pending)} of {cov.total} dependency/build dirs appeared since the last "
+                f"sweep ({spotlight.describe_age(record.at)}) — {next_sweep}",
             )
         )
 

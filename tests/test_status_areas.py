@@ -670,3 +670,26 @@ def test_status_area_summary_non_git_shows_global_only(tmp_path, capsys, fake_ag
     assert "merge gate" not in low
     # the REPO layer heading itself is suppressed in the summary for a non-git dir
     assert "repo — this repository" not in low
+
+
+def test_area_state_line_appends_informational_notes(tmp_path):
+    """A DriftNote renders beside the area state and never turns it into drift (rig-cli#375).
+
+    The Spotlight sweep cannot cover a dependency dir that did not exist when it ran, so those
+    dirs are a note, not drift: the area still reads "in sync", the exit code is unaffected, and
+    the count stays visible so a stalled sweep agent cannot hide behind a clean line.
+    """
+    from riglib.areas import Area
+    from riglib.cli import _area_state_line
+    from riglib.drift import DriftNote, DriftReport
+    from riglib.layers import GLOBAL
+    from riglib.plan import Action, InstallPlan
+
+    area = Area("spotlight", "Spotlight-exclude sweep + agent (macOS)", GLOBAL, ("spotlight",))
+    plan = InstallPlan()
+    plan.actions.append(Action("provision_spotlight", "spotlight", "exclude", tmp_path, tmp_path))
+    note = "3 of 10 dependency/build dirs created since the last sweep — the next sweep covers them"
+    report = DriftReport(notes=[DriftNote("spotlight", "exclude", note)])
+    line = _area_state_line(area, plan, report)
+    assert "in sync" in line and note in line
+    assert report.in_sync
