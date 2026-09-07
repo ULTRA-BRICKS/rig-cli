@@ -68,6 +68,12 @@ from ..github_ruleset import (
     parse_github_remote,
 )
 from ..logging import log_event
+from ..review_gate import (
+    ComposerSource,
+    composer_sources,
+    gate_note,
+    unshipped_composers,
+)
 from ..paths import expand_user_path
 from ..plan import SHIP_TASK_CODE_PREFIX_RE, Action, InstallPlan
 from .. import ecosystem_readme
@@ -422,6 +428,8 @@ def _do_install_dispatcher(action: Action, on_conflict: str) -> ActionResult:
       - ``hooks/`` — the per-event COMPOSERS (pre-commit/commit-msg/pre-push + review-gate).
         **core.hooksPath must point HERE**, not at the runner's parent: git looks for an
         executable named after the event in core.hooksPath, and those live in hooks/.
+        ``review-gate`` is sourced from the installed review-cli (``review
+        install-commit-hook --print-gate``) with the agent-tools copy as fallback.
       - ``global-hooks.d/<event>/`` — the drop-in fragments the runner enumerates.
 
     Idempotent: every copy skips-if-identical; the ``core.hooksPath`` set checks the
@@ -445,25 +453,13 @@ def _do_install_dispatcher(action: Action, on_conflict: str) -> ActionResult:
         statuses.append(out.status)
         backup = backup or out.backup
 
-    # 2. the composers (core.hooksPath target). Git ignores a non-executable hook, so the
-    # exec bit must be set even when the content is already identical (else a re-apply
-    # leaves the dispatcher silently disabled). Only a CONFLICT-skip leaves them untouched.
-    # This relies on `fsutil.dirs_identical` being MODE-BLIND (compares file set + content
-    # only): the chmod below runs unconditionally on a content-"identical" skip too, so a
-    # source that (for whatever reason — a test fixture, a checkout that dropped the bit)
-    # isn't executable still converges the target to executable without that mode-only
-    # divergence being misread as drift on the next idempotent re-apply (rig-cli#175 review).
+    # 2. the composers (core.hooksPath target) — per file; review-gate comes from the
+    # installed review-cli when it can print it (see _install_composers).
     src_hooks = src / "hooks"
     if src_hooks.is_dir():
-        out = fsutil.copy_tree(src_hooks, composer_target, on_conflict)
-        chmod_ok = out.status in _CHANGED_STATUSES or (
-            out.status == "skipped" and "identical" in out.detail
-        )
-        if chmod_ok:
-            for f in composer_target.iterdir():
-                if f.is_file():
-                    f.chmod(f.stat().st_mode | 0o111)
+        out, composer_notes = _install_composers(src_hooks, composer_target, on_conflict)
         notes.append(f"composers {out.status}")
+        notes.extend(composer_notes)
         statuses.append(out.status)
         backup = backup or out.backup
 
@@ -521,6 +517,87 @@ def _do_install_dispatcher(action: Action, on_conflict: str) -> ActionResult:
     else:
         overall = "skipped"
     return ActionResult(action, overall, "; ".join(notes) or "dispatcher installed", backup)
+
+
+_COMPOSER_STATUS_RANK = {"skipped": 0, "created": 1, "updated": 1, "backed_up": 2}
+# fsutil says "updated" for an overwrite; the runner-level vocabulary folds it into "created".
+_COMPOSER_STATUS_ALIASES = {"updated": "created"}
+
+
+def _prepare_composer_dir(target: Path, on_conflict: str) -> fsutil.WriteOutcome | None:
+    """Make ``target`` a directory, honouring ``on_conflict`` when a stale FILE sits there.
+
+    Returns the outcome of clearing a stale file (``skipped`` on a conflict-skip means the
+    caller must not install anything), or None when the directory is ready.
+    """
+    if target.exists() and not target.is_dir():
+        if on_conflict == "skip":
+            return fsutil.WriteOutcome("skipped", f"exists (not a directory), on_conflict=skip: {target}")
+        if on_conflict == "backup":
+            bak = fsutil.backup_path(target)
+            shutil.move(str(target), str(bak))
+            target.mkdir(parents=True)
+            return fsutil.WriteOutcome("backed_up", f"backed up prior → {bak}", backup=bak)
+        target.unlink()
+    target.mkdir(parents=True, exist_ok=True)
+    return None
+
+
+def _install_one_composer(src: ComposerSource, dst: Path, on_conflict: str) -> fsutil.WriteOutcome:
+    """Write one composer; a transient review-cli failure leaves an installed gate FILE alone
+    (a directory or nothing at that path is not a hook — the fallback goes in per on_conflict)."""
+    if src.expected is None:
+        if dst.is_file():
+            return fsutil.WriteOutcome("skipped", f"left as-is ({src.note}): {dst}")
+        return fsutil.write_file(dst, src.fallback, on_conflict)
+    return fsutil.write_file(dst, src.expected, on_conflict)
+
+
+def _install_composers(
+    src_hooks: Path, target: Path, on_conflict: str
+) -> tuple[fsutil.WriteOutcome, list[str]]:
+    """Install the per-event COMPOSERS (pre-commit/commit-msg/pre-push/review-gate) PER FILE.
+
+    Expected content comes from ``review_gate.composer_sources`` (the same helper drift
+    uses): ``review-gate`` from the installed review-cli when it answers, else the
+    agent-tools copy; the provenance is the first of the returned notes (action detail).
+    Files the source no longer ships are left in place (git still runs them) and named in a
+    second note — drift reports them as ``extra``; rig never deletes them.
+
+    Git ignores a non-executable hook, so the exec bit must converge even when the content is
+    already identical (else a re-apply leaves the dispatcher silently disabled); only a
+    CONFLICT-skip leaves a file untouched — ``_chmod_x_if_changed`` encodes exactly that.
+
+    Returns the most-significant per-file outcome (``backed_up`` > ``created`` > ``skipped``)
+    carrying the FIRST backup path, mirroring ``_install_fragments``.
+    """
+    sources = composer_sources(src_hooks)
+    composer_notes = [gate_note(sources)]
+    prepared = _prepare_composer_dir(target, on_conflict)
+    if prepared is not None and prepared.status == "skipped":
+        return prepared, composer_notes
+    best = "skipped"
+    first_backup: Path | None = prepared.backup if prepared is not None else None
+    for src in sources:
+        dst = target / src.name
+        out = _install_one_composer(src, dst, on_conflict)
+        _chmod_x_if_changed(dst, out)
+        if _COMPOSER_STATUS_RANK.get(out.status, 0) > _COMPOSER_STATUS_RANK.get(best, 0):
+            best = out.status
+        if out.backup is not None and first_backup is None:
+            first_backup = out.backup
+    if prepared is not None:
+        best = prepared.status
+    detail = "per-file"
+    if first_backup is not None:
+        detail += f"; backed up → {first_backup}"
+    extra = unshipped_composers(target, sources)
+    if extra:
+        composer_notes.append(
+            "not shipped by source, left as-is: " + ", ".join(p.name for p in extra)
+        )
+    status = _COMPOSER_STATUS_ALIASES.get(best, best)
+    return fsutil.WriteOutcome(status, detail, first_backup), composer_notes
 
 
 def _install_fragments(

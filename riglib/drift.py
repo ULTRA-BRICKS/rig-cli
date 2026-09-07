@@ -96,6 +96,7 @@ from .plan import Action, InstallPlan
 from .provenance import (
     KIND_DISABLED_BASELINE,
     KIND_RETIRED_DEFAULT,
+    KIND_UNVERIFIED,
     KIND_USER_EXTRA,
     PERMISSION_KINDS,
     hook_provenance,
@@ -106,6 +107,7 @@ from .provenance import (
     workflow_provenance,
 )
 from . import project_tools
+from .review_gate import SOURCE_ORIGIN, composer_sources, unshipped_composers
 from .tg_ctl import STALE_PREDECESSOR_LABEL
 
 
@@ -1433,6 +1435,39 @@ def check_disabled_dispatcher(repo_root: Path, report: DriftReport) -> None:
             )
 
 
+def _check_composers(src_hooks: Path, composer: Path, report: DriftReport) -> None:
+    """Compare every shipped composer against what apply would install.
+
+    Expected content comes from ``review_gate.composer_sources`` — the SAME helper apply
+    uses — so ``review-gate`` is compared against the installed review-cli's ``--print-gate``
+    output when available, else the agent-tools copy: a review-gate that still equals a
+    stale agent-tools copy is reported as drift instead of "clean" (rig-cli#382). The detail
+    names the source compared against and any fallback reason. A transient review-cli
+    failure leaves the expected content unknown — that file is not compared but is listed
+    as an informational ``unverified`` known item (never silently clean). Composers on
+    disk the source no longer ships are ``extra`` (git still runs them; never deleted).
+    """
+    sources = composer_sources(src_hooks)
+    for src in sources:
+        dst = composer / src.name
+        if not dst.exists():
+            report.items.append(DriftItem("missing", "git_hooks", src.name, dst, "composer hook not installed"))
+        elif src.expected is None:
+            report.known.append(KnownItem("git_hooks", src.name, dst, KIND_UNVERIFIED, f"{src.name}: {src.note}"))
+        elif dst.read_text(encoding="utf-8") != src.expected:
+            detail = f"composer hook differs from {src.origin}"
+            if src.note and src.origin == SOURCE_ORIGIN:
+                detail += f" ({src.note})"
+            report.items.append(DriftItem("modified", "git_hooks", src.name, dst, detail))
+    for leftover in unshipped_composers(composer, sources):
+        report.items.append(
+            DriftItem(
+                "extra", "git_hooks", leftover.name, leftover,
+                "composer hook on disk but not shipped by source (git still runs it)",
+            )
+        )
+
+
 def _check_dispatcher(action: Action, report: DriftReport) -> None:
     runner = Path(action.options["runner"])
     src_runner = action.source / "run-global-hooks"
@@ -1450,16 +1485,7 @@ def _check_dispatcher(action: Action, report: DriftReport) -> None:
     composer = runner.parent / "hooks"
     src_hooks = action.source / "hooks"
     if src_hooks.is_dir():
-        for src_composer in sorted(p for p in src_hooks.iterdir() if p.is_file()):
-            dst = composer / src_composer.name
-            if not dst.exists():
-                report.items.append(
-                    DriftItem("missing", "git_hooks", src_composer.name, dst, "composer hook not installed")
-                )
-            elif dst.read_text(encoding="utf-8") != src_composer.read_text(encoding="utf-8"):
-                report.items.append(
-                    DriftItem("modified", "git_hooks", src_composer.name, dst, "composer hook differs from source")
-                )
+        _check_composers(src_hooks, composer, report)
     # if the config wired core.hooksPath, verify git still points at the composer dir —
     # files can exist while git no longer invokes them (someone re-set core.hooksPath).
     if action.options.get("set_global_hooks_path"):
