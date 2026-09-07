@@ -938,6 +938,10 @@
               "type": "boolean",
               "description": "add the repo Admin role to bypass_actors",
               "default": true
+            },
+            "require_extra_approval_for_unattributed_changes": {
+              "type": "boolean",
+              "description": "pull_request rule sub-param: GitHub's own extra-approval-for-unattributed-changes rule (documented for PRs opened under an app identity, e.g. Copilot). Mode-gated to false for autonomous-mode repos; otherwise unmanaged (not compared for drift, and preserved verbatim if an unrelated ruleset knob triggers a PUT)."
             }
           },
           "additionalProperties": false

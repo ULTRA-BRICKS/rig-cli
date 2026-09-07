@@ -2179,6 +2179,11 @@ _GITHUB_RULESET_BOOL_KNOBS = (
     "require_linear_history",
     "require_signatures",
     "admin_bypass",
+    # Mode-gated (autonomous only) — see plan._build_github_ruleset. An explicit value here always
+    # wins over the mode-gated default, regardless of mode. NOT in GITHUB_RULESET_DEFAULTS: unlike
+    # every other bool knob, it has no unconditional default — its default only applies when the
+    # repo's effective mode is autonomous.
+    "require_extra_approval_for_unattributed_changes",
 )
 _GITHUB_RULESET_KEYS = {
     *_GITHUB_RULESET_BOOL_KNOBS,

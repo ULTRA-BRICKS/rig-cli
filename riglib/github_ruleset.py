@@ -77,6 +77,13 @@ GITHUB_RULESET_DEFAULTS: dict[str, Any] = {
     "admin_bypass": True,
 }
 
+# `require_extra_approval_for_unattributed_changes` is DELIBERATELY absent from
+# GITHUB_RULESET_DEFAULTS above: unlike every other knob, this one is NOT unconditionally
+# desired-state for every repo — see ``riglib.plan._build_github_ruleset`` for the mode-gated
+# injection. This is only the KEY NAME both sides (build + normalize) key off of, so a
+# future rename can't silently desync them.
+UNATTRIBUTED_APPROVAL_KEY = "require_extra_approval_for_unattributed_changes"
+
 # Map each merge-gating CI gate slot → the GitHub CHECK-RUN context it produces (the job `name:` in
 # its workflow, which is the string the required_status_checks rule matches). ROADMAP §5 names these
 # two — the PR-checklist gate and the unresolved-review-threads gate — as the required checks rig
@@ -128,23 +135,42 @@ def build_ruleset_rules(opts: dict) -> list[dict]:
     """
     rules: list[dict] = []
     if opts.get("require_pull_request", True):
-        rules.append(
-            {
-                "type": "pull_request",
-                "parameters": {
-                    "required_approving_review_count": int(opts.get("required_reviews", 0)),
-                    # SECURE DEFAULTS (both ON): a stale approval is dismissed on a new push, and
-                    # every review thread must be resolved before merge. The latter is the durable
-                    # server-side fix for an open-thread bypass — see GITHUB_RULESET_DEFAULTS.
-                    "dismiss_stale_reviews_on_push": bool(opts.get("dismiss_stale_reviews", True)),
-                    "require_code_owner_review": False,
-                    "require_last_push_approval": False,
-                    "required_review_thread_resolution": bool(
-                        opts.get("required_conversation_resolution", True)
-                    ),
-                },
-            }
-        )
+        pr_params: dict[str, Any] = {
+            "required_approving_review_count": int(opts.get("required_reviews", 0)),
+            # SECURE DEFAULTS (both ON): a stale approval is dismissed on a new push, and
+            # every review thread must be resolved before merge. The latter is the durable
+            # server-side fix for an open-thread bypass — see GITHUB_RULESET_DEFAULTS.
+            "dismiss_stale_reviews_on_push": bool(opts.get("dismiss_stale_reviews", True)),
+            "require_code_owner_review": False,
+            "require_last_push_approval": False,
+            "required_review_thread_resolution": bool(
+                opts.get("required_conversation_resolution", True)
+            ),
+        }
+        # UNATTRIBUTED-APPROVAL KNOB. GitHub's `require_extra_approval_for_unattributed_changes`
+        # requires ONE MORE approval than `required_approving_review_count` on a PR GitHub itself
+        # classifies as opened under an app identity NOT attributed to a person (GitHub's docs name
+        # the Copilot coding agent as the documented example: "When Copilot opens a pull request
+        # that isn't attributed to a person, the ruleset requires one more approval than the number
+        # you configured" — docs.github.com/.../available-rules-for-rulesets). It does NOT, per that
+        # documented mechanism, gate on commit AUTHORSHIP within an otherwise human-opened PR. This
+        # was found ON (`true`) blocking `gh ship`'s merge on agent-tools' `rig-managed` ruleset (id
+        # 17977246) and hand-patched to `false` via a raw `gh api ... -X PUT` on 2026-09-07 as an
+        # emergency stopgap — this is that fix made durable and reconcilable, regardless of the exact
+        # mechanism that made it fire (rig-cli#399 could not independently confirm the causal story
+        # from the rule-suites evaluation log or PR authorship — see the ticket for what was
+        # checked). This is the ONLY thing this knob touches: every other pull_request sub-param
+        # above (required review count, thread resolution, stale-review dismissal) and the
+        # non_fast_forward/deletion rules are untouched by it. Only present in the body when the plan
+        # builder explicitly injects it (mode-gated to `mode.name: autonomous` — see
+        # `plan._build_github_ruleset`); for a non-autonomous repo the key is absent here, so it is
+        # not managed: never sent in the PUT body and never compared for drift (see
+        # `normalize_ruleset` below) — NOT a promise that GitHub's live value is preserved verbatim
+        # on every apply, since an unrelated knob change still PUTs a full ruleset body and any
+        # omitted sub-param then reverts to GitHub's own platform default.
+        if UNATTRIBUTED_APPROVAL_KEY in opts:
+            pr_params[UNATTRIBUTED_APPROVAL_KEY] = bool(opts[UNATTRIBUTED_APPROVAL_KEY])
+        rules.append({"type": "pull_request", "parameters": pr_params})
     if opts.get("block_force_push", True):
         rules.append({"type": "non_fast_forward"})
     if opts.get("restrict_deletion", True):
@@ -195,7 +221,7 @@ def build_ruleset_body(opts: dict) -> dict:
     }
 
 
-def normalize_ruleset(body: dict) -> dict:
+def normalize_ruleset(body: dict, *, manage_unattributed_approval: bool = False) -> dict:
     """The comparable shape of a ruleset — only the fields rig manages, order-independent.
 
     Both the desired body and a ruleset fetched from GitHub are normalized through this, so the
@@ -204,6 +230,14 @@ def normalize_ruleset(body: dict) -> dict:
     review count / contexts — else a live flip of any other managed param reads as in-sync and
     apply never converges); bypass actors are reduced to their identity tuple; conditions are
     compared order-independently — so a semantic match reads as in-sync, not drift.
+
+    ``manage_unattributed_approval`` gates ONE extra pull_request sub-param,
+    ``require_extra_approval_for_unattributed_changes`` (see ``UNATTRIBUTED_APPROVAL_KEY``): GitHub
+    always returns it on a live-fetched ruleset (it has a platform default), but rig only manages
+    it for mode-gated (autonomous) repos. The caller MUST pass the SAME flag when normalizing both
+    the desired and the actual body (``github_ruleset_state`` does), so the field is symmetrically
+    included or excluded on both sides — never compared on one side only, which would read as
+    permanent drift on every non-autonomous repo.
     """
     norm_rules = []
     for rule in sorted(body.get("rules", []) or [], key=lambda r: str(r.get("type", ""))):
@@ -230,26 +264,29 @@ def normalize_ruleset(body: dict) -> dict:
             # build_ruleset_rules); the other two rig always writes False.
             # Every one is compared here so a live flip of ANY of them reads as drift, never a false
             # in-sync.
-            norm_rules.append(
-                {
-                    "type": rtype,
-                    "required_approving_review_count": int(
-                        params.get("required_approving_review_count", 0)
-                    ),
-                    "dismiss_stale_reviews_on_push": bool(
-                        params.get("dismiss_stale_reviews_on_push", False)
-                    ),
-                    "require_code_owner_review": bool(
-                        params.get("require_code_owner_review", False)
-                    ),
-                    "require_last_push_approval": bool(
-                        params.get("require_last_push_approval", False)
-                    ),
-                    "required_review_thread_resolution": bool(
-                        params.get("required_review_thread_resolution", False)
-                    ),
-                }
-            )
+            norm_pr = {
+                "type": rtype,
+                "required_approving_review_count": int(
+                    params.get("required_approving_review_count", 0)
+                ),
+                "dismiss_stale_reviews_on_push": bool(
+                    params.get("dismiss_stale_reviews_on_push", False)
+                ),
+                "require_code_owner_review": bool(
+                    params.get("require_code_owner_review", False)
+                ),
+                "require_last_push_approval": bool(
+                    params.get("require_last_push_approval", False)
+                ),
+                "required_review_thread_resolution": bool(
+                    params.get("required_review_thread_resolution", False)
+                ),
+            }
+            if manage_unattributed_approval:
+                norm_pr[UNATTRIBUTED_APPROVAL_KEY] = bool(
+                    params.get(UNATTRIBUTED_APPROVAL_KEY, False)
+                )
+            norm_rules.append(norm_pr)
         else:
             norm_rules.append({"type": rtype})
     # stringify EVERY field of the actor identity tuple (incl. actor_id) so the sort can't hit a
@@ -281,6 +318,52 @@ def _normalize_conditions(conditions: Any) -> dict:
         "include": sorted(str(x) for x in ref.get("include", []) or []),
         "exclude": sorted(str(x) for x in ref.get("exclude", []) or []),
     }
+
+
+def carry_over_unattributed_approval(desired: dict, current: dict | None) -> dict:
+    """Preserve an UNMANAGED unattributed-approval value across an update PUT.
+
+    A ruleset PUT REPLACES the entire ``pull_request`` rule's ``parameters`` object — GitHub
+    applies its own platform default to any sub-param the body omits. When
+    ``require_extra_approval_for_unattributed_changes`` is unmanaged (absent from ``desired``'s
+    pull_request parameters — a non-autonomous repo, or no explicit config), an UNRELATED drift
+    (e.g. a required-reviews change) still triggers a full PUT. Without this, that PUT would
+    silently reset a human's live GitHub choice on this security-relevant setting to GitHub's
+    default — never rig's intent for an unmanaged field. This function copies whatever ``current``
+    (the live-fetched ruleset) has for this sub-param, UNCHANGED, into the outgoing ``desired``
+    body, so an unmanaged knob really is left alone even when some other knob triggers a PUT.
+
+    A MANAGED value (already present in ``desired``'s pull_request parameters) is never touched
+    here — the caller's own value always wins; this only fills a hole the plan builder
+    deliberately left. Returns ``desired`` unchanged when there is nothing to carry (no ``current``,
+    no ``pull_request`` rule on either side, or ``current`` doesn't carry the field either).
+    """
+    if not isinstance(current, dict):
+        return desired
+    current_pr = next(
+        (r for r in current.get("rules", []) or [] if isinstance(r, dict) and r.get("type") == "pull_request"),
+        None,
+    )
+    if not isinstance(current_pr, dict):
+        return desired
+    current_params = current_pr.get("parameters") or {}
+    if UNATTRIBUTED_APPROVAL_KEY not in current_params:
+        return desired
+    desired_rules = []
+    carried = False
+    for rule in desired.get("rules", []) or []:
+        params = rule.get("parameters") if isinstance(rule, dict) else None
+        if (
+            isinstance(rule, dict)
+            and rule.get("type") == "pull_request"
+            and UNATTRIBUTED_APPROVAL_KEY not in (params or {})
+        ):
+            rule = {**rule, "parameters": {**(params or {}), UNATTRIBUTED_APPROVAL_KEY: current_params[UNATTRIBUTED_APPROVAL_KEY]}}
+            carried = True
+        desired_rules.append(rule)
+    if not carried:
+        return desired
+    return {**desired, "rules": desired_rules}
 
 
 def find_managed_ruleset(rulesets: list[dict], name: str) -> dict | None:

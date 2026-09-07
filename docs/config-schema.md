@@ -1445,6 +1445,8 @@ github:
     # required_status_checks: omit to auto-default to the merge-gating CI gates this repo
     # provisions (PR Checklist + review-threads); set a list to pin, or [] to require none.
     admin_bypass: true            # add the repo Admin role to bypass_actors
+    # require_extra_approval_for_unattributed_changes: omit — see the mode-gated paragraph below.
+    # Only set it explicitly to override rig's mode-gated default in either direction.
 ```
 
 | Key | Type | Default | Meaning |
@@ -1461,6 +1463,43 @@ github:
 | `require_signatures` | bool | `false` | emit the `required_signatures` rule |
 | `required_status_checks` | list[str] | *auto* | contexts for the `required_status_checks` rule. **When omitted**, rig defaults it (ROADMAP §5) to the merge-gating CI gates this repo actually provisions — `PR Checklist` and `review-threads` — so a PR can't merge until those are green, but ONLY for gates that are enabled and written (requiring an absent check would wedge every PR). An explicit list (including `[]` for "require none") wins verbatim. **An empty result emits no rule** (never a no-op rule) |
 | `admin_bypass` | bool | `true` | add the repo Admin role (`actor_id: 5`, `RepositoryRole`, `always`) to `bypass_actors` |
+| `require_extra_approval_for_unattributed_changes` | bool | *mode-gated, see below* | `require_extra_approval_for_unattributed_changes` on the `pull_request` rule — GitHub's own rule requiring one extra approval on a PR opened under an unattributed app identity (documented example: Copilot). **Has no unconditional default** — unlike every other knob above, rig only injects a default when the repo's effective `mode.name` is `autonomous`. Set explicitly to override the mode-gated default in either direction |
+
+**`require_extra_approval_for_unattributed_changes` — mode-gated, autonomous machines only.**
+GitHub's own PR rule of this name requires ONE MORE approval than `required_reviews` on a PR
+GitHub classifies as opened under an app identity not attributed to a person — GitHub's own docs
+name the Copilot coding agent as the documented trigger: *"When Copilot opens a pull request that
+isn't attributed to a person, the ruleset requires one more approval than the number you
+configured"* (docs.github.com, available-rules-for-rulesets). This was found **ON** (`true`)
+blocking `gh ship`'s merge on agent-tools' `rig-managed` ruleset and hand-patched to `false` via a
+raw `gh api ... -X PUT` on 2026-09-07 as an emergency stopgap — this feature makes that fix durable
+and reconcilable. **The exact causal mechanism was not independently confirmed**: agent-tools'
+recent merges are all attributed to a human GitHub login (`alex-mextner`), not an app/bot identity,
+which the documented Copilot-specific trigger would not gate on, and the repo's rule-suites
+evaluation log for the last 30 days shows zero failed pushes — so it is unclear from the evidence
+gathered here exactly why the rule fired for `gh ship`. The observed block and the working
+hand-patch are the facts this feature is built on; the mechanism claim above is GitHub's own
+documented behavior, not a verified explanation of the specific incident. rig now reconciles the
+knob declaratively: it defaults it to `false` (never required)
+**only** for a repo whose effective `mode.name` is `autonomous` (the machine-wide `mode:` block —
+see the `mode` section above; it cascades from `~/.config/rig/config.yaml`, since `mode` is a
+GLOBAL-only category rejected from a committed per-repo `rig.yaml`). **This makes the gating
+per-machine, not per-repo**: on a machine with `mode.name: autonomous` set, every rig-managed repo
+`rig apply` touches gets this knob managed. A repo that is NOT in autonomous mode (or applied from
+a non-autonomous machine) gets no injected default: the knob is absent from both the outgoing
+desired body and the drift comparison — it is simply **unmanaged**. An unrelated ruleset knob
+change still PUTs the full `pull_request` rule (GitHub's update API replaces the whole parameters
+object), which would otherwise silently reset an unmanaged knob to GitHub's own platform default —
+so at apply time rig re-reads the live value it already fetched for drift classification and
+carries it, UNCHANGED, into the outgoing PUT (`github_ruleset.carry_over_unattributed_approval`).
+This is NOT full optimistic concurrency: there is a narrow window between that read and the PUT
+where a concurrent hand edit in the GitHub UI could still be overwritten by the carried-over
+snapshot — the same read-then-write class of risk this module already carries for every other
+field it reconciles, not one this knob introduces new. To opt a single repo back in — e.g. to keep
+formal human approval required even on an autonomous machine — set
+`github.ruleset.require_extra_approval_for_unattributed_changes` explicitly in that repo's own
+`rig.yaml`; an explicit value always wins over the mode-gated default, in either direction and
+regardless of mode.
 
 **The footgun guard — rig never emits the `update` rule.** A hand-made ruleset with the
 `update` ("Restrict updates") rule and **zero bypass actors** locks out *every* merge: each
