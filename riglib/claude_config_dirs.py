@@ -316,9 +316,13 @@ def config_dir_gaps(rows: list[ConfigDirStatus]) -> list[ConfigDirGap]:
         if row.malformed:
             gaps.append(ConfigDirGap(row, _malformed_what(row), _GAP_FIX_MALFORMED))
         elif ref.bridge_hooks and not row.bridge_hooks:
-            what = (
-                f"{row.settings} has 0 rig hook-bridge hooks ({ref.settings} has {ref.bridge_hooks}) "
-                "— a `claude` started from this config dir runs NO rig-provisioned guard"
-            )
-            gaps.append(ConfigDirGap(row, what, fix))
+            gaps.append(ConfigDirGap(row, _no_bridge_what(row, ref), fix))
     return gaps
+
+
+def _no_bridge_what(row: ConfigDirStatus, ref: ConfigDirStatus) -> str:
+    state = "does not exist" if not row.exists else "has 0 rig hook-bridge hooks"
+    return (
+        f"{row.settings} {state} ({ref.settings} has {ref.bridge_hooks}) "
+        "— a `claude` started from this config dir runs NO rig-provisioned guard"
+    )

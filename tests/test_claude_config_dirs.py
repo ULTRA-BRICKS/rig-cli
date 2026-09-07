@@ -315,6 +315,52 @@ def test_doctor_malformed_settings_is_always_a_gap(tmp_path):
     assert len(gaps) == 1 and "malformed" in gaps[0].what
 
 
+def test_doctor_gap_names_a_missing_settings_file(tmp_path):
+    # an account dir with NO settings.json at all is a gap worded as "does not exist", not as
+    # "has 0 hooks" (that wording implies a file is there and merely lacks the bridge)
+    home = _fake_home(tmp_path, ("account-0",))
+    _write_settings(home / ".claude" / "settings.json", bridge=True, mode="auto")
+    gaps = config_dir_gaps(doctor_config_dirs(home, {}))
+    assert len(gaps) == 1
+    assert "does not exist" in gaps[0].what and "0 rig hook-bridge hooks" not in gaps[0].what
+
+
+def test_fan_out_keys_without_yaml_accept_any_indent_and_yaml11_booleans():
+    # a hand-edited file may use 4-space indentation, and PyYAML reads `no`/`yes`/`off`/`on`
+    # as booleans — the stdlib fallback must agree with it rather than silently dropping keys
+    from riglib.config import _fan_out_keys_without_yaml
+
+    four = "harness:\n    settings_paths: [~/extra/settings.json]\n    hook_bridge:\n        enabled: true\n    discover_config_dirs: no\n"
+    assert _fan_out_keys_without_yaml(four) == {
+        "settings_paths": ["~/extra/settings.json"],
+        "discover_config_dirs": False,
+    }
+    block = "harness:\n    settings_paths:\n        - ~/a/settings.json\n    discover_config_dirs: yes\n"
+    assert _fan_out_keys_without_yaml(block) == {
+        "settings_paths": ["~/a/settings.json"],
+        "discover_config_dirs": True,
+    }
+
+
+def test_load_harness_fan_out_survives_invalid_utf8_without_pyyaml(tmp_path, monkeypatch):
+    from riglib import config as config_module
+
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    gcfg = home / ".config" / "rig" / "config.yaml"
+    gcfg.parent.mkdir(parents=True)
+    gcfg.write_bytes(b"harness:\n  discover_config_dirs: false\n\xff\xfe\n")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def no_yaml(path):
+        raise ImportError("No module named 'yaml'")
+
+    monkeypatch.setattr(config_module, "read_yaml_file", no_yaml)
+    assert load_harness_fan_out(repo) == {}  # UnicodeDecodeError → defaults, never a crash
+
+
 def test_managed_settings_files_ignores_the_shell_env(tmp_path, monkeypatch):
     # the config-less drift default is filesystem-only: CLAUDE_CONFIG_DIR never changes it
     home = _fake_home(tmp_path, ("account-0",))
