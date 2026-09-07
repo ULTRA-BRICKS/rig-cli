@@ -1897,14 +1897,15 @@ def _describe_permission_changes(added_per_container: list[str], total_added: in
     return described
 
 
-def _maybe_backup_permissions_file(config_file: Path, on_conflict: str, backup_note: str) -> str:
-    """Back up the existing file once, under ``on_conflict=backup`` — a no-op if a malformed-file
-    backup already ran this call, or the file didn't previously exist."""
-    if _should_backup(on_conflict) and backup_note == "" and config_file.is_file():
+def _maybe_backup_permissions_file(config_file: Path, on_conflict: str) -> str:
+    """Back up the existing file under ``on_conflict=backup`` — "" if it didn't exist or the
+    policy doesn't call for it (the malformed-file backup, a separate always-unless-skip case,
+    is taken by the caller before this ever runs — see :func:`_do_provision_permissions`)."""
+    if _should_backup(on_conflict) and config_file.is_file():
         bak = fsutil.backup_path(config_file)
         shutil.copy2(str(config_file), str(bak))
         return f" (backed up prior → {bak})"
-    return backup_note
+    return ""
 
 
 def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
@@ -1987,21 +1988,33 @@ def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
     # class the fully-empty-action guard above (finding #3) closes, just reached via the
     # revoke-only path that guard doesn't cover on its own.
     #
-    # Gated on `on_conflict != "skip"`, NEVER on `_should_backup` (review finding, rig-cli#333
-    # round 13): `_should_backup` is the WELL-FORMED-file predicate (`on_conflict == "backup"`
-    # only — "overwrite" deliberately skips that ceremony for a file rig can already parse and
-    # safely re-merge into). A MALFORMED file is different: rig is about to blow away content it
-    # never parsed and can't merge into, which is a real, one-way information loss regardless of
-    # the well-formed-file policy — the round-11 refactor accidentally reused `_should_backup` here
-    # and silently dropped the always-back-up-malformed-unless-skip guarantee for `on_conflict:
-    # overwrite`, contradicting this function's own "never a blind overwrite of the user's data"
-    # docstring line. Restored to the original, policy-independent condition.
-    if was_malformed and on_conflict != "skip":
+    # NEVER gated on `_should_backup` (review finding, rig-cli#333 round 13): `_should_backup` is
+    # the WELL-FORMED-file predicate (`on_conflict == "backup"` only — "overwrite" deliberately
+    # skips that ceremony for a file rig can already parse and safely re-merge into). A MALFORMED
+    # file is different: rig is about to blow away content it never parsed and can't merge into, a
+    # real, one-way information loss regardless of the well-formed-file policy — the round-11
+    # refactor accidentally reused `_should_backup` here and silently dropped the always-back-up-
+    # malformed-unless-skip guarantee for `on_conflict: overwrite`. No explicit `on_conflict !=
+    # "skip"` check needed here: `was_malformed` can only be True at this point if
+    # `_load_permissions_settings` did NOT already return its `on_conflict == "skip"` early result
+    # above, so that case is already excluded.
+    #
+    # This exact spot has regressed three times across this branch's own history (a fresh
+    # reviewer catching a subtly-wrong backup condition each time) — the assert below is a fail-
+    # LOUD local guard for the cross-function invariant the comment above only states in prose
+    # (review finding, rig-cli#333 round 15), so a future edit to `_load_permissions_settings`'s
+    # early-return logic that silently breaks the coupling trips a test immediately here, not a
+    # quiet re-introduction of "malformed file backed up even under on_conflict=skip".
+    if was_malformed:
+        assert on_conflict != "skip", (
+            "was_malformed implies on_conflict != 'skip' — _load_permissions_settings should "
+            "have short-circuited before this point"
+        )
         bak = fsutil.backup_path(ctx.config_file)
         shutil.copy2(str(ctx.config_file), str(bak))
         backup_note = f" (backed up malformed config → {bak})"
     else:
-        backup_note = _maybe_backup_permissions_file(ctx.config_file, on_conflict, "")
+        backup_note = _maybe_backup_permissions_file(ctx.config_file, on_conflict)
     # NEVER pass sort_keys=True here: opencode is last-match-wins, so its deny/ask keys in
     # permission.bash MUST serialize AFTER the allow keys / any user catch-all. Sorting (or otherwise
     # rebuilding the object) would silently reorder deny before allow and turn every deny into a

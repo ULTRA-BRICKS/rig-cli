@@ -556,6 +556,10 @@ def test_malformed_json_skip_leaves_untouched(fake_agent_tools, tmp_path):
     perm = _perm_results(report)
     assert perm and perm[0].status == "skipped"
     assert settings.read_text(encoding="utf-8") == "{ this is not json"  # untouched
+    # round-15 review finding: this exact malformed-file-backup-vs-on_conflict condition has
+    # regressed three times across this branch's history — pin the `skip` side explicitly, not
+    # just "the original bytes are still there" (which a backup copy elsewhere wouldn't disturb).
+    assert not [p for p in repo.iterdir() if p.name.startswith("settings.json.rig-bak-")]
 
 
 def test_non_array_allow_is_error(fake_agent_tools, tmp_path):
@@ -736,6 +740,63 @@ def test_opencode_allow_gh_false_revokes_a_rig_granted_default_entry(fake_agent_
     bash2 = json.loads(settings.read_text(encoding="utf-8"))["permission"]["bash"]
     assert "gh *" not in bash2
     assert not [d for d in detect(plan2).items if d.category == "permissions"]
+
+
+def test_opencode_allow_gh_false_never_revokes_an_entry_the_user_repurposed_to_a_stricter_value(
+    fake_agent_tools, tmp_path,
+):
+    # round-14 review finding: the object-form revoke/drift value guard (`existing.get(entry) ==
+    # allow_spec.value` in `_revoke_stale_default_grants`, mirrored in
+    # `_check_permission_revocation`) refuses to touch an entry the user has hand-tightened to a
+    # DIFFERENT value than rig's own `"allow"` — but nothing pinned it. A regression here would
+    # delete a user's tightening, which is strictly worse than the gap this PR set out to close.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "opencode.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    plan1 = build(_opencode_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(plan1)  # gh *: allow — granted + receipted
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    data["permission"]["bash"]["gh *"] = "ask"  # the user hand-tightens it
+    settings.write_text(json.dumps(data), encoding="utf-8")
+
+    plan2 = build(_opencode_cfg(repo, fake_agent_tools, settings, allow_gh=False), cat, project_type="unknown")
+    assert not [d for d in detect(plan2).by_direction("extra") if d.category == "permissions"]
+    run_plan(plan2)
+    bash_after = json.loads(settings.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert bash_after.get("gh *") == "ask"  # the user's tightening survives untouched
+
+
+def test_adversarial_receipt_cannot_authorize_revoking_a_non_git_hosting_entry(fake_agent_tools, tmp_path):
+    # round-14 review finding: `receipt_granted_entries` clamps to `_valid_git_hosting_entries`
+    # as defense against a hand-edited/forged receipt — but nothing planted one and proved the
+    # clamp actually holds. `explicit_git_hosting_revocation_entries` structurally can only ever
+    # target git-hosting tools (rendered from `DEFAULT_GIT_HOSTING_TOOLS`), so a forged claim
+    # about an unrelated tool can't reach `to_revoke` via that route either — this test proves the
+    # SECOND, independent layer: even a receipt that claims a non-git-hosting entry as "granted"
+    # never lets it become `prior_granted`, so it's never eligible for revocation at all.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    plan1 = build(_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(plan1)  # creates the real receipt file at settings.json.claude-code.rig-permissions-grants.json
+    receipt = settings.parent / "settings.json.claude-code.rig-permissions-grants.json"
+    assert receipt.is_file()
+    # forge the receipt: the legitimate gh grant PLUS an adversarial non-git-hosting claim
+    receipt.write_text(
+        json.dumps({"template": 1, "kind": "claude-code", "granted": ["Bash(gh:*)", "Bash(kubectl:*)"]}),
+        encoding="utf-8",
+    )
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    data["permissions"]["allow"].append("Bash(kubectl:*)")  # present on disk too, as if hand-added
+    settings.write_text(json.dumps(data), encoding="utf-8")
+
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, allow_gh=False), cat, project_type="unknown")
+    run_plan(plan2)
+    allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" not in allow_after  # the legitimate claim was read and acted on
+    assert "Bash(kubectl:*)" in allow_after  # the forged claim was clamped out, never actionable
 
 
 def test_receipt_never_revokes_a_non_git_hosting_tool_across_shared_settings(fake_agent_tools, tmp_path):
