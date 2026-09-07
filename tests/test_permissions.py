@@ -857,6 +857,36 @@ def test_extra_gh_is_never_receipted_even_on_a_tools_override_that_excludes_it(f
     assert "Bash(gh:*)" in allow_after
 
 
+def test_receipt_never_collides_across_harness_kinds_sharing_one_settings_path(fake_agent_tools, tmp_path):
+    # round-11 review finding: the round-2 fix separated receipts by settings-FILE identity, but
+    # two DIFFERENT harness kinds each configured (independently, in two separate repos) with an
+    # explicit `permissions.settings_path` pointing at the exact same file were NOT separated —
+    # the receipt filename carried no `kind`, so the second kind's apply overwrote the first
+    # kind's receipt wholesale, and the kind-match guard in `receipt_granted_entries` then treated
+    # the first kind's real grant as unreceipted (fails open: the entry survives forever, an
+    # opt-out silently can't revoke it — never fails dangerous).
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "shared.json"  # both kinds independently point here
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    cc_plan1 = build(_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(cc_plan1)  # claude-code grants + receipts gh under kind=claude-code
+    assert "Bash(gh:*)" in json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+
+    oc_plan1 = build(_opencode_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(oc_plan1)  # a SEPARATE opencode apply syncs its OWN receipt against the same file
+    assert json.loads(settings.read_text(encoding="utf-8"))["permission"]["bash"].get("gh *") == "allow"
+
+    # the claude-code grant must still be revocable — its receipt must not have been clobbered by
+    # the opencode apply's own receipt sync against the same shared file
+    cc_plan2 = build(_cfg(repo, fake_agent_tools, settings, allow_gh=False), cat, project_type="unknown")
+    extra = [d for d in detect(cc_plan2).by_direction("extra") if d.category == "permissions"]
+    assert any("Bash(gh:*)" in d.detail for d in extra), extra
+    run_plan(cc_plan2)
+    allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" not in allow_after
+
+
 def test_explicit_redeclaration_clears_a_receipt_from_an_earlier_default_grant(fake_agent_tools, tmp_path):
     # round-9 review finding: `gh` is first granted as a plain default (receipted), then a LATER
     # apply explicitly re-declares it via `tools: [gh]` (never-receipted per round 8) — but that
@@ -1011,6 +1041,54 @@ def test_empty_action_against_malformed_file_is_a_true_noop(fake_agent_tools, tm
     assert _perm_results(report2)[0].status == "skipped"
     assert settings.read_text(encoding="utf-8") == "{ broken"
     assert not [p for p in repo.iterdir() if p.name.startswith("settings.json.rig-bak-")]
+
+
+def test_revoke_only_action_against_malformed_file_is_also_a_true_noop(fake_agent_tools, tmp_path):
+    # round-11 review finding: the fully-empty-action guard (finding #3 / the test above) only
+    # covers `total_desired == 0 AND nothing to revoke`. When there IS a stale receipted grant to
+    # revoke (so that guard's `not ctx.to_revoke` half is False) but the settings file on disk is
+    # malformed, the OLD code still parsed first — backing up the malformed file and resetting to
+    # `{}` — before discovering the revoke target isn't even present in a `{}` document and the
+    # whole action resolves to a no-op. One stray backup per re-apply (self-healing, since the
+    # receipt clears to empty after this run) but still the exact "don't touch a malformed file
+    # when nothing ends up written" invariant finding #3 was meant to establish.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    run_plan(build(_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown"))
+    assert "Bash(gh:*)" in json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+
+    settings.write_text("{ broken", encoding="utf-8")  # corrupted out-of-band
+    cfg = _cfg(repo, fake_agent_tools, settings, tools=[], deny=[], ask=[], allow_gh=False)
+    cfg.data["defaults"] = {"on_conflict": "backup"}
+    plan = build(cfg, cat, project_type="unknown")
+
+    report = run_plan(plan)
+    perm = _perm_results(report)
+    assert perm and perm[0].status == "skipped", perm[0].detail if perm else perm
+    assert settings.read_text(encoding="utf-8") == "{ broken"  # untouched, not reset to {}
+    assert not [p for p in repo.iterdir() if p.name.startswith("settings.json.rig-bak-")]
+
+
+def test_disable_gh_revokes_a_rig_granted_default_entry_same_as_allow_gh_false(fake_agent_tools, tmp_path):
+    # round-11 review finding: `disable: [gh]` is documented as an equal revocation trigger to
+    # `allow_gh: false` (both fold into `_explicit_git_hosting_opt_out`), but every revocation
+    # test used `allow_gh=False` — nothing pinned that `disable: [gh]` alone actually populates
+    # the revoke signal and deletes a receipted grant.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    plan1 = build(_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(plan1)  # gh default-granted + receipted
+
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, disable=["gh"]), cat, project_type="unknown")
+    extra = [d for d in detect(plan2).by_direction("extra") if d.category == "permissions"]
+    assert any("Bash(gh:*)" in d.detail for d in extra), extra
+    run_plan(plan2)
+    allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" not in allow_after
 
 
 def test_malformed_json_backup_then_rewrites_under_backup(fake_agent_tools, tmp_path):

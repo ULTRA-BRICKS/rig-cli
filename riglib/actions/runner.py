@@ -1612,8 +1612,27 @@ def permissions_receipt_file(action: Action) -> Path:
     trade-off as the wholesale-replacement case above, reached by a more ordinary path (a targeted
     hand edit, not a full file swap) — fixing it needs the same per-grant fingerprint machinery,
     judged out of proportion to this change's scope; not fixed here.
+
+    The filename also carries the harness ``kind`` (review finding, rig-cli#333 round 11): the
+    round-2 fix separated receipts by settings-FILE identity, but two DIFFERENT harness kinds can
+    still be configured to point their OWN, independent ``permissions.settings_path`` at the exact
+    SAME file (the "multiple kinds + one explicit override" case where the plan itself picks only
+    one kind and skips the rest is a different, single-repo scenario — this is two SEPARATE repos,
+    each configuring only one kind, that happen to target one shared path). Without ``kind`` in the
+    name, a later apply for the second kind would overwrite the first kind's receipt wholesale
+    (:func:`_sync_permissions_receipt` always replaces the file's content), and ``receipt_granted_
+    entries``'s kind-match guard would then see the WRONG kind and treat the first kind's real
+    grant as unreceipted — the same fail-open (never fail-dangerous) shape as every gap above.
+
+    No migration is needed for the filename rename itself: this entire receipt mechanism —
+    including the pre-round-11 filename it replaces — is new IN THIS SAME, still-unmerged PR
+    (rig-cli#333). It has never shipped, so no real machine can hold a receipt in the old
+    (kind-less) shape to migrate away from; the round-11 diff simply lands the final filename
+    before this ever reaches `main`.
     """
-    return permissions_settings_file(action).parent / f"{permissions_settings_file(action).name}{GRANT_RECEIPT_SUFFIX}"
+    settings_file = permissions_settings_file(action)
+    kind = str(action.options.get("kind", "claude-code"))
+    return settings_file.parent / f"{settings_file.name}.{kind}{GRANT_RECEIPT_SUFFIX}"
 
 
 def read_permissions_grant_receipt(receipt_file: Path) -> dict:
@@ -1926,7 +1945,7 @@ def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
         )
 
     ctx.config_file.parent.mkdir(parents=True, exist_ok=True)
-    data, backup_note, existed, early = _load_permissions_settings(action, ctx.config_file, on_conflict)
+    data, was_malformed, existed, early = _load_permissions_settings(action, ctx.config_file, on_conflict)
     if early is not None:
         return early
 
@@ -1956,7 +1975,23 @@ def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
         )
 
     added_per_container = _describe_permission_changes(added_per_container, total_added, revoked)
-    backup_note = _maybe_backup_permissions_file(ctx.config_file, on_conflict, backup_note)
+    # The malformed-file backup is taken HERE — deferred all the way to the point a write is
+    # actually about to happen — never eagerly inside `_load_permissions_settings` (review
+    # finding, rig-cli#333 round 11): the original malformed bytes are still sitting untouched at
+    # `ctx.config_file` (this function never deletes/replaces them before this point), so backing
+    # up now is equivalent to backing up at parse time WHENEVER a write follows, but skips the
+    # backup entirely on the "parsed fine as {}, nothing ended up changing" branches above (the
+    # `total_desired == 0 and not ctx.to_revoke` bail-out, and the `after == before` no-op below a
+    # revoke-only action against a malformed file that resets to `{}` and then finds nothing left
+    # to revoke) — closing the SAME "spurious backup for an action that ends up writing nothing"
+    # class the fully-empty-action guard above (finding #3) closes, just reached via the
+    # revoke-only path that guard doesn't cover on its own.
+    if was_malformed and _should_backup(on_conflict):
+        bak = fsutil.backup_path(ctx.config_file)
+        shutil.copy2(str(ctx.config_file), str(bak))
+        backup_note = f" (backed up malformed config → {bak})"
+    else:
+        backup_note = _maybe_backup_permissions_file(ctx.config_file, on_conflict, "")
     # NEVER pass sort_keys=True here: opencode is last-match-wins, so its deny/ask keys in
     # permission.bash MUST serialize AFTER the allow keys / any user catch-all. Sorting (or otherwise
     # rebuilding the object) would silently reorder deny before allow and turn every deny into a
@@ -1998,35 +2033,38 @@ def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
 
 def _load_permissions_settings(
     action: Action, config_file: Path, on_conflict: str,
-) -> tuple[dict, str, bool, ActionResult | None]:
+) -> tuple[dict, bool, bool, ActionResult | None]:
     """Parse ``config_file`` for :func:`_do_provision_permissions`.
 
-    Returns ``(data, backup_note, existed, early_result)`` — when ``early_result`` is set the
+    Returns ``(data, was_malformed, existed, early_result)`` — when ``early_result`` is set the
     caller must return it immediately (a malformed file under ``on_conflict=skip``, or a non-dict
-    root); ``data``/``backup_note``/``existed`` are meaningless in that case.
+    root); ``data``/``was_malformed``/``existed`` are meaningless in that case.
+
+    Deliberately does NOT back up a malformed file itself (review finding, rig-cli#333 round 11):
+    it only reports ``was_malformed=True`` and resets ``data`` to ``{}`` for parsing purposes,
+    leaving the original bytes on disk untouched. The caller takes the actual backup copy only
+    once it knows a write is really about to happen — see the note at that call site.
     """
     data: dict = {}
-    backup_note = ""
+    was_malformed = False
     existed = config_file.is_file()
     if existed:
         try:
             data = json.loads(config_file.read_text(encoding="utf-8"))
         except ValueError:
             if on_conflict == "skip":
-                return {}, "", existed, ActionResult(
+                return {}, False, existed, ActionResult(
                     action, "skipped",
                     f"permissions/{action.item}: existing {config_file} is malformed JSON "
                     "(on_conflict=skip), left untouched",
                 )
-            bak = fsutil.backup_path(config_file)
-            shutil.copy2(str(config_file), str(bak))
+            was_malformed = True
             data = {}
-            backup_note = f" (backed up malformed config → {bak})"
     if not isinstance(data, dict):
-        return {}, "", existed, ActionResult(
+        return {}, False, existed, ActionResult(
             action, "error", f"permissions/{action.item}: {config_file} is not a JSON object",
         )
-    return data, backup_note, existed, None
+    return data, was_malformed, existed, None
 
 
 def _sync_permissions_receipt(
