@@ -1231,6 +1231,54 @@ def _build_harness_claude_code(config: LoadedConfig, plan: InstallPlan, h: dict[
 
 
 
+def _explicit_git_hosting_opt_out(p: dict) -> list[str]:
+    """Git-hosting default tools (``gh``) the user EXPLICITLY, deliberately opted out of —
+    ``allow_gh: false`` or naming the tool directly in ``permissions.disable`` — as opposed to a
+    tool merely being ABSENT from the resolved set for an incidental reason (an explicit
+    ``permissions.tools`` list that REPLACES the whole default set and simply never mentioned it).
+
+    Review finding (rig-cli#333, round 2): the runner's receipt-tracked revocation used to trigger
+    off ``gh`` being absent from :func:`_resolved_permission_tools`'s OUTPUT — but that list is
+    also what a totally unrelated ``permissions.tools: [tg]`` override produces, on the SAME
+    machine-wide shared settings file another repo already granted `gh` in. A repo that never
+    typed ``allow_gh``/``disable: [gh]`` at all would then revoke a sibling repo's `gh` grant as a
+    pure side effect of picking its own narrower tool list — never the user's actual intent. This
+    is the ONE explicit signal the runner is allowed to revoke on: an unambiguous, by-name
+    exclusion, never an incidental one. Carried on the ``provision_permissions``/execpolicy action
+    as ``revoke_git_hosting`` so the runner stays config-pure (reads resolved options, never raw
+    config) while still getting a signal distinct from mere tool-list absence.
+    """
+    from .permissions import DEFAULT_GIT_HOSTING_TOOLS
+
+    disable = set(p.get("disable", []) or []) if isinstance(p.get("disable"), list) else set()
+    if p.get("allow_gh") is False:
+        disable |= set(DEFAULT_GIT_HOSTING_TOOLS)
+    return [t for t in DEFAULT_GIT_HOSTING_TOOLS if t in disable]
+
+
+def _explicit_tools_git_hosting(p: dict) -> list[str]:
+    """Git-hosting default tools (``gh``) named in an EXPLICIT ``permissions.tools`` override.
+
+    Review finding (rig-cli#333, round 8): an explicit ``permissions.tools: [gh]`` REPLACES the
+    whole default set (:func:`riglib.permissions.resolve_tools`'s documented "an explicit tools
+    REPLACES the default set" contract) — naming ``gh`` there is exactly as deliberate a user
+    assertion as ``permissions.extra: [gh]`` or a raw ``permissions.allow`` entry, both of which
+    are already documented as never receipted (rounds 6/7). But the runner's receipt writer only
+    ever saw the resolved ``tools`` list and could not tell "gh is here because the user typed an
+    explicit tools list naming it" apart from "gh is here because it's part of the untouched
+    default set" — so a first apply with ``tools: [gh]`` got wrongly receipted as rig's own
+    default grant, and a later, unrelated ``allow_gh: false``/``disable: [gh]`` would delete it.
+    Only fires when ``permissions.tools`` is actually set (``None`` means "use the default set",
+    which IS the default grant and stays receiptable).
+    """
+    from .permissions import DEFAULT_GIT_HOSTING_TOOLS
+
+    tools_cfg = p.get("tools")
+    if not isinstance(tools_cfg, list):
+        return []
+    return [t for t in DEFAULT_GIT_HOSTING_TOOLS if t in tools_cfg]
+
+
 def _build_permissions(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> None:
     """Plan the per-harness permissions provisioning (allow + deny/ask), unless ``enabled: false``.
 
@@ -1344,12 +1392,56 @@ def _build_permissions(config: LoadedConfig, catalog: Catalog, plan: InstallPlan
         # each harness uses its own documented per-machine settings file.
         settings_path = p.get("settings_path") or spec.settings_path
         primary = _expand(str(settings_path), config.repo_root)
+        revoke_git_hosting = _explicit_git_hosting_opt_out(p)
+        if revoke_git_hosting:
+            # This action can now DELETE a live entry, not just add one (rig-cli#333) — the first
+            # delete-capable behavior `provision_permissions` has ever had. The plan preview
+            # otherwise renders an identical `permissions/{kind} -> {target}` line for a delete as
+            # for a plain add, so make the revoke intent visible BEFORE `rig apply commit` mutates
+            # anything (the "review before mutate" guarantee this repo's docs commit to).
+            #
+            # Preview/execution parity (review finding, rig-cli#333 round 9): the runner's own
+            # self-contradiction guard (`_permission_revocation_context`) never revokes an entry a
+            # raw `permissions.allow` rule reasserts — so if THIS SAME config also carries such a
+            # rule for the git-hosting tool being opted out of, the note below must not overpromise
+            # a delete that `rig apply commit` will, correctly, skip.
+            from .permissions import desired_entries
+
+            reasserted = frozenset(desired_entries(kind, revoke_git_hosting)) & frozenset(
+                str(r) for r in allow_rules
+            )
+            if reasserted:
+                plan.notes.append(
+                    f"permissions: {', '.join(revoke_git_hosting)} opted out for '{kind}', but a "
+                    f"raw `permissions.allow` entry explicitly re-asserts it — the opt-out is "
+                    f"NOT applied for that entry (an explicit raw assertion wins over the "
+                    f"default-toggle-driven revocation; see `allow_gh` in docs/config-schema.md)"
+                )
+            else:
+                plan.notes.append(
+                    f"permissions: {', '.join(revoke_git_hosting)} opted out for '{kind}' — a "
+                    f"rig-granted default grant, if the sidecar receipt names one, will be REVOKED "
+                    f"from {settings_path} (a hand-added or pre-existing grant is left untouched)"
+                )
         options = {
             "kind": kind,
             "tools": tools,
             "allow_rules": allow_rules,
             "deny_rules": deny_rules,
             "ask_rules": ask_rules,
+            "revoke_git_hosting": revoke_git_hosting,
+            # `permissions.extra` (raw, pre-fold) — review finding, rig-cli#333 round 7:
+            # `extra: [gh]` on top of an explicit `tools:` that would otherwise NOT include
+            # `gh` is exactly as deliberate a user assertion as `permissions.allow`, and is
+            # documented as never receipted; but the runner only sees the ALREADY-RESOLVED
+            # `tools` list (rig-cli#100's "stay config-pure" invariant), which can't tell
+            # "default-derived" from "extra-derived" gh apart. Carrying the raw list lets
+            # the receipt writer exclude it without the runner ever reading raw config.
+            "extra_tools": list(p.get("extra", []) or []) if isinstance(p.get("extra"), list) else [],
+            # rig-cli#333 round 8: an explicit `permissions.tools: [gh]` override is just
+            # as deliberate a user assertion as `extra`/raw `allow` — see
+            # `_explicit_tools_git_hosting`'s docstring for the incident.
+            "explicit_tools_git_hosting": _explicit_tools_git_hosting(p),
         }
         # one action per settings file a live `claude` may load (claude-rotate dirs, rig-cli#368)
         for target in _claude_settings_targets(config, kind, primary):

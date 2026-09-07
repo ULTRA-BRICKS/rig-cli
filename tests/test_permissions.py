@@ -633,6 +633,326 @@ def test_disable_dev_drops_dev_from_desired_set(fake_agent_tools, tmp_path):
     assert "Bash(dev:*)" not in allow
 
 
+# ── receipt-tracked revocation of a rig-granted default (rig-cli#333 review finding) ────
+# `allow_gh: false` (sugar for `disable: [gh]`) is only a REAL opt-out when rig can actually take
+# back a grant it made itself. The additive merge never deletes anything on its own — these tests
+# pin the sidecar-receipt mechanism that lets `allow_gh: false` revoke a `gh` entry rig itself
+# granted as a default, while a `gh` entry rig never granted (hand-added, or predates this
+# feature) is correctly left alone — "safely revoked without deleting unrelated user entries".
+def test_allow_gh_false_revokes_a_rig_granted_default_entry(fake_agent_tools, tmp_path):
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    # first apply: gh joins the default set — rig grants AND receipts it as its own
+    plan1 = build(_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(plan1)
+    allow = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" in allow
+
+    # opt out — status must show the stale grant as ACTIONABLE drift, not a summarized "kept" line
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, allow_gh=False), cat, project_type="unknown")
+    extra = [d for d in detect(plan2).by_direction("extra") if d.category == "permissions"]
+    assert any("Bash(gh:*)" in d.detail for d in extra)
+
+    report = run_plan(plan2)
+    perm = _perm_results(report)
+    assert perm and perm[0].status in ("updated", "backed_up")
+    allow2 = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" not in allow2  # actually revoked — not merely reported as "kept"
+    assert not [d for d in detect(plan2).items if d.category == "permissions"]  # clean now
+
+    # idempotent: a further apply with the same opted-out config is a true no-op
+    report2 = run_plan(plan2)
+    assert _perm_results(report2)[0].status == "skipped"
+
+
+def test_allow_gh_false_leaves_a_hand_added_gh_entry_alone(fake_agent_tools, tmp_path):
+    # `gh` was NEVER granted by rig here (no prior apply at all) — a pre-existing hand-added entry
+    # (or one that predates this receipt feature) must never be silently deleted.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    settings.write_text(json.dumps({"permissions": {"allow": ["Bash(gh:*)"]}}), encoding="utf-8")
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_cfg(repo, fake_agent_tools, settings, allow_gh=False), cat, project_type="unknown")
+
+    report = run_plan(plan)
+    allow = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" in allow  # never receipted by rig → never revoked
+    assert not [d for d in detect(plan).by_direction("extra") if d.category == "permissions"]
+    kept = [k for k in detect(plan).known
+            if k.category == "permissions" and k.name == "Bash(gh:*)"]
+    assert kept  # visible as "your own entries, kept" — not silent
+
+
+def test_allow_gh_false_revokes_only_one_copy_of_a_hand_duplicated_entry(fake_agent_tools, tmp_path):
+    # round-5 review finding: the receipt proves rig granted `Bash(gh:*)` ONCE, never that every
+    # occurrence of an identical string in the array is rig's. A JSON array tolerates duplicates
+    # even though rig's own additive merge never creates one — a user who hand-duplicated the
+    # entry must keep their extra copy; only the one rig can prove it wrote is taken back.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    plan1 = build(_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(plan1)  # gh default-granted + receipted (exactly one copy on disk)
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    data["permissions"]["allow"].append("Bash(gh:*)")  # the user hand-duplicates it
+    settings.write_text(json.dumps(data), encoding="utf-8")
+
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, allow_gh=False), cat, project_type="unknown")
+    run_plan(plan2)
+    allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert allow_after.count("Bash(gh:*)") == 1, "one copy revoked, the hand-added duplicate kept"
+
+
+def test_opencode_allow_gh_false_revokes_a_rig_granted_default_entry(fake_agent_tools, tmp_path):
+    # the opencode mirror: same receipt mechanism, object-form container (`gh *` key).
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "opencode.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    plan1 = build(_opencode_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(plan1)
+    bash = json.loads(settings.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert bash.get("gh *") == "allow"
+
+    plan2 = build(_opencode_cfg(repo, fake_agent_tools, settings, allow_gh=False), cat, project_type="unknown")
+    extra = [d for d in detect(plan2).by_direction("extra") if d.category == "permissions"]
+    assert any("gh *" in d.detail for d in extra)
+
+    run_plan(plan2)
+    bash2 = json.loads(settings.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert "gh *" not in bash2
+    assert not [d for d in detect(plan2).items if d.category == "permissions"]
+
+
+def test_receipt_never_revokes_a_non_git_hosting_tool_across_shared_settings(fake_agent_tools, tmp_path):
+    # round-2 review finding: the settings file is MACHINE-WIDE (one ~/.claude/settings.json
+    # shared by every repo rig manages), so a receipt scoped to "every tool-derived allow entry"
+    # let repo A's `permissions.tools: [kubectl]` grant get revoked the moment repo B applied its
+    # OWN (kubectl-less) config against the same shared file. Receipt eligibility is now hard-
+    # scoped to the git-hosting default tools only (`gh`) — prove a non-gh tool survives even
+    # when it looks, from a later apply's point of view, exactly like a stale grant.
+    repo_a = tmp_path / "repo-a"; repo_a.mkdir()
+    repo_b = tmp_path / "repo-b"; repo_b.mkdir()
+    shared_settings = tmp_path / "shared-settings.json"  # simulates the one machine-wide file
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    # repo A: an explicit, non-default tool list that happens to include kubectl
+    plan_a = build(_cfg(repo_a, fake_agent_tools, shared_settings, tools=["git", "kubectl"]),
+                    cat, project_type="unknown")
+    run_plan(plan_a)
+    allow_after_a = json.loads(shared_settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(kubectl:*)" in allow_after_a
+
+    # repo B: its OWN config against the SAME file, with a tool list that does not mention kubectl
+    plan_b = build(_cfg(repo_b, fake_agent_tools, shared_settings, tools=["git"]), cat, project_type="unknown")
+    assert not [d for d in detect(plan_b).by_direction("extra") if d.category == "permissions"], (
+        "kubectl must never be reported as revocable drift from a repo that never granted it"
+    )
+    run_plan(plan_b)
+    allow_after_b = json.loads(shared_settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(kubectl:*)" in allow_after_b, "repo A's still-declared grant must survive repo B's apply"
+
+
+def test_receipt_never_revokes_gh_from_an_unrelated_repos_narrower_tool_list(fake_agent_tools, tmp_path):
+    # round-2 review finding (the sharper gh-specific case, not just kubectl): repo B's apply must
+    # not revoke `gh` just because ITS OWN `permissions.tools` override happens to omit it — that
+    # is not the same thing as repo B explicitly typing `allow_gh: false` or `disable: [gh]`. Only
+    # an EXPLICIT by-name opt-out is ever a revocation trigger.
+    repo_a = tmp_path / "repo-a"; repo_a.mkdir()
+    repo_b = tmp_path / "repo-b"; repo_b.mkdir()
+    shared_settings = tmp_path / "shared-settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    plan_a = build(_cfg(repo_a, fake_agent_tools, shared_settings), cat, project_type="unknown")  # gh default-granted + receipted
+    run_plan(plan_a)
+    assert "Bash(gh:*)" in json.loads(shared_settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+
+    # repo B: an explicit tool list that simply never mentions gh — NOT allow_gh:false, NOT disable
+    plan_b = build(_cfg(repo_b, fake_agent_tools, shared_settings, tools=["tg"]), cat, project_type="unknown")
+    assert not [d for d in detect(plan_b).by_direction("extra") if d.category == "permissions"], (
+        "gh must not be reported as revocable drift from a repo that never opted out of it"
+    )
+    run_plan(plan_b)
+    allow_after_b = json.loads(shared_settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" in allow_after_b, "repo A's gh grant must survive repo B's unrelated apply"
+
+
+def test_explicit_allow_wins_over_allow_gh_false_no_contradictory_revoked_report(fake_agent_tools, tmp_path):
+    # round-2 review finding: a self-contradicting config — `allow_gh: false` alongside an explicit
+    # `permissions.allow: ['Bash(gh:*)']` re-asserting the exact same entry — must not revoke it
+    # and then silently re-add it in the SAME apply while reporting "revoked" over an entry that,
+    # in fact, is still there. The raw, explicit assertion wins.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    plan1 = build(_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(plan1)  # gh default-granted + receipted
+
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, allow_gh=False, allow=["Bash(gh:*)"]),
+                   cat, project_type="unknown")
+    # round-9 review finding: the plan preview must not overpromise a delete the executor is,
+    # correctly, about to skip — parity between what `rig apply info` says and what
+    # `rig apply commit` actually does.
+    assert not any("will be REVOKED" in note for note in plan2.notes), plan2.notes
+    assert any("NOT applied" in note for note in plan2.notes), plan2.notes
+    report = run_plan(plan2)
+    perm = _perm_results(report)
+    assert perm and "revoked" not in perm[0].detail, perm[0].detail
+    allow = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" in allow  # the explicit raw assertion survives
+    assert not [d for d in detect(plan2).items if d.category == "permissions"]
+
+
+def test_raw_allow_entry_is_never_receipted_even_when_it_renders_like_the_default(fake_agent_tools, tmp_path):
+    # round-6 review finding: a raw `permissions.allow: ['Bash(gh:*)']` entry renders IDENTICALLY
+    # to the git-hosting default's own string. On a FIRST apply (before rig's own default merge
+    # would have added it), that made it look "newly added by the default merge" and receipted it
+    # as though rig granted it as a default — contradicting the documented "raw allow entries are
+    # never receipted" contract. Prove it survives an unrelated LATER opt-out untouched.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    # first-ever apply: gh is default-granted AND separately, explicitly re-asserted via raw allow
+    plan1 = build(_cfg(repo, fake_agent_tools, settings, allow=["Bash(gh:*)"]), cat, project_type="unknown")
+    run_plan(plan1)
+    assert "Bash(gh:*)" in json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+
+    # the user later drops the raw declaration and opts out via allow_gh — the entry must survive:
+    # it was never receipted as rig's own default grant, only ever the user's raw assertion
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, allow_gh=False), cat, project_type="unknown")
+    assert not [d for d in detect(plan2).by_direction("extra") if d.category == "permissions"]
+    run_plan(plan2)
+    allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" in allow_after
+
+
+def test_extra_gh_is_never_receipted_even_on_a_tools_override_that_excludes_it(fake_agent_tools, tmp_path):
+    # round-7 review finding: `permissions.extra: [gh]` on top of an explicit `tools:` override
+    # that would NOT otherwise include `gh` is exactly as deliberate a user assertion as raw
+    # `permissions.allow` — the SAME "looks newly added by the default merge" trap that made
+    # `extra`-derived `gh` get wrongly receipted as rig's own default grant, revocable by an
+    # unrelated LATER `allow_gh: false`.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    # first-ever apply: an explicit, narrow tools list + extra: [gh] re-adds gh on top of it
+    plan1 = build(_cfg(repo, fake_agent_tools, settings, tools=["git"], extra=["gh"]),
+                  cat, project_type="unknown")
+    run_plan(plan1)
+    assert "Bash(gh:*)" in json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+
+    # the user later drops `extra` and opts out via allow_gh — the entry must survive: it was
+    # never receipted as rig's own default grant, only ever the user's explicit `extra` assertion
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, tools=["git"], allow_gh=False),
+                  cat, project_type="unknown")
+    assert not [d for d in detect(plan2).by_direction("extra") if d.category == "permissions"]
+    run_plan(plan2)
+    allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" in allow_after
+
+
+def test_explicit_redeclaration_clears_a_receipt_from_an_earlier_default_grant(fake_agent_tools, tmp_path):
+    # round-9 review finding: `gh` is first granted as a plain default (receipted), then a LATER
+    # apply explicitly re-declares it via `tools: [gh]` (never-receipted per round 8) — but that
+    # earlier receipt entry survived untouched because the round-8 fix only kept NEW additions out
+    # of the receipt, never cleared an EXISTING one on a later explicit re-declaration. A THIRD,
+    # unrelated apply's `allow_gh: false` must not revoke an entry whose ownership already
+    # transferred to the user's own explicit `tools` declaration.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    plan1 = build(_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(plan1)  # gh granted as a plain default, receipted
+
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, tools=["gh"]), cat, project_type="unknown")
+    run_plan(plan2)  # explicit re-declaration — ownership transfers to the user, receipt must clear
+    assert "Bash(gh:*)" in json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+
+    plan3 = build(_cfg(repo, fake_agent_tools, settings, tools=["tg"], allow_gh=False),
+                  cat, project_type="unknown")
+    assert not [d for d in detect(plan3).by_direction("extra") if d.category == "permissions"]
+    run_plan(plan3)
+    allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" in allow_after
+
+
+def test_explicit_tools_gh_is_never_receipted_even_though_it_replaces_the_default_set(fake_agent_tools, tmp_path):
+    # round-8 review finding: an explicit `permissions.tools: [gh]` REPLACES the default set
+    # wholesale (resolve_tools' documented contract) — naming `gh` there is exactly as deliberate
+    # a user assertion as `extra`/raw `allow`, the SAME "looks newly added by the default merge"
+    # trap yet again, via a third config knob.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    # first-ever apply: an explicit tools list that itself names gh (not the default set)
+    plan1 = build(_cfg(repo, fake_agent_tools, settings, tools=["gh"]), cat, project_type="unknown")
+    run_plan(plan1)
+    assert "Bash(gh:*)" in json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+
+    # the user later opts out via allow_gh — the entry must survive: it was never receipted as
+    # rig's own default grant, only ever the user's explicit `tools` assertion
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, tools=["gh"], allow_gh=False),
+                  cat, project_type="unknown")
+    assert not [d for d in detect(plan2).by_direction("extra") if d.category == "permissions"]
+    run_plan(plan2)
+    allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" in allow_after
+
+
+def test_stale_receipted_grant_already_removed_by_hand_is_not_reported_as_drift(fake_agent_tools, tmp_path):
+    # round-2 review finding: if the USER already deleted the receipted `Bash(gh:*)` entry by hand
+    # before setting `allow_gh: false`, there is nothing left for apply to revoke — reporting it as
+    # `extra`/"apply revokes it" would be a false non-clean status with a false remediation claim.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    plan1 = build(_cfg(repo, fake_agent_tools, settings), cat, project_type="unknown")
+    run_plan(plan1)
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    data["permissions"]["allow"].remove("Bash(gh:*)")  # the user removes it by hand
+    settings.write_text(json.dumps(data), encoding="utf-8")
+
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, allow_gh=False), cat, project_type="unknown")
+    assert not [d for d in detect(plan2).by_direction("extra") if d.category == "permissions"], (
+        "an already-hand-removed entry must not be reported as actionable revocation drift"
+    )
+    report = run_plan(plan2)
+    # nothing to revoke → the settings file itself is untouched (apply is a true no-op on it)
+    allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" not in allow_after
+    assert not report.errors, [r.detail for r in report.errors]
+
+
+def test_receipt_not_written_when_the_settings_write_fails(fake_agent_tools, tmp_path):
+    # round-2 review finding: syncing the receipt BEFORE the settings write let a failed write
+    # (a read-only/unwritable target) leave a receipt claiming rig granted an entry that was never
+    # actually written to disk — a later hand-added entry with that same name would then be wrongly
+    # treated as rig's own and revoked on some future opt-out. Force a write failure (a directory
+    # in place of the settings file) and assert the receipt stays untouched.
+    from riglib.actions.runner import permissions_receipt_file
+
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    settings.mkdir()  # config_file.write_text() will raise IsADirectoryError
+    plan = build(_cfg(repo, fake_agent_tools, settings), Catalog.scan(str(fake_agent_tools)),
+                 project_type="unknown")
+
+    report = run_plan(plan)
+    perm = _perm_results(report)
+    assert perm and perm[0].status == "error"
+    receipt_file = permissions_receipt_file(perm[0].action)
+    assert not receipt_file.exists(), "the receipt must not record a grant the write never landed"
+
+
 def test_default_on_apply_writes_default_set_and_is_in_sync(fake_agent_tools, tmp_path):
     repo = tmp_path / "repo"; repo.mkdir()
     settings = repo / "settings.json"
@@ -665,6 +985,32 @@ def test_empty_tools_list_is_noop(fake_agent_tools, tmp_path):
                             Catalog.scan(str(fake_agent_tools)), project_type="unknown"))
     perm = _perm_results(report)
     assert perm and perm[0].status == "skipped"  # zero entries → nothing added
+
+
+def test_empty_action_against_malformed_file_is_a_true_noop(fake_agent_tools, tmp_path):
+    # rig-cli#333 review finding: with tools=[]/deny=[]/ask=[] (nothing desired at all) against a
+    # MALFORMED settings file under the default `backup` policy, the action has nothing to write —
+    # so it must never touch the file at all: no backup, no rewrite, original bytes untouched. The
+    # old code parsed first (backing up the malformed file + resetting to {}) and only THEN noticed
+    # the action was empty, leaving a stray backup behind on every single re-apply forever.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    settings.write_text("{ broken", encoding="utf-8")
+    cfg = _cfg(repo, fake_agent_tools, settings, tools=[], deny=[], ask=[])
+    cfg.data["defaults"] = {"on_conflict": "backup"}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+
+    report = run_plan(plan)
+    perm = _perm_results(report)
+    assert perm and perm[0].status == "skipped"
+    assert settings.read_text(encoding="utf-8") == "{ broken"  # untouched, not reset to {}
+    assert not [p for p in repo.iterdir() if p.name.startswith("settings.json.rig-bak-")]
+
+    # re-apply: still a true no-op, still zero backups (idempotent — not just "first apply is fine")
+    report2 = run_plan(plan)
+    assert _perm_results(report2)[0].status == "skipped"
+    assert settings.read_text(encoding="utf-8") == "{ broken"
+    assert not [p for p in repo.iterdir() if p.name.startswith("settings.json.rig-bak-")]
 
 
 def test_malformed_json_backup_then_rewrites_under_backup(fake_agent_tools, tmp_path):
@@ -1390,6 +1736,57 @@ def test_opencode_apply_heals_an_already_misordered_machine(fake_agent_tools, tm
     second = run_plan(plan)
     assert not second.errors, [r.detail for r in second.errors]
     assert settings.read_text(encoding="utf-8") == after_first  # idempotent once healed
+
+
+def test_opencode_misordered_deny_before_allow_is_drift_not_clean(fake_agent_tools, tmp_path):
+    # rig-cli#333 review finding: on an UPGRADED opencode settings file where `gh pr merge*: deny`
+    # already precedes `gh *: allow` (the shape `test_opencode_apply_heals_an_already_misordered_
+    # machine` proves `run_plan` heals), `_check_permissions` only compared key membership/values —
+    # not order — so `rig status` reported this insecure pre-repair state as clean. Since opencode
+    # is last-match-wins, the broad allow silently wins over the merge-ban deny until an apply is
+    # actually committed. Status must say `modified`, not clean, over it.
+    from riglib.permissions import OPENCODE_ASK_RULES, OPENCODE_DENY_RULES
+
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "opencode.json"
+    pre_gh_tools = [t for t in DEFAULT_TOOLS if t != "gh"]
+    seed_bash: dict[str, str] = {f"{t} *": "allow" for t in pre_gh_tools}
+    for key in OPENCODE_DENY_RULES:
+        seed_bash[key] = "deny"
+    for key in OPENCODE_ASK_RULES:
+        seed_bash[key] = "ask"
+    seed_bash["gh *"] = "allow"  # every desired entry present — just in the broken order
+    settings.write_text(json.dumps({"permission": {"bash": seed_bash}}), encoding="utf-8")
+
+    plan = build(_opencode_cfg(repo, fake_agent_tools, settings),
+                 Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    rep = detect(plan)
+    mod = [d for d in rep.by_direction("modified") if d.category == "permissions"]
+    assert mod, "a misordered opencode deny/ask key must be reported as drift, not clean"
+    assert any("permission.bash" in d.detail for d in mod)
+
+    run_plan(plan)  # apply heals it (already proven elsewhere) — status must go clean afterwards
+    assert not [d for d in detect(plan).items if d.category == "permissions"]
+
+
+def test_opencode_misordered_deny_before_user_catch_all_is_drift(fake_agent_tools, tmp_path):
+    # the sibling shape: rig's own deny key precedes a USER key (not one of rig's own allow
+    # entries) — last-match-wins means the user's catch-all still wins over the deny today.
+    from riglib.permissions import OPENCODE_DENY_RULES
+
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "opencode.json"
+    seed_bash: dict[str, str] = {}
+    for key in OPENCODE_DENY_RULES:
+        seed_bash[key] = "deny"
+    seed_bash["*"] = "allow"  # user's own catch-all, added AFTER rig's deny keys were written
+    settings.write_text(json.dumps({"permission": {"bash": seed_bash}}), encoding="utf-8")
+
+    plan = build(_opencode_cfg(repo, fake_agent_tools, settings, tools=[]),
+                 Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    rep = detect(plan)
+    mod = [d for d in rep.by_direction("modified") if d.category == "permissions"]
+    assert mod, "a rig deny key preceding a user key must be reported as drift"
 
 
 def test_opencode_deny_ask_drift_missing_then_converged_and_extras_once(fake_agent_tools, tmp_path):
