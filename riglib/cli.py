@@ -20,6 +20,7 @@ Subcommands:
     rig evolve   local project evolution portal (git histogram + code treemap)
     rig codex    safe Codex maintenance helpers
     rig worktree create/remove/gc — the standardized .worktrees/<name> agent-worktree lifecycle
+    rig report   init/new/periodic — completion reports on a GitHub Pages site (scaffold only)
 """
 
 from __future__ import annotations
@@ -387,6 +388,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_usage_parser(sub)
     _add_codex_parser(sub)
     _add_worktree_parser(sub)
+    _add_report_parser(sub)
 
     return p
 
@@ -505,6 +507,27 @@ def _add_daily_parser(sub: "argparse._SubParsersAction") -> None:
         "(default with no action: generate the report)",
     )
     _add_daily_report_args(dp)
+
+
+def _add_report_parser(sub: "argparse._SubParsersAction") -> None:
+    """`rig report init/new/periodic` — completion reports (single-task and
+    ecosystem-periodic) published to a static GitHub Pages "reports" site, following
+    the `result-report` agent-tools skill's REPORT_DATA/template contract. Scaffold
+    only: argparse-complete, subcommand bodies are stubs (exit 2, "not yet
+    implemented") — see `riglib/report/command.py` for the design writeup."""
+    from .report.command import add_arguments as _add_report_command_args
+
+    rp = sub.add_parser(
+        "report",
+        help="completion reports on a GitHub Pages site (init/new/periodic; scaffold only)",
+        description="Generate and publish completion reports following the "
+        "result-report agent-tools skill's data/template contract. `init` "
+        "provisions a reports repo from the shared template; `new` publishes a "
+        "single-task report; `periodic` publishes an ecosystem status report over "
+        "merged PRs (reuses `rig daily`'s fetch, never a forked one). All three are "
+        "scaffold-only stubs pending an agent-tools catalog item for the template.",
+    )
+    _add_report_command_args(rp)
 
 
 def _add_usage_parser(sub: "argparse._SubParsersAction") -> None:
@@ -687,6 +710,7 @@ def main(argv: list[str] | None = None) -> int:
         "usage": cmd_usage,
         "codex": cmd_codex,
         "worktree": cmd_worktree,
+        "report": cmd_report,
     }
     # The single top-level error handler (error-system v2): any structured RigError a command
     # raises is rendered as the consistent what/why/fix block + its stable per-class exit code.
@@ -3088,6 +3112,12 @@ def cmd_usage(args: argparse.Namespace) -> int:
     from .usage import run as usage_run
 
     return usage_run(args)
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    from .report import run as report_run
+
+    return report_run(args)
 
 
 if __name__ == "__main__":
