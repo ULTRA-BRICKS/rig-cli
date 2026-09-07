@@ -2159,7 +2159,26 @@ def _declaring_config(category: str, loaded) -> str:
     return str(path) if path is not None else "not declared in any layer"
 
 
+def _area_notes_suffix(area, report) -> str:
+    """The informational notes for ONE area, rendered dim after its state (rig-cli#375).
+
+    A note is a fact the area's checker wants visible that is NOT drift — the Spotlight dependency
+    dirs created since the last sweep, say: nothing is broken and the next sweep covers them, but
+    dropping them silently is how a stalled sweep agent hides. Never folded into the drift counts,
+    never part of the exit code.
+    """
+    from .areas import area_matches_drift
+
+    notes = [n.detail for n in report.notes if area_matches_drift(area, n.category, n.item)]
+    return _dim("  (" + "; ".join(notes) + ")") if notes else ""
+
+
 def _area_state_line(area, plan, report, extra_configured_actions=()) -> str:
+    """The rendered state for ONE area, plus any informational notes for it."""
+    return _area_state_core(area, plan, report, extra_configured_actions) + _area_notes_suffix(area, report)
+
+
+def _area_state_core(area, plan, report, extra_configured_actions=()) -> str:
     """The rendered state for ONE area: "not configured" / "in sync" / "drift (…)".
 
     The reliable, unit-stable numbers are the DRIFT counts (config→disk + disk→config), so those

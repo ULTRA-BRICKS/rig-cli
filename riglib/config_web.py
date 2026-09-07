@@ -957,6 +957,11 @@ async function loadDrift() {{
     if (kept.length) {{
       knownBlock += '<div class="in-sync">your additions, kept (' + kept.length + ') — beyond the rig baseline; rig never removes them</div>' + knownGroups(kept);
     }}
+    // informational notes (rig-cli#375): not drift, but never dropped — the CLI prints the same
+    // text beside the area state (e.g. Spotlight dirs created since the last sweep).
+    (data.notes || []).forEach(function(n) {{
+      knownBlock += '<div class="in-sync">' + esc(n.category + '/' + n.item) + ': ' + esc(n.detail) + '</div>';
+    }});
     if (!rows && !missing) {{ body.innerHTML = '<div class="in-sync">✓ in sync — config and disk agree</div>' + knownBlock; return; }}
     body.innerHTML = missing + rows + knownBlock;
     // pre-existing drift (declared but never applied, or applied then hand-edited away) must

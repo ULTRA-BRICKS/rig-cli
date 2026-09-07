@@ -193,3 +193,43 @@ def test_verify_tg_ctl_uses_gui_domain_check(tmp_path, monkeypatch, live_launchd
     report = verify.verify_plan(plan)
     loaded = [r for r in report.results if "loaded" in r.evidence.lower()]
     assert loaded and loaded[0].passed is True  # gui-domain check won
+
+
+def test_verify_spotlight_checks_every_dir_not_a_sample(tmp_path, monkeypatch):
+    """A dir the sweep failed to cover fails verification even when it sorts past the first 20.
+
+    The old verifier stat'd only the first 20 matched dirs, so it could report success while
+    `rig status` (which scans them all) reported a problem — the two disagreed by construction.
+    """
+    monkeypatch.setenv("RIG_SPOTLIGHT_DRY_RUN", "1")
+    root = tmp_path / "work"
+    for i in range(25):
+        (root / f"p{i:03d}/node_modules").mkdir(parents=True)
+    spotlight.perform_sweep((root,), frozenset(spotlight.DEFAULT_DENY))
+    missed = root / "zzz/node_modules"
+    missed.mkdir(parents=True)
+    sel = spotlight.SweepSelector((root,), frozenset(spotlight.DEFAULT_DENY))
+    record = spotlight.last_sweep(sel)
+    # the sweep DID visit it and left it uncovered → a real miss, not a newcomer
+    spotlight.record_sweep(sel, record.at, [*(Path(p) for p in record.seen), missed])
+    plan = InstallPlan()
+    plan.actions.append(_spotlight_action(root, "ai.hyperide.spotlight-exclude"))
+    report = verify.verify_plan(plan)
+    sweep = [r for r in report.results if r.item == "sweep"][0]
+    assert sweep.passed is False
+    assert "25/26" in sweep.evidence
+
+
+def test_verify_spotlight_passes_with_a_note_for_dirs_the_sweep_never_saw(tmp_path, monkeypatch):
+    """A cache dir created since the sweep ran is not a failure — it is named, not counted."""
+    monkeypatch.setenv("RIG_SPOTLIGHT_DRY_RUN", "1")
+    root = tmp_path / "work"
+    (root / "proj/node_modules").mkdir(parents=True)
+    spotlight.perform_sweep((root,), frozenset(spotlight.DEFAULT_DENY))
+    (root / "fresh/node_modules").mkdir(parents=True)
+    plan = InstallPlan()
+    plan.actions.append(_spotlight_action(root, "ai.hyperide.spotlight-exclude"))
+    report = verify.verify_plan(plan)
+    sweep = [r for r in report.results if r.item == "sweep"][0]
+    assert sweep.passed is True
+    assert "1 appeared after the last sweep" in sweep.evidence
