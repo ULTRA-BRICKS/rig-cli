@@ -860,7 +860,13 @@ positive with no security value). UNLIKE `--no-verify`, this belt has no `block-
 argv-level hook backstopping it yet, so it stops accidental use, not a deliberate bypass —
 `rg '--pre' cmd` (quoted) or `rg --pre<TAB>cmd` (tab, not space) match none of these five
 patterns (a literal SPACE is required); a claude-code argv hook is a tracked follow-up, not yet
-built). Ask (prompt, don't block): `Bash(pkill:*)`,
+built). `Bash(git worktree add:*)` (raw worktree creation goes through `rig worktree create`;
+the child `git worktree add` inside `rig` is not a gated tool call; prefix-only — `git -C`
+/`--git-dir` forms do not match, and a mid-pattern would false-positive a commit message
+that mentions "worktree add"), and `EnterWorktree`
+(whole-tool deny on purpose: the tool can CREATE a worktree at a model-supplied path, which
+is the location-bypass `rig worktree create` exists to close — CC-only, no equivalent on
+opencode/codex/omp). Ask (prompt, don't block): `Bash(pkill:*)`,
 `Bash(killall:*)`, `Bash(git reset --hard:*)` + `Bash(git reset * --hard *)` +
 `Bash(git reset * --hard)`. The full annotated list lives in `riglib/permissions.py`.
 
@@ -868,7 +874,7 @@ built). Ask (prompt, don't block): `Bash(pkill:*)`,
 the `permission.bash` object (values `"deny"`/`"ask"`), hand-written in opencode's glob dialect
 (`*` = zero-or-more chars, `?` = one char, **last matching key wins**). Deny: `"gh pr merge*"`,
 `"git push*--force*"`, `"git push -f*"`, `"git commit --no-verify*"`, `"sudo rm*"`,
-`"screencapture*"`, `"rg*--pre *"` + `"rg*--pre=*"` + `"rg*--pre"` (value-shaped / end-anchored,
+`"screencapture*"`, `"git worktree add*"`, `"rg*--pre *"` + `"rg*--pre=*"` + `"rg*--pre"` (value-shaped / end-anchored,
 so they don't also deny the legitimate `--pretty` flag — a single substring-only `"rg*--pre*"`
 entry was rejected for exactly that regression). Ask: `"pkill*"`, `"killall*"`, `"git reset*--hard*"`.
 rig emits these AFTER
@@ -886,7 +892,7 @@ claude-shaped rule written as an opencode glob key would never match). The tool-
 marker-delimited managed block of Starlark `prefix_rule(...)` lines into
 `~/.codex/rules/rig-managed.rules` (codex auto-scans `~/.codex/rules/*.rules` at startup — no
 `config.toml` reference needed). The resolved tool set becomes `decision="allow"` prefix rules; a
-MINIMAL coarse deny (`gh pr merge`, `sudo rm`, `screencapture`, and — rig-cli#187 — the flag-first
+MINIMAL coarse deny (`gh pr merge`, `git worktree add`, `sudo rm`, `screencapture`, and — rig-cli#187 — the flag-first
 2-token `rg --pre`) becomes `decision="forbidden"`. **Fidelity gap:** `prefix_rule` matches a
 leading-token prefix, so a coarse `["git","push"]` forbidden would over-block ALL pushes — the
 coarse deny is therefore kept to unambiguous full-command (or unambiguous flag-first) bans only;

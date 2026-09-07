@@ -75,6 +75,7 @@ def test_guard_registry_covers_the_baseline_intents():
     assert "git-commit-no-verify" in deny_ids
     assert "sudo-rm" in deny_ids
     assert "screencapture" in deny_ids
+    assert "git-worktree-add" in deny_ids
     # the ask baseline
     assert "pkill" in ask_ids
     assert "killall" in ask_ids
@@ -1065,6 +1066,7 @@ def test_guard_rules_cover_the_same_intents_as_the_glob_belts():
         "sudo-rm": "sudo rm",
         "screencapture": "screencapture",
         "rg-pre": "--pre",
+        "git-worktree-add": "git worktree add",
     }
     ask_intents = {"pkill": "pkill", "killall": "killall", "git-reset-hard": "--hard"}
     # belt intents are the shared subset; argv-precision EXTRAS the glob dialects cannot
