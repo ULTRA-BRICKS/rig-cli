@@ -400,6 +400,24 @@ def test_hand_deleted_sentinel_is_stale_on_every_platform(tmp_path):
     assert list(cov.stale) == [victim] and not cov.pending
 
 
+def test_recreated_dir_at_the_same_path_is_pending_not_stale(tmp_path):
+    """`rm -rf dist && mkdir dist` after the sweep: the path is in the record but the dir is NEW.
+
+    Pathname membership alone would call it stale (the sweep "visited" that path) and turn
+    `rig status` red after every build; identity (inode) tells the recreated dir apart.
+    """
+    import shutil
+
+    root = tmp_path / "work"
+    _make_tree(root)
+    spotlight.perform_sweep((root,), frozenset(spotlight.DEFAULT_DENY))
+    rebuilt = root / "proj/node_modules"
+    shutil.rmtree(rebuilt)
+    rebuilt.mkdir()
+    cov = spotlight.scan_coverage(_sel(root), spotlight.last_sweep(_sel(root)))
+    assert list(cov.pending) == [rebuilt] and not cov.stale and cov.covered == 4
+
+
 def test_last_sweep_ignores_a_record_made_for_other_roots(tmp_path):
     """After a config change adds a root, the old record says nothing about it — treat as never."""
     a, b = tmp_path / "a", tmp_path / "b"
@@ -446,12 +464,13 @@ def test_last_sweep_rejects_a_record_with_the_wrong_json_types(tmp_path):
     import json
 
     sel = _sel(tmp_path / "a")
-    good = {"at": 1000.0, **sel.fingerprint(), "seen": [str(tmp_path / "a/node_modules")]}
+    good = {"at": 1000.0, **sel.fingerprint(), "seen": {str(tmp_path / "a/node_modules"): [1, 2]}}
     spotlight.state_path().parent.mkdir(parents=True, exist_ok=True)
     spotlight.state_path().write_text(json.dumps(good), encoding="utf-8")
     assert spotlight.last_sweep(sel) is not None
     for field, bad in (("roots", "abc"), ("seen", "xyz"), ("deny", {"a": 1}), ("max_depth", "8"),
-                       ("seen", [1, 2]), ("at", "soon")):
+                       ("seen", ["p"]), ("seen", {"p": "x"}), ("seen", {"p": [1]}),
+                       ("seen", {"p": [True, 2]}), ("at", "soon")):
         spotlight.state_path().write_text(json.dumps({**good, field: bad}), encoding="utf-8")
         assert spotlight.last_sweep(sel) is None, field
 

@@ -2088,10 +2088,13 @@ classifies an uncovered dir against that record:
 If there is no usable record — never swept, unreadable or wrongly-typed file, or a record made
 for a different selector (other `roots`, `deny` or `max_depth`: a `.venv` newly added to `deny`
 is uncovered because nothing ever swept it, not because it appeared since) — every uncovered dir
-counts as stale. Membership in the recorded set, not a file timestamp, is what
-decides: directory birth time only exists on macOS/BSD, and elsewhere `st_ctime` is bumped by
-deleting a file *out of* the directory, so a timestamp-based split would excuse the single case
-this feature most needs to catch — a hand-deleted sentinel.
+counts as stale. The record stores each visited dir's
+filesystem identity (device + inode), and that — not a file timestamp — decides: directory birth
+time only exists on macOS/BSD, and elsewhere `st_ctime` is bumped by deleting a file *out of* the
+directory, so a timestamp-based split would excuse the single case this feature most needs to
+catch — a hand-deleted sentinel (same inode, no sentinel → stale). Identity rather than the bare
+pathname because `rm -rf dist && mkdir dist` is how builds work: the new `dist` at the old path
+was never swept (new inode → pending), not failed by the sweep.
 
 **Verification.** After `rig apply`/`rig init`, the post-apply **verify** framework confirms that
 **every** matched dir carries the sentinel (not a sample) AND that the launchd agent is loaded.

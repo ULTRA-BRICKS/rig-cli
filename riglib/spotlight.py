@@ -127,8 +127,8 @@ class Coverage:
                  mints ``__pycache__`` dirs. Expected, not a failure: reported as an informational
                  note, and the next sweep covers it.
 
-    "Visited" is read from the recorded dir set of the last sweep (:class:`SweepRecord`), never
-    inferred from a filesystem timestamp. With no usable record at all every uncovered dir is
+    "Visited" is read from the recorded dir identities of the last sweep (:class:`SweepRecord`),
+    never inferred from a filesystem timestamp. With no usable record at all every uncovered dir is
     ``stale`` — a machine that never swept has no excuse. Invariant: ``pending`` is non-empty
     ONLY when a record was consulted (a dir can be "newer than the sweep" only relative to one).
     """
@@ -337,17 +337,29 @@ class SweepSelector:
 class SweepRecord:
     """What the last sweep saw: when it started, and the matched dirs it actually visited.
 
-    ``seen`` is the evidence that decides stale-vs-pending (see :class:`Coverage`). Recording the
-    visited SET rather than a timestamp is deliberate: dating a directory would mean trusting a
-    filesystem birth time, which only macOS/BSD really have — everywhere else ``st_ctime`` is
-    *inode-change* time, and deleting the sentinel out of a directory bumps its parent's ctime,
-    so the one case this feature most needs to catch (a hand-deleted sentinel) would date as
-    "created after the sweep" and be excused. Set membership has no such ambiguity and behaves
-    identically on every platform.
+    ``seen`` is the evidence that decides stale-vs-pending (see :class:`Coverage`): each visited
+    dir's path mapped to its filesystem IDENTITY (``st_dev``, ``st_ino``). Recording the visited
+    set rather than a timestamp is deliberate: dating a directory would mean trusting a filesystem
+    birth time, which only macOS/BSD really have — everywhere else ``st_ctime`` is *inode-change*
+    time, and deleting the sentinel out of a directory bumps its parent's ctime, so the one case
+    this feature most needs to catch (a hand-deleted sentinel) would date as "created after the
+    sweep" and be excused. Identity, not the bare pathname, because ``rm -rf dist && mkdir dist``
+    is how builds work: the NEW ``dist`` at the old path was never swept — it is pending, not a
+    sweep failure — and a fresh inode is what tells the two apart (PR #387 review). The same
+    inode with no sentinel is the hand-deleted case: stale.
     """
 
     at: float
-    seen: frozenset[str]
+    seen: dict[str, tuple[int, int]]
+
+
+def dir_identity(directory: Path) -> tuple[int, int] | None:
+    """``(st_dev, st_ino)`` of a directory, or ``None`` when it cannot be stat'ed (vanished)."""
+    try:
+        st = os.stat(directory)
+    except OSError:
+        return None
+    return (int(st.st_dev), int(st.st_ino))
 
 
 def record_sweep(selector: SweepSelector, started_at: float, seen: "list[Path]") -> None:
@@ -362,8 +374,14 @@ def record_sweep(selector: SweepSelector, started_at: float, seen: "list[Path]")
     uncovered counts as stale), which is the safe direction to fail in.
     """
     path = state_path()
+    identities = {str(d): dir_identity(d) for d in seen}
     payload = json.dumps(
-        {"at": float(started_at), **selector.fingerprint(), "seen": [str(d) for d in seen]}
+        {
+            "at": float(started_at),
+            **selector.fingerprint(),
+            # a dir that vanished between the walk and the record is simply not recorded
+            "seen": {p: list(ident) for p, ident in identities.items() if ident is not None},
+        }
     )
     tmp = path.with_name(path.name + f".tmp-{os.getpid()}")
     try:
@@ -399,6 +417,21 @@ def _str_list(value: object) -> list[str]:
     return value
 
 
+def _seen_map(value: object) -> dict[str, tuple[int, int]]:
+    """``value`` as ``{path: (dev, ino)}``, or ``ValueError`` on any other shape."""
+    if not isinstance(value, dict):
+        raise ValueError("expected an object")
+    out: dict[str, tuple[int, int]] = {}
+    for path, ident in value.items():
+        if (
+            not isinstance(path, str) or not isinstance(ident, list) or len(ident) != 2
+            or not all(type(n) is int for n in ident)
+        ):
+            raise ValueError("expected {path: [dev, ino]}")
+        out[path] = (ident[0], ident[1])
+    return out
+
+
 def last_sweep(selector: SweepSelector) -> SweepRecord | None:
     """The last sweep over EXACTLY this selector, or ``None`` when there is no usable record.
 
@@ -416,7 +449,7 @@ def last_sweep(selector: SweepSelector) -> SweepRecord | None:
         }
         if not isinstance(stored["max_depth"], int) or stored != selector.fingerprint():
             return None
-        return SweepRecord(at=float(data["at"]), seen=frozenset(_str_list(data["seen"])))
+        return SweepRecord(at=float(data["at"]), seen=_seen_map(data["seen"]))
     except (OSError, ValueError, TypeError, KeyError):
         return None
 
@@ -435,7 +468,9 @@ def scan_coverage(selector: SweepSelector, record: SweepRecord | None = None) ->
     for directory in iter_target_dirs(selector.roots, selector.deny, selector.max_depth):
         if has_sentinel(directory):
             covered += 1
-        elif record is not None and str(directory) not in record.seen:
+        elif record is not None and record.seen.get(str(directory)) != dir_identity(directory):
+            # never visited, or visited and RECREATED since (`rm -rf dist && mkdir dist`): the
+            # dir standing here now was never swept — pending. Same inode, no sentinel → stale.
             pending.append(directory)
         else:
             stale.append(directory)
