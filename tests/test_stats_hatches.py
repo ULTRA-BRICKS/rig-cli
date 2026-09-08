@@ -320,3 +320,55 @@ def test_empty_hatches_prints_honest_zero(tmp_path):
 
     plain = tui.render_plain(aggregate([]), hatches=collect_hatches(home=home))
     assert "Escape hatches: 0" in plain
+
+
+def test_tui_renders_hatches_when_harness_logs_absent(tmp_path, capsys):
+    """TUI still prints Escape hatches when only overrides.log exists (no session logs)."""
+    home = tmp_path / "home"
+    _overrides(
+        home,
+        [
+            _override(
+                ts="2026-09-08T08:27:12Z",
+                hatch="visual-proof-gate",
+                reason="skipping screenshots",
+            )
+        ],
+    )
+    rc = run(_ns(format="tui", home=str(home)))
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Escape hatches" in out
+    assert "visual-proof-gate" in out
+
+
+def test_overrides_same_ts_hook_are_not_deduped(tmp_path):
+    """Dedup is only across sources. Two overrides.log rows with the same ts+hook both count;
+    a matching ship-audit row is skipped, not added as a third."""
+    home = tmp_path / "home"
+    ts = "2026-09-08T08:40:50Z"
+    _overrides(
+        home,
+        [
+            _override(ts=ts, hatch="ship-review-quorum", reason="first"),
+            _override(ts=ts, hatch="ship-review-quorum", reason="second"),
+        ],
+    )
+    agg = collect_hatches(home=home)
+    assert agg.total == 2
+    _ship_audit(
+        home,
+        [
+            {
+                "ts": ts,
+                "pr": "637",
+                "task_code": "#634",
+                "iterations": 3,
+                "models": 0,
+                "decision": "bypass:approved",
+                "override_reason": "same ts+hook from ship-audit",
+            }
+        ],
+    )
+    agg = collect_hatches(home=home)
+    assert agg.total == 2

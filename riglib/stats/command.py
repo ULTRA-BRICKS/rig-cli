@@ -284,8 +284,9 @@ def run(args) -> int:
 
     # No harness logs on this machine: json/web still emit a valid (empty) document — the
     # README promises json is "machine-readable data", and a script on a fresh box must get
-    # parseable output, not a prose line. Only the human-facing tui short-circuits to a hint.
-    if not meta["supported_harnesses"] and fmt == "tui":
+    # parseable output, not a prose line. Human-facing tui short-circuits to a hint only when
+    # hatches are empty too — overrides.log events must still render as Escape hatches.
+    if not meta["supported_harnesses"] and fmt == "tui" and hatches.total == 0:
         print("rig stats: no harness logs found on this machine.")
         for n in meta.get("notes", []):
             print(f"  - {n}")

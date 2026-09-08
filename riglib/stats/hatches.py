@@ -93,8 +93,9 @@ def collect_hatches(
 ) -> HatchAggregate:
     """Read hatch JSONL under ``home`` and aggregate by hook / kind.
 
-    Missing files yield an empty aggregate. The same ``ts``+hook in both sources
-    counts once; ``overrides.log`` wins.
+    Missing files yield an empty aggregate. Dedup is only across sources: the same
+    ``ts``+hook in both files counts once (``overrides.log`` wins). Rows inside
+    ``overrides.log`` are not collapsed, including empty/invalid timestamps.
     """
     root = Path(home) if home is not None else Path.home()
     cfg = root / _AGENT_TOOLS_DIR
@@ -102,10 +103,7 @@ def collect_hatches(
     events: list[HatchEvent] = []
 
     for ev in _iter_overrides(cfg / _OVERRIDES_NAME):
-        key = _dedup_key(ev)
-        if key in seen:
-            continue
-        seen.add(key)
+        seen.add(_dedup_key(ev))
         if _in_window(ev.timestamp, since, until):
             events.append(ev)
 

@@ -197,8 +197,9 @@ are grouped by hook and split **broken-gate** (the gate fired wrong — e.g.
 `ship-review-quorum` with `models: 0` / quota / `2 of 3`, or `orchestrator-stays-thin`
 on a dispatched leaf worker) from **lazy** (the agent reached for a hatch instead of
 the sanctioned alternative). The same `ts`+hook in both files counts once (overrides.log
-wins). Missing files are an honest zero, never a crash. JSON exposes a first-class
-`"hatches"` key; tui/plain always print an `Escape hatches` section (`Escape hatches: 0`
+wins); duplicate rows inside overrides.log are not collapsed. Missing files are an
+honest zero, never a crash. JSON exposes a first-class `"hatches"` key; tui/plain
+always print an `Escape hatches` section (`Escape hatches: 0`
 when empty). `--home` and `--since`/`--until` apply the same way they do for tool
 adoption. Telegram history is not parsed separately — overrides.log is the tg-ctl
 hatch-question audit sink.
