@@ -61,6 +61,16 @@ def test_assert_script_is_valid_bash() -> None:
     assert r.returncode == 0, f"assert.sh has a bash syntax error:\n{r.stderr}"
 
 
+def test_assert_script_creates_feature_worktree_via_rig() -> None:
+    script = textwrap.dedent(mx._ASSERT_SCRIPT)
+    assert 'rig worktree create -C "$REPO" feature' in script
+    assert script.count('rig worktree create -C "$REPO" feature') == 2
+    assert "$REPO/.worktrees/feature" in script
+    assert "$HOME/project-feature" not in script
+    assert 'git -C "$REPO" worktree add' not in script
+    assert "git worktree add" not in script
+
+
 def test_dockerfile_splices_before_rig_copy() -> None:
     df = mx._dockerfile()
     assert "COPY rig-cli /opt/rig-cli" in df

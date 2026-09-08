@@ -496,8 +496,8 @@ _ASSERT_SCRIPT = textwrap.dedent(
     elif [ "$HOOKS_NOTE" != native-dir ]; then
       printf 'PARITY-BLOCKED[%s]: descriptors landed in a %s the %s dispatcher does not read\\n' "$KIND" "$HOOKS_NOTE" "$MODULE"
     else
-      FEATURE="$HOME/project-feature"
-      git -C "$REPO" worktree add -q "$FEATURE" -b feature
+      rig worktree create -C "$REPO" feature
+      FEATURE="$REPO/.worktrees/feature"
       python3 "$OUT/parity.py" "$KIND" "$SRC/lib" "$REPO" "$FEATURE" \\
         || fail "guard parity: worktree-only-writes did not block-on-main/allow-on-feature through $MODULE"
       pass "guard parity: worktree-only-writes blocks on main + allows on a feature worktree via $MODULE"
@@ -511,8 +511,8 @@ _ASSERT_SCRIPT = textwrap.dedent(
         if [ -z "$BRIDGE_TARGET" ] || [ "$HOOKS_NOTE" != native-dir ]; then
           printf 'LIVE-BLOCKED[%s]: rig did not register the bridge / descriptors not in the native dir\\n' "$KIND"
         else
-          FEATURE="${FEATURE:-$HOME/project-feature}"
-          [ -d "$FEATURE" ] || git -C "$REPO" worktree add -q "$FEATURE" -b feature
+          FEATURE="${FEATURE:-$REPO/.worktrees/feature}"
+          [ -d "$FEATURE" ] || rig worktree create -C "$REPO" feature
           python3 "$OUT/live.py" "$KIND" "$REPO" "$FEATURE" \\
             || fail "live parity: a real $KIND session did not block-on-main / allow-on-feature"
         fi
