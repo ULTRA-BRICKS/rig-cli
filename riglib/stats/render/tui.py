@@ -8,6 +8,7 @@ that conveys the same numbers — the command never hard-fails for want of an op
 from __future__ import annotations
 
 from ..aggregate import Aggregate, TrendComparison, adoption_ratio
+from ..hatches import HatchAggregate
 from ..model import CATEGORIES
 from ._util import shorten
 
@@ -23,11 +24,17 @@ _CAT_COLOR = {
 }
 
 
-def render(agg: Aggregate, *, meta: dict | None = None, trend: TrendComparison | None = None) -> str:
+def render(
+    agg: Aggregate,
+    *,
+    meta: dict | None = None,
+    trend: TrendComparison | None = None,
+    hatches: HatchAggregate | None = None,
+) -> str:
     try:
         from rich.console import Console
     except ImportError:
-        return render_plain(agg, meta=meta, trend=trend)
+        return render_plain(agg, meta=meta, trend=trend, hatches=hatches)
 
     import io
     import shutil
@@ -48,6 +55,7 @@ def render(agg: Aggregate, *, meta: dict | None = None, trend: TrendComparison |
     console.print(_trend_table(agg, Table))
     if trend is not None:
         console.print(_comparison_table(trend, Table))
+    console.print(_hatches_panel(hatches or HatchAggregate(), Table, Panel))
     return buf.getvalue()
 
 
@@ -156,7 +164,13 @@ def _comparison_table(trend: TrendComparison, Table):
 
 
 # ── plain-text fallback (rich absent) ────────────────────────────────────────────────────
-def render_plain(agg: Aggregate, *, meta: dict | None = None, trend: TrendComparison | None = None) -> str:
+def render_plain(
+    agg: Aggregate,
+    *,
+    meta: dict | None = None,
+    trend: TrendComparison | None = None,
+    hatches: HatchAggregate | None = None,
+) -> str:
     lines = ["rig stats — tool adoption", "=" * 40]
     lines.append(f"total tool calls : {agg.total}")
     lines.append(f"adoption ratio   : {agg.adoption_ratio():.1%}  (ours / ours+baseline)")
@@ -197,4 +211,53 @@ def render_plain(agg: Aggregate, *, meta: dict | None = None, trend: TrendCompar
                 f"delta={late - early:+d}"
             )
         lines.append(f"  adoption delta: {trend.adoption_delta():+.1%}")
+    lines.extend(_hatches_plain_lines(hatches or HatchAggregate()))
     return "\n".join(lines)
+
+
+def _hatches_panel(hatches: HatchAggregate, Table, Panel):
+    if hatches.total == 0:
+        return Panel("Escape hatches: 0", title="[bold]Escape hatches[/bold]", border_style="grey50")
+    table = Table(title="Escape hatches", title_style="bold")
+    table.add_column("hook")
+    table.add_column("total", justify="right")
+    table.add_column("broken-gate", justify="right")
+    table.add_column("lazy", justify="right")
+    table.add_column("approved", justify="right")
+    table.add_column("denied", justify="right")
+    for hook, row in hatches.by_hook.items():
+        table.add_row(
+            hook,
+            str(row.get("total", 0)),
+            str(row.get("broken_gate", 0)),
+            str(row.get("lazy", 0)),
+            str(row.get("approved", 0)),
+            str(row.get("denied", 0)),
+        )
+    kind = (
+        f"total {hatches.total}  "
+        f"broken-gate {hatches.by_kind.get('broken-gate', 0)}  "
+        f"lazy {hatches.by_kind.get('lazy', 0)}"
+    )
+    return Panel(table, title=f"[bold]Escape hatches[/bold]  {kind}", border_style="grey50")
+
+
+def _hatches_plain_lines(hatches: HatchAggregate) -> list[str]:
+    if hatches.total == 0:
+        return ["", "Escape hatches: 0"]
+    lines = [
+        "",
+        "Escape hatches",
+        (
+            f"  total={hatches.total}  "
+            f"broken-gate={hatches.by_kind.get('broken-gate', 0)}  "
+            f"lazy={hatches.by_kind.get('lazy', 0)}"
+        ),
+    ]
+    for hook, row in hatches.by_hook.items():
+        lines.append(
+            f"  {hook:<32} total={row.get('total', 0):<4} "
+            f"broken-gate={row.get('broken_gate', 0):<4} "
+            f"lazy={row.get('lazy', 0):<4}"
+        )
+    return lines
