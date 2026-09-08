@@ -738,6 +738,25 @@
             }
           },
           "additionalProperties": false
+        },
+        "web_search": {
+          "type": "object",
+          "description": "omp web_search provider exclude list, reconciled into ~/.omp/agent/config.yml.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "provision providers.webSearchExclude when omp is a configured harness kind",
+              "default": true
+            },
+            "exclude": {
+              "type": "array",
+              "description": "provider ids web_search must never use, even as fallbacks; default [perplexity]",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

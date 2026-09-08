@@ -133,6 +133,10 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Writes an approval-policy key into the harness config controlling when it must ask "
         "before acting.",
     ),
+    "provision_omp_web_search": _tag(
+        "provision_omp_web_search", "permission_guard", AUDIENCE_AGENT,
+        "Merges providers.webSearchExclude into omp config.yml so web_search skips broken providers.",
+    ),
     "provision_instruction_policy": _tag(
         "provision_instruction_policy", "permission_guard", AUDIENCE_AGENT,
         "Writes an instruction-following policy key into the harness config.",

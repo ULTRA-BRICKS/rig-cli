@@ -508,6 +508,8 @@ def detect(
             _check_harness_guard(action, report)
         elif action.kind == "provision_harness_approval":
             _check_harness_approval(action, report)
+        elif action.kind == "provision_omp_web_search":
+            _check_omp_web_search(action, report)
         elif action.kind == "provision_instruction_policy":
             _check_instruction_policy(action, report)
         elif action.kind == "register_hook_bridge":
@@ -2094,6 +2096,61 @@ def _check_omp_idle_ttl(action: Action, report: DriftReport) -> None:
                       f"{dotted} is {value!r} (rig wants {OMP_IDLE_TTL_VALUE!r}; apply never "
                       "clobbers — change it by hand or remove the key)")
         )
+
+
+def _check_omp_web_search(action: Action, report: DriftReport) -> None:
+    """Flag drift between the desired webSearchExclude list and omp config.yml.
+
+    missing  — the file is absent, or a desired name is not in the list (apply adds it).
+    modified — malformed YAML, or providers.webSearchExclude is the wrong shape.
+    A list that already contains every desired name is NOT drift (extras stay).
+    """
+    import yaml  # lazy, like the rest of the config stack
+
+    from .omp_web_search import missing_exclude_entries
+
+    path = action.target
+    desired = [str(x) for x in action.options.get("exclude") or [] if str(x)]
+    if not path.is_file():
+        report.items.append(
+            DriftItem("missing", "harness", action.item, path,
+                      "omp web_search exclude not written (apply sets providers.webSearchExclude)")
+        )
+        return
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError):
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "omp config.yml is unreadable (permissions/encoding) — fix it by hand")
+        )
+        return
+    except yaml.YAMLError:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "omp config.yml is malformed YAML")
+        )
+        return
+    if not isinstance(data, dict) and data is not None:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "omp config.yml is not a YAML mapping — fix it by hand")
+        )
+        return
+    data = data if isinstance(data, dict) else {}
+    state, missing = missing_exclude_entries(data, desired)
+    if state == "shape":
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "providers.webSearchExclude is the wrong shape — fix it by hand")
+        )
+        return
+    if missing:
+        report.items.append(
+            DriftItem("missing", "harness", action.item, path,
+                      f"providers.webSearchExclude missing {', '.join(missing)} (apply adds them)")
+        )
+
 
 
 def _check_instruction_policy(action: Action, report: DriftReport) -> None:

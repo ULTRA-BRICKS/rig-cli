@@ -884,6 +884,10 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     _build_execpolicy(config, plan)
     _build_guard_policy(config, plan)
     _build_harness_delegated_notes(config, plan)
+    # ORDER MATTERS — both omp YAML writers target the same config.yml. Approval
+    # creates the file on first-run; web_search then merges exclude. The reverse
+    # made approval see an existing file and skip under on_conflict=skip (rig-cli#447).
+    _build_omp_web_search(config, plan)
 
     # ── hook bridge (make agents-hooks/v1 descriptors FIRE in the harness) ─────────
     _build_hook_bridge(config, catalog, plan)
@@ -1012,6 +1016,36 @@ def _enabled_harness_block(config: LoadedConfig) -> dict[str, Any] | None:
     if not isinstance(h, dict) or not h or h.get("enabled") is False:
         return None
     return h
+
+
+def _build_omp_web_search(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the omp ``providers.webSearchExclude`` merge when omp is a configured kind.
+
+    Default ON for an enabled harness that lists omp: exclude ``perplexity`` so web_search
+    never falls through to the Sign-up wall (rig-cli#447). ``web_search.enabled: false``
+    or ``exclude: []`` emits nothing. Extra names already on disk are never removed.
+    """
+    from .harness_skills import omp_user_path
+    from .omp_web_search import resolve_exclude
+
+    h = _enabled_harness_block(config)
+    if h is None:
+        return
+    if "omp" not in _configured_harness_kinds(config):
+        return
+    exclude = resolve_exclude(h)
+    if not exclude:
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_omp_web_search",
+            category="harness",
+            item="omp",
+            source=config.repo_root,
+            target=_expand(omp_user_path("config.yml"), config.repo_root),
+            options={"kind": "omp", "exclude": exclude},
+        )
+    )
 
 
 def _build_harness_delegated_notes(config: LoadedConfig, plan: InstallPlan) -> None:

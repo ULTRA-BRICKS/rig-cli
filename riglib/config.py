@@ -1041,6 +1041,29 @@ def _validate_harness(h: dict[str, Any]) -> None:
                 f"harness.hook_bridge.python must be a string, got {py!r}",
                 schema_path="harness.hook_bridge.python",
             )
+    # harness.web_search — omp providers.webSearchExclude (rig-cli#447). Default ON when
+    # the block is absent; enabled:false / exclude:[] opts out. Fail-closed on types.
+    ws = h.get("web_search")
+    if ws is not None:
+        if not isinstance(ws, dict):
+            raise ConfigError(
+                f"harness.web_search must be a mapping, got {ws!r}",
+                schema_path="harness.web_search",
+            )
+        _reject_unknown_keys(ws, "harness.web_search")
+        enabled = ws.get("enabled")
+        if enabled is not None and not isinstance(enabled, bool):
+            raise ConfigError(
+                f"harness.web_search.enabled must be a bool, got {enabled!r}",
+                schema_path="harness.web_search.enabled",
+            )
+        exclude = ws.get("exclude")
+        if exclude is not None:
+            if not isinstance(exclude, list) or not all(isinstance(v, str) and v for v in exclude):
+                raise ConfigError(
+                    f"harness.web_search.exclude must be a list of non-empty strings, got {exclude!r}",
+                    schema_path="harness.web_search.exclude",
+                )
 
 
 def _check_int_min(block: dict[str, Any], key: str, path: str, minimum: int) -> None:

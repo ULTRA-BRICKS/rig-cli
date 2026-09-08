@@ -343,6 +343,14 @@ AREAS: tuple[Area, ...] = (
             _opt("harness.hook_bridge.enabled", KIND_BOOL, True,
                  "Wire the supported harness hook bridge so installed agent-hooks actually FIRE. "
                  "Without it every agent-hook is inert and auto-mode is NOT safe."),
+            _opt("harness.web_search.enabled", KIND_BOOL, True,
+                 "When omp is a configured harness kind, merge providers.webSearchExclude into "
+                 "the omp agent config.yml so web_search never falls through to Perplexity's "
+                 "Sign-up wall. Off = leave the exclude list alone."),
+            _opt("harness.web_search.exclude", KIND_LIST, ["perplexity"],
+                 "Provider ids omp web_search must never use, even as fallbacks. Additive — "
+                 "names already on disk stay. An empty list opts out of the write. Default "
+                 "excludes perplexity (anonymous path is a Sign-up wall)."),
         ),
     ),
     Area(
