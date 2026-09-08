@@ -129,25 +129,39 @@ def _resolve_merge_base(cwd: Path, requested: str | None) -> tuple[str, str]:
 
 
 def _commits_since(cwd: Path, merge_base: str) -> list[Commit]:
-    raw = _git_out(cwd, "log", "--format=%H%x09%s%x09%ci", f"{merge_base}..HEAD")
+    # NUL field separators: a tab in the subject is legal and must not steal the date.
+    raw = _git_out(
+        cwd,
+        "log",
+        "-z",
+        "--format=%H%x00%s%x00%ci",
+        f"{merge_base}..HEAD",
+        keep_nul=True,
+    )
+    fields = _nul_tokens(raw)
     commits: list[Commit] = []
-    for line in raw.splitlines():
-        sha, message, date = (line.split("\t", 2) + ["", ""])[:3]
-        if sha:
-            commits.append(Commit(sha=sha, message=message, date=date))
+    for i in range(0, len(fields) - 2, 3):
+        sha, message, date = fields[i], fields[i + 1], fields[i + 2]
+        commits.append(Commit(sha=sha, message=message, date=date))
     return commits
 
 
 def _files_since(cwd: Path, merge_base: str) -> list[FileChange]:
     status_by_path = _name_status(cwd, merge_base)
-    raw = _git_out(cwd, "diff", "--numstat", f"{merge_base}..HEAD")
+    raw = _git_out(cwd, "diff", "-z", "--numstat", f"{merge_base}..HEAD", keep_nul=True)
+    tokens = _nul_tokens(raw)
     files: list[FileChange] = []
-    for line in raw.splitlines():
-        parts = line.split("\t")
-        if len(parts) < 3:
+    i = 0
+    while i < len(tokens):
+        rec = tokens[i]
+        i += 1
+        if rec.count("\t") < 2:
             continue
-        added_s, deleted_s, path = parts[0], parts[1], parts[2]
-        path = _numstat_dest_path(path)
+        added_s, deleted_s, path = rec.split("\t", 2)
+        if path == "" and i + 1 < len(tokens):
+            # -z rename: "added\tdel\t" then old path, new path
+            path = tokens[i + 1]
+            i += 2
         added = 0 if added_s == "-" else _as_int(added_s)
         deleted = 0 if deleted_s == "-" else _as_int(deleted_s)
         status = status_by_path.get(path, "modified")
@@ -156,23 +170,46 @@ def _files_since(cwd: Path, merge_base: str) -> list[FileChange]:
 
 
 def _name_status(cwd: Path, merge_base: str) -> dict[str, str]:
-    raw = _git_out(cwd, "diff", "--name-status", f"{merge_base}..HEAD")
+    raw = _git_out(
+        cwd, "diff", "-z", "--name-status", f"{merge_base}..HEAD", keep_nul=True
+    )
     mapping = {
         "A": "new",
         "D": "deleted",
         "M": "modified",
         "C": "modified",
         "T": "modified",
+        "R": "modified",
     }
+    tokens = _nul_tokens(raw)
     out: dict[str, str] = {}
-    for line in raw.splitlines():
-        parts = line.split("\t")
-        if len(parts) < 2:
-            continue
-        code = parts[0][:1]
-        path = parts[-1]  # rename: old, new — keep the new path
-        out[path] = mapping.get(code, "modified")
+    i = 0
+    while i < len(tokens):
+        code = tokens[i]
+        i += 1
+        kind = code[:1] if code else ""
+        if kind in ("R", "C"):
+            if i + 1 >= len(tokens):
+                break
+            _old, dest = tokens[i], tokens[i + 1]
+            i += 2
+            out[dest] = mapping.get(kind, "modified")
+        else:
+            if i >= len(tokens):
+                break
+            path = tokens[i]
+            i += 1
+            out[path] = mapping.get(kind, "modified")
     return out
+
+
+def _nul_tokens(raw: str) -> list[str]:
+    if not raw:
+        return []
+    parts = raw.split("\0")
+    if parts and parts[-1] == "":
+        parts = parts[:-1]
+    return parts
 
 
 def _https_remote(cwd: Path) -> str:
@@ -181,22 +218,6 @@ def _https_remote(cwd: Path) -> str:
     except _GitFailed:
         return ""
     return _to_https(url)
-
-
-def _numstat_dest_path(path: str) -> str:
-    """Turn git's combined rename form ``dir/{old => new}`` into ``dir/new``.
-
-    ``git diff --numstat`` emits that brace form for a rename; ``--name-status``
-    emits the destination path on its own field. Displaying the brace string as
-    a filename is wrong, and it also misses the status lookup keyed on the dest.
-    """
-    if " => " in path and "{" in path and path.endswith("}"):
-        prefix, rest = path.split("{", 1)
-        inner = rest[:-1]
-        if " => " in inner:
-            _old, new = inner.split(" => ", 1)
-            return prefix + new
-    return path
 
 
 def _to_https(url: str) -> str:
@@ -235,7 +256,7 @@ class _GitFailed(Exception):
     """A git invocation ran but exited non-zero — not the same as git missing."""
 
 
-def _git_out(cwd: Path, *args: str) -> str:
+def _git_out(cwd: Path, *args: str, keep_nul: bool = False) -> str:
     try:
         proc = subprocess.run(
             ["git", "-C", str(cwd), *args],
@@ -260,4 +281,5 @@ def _git_out(cwd: Path, *args: str) -> str:
         raise _GitFailed(
             proc.stderr.strip() or f"git {' '.join(args)} exit {proc.returncode}"
         )
-    return (proc.stdout or "").strip()
+    out = proc.stdout or ""
+    return out if keep_nul else out.strip()

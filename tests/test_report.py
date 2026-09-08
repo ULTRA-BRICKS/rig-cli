@@ -230,3 +230,28 @@ def test_report_unborn_head_is_a_structured_error(tmp_path, capsys):
     assert not out.exists()
     printed = capsys.readouterr().out.lower()
     assert "no commits" in printed or "head" in printed
+
+
+def test_report_preserves_tab_in_commit_subject(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-qm", "init")
+    _git(repo, "checkout", "-qb", "feat/tab")
+    (repo / "x.py").write_text("x\n", encoding="utf-8")
+    _git(repo, "add", "x.py")
+    _git(repo, "commit", "-qm", "feat:\tadd app")
+    out = tmp_path / "report.html"
+
+    rc = main(["report", "HYP-1", "-C", str(repo), "--out", str(out)])
+
+    assert rc == 0
+    html = out.read_text(encoding="utf-8")
+    assert "feat:" in html and "add app" in html
+    # The date column must still be a timestamp, not the rest of the subject.
+    assert "add app" in html.split("feat:", 1)[1]
+    # A stolen date would put the subject tail in the date cell with no year nearby
+    # after the message; the real date always contains the year.
+    assert "2026" in html
