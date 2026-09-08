@@ -3,8 +3,8 @@
 ``test_cleanroom_container_e2e.py`` is opt-in (``RIG_CONTAINER_E2E=1``) and skip-only without
 Apple's ``container`` CLI, so its embedded assert/parity/live scripts would otherwise never
 compile in the default suite. These tests import that module (the skip mark only gates ITS
-items) and pin: kinds include the three #337 subjects, the matrix config parses, and every
-embedded script compiles / is valid bash.
+items) and pin: kinds cover every known harness (including the instruction-file family that
+#456 left out), the matrix config parses, and every embedded script compiles / is valid bash.
 """
 
 from __future__ import annotations
@@ -24,6 +24,46 @@ def test_kinds_include_the_337_subjects() -> None:
     assert "opencode" in mx.KINDS
     assert "omp" in mx.KINDS
     assert "claude-code" in mx.KINDS
+
+
+def test_kinds_cover_every_known_harness() -> None:
+    """The matrix must parametrize every kind riglib.harness_skills knows — not a subset.
+
+    PR 456 shipped claude-code/codex/opencode/omp. pi and commandcode are instruction-file
+    kinds in KNOWN_HARNESS_KINDS; leaving them out means RIG_CONTAINER_E2E=1 never sees a
+    silent skip on those two (asks 005/177, rig-cli#461).
+    """
+    from riglib.harness_skills import KNOWN_HARNESS_KINDS
+
+    assert set(mx.KINDS) == set(KNOWN_HARNESS_KINDS)
+    assert "pi" in mx.KINDS
+    assert "commandcode" in mx.KINDS
+
+
+def test_assert_script_handles_instruction_file_kinds() -> None:
+    """pi/commandcode are a third discovery family, not native auto-load.
+
+    The skills else-branch used to assume every non-symlink kind auto-loads
+    ~/.agents/skills. Instruction-file kinds read a global AGENTS.md and emit a
+    different plan note; auto-mode is n/a; there is no native hooks dir (set -u
+    would crash if HOOKS_DIR stayed unset); parity/live must be labelled blocked.
+    """
+    script = textwrap.dedent(mx._ASSERT_SCRIPT)
+    assert "has no skill-discovery dir" in script
+    assert "no auto/permission-mode setting" in script
+    assert "pi|commandcode" in script or ("pi)" in script and "commandcode)" in script)
+    assert "PARITY-BLOCKED" in script
+    # HOOKS_DIR must be assigned for every kind the matrix runs, including the
+    # instruction-file ones — `set -u` + `find "$HOOKS_DIR"` is a crash, not a skip.
+    assert "pi|commandcode" in script
+
+
+def test_live_py_blocks_instruction_file_kinds() -> None:
+    """live.py must not KeyError on binary_for('pi'); record LIVE-BLOCKED with a reason."""
+    live = textwrap.dedent(mx._LIVE_PY)
+    assert '"pi"' in live
+    assert '"commandcode"' in live
+    assert "LIVE-BLOCKED" in live
 
 
 def test_selected_kinds_default_and_filter(monkeypatch: pytest.MonkeyPatch) -> None:
