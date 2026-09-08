@@ -545,13 +545,13 @@ def _add_stats_parser(sub: "argparse._SubParsersAction") -> None:
     Nested sub-actions (currently just `show`) so the surface has room to grow
     (`rig stats export`, `rig stats compare`, …) without reshaping the top-level CLI.
     """
-    sp = sub.add_parser("stats", help="tool-adoption analytics over agent-harness session logs")
+    sp = sub.add_parser("stats", help="tool-adoption and escape-hatch analytics over agent-harness session logs")
     # stash the subparser so `cmd_stats` can print ITS help on a bare `rig stats` (one source
     # of truth for the usage text — no hand-retyped duplicate).
     sp.set_defaults(_stats_parser=sp)
     sact = sp.add_subparsers(dest="stats_action", metavar="<action>")
 
-    show = sact.add_parser("show", help="report how often each tool is invoked, by category/repo/harness")
+    show = sact.add_parser("show", help="report tool-adoption and escape-hatch usage, by category/repo/harness/hook")
     show.add_argument(
         "--harness", action="append", metavar="NAME",
         # kept generic (not an exhaustive list) so it can't drift as parsers are added; the

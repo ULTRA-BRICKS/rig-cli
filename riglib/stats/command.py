@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from .aggregate import Aggregate, TrendComparison, aggregate, compare_periods
+from .hatches import HatchAggregate, collect_hatches
 from .model import ToolInvocation
 from .render import RENDERERS
 from .sources import all_sources
@@ -38,6 +39,7 @@ class Report(NamedTuple):
     aggregate: Aggregate
     meta: dict
     trend: TrendComparison | None
+    hatches: HatchAggregate
 
 
 def parse_date(value: str | None, *, end: bool = False) -> datetime | None:
@@ -180,7 +182,8 @@ def build_report(
     }
     if result.notes:
         meta["note"] = "; ".join(result.notes)
-    return Report(agg, meta, trend)
+    hatches = collect_hatches(home=home, since=since, until=until)
+    return Report(agg, meta, trend, hatches)
 
 
 def _since_vs_prior_window(
@@ -268,7 +271,7 @@ def run(args) -> int:
     # --baseline narrows the report to the two buckets the adoption question is about
     # (built-in baseline vs our ecosystem), dropping external-advertised/other noise.
     categories = frozenset({"baseline", "ours"}) if getattr(args, "baseline", False) else None
-    agg, meta, trend = build_report(
+    agg, meta, trend, hatches = build_report(
         home=home,
         harnesses=harnesses,
         repos=getattr(args, "repo", None),
@@ -292,8 +295,8 @@ def run(args) -> int:
         from .render import web
 
         port = getattr(args, "web_port", None) or 0
-        web.serve(agg, meta=meta, trend=trend, port=int(port))
+        web.serve(agg, meta=meta, trend=trend, hatches=hatches, port=int(port))
         return 0
 
-    print(RENDERERS[fmt](agg, meta=meta, trend=trend))
+    print(RENDERERS[fmt](agg, meta=meta, trend=trend, hatches=hatches))
     return 0
