@@ -35,7 +35,9 @@ BEGIN_MARKER = "# >>> rig-managed bun (do not edit) >>>"
 END_MARKER = "# <<< rig-managed bun (do not edit) <<<"
 BLOCK_COMMENT = (
     "# bun install: isolated linker + globalStore — packages live once under "
-    "~/.bun/install/cache/links/."
+    "~/.bun/install/cache/links/.\n"
+    "# Replace via `rig config set bun.enabled true --global --commit` "
+    "(off: `rig config set bun.enabled false --global --commit`)."
 )
 
 _STORE_LINE_RE = re.compile(r"^globalStore\s*=\s*true\s*(?:#.*)?$")
