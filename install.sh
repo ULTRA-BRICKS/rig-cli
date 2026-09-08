@@ -124,5 +124,6 @@ echo "         rig apply               — PREVIEW the reconcile (alias for 'rig
 echo "         rig apply commit        — execute the reconcile (idempotent — what applies)"
 echo "         rig status              — report config↔disk drift (both ways)"
 echo "         rig config get|set      — read/change one key (dot path), then reconcile"
+echo "         rig env set|list|del   — machine-wide env.vars keys (values masked; plaintext files)"
 echo "         rig --help              — full usage"
 echo ""
