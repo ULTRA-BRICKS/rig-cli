@@ -1,11 +1,13 @@
 """Hermetic unit tests for the clean-room e2e's own helpers (no Docker required).
 
 The Docker e2e (``test_cleanroom_e2e.py``) is opt-in and only runs when a container runtime is
-present, so its non-trivial in-test logic — the settings.json checker and the fake agent-tools
-fixture builder — would otherwise be exercised ONLY in that gated path. These tests run in the
-default hermetic suite and pin that logic directly, so a regression in the harness's own
-assertions (e.g. the ``hook_bridge`` check regressing to a bare substring match that false-passes)
-is caught without standing up a container.
+present, so its non-trivial in-test logic — the settings.json checker, the orchestrator-parity
+checker (CLAUDE.md drifting from AGENTS.md), and the fake agent-tools fixture builder — would
+otherwise be exercised ONLY in that gated path. These tests run in the default hermetic suite
+and pin that logic directly, so a regression in the harness's own assertions (e.g. the
+``hook_bridge`` check regressing to a bare substring match that false-passes, or CLAUDE.md
+losing the orchestrator block while AGENTS.md keeps it) is caught without standing up a
+container.
 """
 
 from __future__ import annotations
@@ -198,6 +200,94 @@ def test_check_settings_is_valid_python() -> None:
     compile(textwrap.dedent(cr._CHECK_SETTINGS), "check_settings.py", "exec")
 
 
+_ORCH_BEGIN = "# >>> rig-managed orchestrator (do not edit) >>>"
+_ORCH_END = "# <<< rig-managed orchestrator (do not edit) <<<"
+_ORCH_BLOCK = "\n".join(
+    [
+        _ORCH_BEGIN,
+        "# Orchestrator, not worker. Do not implement inline. Do not run `gh` except `gh ship <N>`.",
+        "# Do not `git worktree add` — `rig worktree create`.",
+        _ORCH_END,
+    ]
+)
+
+
+def _run_orchestrator_checker(
+    tmp_path: Path, *, agents: str | None, claude: str | None
+) -> subprocess.CompletedProcess:
+    script = tmp_path / "check_orchestrator.py"
+    script.write_text(textwrap.dedent(cr._CHECK_ORCHESTRATOR), encoding="utf-8")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    if agents is not None:
+        (repo / "AGENTS.md").write_text(agents, encoding="utf-8")
+    if claude == "SYMLINK":
+        (repo / "CLAUDE.md").symlink_to("AGENTS.md")
+    elif claude is not None:
+        (repo / "CLAUDE.md").write_text(claude, encoding="utf-8")
+    return subprocess.run(
+        [sys.executable, str(script), str(repo)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+def test_check_orchestrator_is_valid_python() -> None:
+    compile(textwrap.dedent(cr._CHECK_ORCHESTRATOR), "check_orchestrator.py", "exec")
+
+
+def test_check_orchestrator_accepts_identical_block(tmp_path: Path) -> None:
+    r = _run_orchestrator_checker(tmp_path, agents=_ORCH_BLOCK + "\n", claude="SYMLINK")
+    assert r.returncode == 0, r.stderr
+
+
+def test_check_orchestrator_rejects_missing_claude_md(tmp_path: Path) -> None:
+    r = _run_orchestrator_checker(tmp_path, agents=_ORCH_BLOCK + "\n", claude=None)
+    assert r.returncode == 1
+    assert "claude-code" in r.stderr
+
+
+def test_check_orchestrator_rejects_missing_block(tmp_path: Path) -> None:
+    body = "# user guide\nno orchestrator here\n"
+    r = _run_orchestrator_checker(tmp_path, agents=body, claude=body)
+    assert r.returncode == 1
+    assert "no rig-managed orchestrator block" in r.stderr
+
+
+def test_check_orchestrator_rejects_divergent_claude_md(tmp_path: Path) -> None:
+    claude = "\n".join(
+        [
+            _ORCH_BEGIN,
+            "# Orchestrator, not worker. Do not implement inline. CLAUDE-ONLY `gh ship`.",
+            "# Do not `git worktree add` — `rig worktree create`.",
+            _ORCH_END,
+        ]
+    )
+    r = _run_orchestrator_checker(tmp_path, agents=_ORCH_BLOCK + "\n", claude=claude + "\n")
+    assert r.returncode == 1
+    assert "differ across harnesses" in r.stderr
+
+
+def test_check_orchestrator_rejects_token_only_in_user_body(tmp_path: Path) -> None:
+    body = "\n".join(
+        [
+            _ORCH_BEGIN,
+            "# empty managed block with none of the required sentences",
+            _ORCH_END,
+            "",
+            "Orchestrator, not worker. Do not implement inline. gh ship. rig worktree create.",
+        ]
+    )
+    r = _run_orchestrator_checker(tmp_path, agents=body + "\n", claude=body + "\n")
+    assert r.returncode == 1
+    assert "missing" in r.stderr
+
+
+def test_assert_script_runs_orchestrator_checker() -> None:
+    assert "python3 /opt/cleanroom/check_orchestrator.py" in cr._ASSERT_SCRIPT
+
+
 def test_check_settings_hook_bridge_rejects_malformed_shapes(tmp_path: Path) -> None:
     """A non-list PreToolUse / a group missing `hooks` / a non-string command must not false-pass."""
     # PreToolUse is a dict, not a list
@@ -320,6 +410,7 @@ def test_stage_build_context_lays_out_every_copied_dir(tmp_path: Path) -> None:
     assert (ctx / "cleanroom" / "rig.yaml").is_file()
     assert (ctx / "cleanroom" / "assert.sh").is_file()
     assert (ctx / "cleanroom" / "check_settings.py").is_file()
+    assert (ctx / "cleanroom" / "check_orchestrator.py").is_file()
     assert (ctx / "Dockerfile").is_file()
     # the allowlist must NOT copy the repo's own .git / .venv / tests / .github (only package inputs)
     assert not (ctx / "rig-cli" / ".git").exists()
