@@ -5147,6 +5147,125 @@ def _do_provision_agents_symlink(action: Action, on_conflict: str) -> ActionResu
     return ActionResult(action, "error", f"agents-md: unhandled state {r.state!r}")
 
 
+# ── AGENTS.md marker splices (orchestrator + autonomous-mode) ─────────────────────
+# Visible at session start so the agent does not have to auto-load a long skill first.
+# File creation stays with provision_agents_symlink: a splice-only apply on an empty
+# repo must skip rather than plant a stub guide.
+
+ORCHESTRATOR_BEGIN_MARKER = "# >>> rig-managed orchestrator (do not edit) >>>"
+ORCHESTRATOR_END_MARKER = "# <<< rig-managed orchestrator (do not edit) <<<"
+
+AUTONOMOUS_BEGIN_MARKER = "# >>> rig-managed autonomous-mode (do not edit) >>>"
+AUTONOMOUS_END_MARKER = "# <<< rig-managed autonomous-mode (do not edit) <<<"
+
+
+def orchestrator_block_text() -> str:
+    """The marker-delimited orchestrator reminder (shared by apply + drift)."""
+    return "\n".join([
+        ORCHESTRATOR_BEGIN_MARKER,
+        "# Orchestrator, not worker. Do not implement inline. Do not run `gh` (list/view/pr/api/run",
+        "# included) except a single `gh ship <N>`. Do not `git worktree add` — `rig worktree create`.",
+        "# Read-only (`git status`, `ls`, `cat`, `grep`, `git worktree list`) is fine. Dispatch a",
+        "# subagent for the rest. Skill: delegate-work-to-subagents. Hook: orchestrator-stays-thin.",
+        "# Key reports MUST go to Telegram (`tg --tag report`): quote the user's original words, include ticket/PR URLs, name the measure already started, draft via `review just-ask`. Never \"not in prod\" with no next action.",
+        "# After a successful `gh ship` of a load-bearing feature, merge is not done: (1) turn it on",
+        "# in settings if it has a config knob, (2) `rig apply commit` on this machine, (3) prove it",
+        "# WORKS on this machine (command output, Telegram, deny text — SHA/on-disk is not a proof),",
+        "# (4) re-check the original user quote is solved.",
+        ORCHESTRATOR_END_MARKER,
+    ])
+
+
+def autonomous_mode_block_text() -> str:
+    """The marker-delimited autonomous-mode reminder (shared by apply + drift)."""
+    return "\n".join([
+        AUTONOMOUS_BEGIN_MARKER,
+        "# Mode autonomous: extra-approval gate OFF. Do not invent a hold-for-human.",
+        "# Ship when gates pass. Skill: autonomous-mode (skill://autonomous-mode).",
+        AUTONOMOUS_END_MARKER,
+    ])
+
+
+def _agents_md_splice_target(root: Path) -> Path | None:
+    """The real canonical guide, or None when there isn't one to own.
+
+    Only a regular (non-symlink) canonical is spliced. A CLAUDE.md-canonical pair
+    writes the real CLAUDE.md; the AGENTS.md symlink still reads it. A foreign
+    AGENTS.md symlink is a conflict the symlink action leaves untouched — following
+    it here would rewrite a file rig does not manage.
+    """
+    r = resolve_agents_md(root)
+    if r.state == "conflict":
+        return None
+    if _is_real_file(r.canonical_path):
+        return r.canonical_path
+    return None
+
+
+def _splice_agents_md_block(
+    action: Action,
+    on_conflict: str,
+    *,
+    desired: str,
+    begin: str,
+    end: str,
+    label: str,
+) -> ActionResult:
+    """Idempotent marker splice into the canonical guide — never creates the file."""
+    path = _agents_md_splice_target(action.target)
+    if path is None:
+        return ActionResult(
+            action, "skipped",
+            f"{label}: no AGENTS.md/CLAUDE.md yet (symlink action owns creation)",
+        )
+    try:
+        with path.open(encoding="utf-8", newline="") as fh:
+            content = fh.read()
+    except OSError as exc:
+        return ActionResult(action, "error", f"{label}: cannot read {path}: {exc}")
+    new_content, state, detail = _splice_managed_block(content, desired, begin, end)
+    if state == "conflict":
+        return ActionResult(action, "error", f"{label}: {detail}")
+    if state == "ok":
+        return ActionResult(action, "skipped", f"{label}: already current in {path}")
+    backup_note = ""
+    if state == "update":
+        if on_conflict == "skip":
+            return ActionResult(
+                action, "skipped",
+                f"{label}: {path} block differs but on_conflict=skip — left unchanged "
+                "(drift NOT reconciled)",
+            )
+        if _should_backup(on_conflict):
+            bak = fsutil.backup_path(path)
+            shutil.copy2(str(path), str(bak))
+            backup_note = f" (backed up prior → {bak})"
+    path.write_text(new_content, encoding="utf-8")
+    status = "backed_up" if backup_note else "updated"
+    verb = "appended block to" if state == "create" else "reconciled block in"
+    return ActionResult(action, status, f"{label}: {verb} {path}{backup_note}")
+
+
+def _do_provision_agents_orchestrator(action: Action, on_conflict: str) -> ActionResult:
+    return _splice_agents_md_block(
+        action, on_conflict,
+        desired=orchestrator_block_text(),
+        begin=ORCHESTRATOR_BEGIN_MARKER,
+        end=ORCHESTRATOR_END_MARKER,
+        label="orchestrator",
+    )
+
+
+def _do_provision_agents_autonomous_mode(action: Action, on_conflict: str) -> ActionResult:
+    return _splice_agents_md_block(
+        action, on_conflict,
+        desired=autonomous_mode_block_text(),
+        begin=AUTONOMOUS_BEGIN_MARKER,
+        end=AUTONOMOUS_END_MARKER,
+        label="autonomous-mode",
+    )
+
+
 # ── per-repo `gh ship` delegator (.claude/scripts/pr-ship.sh) ──────────────────────
 # `gh ship` is a gh alias → `<repo>/.claude/scripts/pr-ship.sh`. Historically that delegator
 # existed ONLY in agent-tools, so `gh ship` FAILED in every other managed repo (papered over by a
@@ -7725,6 +7844,8 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "register_hook_bridge": _do_register_hook_bridge,
     "provision_schedule": _do_provision_schedule,
     "provision_agents_symlink": _do_provision_agents_symlink,
+    "provision_agents_orchestrator": _do_provision_agents_orchestrator,
+    "provision_agents_autonomous_mode": _do_provision_agents_autonomous_mode,
     "provision_ship_delegator": _do_provision_ship_delegator,
     "provision_gh_ship_alias": _do_provision_gh_ship_alias,
     "lint_policy_blocked": _do_lint_policy_blocked,

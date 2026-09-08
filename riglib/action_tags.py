@@ -153,6 +153,16 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Symlinks a shared AGENTS.md-equivalent instruction file into a harness's expected "
         "location (e.g. CLAUDE.md).",
     ),
+    "provision_agents_orchestrator": _tag(
+        "provision_agents_orchestrator", "edits_file", AUDIENCE_AGENT,
+        "Splices a marker-delimited orchestrator block into the repo AGENTS.md "
+        "(user body outside the markers is untouched).",
+    ),
+    "provision_agents_autonomous_mode": _tag(
+        "provision_agents_autonomous_mode", "edits_file", AUDIENCE_AGENT,
+        "Splices a marker-delimited autonomous-mode block into the repo AGENTS.md "
+        "(Skill: autonomous-mode; user body outside the markers is untouched).",
+    ),
     "provision_ship_delegator": _tag(
         "provision_ship_delegator", "edits_file", AUDIENCE_HUMAN,
         "Writes the ship-delegator env file + wiring that lets `gh ship` reach this repo's "
