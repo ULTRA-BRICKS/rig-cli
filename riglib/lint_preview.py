@@ -72,7 +72,18 @@ def _counts_from_json(text: str) -> FindingCounts:
 
 def _run(repo_root: Path, executable: str, config: Path) -> FindingCounts:
     proc = subprocess.run(
-        [executable, "--config", str(config), "--format", "json", "."],
+        [
+            executable,
+            "--config",
+            str(config),
+            # Nested carrier files (linters/oxc/oxlint.config.ts) are not project
+            # configs; without this flag oxlint writes a parse error to stdout
+            # instead of JSON and apply-time stats stay skipped (rig-cli#433).
+            "--disable-nested-config",
+            "--format",
+            "json",
+            ".",
+        ],
         cwd=repo_root,
         text=True,
         stdout=subprocess.PIPE,
