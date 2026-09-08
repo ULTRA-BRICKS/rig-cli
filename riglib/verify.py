@@ -246,6 +246,27 @@ def _verify_spotlight(action: Action) -> list[VerifyResult]:
     return results
 
 
+@register_verifier("provision_bunfig")
+def _verify_bunfig(action: Action) -> list[VerifyResult]:
+    """The bunfig on disk has isolated linker + ``globalStore = true``."""
+    from . import bunfig
+
+    path = action.target
+    if not path.is_file():
+        return [VerifyResult("bun", "bunfig", False, f"missing {path}")]
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        return [VerifyResult("bun", "bunfig", False, f"cannot read {path}: {exc}")]
+    ok = bunfig.has_required_install_keys(text)
+    return [VerifyResult(
+        "bun", "bunfig", ok,
+        f"{path} has isolated linker + globalStore" if ok else f"{path} missing isolated linker + globalStore",
+    )]
+
+
+
+
 # ── tmux (retrofit) ─────────────────────────────────────────────────────────────────────
 @register_verifier("provision_tmux")
 def _verify_tmux(action: Action) -> list[VerifyResult]:

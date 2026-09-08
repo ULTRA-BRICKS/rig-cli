@@ -8293,6 +8293,26 @@ def _do_provision_linter_bundle(action: Action, on_conflict: str) -> ActionResul
     out = apply_bundle(action.source, action.target, str(action.options.get("source_rel") or ""), str(action.options.get("target_rel") or ""), on_conflict)
     return ActionResult(action, out.status, out.detail, out.backup)
 
+
+def _do_provision_bunfig(action: Action, on_conflict: str) -> ActionResult:
+    """Splice the bun isolated-linker + globalStore managed block into ``~/.bunfig.toml``.
+
+    ``create``/``update`` write :attr:`ResolveResult.new_content` via :func:`fsutil.write_file`.
+    ``ok`` is a no-op. ``conflict`` (unbalanced markers) is left untouched even when
+    ``on_conflict=backup``.
+    """
+    from .. import bunfig
+
+    target = action.target
+    result = bunfig.resolve(target)
+    if result.state == "ok":
+        return ActionResult(action, "skipped", f"already current: {target}")
+    if result.state == "conflict":
+        return ActionResult(action, "skipped", f"conflict: {result.detail}")
+    out = fsutil.write_file(target, result.new_content, on_conflict)
+    return ActionResult(action, out.status, out.detail, out.backup)
+
+
 _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "record_mode": _do_record_mode,
     "copy_skill": _do_copy_skill,
@@ -8334,4 +8354,5 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_tools": _do_provision_tools,
     "provision_tg_ctl": _do_provision_tg_ctl,
     "provision_tcc_watch": _do_provision_tcc_watch,
+    "provision_bunfig": _do_provision_bunfig,
 }
