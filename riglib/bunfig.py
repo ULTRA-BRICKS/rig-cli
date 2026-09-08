@@ -38,7 +38,7 @@ BLOCK_COMMENT = (
     "~/.bun/install/cache/links/.\n"
     "# Replace via `rig config set bun.enabled true --global --commit` "
     "(off: `rig config set bun.enabled false --global --commit`).\n"
-    "# Hand edits inside this block are replaced on the next `rig apply`."
+    "# Hand edits inside this block are replaced on the next `rig apply commit`."
 )
 
 _STORE_LINE_RE = re.compile(r"^globalStore\s*=\s*true\s*(?:#.*)?$")
