@@ -91,7 +91,7 @@ BASELINE_ALIASES: dict[str, str] = {
 # could exist on some machine and be miscounted as ours) — the same accepted tradeoff, a knob the
 # CTO can drop here if it ever skews a real number. The remaining names are unambiguous.
 OUR_CLIS: frozenset[str] = frozenset(
-    {"rig", "tg", "draw", "3d", "task", "dev", "pm", "research"}
+    {"rig", "tg", "draw", "3d", "task", "dev", "pm", "research", "harness", "qa", "stt"}
 )
 REVIEW_CLIS: frozenset[str] = frozenset({"review"})
 
