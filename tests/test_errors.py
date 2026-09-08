@@ -296,6 +296,53 @@ def test_real_catalog_provisions_require_ticket_guard():
     )
 
 
+def test_real_catalog_provisions_block_raw_ticket_guard():
+    """Raw gh-issue / Linear writes MUST be blocked when task-cli is configured.
+
+    Companion of agent-tools#631 (the ``block-raw-ticket`` pre-bash hook). Same two
+    halves as ``test_real_catalog_provisions_require_ticket_guard``: the hook exists
+    in the real catalog, and rig's DEFAULT plan (absent agent_hooks block → all-on)
+    emits ``install_agent_hook`` for it. A regression that drops the hook from the
+    catalog or stops installing every catalog hook fails here — which is the
+    ``gh issue new`` succeeding-under-task-cli failure this ticket exists to stop,
+    at the provisioning layer. Skipped when no agent-tools checkout is reachable.
+    """
+    from riglib.catalog import Catalog, CatalogError
+    from riglib.config import LoadedConfig
+    from riglib.plan import build
+
+    hook_name = "block-raw-ticket"
+    try:
+        source = Catalog.scan(None)
+    except CatalogError as exc:
+        pytest.skip(f"no real agent-tools catalog reachable: {exc}")
+
+    hook_names = source.names("agent_hooks")
+    assert hook_names, (
+        "agent-tools catalog scan found NO agent-hooks — discovery is broken; the "
+        "block-raw-ticket assertion below would be meaningless"
+    )
+    assert hook_name in hook_names, (
+        f"{hook_name} missing from the real agent-tools catalog — raw gh issue / "
+        f"Linear writes would not be blocked by rig in any repo"
+    )
+
+    cfg = LoadedConfig(
+        data={"skills": {"enabled": False}},
+        repo_root=_REPO_ROOT,
+    )
+    plan = build(cfg, source, project_type="cli")
+    hook_actions = {
+        a.item
+        for a in plan.actions
+        if a.category == "agent_hooks" and a.kind == "install_agent_hook"
+    }
+    assert hook_name in hook_actions, (
+        f"rig's default plan does not install {hook_name} (got {sorted(hook_actions)}) — "
+        f"the raw-tracker guard would not be wired by `rig apply`"
+    )
+
+
 # ── missing-target ────────────────────────────────────────────────────────────────
 def test_missing_target_error_names_file_and_regen():
     e = errors.missing_target_error(
