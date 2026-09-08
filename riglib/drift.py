@@ -512,6 +512,8 @@ def detect(
             _check_instruction_policy(action, report)
         elif action.kind == "register_hook_bridge":
             _check_hook_bridge(action, report)
+        elif action.kind == "provision_omp_idle_ttl":
+            _check_omp_idle_ttl(action, report)
         elif action.kind == "provision_schedule":
             _check_schedule(action, report)
         elif action.kind == "provision_agents_symlink":
@@ -2032,6 +2034,66 @@ def _check_harness_approval(action: Action, report: DriftReport) -> None:
                               "approval posture is relaxed but the guard belt is missing or "
                               "drifted — enforcement is OFF (re-run `rig apply`)")
                 )
+
+
+def _check_omp_idle_ttl(action: Action, report: DriftReport) -> None:
+    """Flag missing/positive task.agentIdleTtlMs against the keepalive write."""
+    import yaml
+    from .actions.runner import (
+        OMP_IDLE_TTL_KEY,
+        OMP_IDLE_TTL_VALUE,
+        _idle_ttl_parking_disabled,
+        approval_lookup,
+    )
+
+    path = action.target
+    dotted = ".".join(OMP_IDLE_TTL_KEY)
+    if not path.is_file():
+        report.items.append(
+            DriftItem("missing", "harness", action.item, path,
+                      f"{dotted} not provisioned (apply sets {OMP_IDLE_TTL_VALUE!r})")
+        )
+        return
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      f"cannot read {path}: {exc}")
+        )
+        return
+    try:
+        loaded = yaml.safe_load(text)
+    except yaml.YAMLError:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "omp config is malformed YAML")
+        )
+        return
+    if loaded is not None and not isinstance(loaded, dict):
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "omp config is not a YAML mapping — fix it by hand")
+        )
+        return
+    data = loaded if isinstance(loaded, dict) else {}
+    state, value = approval_lookup(data, OMP_IDLE_TTL_KEY)
+    if state == "shape":
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      f"{dotted} parent '{value}' is not an object — fix it by hand")
+        )
+    elif state == "missing":
+        report.items.append(
+            DriftItem("missing", "harness", action.item, path,
+                      f"{dotted} not provisioned (apply sets {OMP_IDLE_TTL_VALUE!r})")
+        )
+    elif not _idle_ttl_parking_disabled(value):
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      f"{dotted} is {value!r} (rig wants {OMP_IDLE_TTL_VALUE!r}; apply never "
+                      "clobbers — change it by hand or remove the key)")
+        )
 
 
 def _check_instruction_policy(action: Action, report: DriftReport) -> None:

@@ -1098,7 +1098,7 @@ def _do_apply_harness_mode(action: Action, on_conflict: str) -> ActionResult:
     return ActionResult(action, status, f"{label} → '{value}' ({auto}) in {config_file}{backup_note}")
 
 
-def _set_nested(data: dict, key_path: tuple[str, ...], value: str) -> None:
+def _set_nested(data: dict, key_path: tuple[str, ...], value: object) -> None:
     """Set ``key_path`` to ``value``; a STRING parent of a ``*`` key is opencode's scalar shorthand
     and is expanded to ``{"*": <old>}`` first (the probe already vetted every other shape)."""
     cur = data
@@ -1992,6 +1992,80 @@ def _do_provision_harness_approval(action: Action, on_conflict: str) -> ActionRe
         f"approval/{action.item}: set {added} in {config_file}{backup_note} "
         "(posture relaxed — enforcement is unverified until the activation probe passes: "
         "RIG_OMP_PROBE=1 rig doctor)",
+    )
+
+
+# ── omp idle-TTL keepalive (task.agentIdleTtlMs: 0 in ~/.omp/agent/config.yml) ─────────────
+# Yielded helpers go idle then park after task.agentIdleTtlMs (default 420000 ms) and drop
+# off the live hub roster. <= 0 disables parking. Additive YAML merge, never clobbers a
+# user-set positive TTL (drift only). Independent of the approval-posture receipt.
+
+OMP_IDLE_TTL_KEY = ("task", "agentIdleTtlMs")
+OMP_IDLE_TTL_VALUE = 0
+
+
+def _idle_ttl_parking_disabled(value: object) -> bool:
+    """True when the on-disk value already disables parking (``<= 0``)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value <= 0
+
+
+def _do_provision_omp_idle_ttl(action: Action, on_conflict: str) -> ActionResult:
+    """Merge ``task.agentIdleTtlMs: 0`` into omp config.yml — additive, never clobber."""
+    import yaml
+
+    config_file = action.target
+    dotted = ".".join(OMP_IDLE_TTL_KEY)
+    label = f"omp-idle-ttl/{action.item}"
+    data: dict = {}
+    existed = config_file.is_file()
+    if existed:
+        try:
+            loaded = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            return ActionResult(
+                action, "error",
+                f"{label}: {config_file} is malformed YAML ({exc.__class__.__name__}) — "
+                "fix it by hand; rig never rewrites a config it cannot parse",
+            )
+        if loaded is not None and not isinstance(loaded, dict):
+            return ActionResult(
+                action, "error",
+                f"{label}: {config_file} is not a YAML mapping — fix it by hand",
+            )
+        data = loaded or {}
+
+    state, value = approval_lookup(data, OMP_IDLE_TTL_KEY)
+    if state == "shape":
+        return ActionResult(
+            action, "error",
+            f"{label}: '{value}' is not an object in {config_file}",
+        )
+    if state == "present" and _idle_ttl_parking_disabled(value):
+        return ActionResult(action, "skipped", f"{label}: parking already disabled ({value!r}) in {config_file}")
+    if state == "present":
+        return ActionResult(
+            action, "skipped",
+            f"{label}: {dotted} is {value!r} (rig wants {OMP_IDLE_TTL_VALUE!r}; "
+            "apply never clobbers — change it by hand or remove the key)",
+        )
+
+    # A missing key is additive, not a conflict: skip-forever would leave permanent
+    # drift when a sibling (provision_harness_approval) created the file in this
+    # same apply. YAML dump may drop comments — same tax the approval writer pays.
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    backup_note = ""
+    if existed and _should_backup(on_conflict):
+        bak = fsutil.backup_path(config_file)
+        shutil.copy2(str(config_file), str(bak))
+        backup_note = f" (backed up prior → {bak})"
+    _set_nested(data, OMP_IDLE_TTL_KEY, OMP_IDLE_TTL_VALUE)
+    config_file.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8",
+    )
+    status = "backed_up" if backup_note else ("updated" if existed else "created")
+    return ActionResult(
+        action, status,
+        f"{label}: set {dotted}={OMP_IDLE_TTL_VALUE} in {config_file}{backup_note}",
     )
 
 
@@ -5172,6 +5246,7 @@ def orchestrator_block_text() -> str:
         "# in settings if it has a config knob, (2) `rig apply commit` on this machine, (3) prove it",
         "# WORKS on this machine (command output, Telegram, deny text — SHA/on-disk is not a proof),",
         "# (4) re-check the original user quote is solved.",
+        "# A helper yield is not done — do not tick the todo until the original ask is live-proven; wake parked helpers via hub send.",
         ORCHESTRATOR_END_MARKER,
     ])
 
@@ -7842,6 +7917,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_harness_approval": _do_provision_harness_approval,
     "provision_instruction_policy": _do_provision_instruction_policy,
     "register_hook_bridge": _do_register_hook_bridge,
+    "provision_omp_idle_ttl": _do_provision_omp_idle_ttl,
     "provision_schedule": _do_provision_schedule,
     "provision_agents_symlink": _do_provision_agents_symlink,
     "provision_agents_orchestrator": _do_provision_agents_orchestrator,

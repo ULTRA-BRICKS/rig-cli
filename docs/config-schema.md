@@ -701,7 +701,10 @@ enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
   `tool_call` (pre-execution) for `bash`/`edit`/`write`/`apply_patch`/`notebook`/`task`, and
   `tool_result` (post-execution, log-only) for the write tools — shelling into the Python
   dispatcher exactly like the opencode plugin does. A custom omp `settings_path` must end in
-  `.ts`.
+  `.ts`. The same apply also merges `task.agentIdleTtlMs: 0` into `~/.omp/agent/config.yml`
+  (additive; never clobbers a user-set positive TTL) so yielded helpers stay on the live
+  roster instead of parking off it after the product default of 420000 ms
+  ([rig-cli#445](https://github.com/alex-mextner/rig-cli/issues/445)).
 
 Claude and Codex bridge commands run `PYTHONPATH=<agent-tools>/lib python3 -m <bridge_module>
 <Event>` from the harness config; opencode and omp load their respective JS/TS module, which
