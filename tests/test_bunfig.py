@@ -29,6 +29,9 @@ def test_managed_block_sets_isolated_linker_and_global_store():
     assert 'linker = "isolated"' in text
     assert "globalStore = true" in text
     assert bunfig.has_required_install_keys(text)
+    # bun is GLOBAL-only; `config set` previews unless --commit writes + reconciles.
+    assert "rig config set bun.enabled true --global --commit" in text
+    assert "rig config set bun.enabled false --global --commit" in text
 
 
 def test_has_install_global_store_ignores_other_tables_and_comments():
