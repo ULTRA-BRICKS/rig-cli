@@ -21,6 +21,7 @@ Subcommands:
     rig evolve   local project evolution portal (git histogram + code treemap)
     rig codex    safe Codex maintenance helpers
     rig worktree create/remove/gc — the standardized .worktrees/<name> agent-worktree lifecycle
+    rig report   HTML completion report from git history since merge-base (HyperIDE /result-report)
 """
 
 from __future__ import annotations
@@ -400,6 +401,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_usage_parser(sub)
     _add_codex_parser(sub)
     _add_worktree_parser(sub)
+    _add_report_parser(sub)
 
     return p
 
@@ -599,6 +601,33 @@ def _add_daily_parser(sub: "argparse._SubParsersAction") -> None:
     _add_daily_report_args(dp)
 
 
+def _add_report_parser(sub: "argparse._SubParsersAction") -> None:
+    """`rig report` — HyperIDE /result-report gather+HTML as a rig command.
+
+    Writes a self-contained HTML completion report from git log/diff since the
+    merge-base with main. Does not publish to GitHub Pages.
+    """
+    from .report.command import add_arguments as _add_report_command_args
+
+    rp = sub.add_parser(
+        "report",
+        help="HTML completion report from git history since merge-base (HyperIDE /result-report)",
+        description="Gather commits and file diffs since the merge-base with main "
+        "(HyperIDE result-report.sh gather) and write a self-contained HTML file "
+        "you can open. Does not publish to GitHub Pages and does not need "
+        "components.js.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "exit codes:\n"
+            "  0    wrote the HTML report\n"
+            "  2    invalid task id (empty, `.`/`..`, or path-shaped)\n"
+            "  6    not a git repository\n"
+            "  127  git is not installed"
+        ),
+    )
+    _add_report_command_args(rp)
+
+
 def _add_usage_parser(sub: "argparse._SubParsersAction") -> None:
     """`rig usage` — real Claude token/cost usage across the default account plus every
     claude-rotate account on this machine (`riglib/usage.py`). Bare = current week + current
@@ -780,6 +809,7 @@ def main(argv: list[str] | None = None) -> int:
         "usage": cmd_usage,
         "codex": cmd_codex,
         "worktree": cmd_worktree,
+        "report": cmd_report,
     }
     # The single top-level error handler (error-system v2): any structured RigError a command
     # raises is rendered as the consistent what/why/fix block + its stable per-class exit code.
@@ -3429,6 +3459,12 @@ def cmd_usage(args: argparse.Namespace) -> int:
     from .usage import run as usage_run
 
     return usage_run(args)
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    from .report import run as report_run
+
+    return report_run(args)
 
 
 if __name__ == "__main__":
