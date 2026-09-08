@@ -1,8 +1,10 @@
-"""omp idle-TTL keepalive — rig writes task.agentIdleTtlMs: 0 so yielded helpers stay live.
+"""omp idle-TTL keepalive — rig writes task.agentIdleTtlMs: 0 for new omp processes.
 
 After yield, omp adopts the helper and parks it after task.agentIdleTtlMs (default
-420000 ms). Parked agents drop off the live hub roster. <= 0 disables parking.
+420000 ms). Parked agents drop off the live hub roster. <= 0 disables parking at
+Settings.init; a live omp process keeps the spawn-cached TTL until restart.
 Refs https://github.com/alex-mextner/rig-cli/issues/445
+Refs https://github.com/alex-mextner/rig-cli/issues/464
 """
 
 from __future__ import annotations
@@ -128,6 +130,20 @@ def test_apply_is_idempotent(fake_agent_tools, tmp_path, monkeypatch):
     second = [r for r in run_plan(plan).results if r.action.kind == "provision_omp_idle_ttl"][0]
     assert second.status == "skipped", second.detail
     assert cfg_yml.read_text(encoding="utf-8") == text
+
+
+def test_apply_detail_names_live_session_spawn_cache(fake_agent_tools, tmp_path, monkeypatch):
+    """Apply detail must name the spawn-cached TTL so a YAML write is not read as live."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    plan = build(_cfg(repo, fake_agent_tools), Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    write = [r for r in run_plan(plan).results if r.action.kind == "provision_omp_idle_ttl"][0]
+    assert "spawn-cached" in write.detail, write.detail
+    skip = [r for r in run_plan(plan).results if r.action.kind == "provision_omp_idle_ttl"][0]
+    assert skip.status == "skipped", skip.detail
+    assert "spawn-cached" in skip.detail, skip.detail
 
 
 def test_never_clobbers_positive_user_ttl(fake_agent_tools, tmp_path, monkeypatch):

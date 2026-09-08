@@ -164,8 +164,8 @@ ACTION_TAGS: dict[str, ActionTag] = {
     ),
     "provision_omp_idle_ttl": _tag(
         "provision_omp_idle_ttl", "permission_guard", AUDIENCE_AGENT,
-        "Writes task.agentIdleTtlMs: 0 into omp config.yml so yielded helpers stay on the "
-        "live roster instead of parking off it after the default 7-minute idle TTL.",
+        "Writes task.agentIdleTtlMs: 0 into omp config.yml so new omp processes keep yielded "
+        "helpers on the live roster. Live sessions keep spawn-cached TTL until restart.",
     ),
     "provision_schedule": _tag(
         "provision_schedule", "starts_reloads_service", AUDIENCE_BOTH,

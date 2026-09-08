@@ -2800,11 +2800,14 @@ def _do_provision_harness_approval(action: Action, on_conflict: str) -> ActionRe
 
 # ── omp idle-TTL keepalive (task.agentIdleTtlMs: 0 in ~/.omp/agent/config.yml) ─────────────
 # Yielded helpers go idle then park after task.agentIdleTtlMs (default 420000 ms) and drop
-# off the live hub roster. <= 0 disables parking. Additive YAML merge, never clobbers a
-# user-set positive TTL (drift only). Independent of the approval-posture receipt.
+# off the live hub roster. <= 0 disables parking for new omp processes (Settings.init).
+# A live omp process snapshots TTL at spawn and does not reload YAML writes — the write
+# does not unpark helpers in an already-running session. Additive YAML merge, never
+# clobbers a user-set positive TTL (drift only). Independent of the approval-posture receipt.
 
 OMP_IDLE_TTL_KEY = ("task", "agentIdleTtlMs")
 OMP_IDLE_TTL_VALUE = 0
+OMP_IDLE_TTL_LIVE_SESSION_NOTE = "live omp processes keep spawn-cached TTL until restart"
 
 
 def _idle_ttl_parking_disabled(value: object) -> bool:
@@ -2844,7 +2847,10 @@ def _do_provision_omp_idle_ttl(action: Action, on_conflict: str) -> ActionResult
             f"{label}: '{value}' is not an object in {config_file}",
         )
     if state == "present" and _idle_ttl_parking_disabled(value):
-        return ActionResult(action, "skipped", f"{label}: parking already disabled ({value!r}) in {config_file}")
+        return ActionResult(
+            action, "skipped",
+            f"{label}: parking already disabled ({value!r}) in {config_file}; {OMP_IDLE_TTL_LIVE_SESSION_NOTE}",
+        )
     if state == "present":
         return ActionResult(
             action, "skipped",
@@ -2868,7 +2874,7 @@ def _do_provision_omp_idle_ttl(action: Action, on_conflict: str) -> ActionResult
     status = "backed_up" if backup_note else ("updated" if existed else "created")
     return ActionResult(
         action, status,
-        f"{label}: set {dotted}={OMP_IDLE_TTL_VALUE} in {config_file}{backup_note}",
+        f"{label}: set {dotted}={OMP_IDLE_TTL_VALUE} in {config_file}{backup_note}; {OMP_IDLE_TTL_LIVE_SESSION_NOTE}",
     )
 
 
