@@ -2266,7 +2266,11 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
     pipe-alternation tool matcher for writes, ``Agent|Task`` for subagent dispatch (the
     agent-tools ``pre-agent`` point), ``Skill`` for a skill invocation (the agent-tools
     ``pre-skill`` point), ``Monitor`` for a background event-stream watch (the agent-tools
-    ``pre-monitor`` point), and ``EnterWorktree`` for switching into a worktree (the agent-tools
+    ``pre-monitor`` point — the matcher that lets ``subagent-no-monitor`` block a dispatched
+    subagent from calling Monitor: only the main loop is re-invoked by a Monitor
+    notification, so the subagent must use Bash ``run_in_background`` for one ordinary
+    command or a foreground heartbeat loop for anything else), and ``EnterWorktree`` for
+    switching into a worktree (the agent-tools
     ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created).
     Codex uses the hook matchers exposed by its TOML contract here: ``Bash`` and
     ``apply_patch`` (no ``pre-agent``/``pre-skill``/``pre-monitor``/``pre-worktree-enter``

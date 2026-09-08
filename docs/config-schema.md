@@ -679,6 +679,21 @@ enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
 - `kind: claude-code` writes `cc_hook_bridge` into `settings.json`: `PreToolUse` matchers
   `Bash`, `Edit|Write|MultiEdit|NotebookEdit`, `Agent|Task`, `Skill`, `Monitor`, and
   `EnterWorktree`; `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`; and `Stop`.
+  The `Monitor` matcher is the rig half of the **subagent Monitor ban**
+  ([rig-cli#463](https://github.com/alex-mextner/rig-cli/issues/463)): Claude Code only
+  fires `PreToolUse` for tools with an explicit matcher, so without this entry the
+  agent-tools `subagent-no-monitor` hook never runs. A dispatched subagent must not
+  call Monitor. Monitor is a fire-and-forget background watch — you start it and get
+  notified per event later — and a subagent is **not** re-invoked by that notification
+  (only the **main loop** is), so calling Monitor and ending the turn wedges the
+  subagent forever with uncommitted work and no PR. The orchestrator's own Monitor
+  use (watching a backgrounded child) is unaffected. Replacements a blocked subagent
+  should use instead: (1) waiting on a single ordinary command it just started — set
+  Bash `run_in_background: true`; the harness auto-resumes the subagent when that
+  command exits, no Monitor needed; (2) waiting on anything else (a labeled long
+  process, a condition, several things at once) — block in the **foreground** with a
+  **heartbeat** loop that echoes at least every ~20s and keeps each Bash call under
+  ~540s. Never Monitor from a subagent.
 - `kind: codex` writes `codex_hook_bridge` into `~/.codex/config.toml` (or
   `$RIG_CODEX_HOME/config.toml`, or `settings_path`) as a managed `[hooks]` TOML block:
   `PreToolUse` matchers `Bash` and `apply_patch`, `PostToolUse` matcher `apply_patch`, and
