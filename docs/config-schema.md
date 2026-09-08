@@ -1436,8 +1436,11 @@ project_tools:
 **Haft.** rig writes `.haft/project.yaml`, `.haft/workflow.md`, parseable placeholder spec
 carriers under `.haft/specs/`, and empty tool-owned state directories via `.gitkeep` files. It
 does not scan or delete tool-owned data such as `.haft/evidence` contents. When `codex_mcp` is
-enabled, rig merges a managed Haft MCP section into `.codex/config.toml`; unrelated Codex config is
-preserved, and an existing unmarked `[mcp_servers.haft]` table is replaced by the managed block.
+enabled, rig merges a managed Haft MCP section into `.codex/config.toml` with `cwd` and
+`HAFT_PROJECT_ROOT` set to the absolute repo path (a relative `"."` makes `haft serve`
+return `tools: null`, which Codex rejects as "Unexpected response type"); unrelated Codex
+config is preserved, and an existing unmarked `[mcp_servers.haft]` table is replaced by the
+managed block.
 
 **Serena.** rig writes `.serena/project.yml` plus `.serena/.gitignore` for Serena-local cache and
 machine-local overrides. `languages` is optional; when omitted, rig infers common language ids from

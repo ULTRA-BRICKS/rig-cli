@@ -139,7 +139,7 @@ def _haft_entries(repo_root: Path, haft: dict[str, Any]) -> list[ProjectToolEntr
     ):
         entries.append(ProjectToolEntry(rel.replace("/", "-").replace(".", "").strip("-"), "haft", "file", rel, ""))
     if haft.get("codex_mcp") is not False:
-        entries.append(ProjectToolEntry("haft-codex-mcp", "haft", "codex_mcp", ".codex/config.toml", _haft_codex_mcp_section()))
+        entries.append(ProjectToolEntry("haft-codex-mcp", "haft", "codex_mcp", ".codex/config.toml", _haft_codex_mcp_section(repo_root)))
     return entries
 
 
@@ -194,16 +194,33 @@ def _haft_term_map_md() -> str:
     )
 
 
-def _haft_codex_mcp_section() -> str:
+def _toml_quoted(value: str) -> str:
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+    return f'"{escaped}"'
+
+
+
+def _haft_codex_mcp_section(repo_root: Path) -> str:
+    # Haft tools/list returns tools=null when the project root is unbound (cwd
+    # without .haft, or HAFT_PROJECT_ROOT="."); Codex rmcp then fails startup
+    # with "Unexpected response type". Bind cwd and env to the absolute repo.
+    root = _toml_quoted(str(repo_root.resolve()))
     return (
         f"{_CODEX_HAFT_BEGIN}\n"
         "[mcp_servers.haft]\n"
         'command = "haft"\n'
         'args = ["serve"]\n'
+        f"cwd = {root}\n"
         "startup_timeout_sec = 10\n"
         "tool_timeout_sec = 60\n\n"
         "[mcp_servers.haft.env]\n"
-        'HAFT_PROJECT_ROOT = "."\n'
+        f"HAFT_PROJECT_ROOT = {root}\n"
         f"{_CODEX_HAFT_END}\n"
     )
 
