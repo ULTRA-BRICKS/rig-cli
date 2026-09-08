@@ -9,8 +9,8 @@ each raw tool name + (for shells) the command string through :func:`categorize`.
 Why a shell command needs inspecting: every harness exposes ONE shell tool (Bash /
 exec_command / run_shell_command / bash). A bare count of that tool tells us nothing about
 adoption — the signal is *what the agent ran inside it*. So a Bash call whose command
-invokes ``tg`` / ``rig`` / ``draw`` / ``3d`` / ``task`` / ``dev`` is re-labelled as an
-"ours" CLI invocation and pulled OUT of the baseline shell count. A Bash call that
+invokes ``tg`` / ``rig`` / ``draw`` / ``3d`` / ``task`` / ``dev`` / ``harness`` / ``qa`` /
+``stt`` is re-labelled as an "ours" CLI invocation and pulled OUT of the baseline shell count. A Bash call that
 invokes ``review`` is re-labelled ``review-cycles`` so review volume does not inflate
 agent-tools adoption. That re-labelling is the core measurement this whole command exists to produce.
 """
