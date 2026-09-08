@@ -2059,6 +2059,7 @@ byte-for-byte):
 # >>> rig-managed bun (do not edit) >>>
 # bun install: isolated linker + globalStore — packages live once under ~/.bun/install/cache/links/.
 # Replace via `rig config set bun.enabled true --global --commit` (off: `rig config set bun.enabled false --global --commit`).
+# Hand edits inside this block are replaced on the next `rig apply`.
 [install]
 linker = "isolated"
 globalStore = true
