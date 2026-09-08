@@ -797,6 +797,7 @@ def _load_plan(
     *,
     allow_repo_autodiscovery_in_non_git: bool = True,
     layer_overrides: dict[Path, dict] | None = None,
+    include_repo: bool | None = None,
 ):
     """Load config + catalog + build a plan. Returns (plan, loaded, env)."""
     from .catalog import Catalog
@@ -806,7 +807,8 @@ def _load_plan(
 
     env = detect_environment(Path(cwd).resolve())
     explicit = _resolve_explicit_config(env, config)
-    include_repo = _include_repo_config(env, explicit, allow_repo_autodiscovery_in_non_git)
+    if include_repo is None:
+        include_repo = _include_repo_config(env, explicit, allow_repo_autodiscovery_in_non_git)
     loaded = load(
         env.repo_root, explicit_config=explicit, include_repo=include_repo, layer_overrides=layer_overrides
     )
@@ -2984,6 +2986,8 @@ def _reconcile_edited_layer(
     ok_line: str,
     preview_hint: str,
     allow_repo_autodiscovery_in_non_git: bool = True,
+    include_repo: bool | None = None,
+    only_kinds: frozenset[str] | None = None,
 ) -> int:
     """Plan (always) then optionally write + reconcile an already-validated layer edit.
 
@@ -3003,7 +3007,10 @@ def _reconcile_edited_layer(
         plan, _loaded, _env = _load_plan(
             cwd, config=None, layer_overrides={target.resolve(): data},
             allow_repo_autodiscovery_in_non_git=allow_repo_autodiscovery_in_non_git,
+            include_repo=include_repo,
         )
+        if only_kinds is not None:
+            plan.actions = [a for a in plan.actions if a.kind in only_kinds]
     except Exception as exc:  # noqa: BLE001
         if isinstance(exc, ConfigError):
             print(_err_block(exc))
@@ -3184,7 +3191,11 @@ def _cmd_env_list(args: argparse.Namespace) -> int:
     from .config import ConfigError, get_path, global_config_path
 
     target = global_config_path()
-    data = _read_target_yaml(target) or {}
+    try:
+        data = _read_target_yaml(target) or {}
+    except ConfigError as exc:
+        print(_err(f"error: {exc}"), file=sys.stderr)
+        return 2
     try:
         vars_block = get_path(data, "env.vars")
     except ConfigError:
@@ -3287,9 +3298,10 @@ def _cmd_env_mutate(
     write = not bool(getattr(args, "preview", False))
     apply = write and not bool(getattr(args, "no_apply", False))
     if op == "set":
-        shown = _mask_secret(value or "")
-        would = f"Would set {config_path} = {shown}  → {target}"
-        ok = f"set {config_path} = {shown}  → {target}"
+        # Never interpolate the value: CodeQL taints getpass/stdin as a password, and
+        # even a last-4 mask still logs secret bytes. Confirm by key + path only.
+        would = f"Would set {config_path}  → {target}"
+        ok = f"set {config_path}  → {target}"
     else:
         would = f"Would del {config_path}  → {target}"
         ok = f"del {config_path}  → {target}"
@@ -3305,6 +3317,8 @@ def _cmd_env_mutate(
         ok_line=ok,
         preview_hint="(preview only: config and disk are unchanged)",
         allow_repo_autodiscovery_in_non_git=False,
+        include_repo=False,
+        only_kinds=frozenset({"provision_env"}),
     )
 
 

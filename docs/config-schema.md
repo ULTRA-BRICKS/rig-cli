@@ -2013,7 +2013,9 @@ rig env del BRAVE_API_KEY
 ```
 
 `set`/`del` write + reconcile by default (`--preview` is dry-run; `--no-apply` writes the YAML
-only). `del` of a missing key is fail-closed. Deleting the last var leaves `env.vars: {}`.
+only). Reconciliation loads only the global layer, so a repo `rig.yaml` `env:` block cannot
+override the value just written. `del` of a missing key is fail-closed. Deleting the last var
+leaves `env.vars: {}`.
 
 
 ---

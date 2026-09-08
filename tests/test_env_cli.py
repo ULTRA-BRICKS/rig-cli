@@ -76,7 +76,7 @@ def test_env_set_writes_string_and_masks_stdout(
     out = capsys.readouterr().out
     assert value not in out
     assert "EXAMPLE_VAR" in out
-    assert "HERE" in out
+    assert "HERE" not in out
     assert len(_mock_apply) == 1
 
 
@@ -262,3 +262,35 @@ def test_env_help_lists_subcommands(capsys):
     assert exc.value.code == 0
     out = capsys.readouterr().out
     assert "set" in out and "list" in out and "del" in out
+
+
+def test_env_list_malformed_yaml_fails_closed(tmp_path, capsys, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+    _w(config.global_config_path(), "env: [\n")
+    rc = main(["env", "list", "-C", str(tmp_path)])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "error:" in err.lower()
+    assert "Traceback" not in err
+
+
+def test_env_set_ignores_repo_layer_env_vars(
+    tmp_path, fake_agent_tools, monkeypatch, _mock_apply
+):
+    import subprocess
+
+    repo = _global_repo(tmp_path, fake_agent_tools, monkeypatch)
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    _w(
+        repo / "rig.yaml",
+        _repo_yaml(fake_agent_tools)
+        + "env:\n  vars:\n    EXAMPLE_VAR: from-repo\n",
+    )
+    rc = main(["env", "set", "EXAMPLE_VAR", "from-global", "-C", str(repo)])
+    assert rc == 0
+    gdata = yaml.safe_load(config.global_config_path().read_text(encoding="utf-8"))
+    assert gdata["env"]["vars"]["EXAMPLE_VAR"] == "from-global"
+    kinds = {a.kind for a in _mock_apply[0].actions}
+    assert kinds == {"provision_env"}
+    env_actions = [a for a in _mock_apply[0].actions if a.kind == "provision_env"]
+    assert env_actions[0].options["vars"]["EXAMPLE_VAR"] == "from-global"
