@@ -105,6 +105,25 @@ class ApplyReport:
         return out
 
 
+# omp config.yml paths created during THIS run_plan. Approval and web_search share
+# that file; on_conflict=skip must not treat a file we just created as user content
+# (rig-cli#447 first-run: the second writer would otherwise skip the missing key).
+_omp_yaml_created_this_run: set[str] = set()
+
+
+def _reset_omp_yaml_created() -> None:
+    _omp_yaml_created_this_run.clear()
+
+
+def _mark_omp_yaml_created(path: Path) -> None:
+    _omp_yaml_created_this_run.add(str(path))
+
+
+def _omp_yaml_skip_existing(path: Path, existed: bool, on_conflict: str) -> bool:
+    """True when skip must leave this yaml alone (a user file, not our first-run create)."""
+    return existed and on_conflict == "skip" and str(path) not in _omp_yaml_created_this_run
+
+
 def run_plan(
     plan: InstallPlan,
     *,
@@ -121,6 +140,7 @@ def run_plan(
     # Fresh auth-gate state per run: a new apply re-notifies + re-waits for a missing login (the user
     # may have logged in since), but WITHIN this run the per-action gate dedups (no ~5× push/wait).
     reset_auth_gate()
+    _reset_omp_yaml_created()
     report = ApplyReport()
     for action in plan.actions:
         if on_start is not None and not dry_run:
@@ -1955,7 +1975,9 @@ def _do_provision_harness_approval(action: Action, on_conflict: str) -> ActionRe
     # Re-serializing an EXISTING yaml destroys its comments/formatting — a conflict-class
     # mutation, not a splice (unlike the execpolicy append, which preserves the rest of the
     # file byte-for-byte). Under ``skip`` that means: leave the file alone and keep the drift.
-    if existed and on_conflict == "skip":
+    # Exception: a sibling writer created this file earlier in THIS run — there is no user
+    # content yet, so merging the missing key is first-run completion, not a skip conflict.
+    if _omp_yaml_skip_existing(config_file, existed, on_conflict):
         return ActionResult(
             action, "skipped",
             f"approval/{action.item}: {config_file} would be rewritten (yaml comments are not "
@@ -1975,6 +1997,8 @@ def _do_provision_harness_approval(action: Action, on_conflict: str) -> ActionRe
     config_file.write_text(
         yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8"
     )
+    if not existed:
+        _mark_omp_yaml_created(config_file)
     receipt = {
         "template": 1,
         "kind": str(action.options.get("kind", "")),
@@ -2067,6 +2091,78 @@ def _do_provision_omp_idle_ttl(action: Action, on_conflict: str) -> ActionResult
         action, status,
         f"{label}: set {dotted}={OMP_IDLE_TTL_VALUE} in {config_file}{backup_note}",
     )
+
+
+def _do_provision_omp_web_search(action: Action, on_conflict: str) -> ActionResult:
+    """Additively merge ``providers.webSearchExclude`` into omp config.yml.
+
+    Appends missing desired names; never removes extras. A matching list is a no-op.
+    A non-list / non-mapping parent is a conflict (fix by hand). Malformed YAML is a
+    hard error — same as the approval writer. Re-serializing an existing file drops
+    comments, so ``on_conflict=skip`` leaves drift unreconciled.
+    """
+    import yaml  # lazy, like the rest of the config stack
+
+    from ..omp_web_search import ensure_exclude, missing_exclude_entries
+
+    desired = [str(x) for x in action.options.get("exclude") or [] if str(x)]
+    if not desired:
+        return ActionResult(action, "skipped", f"web-search/{action.item}: empty exclude, nothing to write")
+    config_file = action.target
+    data: dict = {}
+    existed = config_file.is_file()
+    if existed:
+        try:
+            loaded = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            return ActionResult(
+                action, "error",
+                f"web-search/{action.item}: {config_file} is malformed YAML ({exc.__class__.__name__}) — "
+                "fix it by hand; rig never rewrites a config it cannot parse",
+            )
+        if loaded is not None and not isinstance(loaded, dict):
+            return ActionResult(
+                action, "error",
+                f"web-search/{action.item}: {config_file} is not a YAML mapping — fix it by hand",
+            )
+        data = loaded or {}
+    state, missing = missing_exclude_entries(data, desired)
+    if state == "shape":
+        return ActionResult(
+            action, "skipped",
+            f"web-search/{action.item}: providers.webSearchExclude parent/value is the wrong shape, "
+            "left untouched (drift visible)",
+        )
+    if not missing:
+        return ActionResult(
+            action, "skipped",
+            f"web-search/{action.item}: already current in {config_file}",
+        )
+    if _omp_yaml_skip_existing(config_file, existed, on_conflict):
+        return ActionResult(
+            action, "skipped",
+            f"web-search/{action.item}: {config_file} would be rewritten (yaml comments are not "
+            "preserved) but on_conflict=skip — left unchanged (drift NOT reconciled)",
+        )
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    backup_note = ""
+    if existed and _should_backup(on_conflict):
+        bak = fsutil.backup_path(config_file)
+        shutil.copy2(str(config_file), str(bak))
+        backup_note = f" (backed up prior → {bak})"
+    added = ensure_exclude(data, desired)
+    config_file.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8"
+    )
+    if not existed:
+        _mark_omp_yaml_created(config_file)
+    status = "backed_up" if backup_note else ("updated" if existed else "created")
+    return ActionResult(
+        action, status,
+        f"web-search/{action.item}: added {', '.join(added)} to providers.webSearchExclude "
+        f"in {config_file}{backup_note}",
+    )
+
 
 
 # ── advisory instruction policy provisioning (pi/commandcode AGENTS.md) ─────────────────────
@@ -7915,6 +8011,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_execpolicy": _do_provision_execpolicy,
     "install_harness_guard": _do_install_harness_guard,
     "provision_harness_approval": _do_provision_harness_approval,
+    "provision_omp_web_search": _do_provision_omp_web_search,
     "provision_instruction_policy": _do_provision_instruction_policy,
     "register_hook_bridge": _do_register_hook_bridge,
     "provision_omp_idle_ttl": _do_provision_omp_idle_ttl,

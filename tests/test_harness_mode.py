@@ -487,6 +487,9 @@ def _omp_yml() -> Path:
 
 
 def _omp_plan(fake_agent_tools, repo: Path, **harness):
+    # Approval tests own tools.approvalMode; keep web_search off so a sibling
+    # rewrite of the same config.yml cannot leak into byte-exact assertions.
+    harness.setdefault("web_search", {"enabled": False})
     cfg = _cfg(repo, fake_agent_tools, kind="omp", **harness)
     cfg.data["permissions"] = {"enabled": True}
     return build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")

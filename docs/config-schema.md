@@ -576,6 +576,9 @@ harness:
   hook_bridge:                 # wire the agents-hooks/v1 → harness dispatcher (default ON)
     enabled: true              # set false to skip wiring the dispatcher into harness config
     # python: python3          # optional: the interpreter the dispatcher runs under
+  web_search:                  # omp providers.webSearchExclude (default ON when omp is configured)
+    enabled: true              # set false to skip writing the exclude list
+    # exclude: [perplexity]    # default; [] opts out. Additive — extras already on disk stay.
 ```
 
 | Key | Type | Default | Meaning |
@@ -589,6 +592,8 @@ harness:
 | `settings_path` | path | `.claude/settings.json` for Claude auto/mode writes; `~/.codex/config.toml` (or `$RIG_CODEX_HOME/config.toml`) for the Codex hook bridge; `.opencode/plugins/zz-agent-tools-hook-bridge.js` for the opencode hook bridge; `~/.omp/agent/extensions/zz-agent-tools-hook-bridge.ts` (or `$PI_CODING_AGENT_DIR`/`$PI_CONFIG_DIR`-relative) for the omp hook bridge | the settings/config file/plugin/extension to converge. If overridden, point it at the harness's native format (JSON for Claude, TOML for Codex, JS plugin for opencode, TS extension for omp). A suffixed path is treated as the file; a suffixless path is treated as a directory containing the native settings/plugin/extension filename |
 | `hook_bridge.enabled` | bool | `true` | wire the harness bridge dispatcher so installed agent-hooks actually fire (`cc_hook_bridge` for Claude, `codex_hook_bridge` for Codex, `opencode_hook_bridge` for opencode, `omp_hook_bridge` for omp) |
 | `hook_bridge.python` | str | `python3` | the Python interpreter the dispatcher command runs under. For `kind: omp` there is no shell command to inline it into — a custom value instead forces the wrapper module (see below) and sets `OMP_HOOK_BRIDGE_PYTHON`, which `extension.ts` reads before falling back to a bare `python3` |
+| `web_search.enabled` | bool | `true` | when omp is a configured harness kind, merge `providers.webSearchExclude` into `~/.omp/agent/config.yml` (or the `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` override). `false` skips the write |
+| `web_search.exclude` | list[str] | `[perplexity]` | provider ids omp `web_search` must never use, even as fallbacks. Additive merge — names already on disk stay. An explicit empty list is the opt-out. Default excludes Perplexity because its anonymous/cookie path returns a Sign-up wall without an account (rig-cli#447) |
 
 **What gets written, per harness kind.** The auto intent is a pinned `mode:` the PRIMARY kind
 knows (auto: claude-code `auto` / `bypassPermissions` / `dontAsk`, codex `auto_review`, opencode
@@ -2459,7 +2464,7 @@ rig config set harness.auto_mode false --no-apply        # write only, print the
 
 `apply`/`status`/`init` validate before touching disk and **fail closed**. **Every block is
 strict**: an unknown FIXED key in *any* block — `defaults`, `skills`, `agent_hooks`, `git_hooks`
-(+ `dispatcher`), `ci`, `mcp`, `harness` (+ `hook_bridge`), `permissions`, `models` (+ `schedule`),
+(+ `dispatcher`), `ci`, `mcp`, `harness` (+ `hook_bridge` / `web_search`), `permissions`, `models` (+ `schedule`),
 `agents_md`, `scripts`, `dev` (+ `server` / `e2e`), `github` (+ `ruleset` / `merge` / `ghas` / `actions` / `browser`), `tmux` (+ every
 sub-block), `gitignore`, `tg_ctl`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`) — is
 rejected with the schema path of the offender, not silently ignored. (The open maps are
@@ -2468,6 +2473,7 @@ top-level `scripts:`, the catalog-keyed `items:` / `fragments:` maps, plus `dev.
 include: unsupported `version`, invalid `on_conflict` / ci `tier` / agent-hook `on_error`, an
 unknown or reserved `harness.kind`, a non-bool `harness.auto_mode`, a non-mapping
 `harness.hook_bridge` / non-bool `hook_bridge.enabled` / non-string `hook_bridge.python`, a
+non-mapping `harness.web_search` / non-bool `web_search.enabled` / non-list-of-nonempty-strings `web_search.exclude`, a
 non-bool `git_hooks.dispatcher` bool knob, a malformed/out-of-range `models.schedule.time`, a
 bad `scripts.<name>` entry (not a string or `{cmd: string}`), a
 bad `dev.server`/`dev.e2e` entry, a

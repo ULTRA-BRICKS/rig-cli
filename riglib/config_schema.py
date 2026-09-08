@@ -463,6 +463,21 @@ _HARNESS_BLOCK = Block(
                 "python": Leaf("string", "the interpreter the dispatcher runs under", default="python3"),
             },
         ),
+        "web_search": Block(
+            doc="omp web_search provider exclude list, reconciled into ~/.omp/agent/config.yml.",
+            leaves={
+                "enabled": Leaf(
+                    "boolean",
+                    "provision providers.webSearchExclude when omp is a configured harness kind",
+                    default=True,
+                ),
+                "exclude": Leaf(
+                    "array",
+                    "provider ids web_search must never use, even as fallbacks; default [perplexity]",
+                    items_type="string",
+                ),
+            },
+        ),
     },
 )
 
