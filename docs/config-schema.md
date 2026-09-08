@@ -1995,6 +1995,29 @@ Idempotent: a re-apply that finds both the generated file and the import line al
 a `skipped` no-op. `rig status` flags drift on the generated file's content and the import line's
 presence — never on any other line in `rc_path` (that file is otherwise entirely the user's own).
 
+### `rig env set|list|del`
+
+The dedicated surface for `env.vars` — a thin wrapper over `rig config set --global env.vars.<KEY>`,
+not a second YAML-edit path. Always global. Values are stored as **strings** (no `true`/`12`
+coercion: `COLORTERM=true` must remain the string `true`).
+
+**Plaintext.** `~/.config/rig/config.yaml` and the generated `rig.env.sh` (sourced by every zsh)
+hold the values in the clear. `rig env list` masks them (`***` + last 4 characters; four stars
+if shorter). `--show` (and `--json --show`) prints the full value. Prefer `rig env set KEY` with
+the value on stdin so it never lands in shell history:
+
+```bash
+pbpaste | rig env set BRAVE_API_KEY
+rig env list
+rig env del BRAVE_API_KEY
+```
+
+`set`/`del` write + reconcile by default (`--preview` is dry-run; `--no-apply` writes the YAML
+only). Reconciliation loads only the global layer, so a repo `rig.yaml` `env:` block cannot
+override the value just written. `del` of a missing key is fail-closed. Deleting the last var
+leaves `env.vars: {}`.
+
+
 ---
 
 ## `gitignore`

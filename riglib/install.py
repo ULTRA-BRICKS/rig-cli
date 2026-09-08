@@ -52,6 +52,9 @@ rig apply --dry-run             # print the resolved plan, write nothing
 rig status                      # report drift BOTH ways (config↔disk)
 rig config get harness.auto_mode  # read one nested key (--global for ~/.config/rig/config.yaml)
 rig config set harness.auto_mode false   # write one key, then reconcile (the apply engine)
+rig env set BRAVE_API_KEY          # set a global env.vars key (VALUE from stdin if omitted)
+rig env list                       # list keys; values masked (files are plaintext)
+rig env del BRAVE_API_KEY          # remove a key, then reconcile
 rig doctor                      # detect deps; --yes to install across brew/apt/dnf/pacman/zypper
 rig export -o rig.yaml          # write a starter rig.yaml from detected defaults
 ```

@@ -310,6 +310,31 @@ def set_path(data: dict[str, Any], dotted: str, value: Any) -> None:
     node[parts[-1]] = value
 
 
+
+def del_path(data: dict[str, Any], dotted: str) -> None:
+    """Delete a nested value by dot path. Raises :class:`ConfigError` if the path is absent.
+
+    Does not prune empty parent mappings: deleting the last ``env.vars.FOO`` leaves
+    ``env.vars: {}``. Fail-closed on a missing segment or a non-mapping intermediate —
+    same "the path does not exist" wording as :func:`get_path`, so ``rig env del`` of a
+    key that was never set is an error, not a silent no-op.
+    """
+    parts = split_path(dotted)
+    node: Any = data
+    walked: list[str] = []
+    for seg in parts[:-1]:
+        if not isinstance(node, dict) or seg not in node:
+            where = ".".join(walked) or "<root>"
+            raise ConfigError(f"config path {dotted!r} not found (no {seg!r} under {where})")
+        node = node[seg]
+        walked.append(seg)
+    last = parts[-1]
+    if not isinstance(node, dict) or last not in node:
+        where = ".".join(walked) or "<root>"
+        raise ConfigError(f"config path {dotted!r} not found (no {last!r} under {where})")
+    del node[last]
+
+
 def coerce_scalar(raw: str) -> Any:
     """Coerce a CLI string to the obvious scalar type: bool, int, float, null, else string.
 

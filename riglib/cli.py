@@ -11,6 +11,7 @@ Subcommands:
     rig apply    PREVIEW the reconcile (bare = `apply info`); `apply commit` executes it
     rig setup    interactive config wizard (no TTY → usage for init/apply/config)
     rig config   get/set ONE config key by dot path; set previews by default, --commit reconciles
+    rig env      set/list/del global env.vars keys (plaintext; list masks values)
     rig status   detect + report drift in BOTH directions (config↔disk)
     rig doctor   detect + (offer to) install required/optional dependencies
     rig export   serialize default/current config to rig.yaml without a TUI
@@ -177,6 +178,17 @@ def _fmt_scalar(value: object) -> str:
     if value is None:
         return "null"
     return str(value)
+
+
+def _mask_secret(value: str) -> str:
+    """Render an env.vars value for stdout: last 4 chars, or four stars if shorter.
+
+    env.vars is plaintext in config.yaml and rig.env.sh; list/set confirmation must
+    not reprint the secret. ``--show`` is the explicit escape.
+    """
+    if len(value) <= 4:
+        return "****"
+    return "***" + value[-4:]
 
 
 # The GLOBAL/REPO layer headings, shared by the area summary and the per-item drift dump so the
@@ -364,6 +376,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("-C", "--cwd", default=".", help="repo root to operate on (default: cwd)")
 
     _add_config_parser(sub)
+    _add_env_parser(sub)
 
     # `config-web` — a local web UI over the SAME config engine as the wizard / `config set`.
     # Its lifecycle (run/start/stop/status/enable/disable + OS autostart) is delegated to the
@@ -433,6 +446,85 @@ def _add_config_parser(sub: "argparse._SubParsersAction") -> None:
         "--plan", action="store_true",
         help="list every planned action (default: a per-carrier summary for a large plan)",
     )
+
+
+def _add_env_parser(sub: "argparse._SubParsersAction") -> None:
+    """`rig env set|list|del` — manage global ``env.vars`` keys.
+
+    Thin wrapper over the ``config set --global env.vars.<KEY>`` mutate path. Always
+    targets ``~/.config/rig/config.yaml``. Values stay strings (no scalar coercion —
+    ``true`` must remain the string ``true``). ``set``/``del`` write + reconcile by
+    default (unlike ``config set``'s preview default) because an env var that never
+    reaches ``rig.env.sh`` is useless. ``list`` masks values.
+    """
+    ep = sub.add_parser(
+        "env",
+        help="set/list/del global env.vars keys (values masked; files are plaintext)",
+    )
+    ep.set_defaults(_env_parser=ep)
+    esub = ep.add_subparsers(dest="env_command", metavar="<list|set|del>")
+
+    def _add_env_cwd(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
+
+    def _add_env_mutate_flags(parser: argparse.ArgumentParser) -> None:
+        mode = parser.add_mutually_exclusive_group()
+        mode.add_argument(
+            "--preview",
+            action="store_true",
+            help="show the plan, write nothing",
+        )
+        mode.add_argument(
+            "--commit",
+            action="store_true",
+            help="write the change and reconcile (default)",
+        )
+        mode.add_argument(
+            "--no-apply",
+            action="store_true",
+            help="write the change but do not reconcile",
+        )
+        parser.add_argument(
+            "--plan",
+            action="store_true",
+            help="list every planned action (default: a per-carrier summary for a large plan)",
+        )
+
+    el = esub.add_parser(
+        "list", help="list env.vars keys (values masked unless --show)"
+    )
+    _add_env_cwd(el)
+    el.add_argument(
+        "--json", action="store_true", help="emit a JSON object of key → (masked) value"
+    )
+    el.add_argument(
+        "--show",
+        action="store_true",
+        help="print full values (config.yaml and rig.env.sh are plaintext)",
+    )
+
+    es = esub.add_parser(
+        "set",
+        help="set env.vars.KEY (string; writes + reconciles; omit VALUE to read stdin)",
+    )
+    es.add_argument("key", help="POSIX identifier (e.g. BRAVE_API_KEY)")
+    es.add_argument(
+        "value",
+        nargs="?",
+        help="value to store as a string; omit to read stdin (keeps it out of argv/history)",
+    )
+    _add_env_cwd(es)
+    es.add_argument(
+        "--stdin",
+        action="store_true",
+        help="read the value from stdin (no echo on a TTY)",
+    )
+    _add_env_mutate_flags(es)
+
+    ed = esub.add_parser("del", help="delete env.vars.KEY, then reconcile")
+    ed.add_argument("key", help="POSIX identifier to remove")
+    _add_env_cwd(ed)
+    _add_env_mutate_flags(ed)
 
 
 def _add_lint_parser(sub: "argparse._SubParsersAction") -> None:
@@ -675,6 +767,7 @@ def main(argv: list[str] | None = None) -> int:
         "doctor": cmd_doctor,
         "export": cmd_export,
         "config": cmd_config,
+        "env": cmd_env,
         "schema": cmd_schema,
         "install-skill": cmd_install_skill,
         "spotlight-sweep": cmd_spotlight_sweep,
@@ -704,6 +797,7 @@ def _load_plan(
     *,
     allow_repo_autodiscovery_in_non_git: bool = True,
     layer_overrides: dict[Path, dict] | None = None,
+    include_repo: bool | None = None,
 ):
     """Load config + catalog + build a plan. Returns (plan, loaded, env)."""
     from .catalog import Catalog
@@ -713,7 +807,8 @@ def _load_plan(
 
     env = detect_environment(Path(cwd).resolve())
     explicit = _resolve_explicit_config(env, config)
-    include_repo = _include_repo_config(env, explicit, allow_repo_autodiscovery_in_non_git)
+    if include_repo is None:
+        include_repo = _include_repo_config(env, explicit, allow_repo_autodiscovery_in_non_git)
     loaded = load(
         env.repo_root, explicit_config=explicit, include_repo=include_repo, layer_overrides=layer_overrides
     )
@@ -2878,14 +2973,115 @@ def _global_layer_refusal(option: "Option | None", category: str) -> str | None:
     return None
 
 
-def _cmd_config_set(args: argparse.Namespace) -> int:
+def _reconcile_edited_layer(
+    *,
+    cwd: str,
+    target: Path,
+    is_global: bool,
+    data: dict,
+    write: bool,
+    apply: bool,
+    full_plan: bool,
+    would_line: str,
+    ok_line: str,
+    preview_hint: str,
+    allow_repo_autodiscovery_in_non_git: bool = True,
+    include_repo: bool | None = None,
+    only_kinds: frozenset[str] | None = None,
+) -> int:
+    """Plan (always) then optionally write + reconcile an already-validated layer edit.
+
+    Shared by ``config set`` and ``env set|del`` so there is one YAML-write / rollback /
+    run_plan path. ``write=False`` is the preview: the plan is built in memory against
+    ``data`` and nothing hits disk.
+    """
     from .actions import run_plan
     from .catalog import CatalogError
-    from .config import ConfigError, canonical_dot_path, coerce_scalar, set_path, validate
+    from .config import ConfigError
     from .plan import PlanError
+    from .state import SetupState
+
+    try:
+        if is_global:
+            _validate_layer_in_isolation(target, data_override=data)
+        plan, _loaded, _env = _load_plan(
+            cwd, config=None, layer_overrides={target.resolve(): data},
+            allow_repo_autodiscovery_in_non_git=allow_repo_autodiscovery_in_non_git,
+            include_repo=include_repo,
+        )
+        if only_kinds is not None:
+            plan.actions = [a for a in plan.actions if a.kind in only_kinds]
+    except Exception as exc:  # noqa: BLE001
+        if isinstance(exc, ConfigError):
+            print(_err_block(exc))
+        else:
+            kind = (
+                ""
+                if isinstance(exc, (CatalogError, PlanError, OSError))
+                else f"{type(exc).__name__}: "
+            )
+            print(_err(f"error: {kind}{exc}"))
+        return 2
+
+    if not write:
+        print(_bold(would_line))
+        _print_plan(plan, full=full_plan, preview=True)
+        print(_dim(f"\n{preview_hint}"))
+        return 0
+
+    original = target.read_text(encoding="utf-8") if target.is_file() else None
+    parent_existed = target.parent.exists()
+
+    def _rollback() -> bool:
+        try:
+            if original is None:
+                target.unlink(missing_ok=True)
+                if not parent_existed:
+                    with contextlib.suppress(OSError):
+                        target.parent.rmdir()
+            else:
+                target.write_text(original, encoding="utf-8")
+        except OSError:
+            return False
+        return True
+
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        state = SetupState.from_dict(data)
+        if is_global:
+            target.write_text(state.to_yaml(), encoding="utf-8")
+        else:
+            state.write(target)
+    except Exception as exc:  # noqa: BLE001
+        restored = _rollback()
+        if isinstance(exc, ConfigError):
+            print(_err_block(exc))
+        else:
+            print(_err(f"error: {type(exc).__name__}: {exc}"))
+        if restored:
+            print(_dim(f"  (config not changed — {target} left untouched)"))
+        else:
+            print(
+                _err(
+                    f"  WARNING: could not restore {target} — it may contain the rejected edit"
+                )
+            )
+        return 2
+
+    print(_ok(ok_line))
+    _print_plan(plan, full=full_plan)
+    if not apply:
+        print(_dim("\n(--no-apply: config written, nothing reconciled)"))
+        return 0
+    report = run_plan(plan)
+    _print_results(report)
+    return 1 if report.errors else 0
+
+
+def _cmd_config_set(args: argparse.Namespace) -> int:
+    from .config import ConfigError, canonical_dot_path, coerce_scalar, set_path, validate
     from .schema import coerce as coerce_option
     from .schema import option_for_key
-    from .state import SetupState
 
     try:
         target, _repo_root = _config_target(args, need_repo=True)
@@ -2949,74 +3145,200 @@ def _cmd_config_set(args: argparse.Namespace) -> int:
         print(_err(f"error: {type(exc).__name__}: {exc}"))
         return 2
 
-    # PLAN THE PROSPECTIVE CHANGE IN MEMORY FIRST. Preview is the default and MUST NOT
-    # transiently write the config just to learn the resulting plan. The same validated plan is
-    # later executed by --commit, so preview and execution cannot resolve different policy.
-    try:
-        if args.is_global:
-            _validate_layer_in_isolation(target, data_override=data)
-        plan, _loaded, _env = _load_plan(
-            args.cwd, config=None, layer_overrides={target.resolve(): data}
+    return _reconcile_edited_layer(
+        cwd=args.cwd,
+        target=target,
+        is_global=args.is_global,
+        data=data,
+        write=bool(args.commit or args.no_apply),
+        apply=bool(args.commit),
+        full_plan=getattr(args, "plan", False),
+        would_line=f"Would set {config_path} = {_fmt_scalar(value)}  → {target}",
+        ok_line=f"set {config_path} = {_fmt_scalar(value)}  → {target}",
+        preview_hint="(preview only: config and disk are unchanged; add --commit to write + reconcile)",
+    )
+
+
+def cmd_env(args: argparse.Namespace) -> int:
+    """`rig env list|set|del` — global ``env.vars`` without dumping secrets to stdout."""
+    if not getattr(args, "env_command", None):
+        print(
+            _err("error: `rig env` needs a subcommand: list, set, or del"),
+            file=sys.stderr,
         )
-    except Exception as exc:  # noqa: BLE001
-        if isinstance(exc, ConfigError):
-            print(_err_block(exc))
-        else:
-            kind = "" if isinstance(exc, (CatalogError, PlanError, OSError)) else f"{type(exc).__name__}: "
-            print(_err(f"error: {kind}{exc}"))
+        print(
+            _dim("  rig env list              # keys; values masked"), file=sys.stderr
+        )
+        print(
+            _dim("  rig env set KEY [VALUE]   # omit VALUE to read stdin"),
+            file=sys.stderr,
+        )
+        print(
+            _dim("  rig env del KEY           # remove a key, then reconcile"),
+            file=sys.stderr,
+        )
         return 2
+    if args.env_command == "list":
+        return _cmd_env_list(args)
+    if args.env_command == "set":
+        return _cmd_env_set(args)
+    return _cmd_env_del(args)
 
-    if not args.commit and not args.no_apply:
-        print(_bold(f"Would set {config_path} = {_fmt_scalar(value)}  → {target}"))
-        _print_plan(plan, full=getattr(args, "plan", False), preview=True)
-        print(_dim("\n(preview only: config and disk are unchanged; add --commit to write + reconcile)"))
-        return 0
 
-    # Explicit mutation path. Capture the previous bytes so a write/serialization failure can be
-    # rolled back. (A later reconcile error does not revert a valid committed policy change.)
-    original = target.read_text(encoding="utf-8") if target.is_file() else None
-    parent_existed = target.parent.exists()
+def _cmd_env_list(args: argparse.Namespace) -> int:
+    import json
 
-    def _rollback() -> bool:
-        try:
-            if original is None:
-                target.unlink(missing_ok=True)
-                if not parent_existed:
-                    with contextlib.suppress(OSError):
-                        target.parent.rmdir()
-            else:
-                target.write_text(original, encoding="utf-8")
-        except OSError:
-            return False
-        return True
+    from .config import ConfigError, get_path, global_config_path
 
+    target = global_config_path()
     try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        state = SetupState.from_dict(data)
-        if args.is_global:
-            target.write_text(state.to_yaml(), encoding="utf-8")
-        else:
-            state.write(target)
+        data = _read_target_yaml(target) or {}
+    except ConfigError as exc:
+        print(_err(f"error: {exc}"), file=sys.stderr)
+        return 2
+    try:
+        vars_block = get_path(data, "env.vars")
+    except ConfigError:
+        vars_block = {}
+    if not isinstance(vars_block, dict):
+        vars_block = {}
+    items = {str(k): "" if v is None else str(v) for k, v in vars_block.items()}
+    shown = items if args.show else {k: _mask_secret(v) for k, v in items.items()}
+    if args.json:
+        print(json.dumps(shown, sort_keys=True))
+    else:
+        for key in sorted(shown):
+            print(f"{key}={shown[key]}")
+    return 0
+
+
+def _env_key_or_error(key: str) -> str | None:
+    from .shell_env import ENV_VAR_KEY_PATTERN
+
+    if not ENV_VAR_KEY_PATTERN.match(key):
+        print(_err(f"error: {key!r} is not a valid shell identifier"), file=sys.stderr)
+        print(
+            _dim(
+                "  env.vars keys are written unquoted into export KEY=... in rig.env.sh"
+            ),
+            file=sys.stderr,
+        )
+        return None
+    return key
+
+
+def _read_env_value(args: argparse.Namespace) -> str | None:
+    """String value for ``env set``, or ``None`` after printing an error.
+
+    Prefer stdin (pipe or ``--stdin``) so the secret never lands in argv / shell history.
+    A TTY with no VALUE and no ``--stdin`` is an error — do not block waiting for a paste.
+    """
+    import getpass
+
+    has_value = args.value is not None
+    if args.stdin and has_value:
+        print(_err("error: pass VALUE or --stdin, not both"), file=sys.stderr)
+        return None
+    if not args.stdin and has_value:
+        return args.value
+    if sys.stdin.isatty() and not args.stdin:
+        print(_err(f"error: missing value for {args.key}"), file=sys.stderr)
+        print(
+            _dim("  pass VALUE, pipe it, or `rig env set KEY --stdin`"), file=sys.stderr
+        )
+        return None
+    if sys.stdin.isatty():
+        try:
+            raw = getpass.getpass(f"{args.key}: ")
+        except EOFError:
+            print(_err("error: missing value on stdin"), file=sys.stderr)
+            return None
+        return raw
+    raw = sys.stdin.read()
+    if raw.endswith("\n"):
+        raw = raw[:-1]
+    if raw.endswith("\r"):
+        raw = raw[:-1]
+    return raw
+
+
+def _cmd_env_mutate(
+    args: argparse.Namespace, *, key: str, op: str, value: str | None
+) -> int:
+    """Apply ``set_path`` / ``del_path`` on ``env.vars.<key>`` then the shared reconcile."""
+    from .config import ConfigError, del_path, set_path, validate
+
+    args.is_global = True
+    try:
+        # Global file only — env is machine-wide, so this must work from `cd ~` (no git repo).
+        target, _repo_root = _config_target(args, need_repo=False)
     except Exception as exc:  # noqa: BLE001
-        restored = _rollback()
-        if isinstance(exc, ConfigError):
-            print(_err_block(exc))
-        else:
-            print(_err(f"error: {type(exc).__name__}: {exc}"))
-        if restored:
-            print(_dim(f"  (config not changed — {target} left untouched)"))
-        else:
-            print(_err(f"  WARNING: could not restore {target} — it may contain the rejected edit"))
+        print(_err(f"error: {type(exc).__name__}: {exc}"), file=sys.stderr)
         return 2
 
-    print(_ok(f"set {config_path} = {_fmt_scalar(value)}  → {target}"))
-    _print_plan(plan, full=getattr(args, "plan", False))
-    if args.no_apply:
-        print(_dim("\n(--no-apply: config written, nothing reconciled)"))
-        return 0
-    report = run_plan(plan)
-    _print_results(report)
-    return 1 if report.errors else 0
+    config_path = f"env.vars.{key}"
+    try:
+        data = _read_target_yaml(target) or {}
+        data.pop("scope", None)
+        if op == "set":
+            set_path(data, config_path, value)
+        else:
+            del_path(data, config_path)
+        validate(data)
+    except ConfigError as exc:
+        if op == "del":
+            print(_err(f"error: {exc}"), file=sys.stderr)
+        else:
+            print(_err_block(exc))
+        return 2
+    except Exception as exc:  # noqa: BLE001
+        print(_err(f"error: {type(exc).__name__}: {exc}"))
+        return 2
+
+    write = not bool(getattr(args, "preview", False))
+    apply = write and not bool(getattr(args, "no_apply", False))
+    if op == "set":
+        # Never interpolate the value: CodeQL taints getpass/stdin as a password, and
+        # even a last-4 mask still logs secret bytes. Confirm by key + path only.
+        would = f"Would set {config_path}  → {target}"
+        ok = f"set {config_path}  → {target}"
+    else:
+        would = f"Would del {config_path}  → {target}"
+        ok = f"del {config_path}  → {target}"
+    return _reconcile_edited_layer(
+        cwd=args.cwd,
+        target=target,
+        is_global=True,
+        data=data,
+        write=write,
+        apply=apply,
+        full_plan=getattr(args, "plan", False),
+        would_line=would,
+        ok_line=ok,
+        preview_hint="(preview only: config and disk are unchanged)",
+        allow_repo_autodiscovery_in_non_git=False,
+        include_repo=False,
+        only_kinds=frozenset({"provision_env"}),
+    )
+
+
+def _cmd_env_set(args: argparse.Namespace) -> int:
+    key = _env_key_or_error(args.key)
+    if key is None:
+        return 2
+    value = _read_env_value(args)
+    if value is None:
+        return 2
+    return _cmd_env_mutate(args, key=key, op="set", value=value)
+
+
+def _cmd_env_del(args: argparse.Namespace) -> int:
+    key = _env_key_or_error(args.key)
+    if key is None:
+        return 2
+    return _cmd_env_mutate(args, key=key, op="del", value=None)
+
+
 
 
 def cmd_install_skill(args: argparse.Namespace) -> int:
