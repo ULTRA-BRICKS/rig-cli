@@ -557,9 +557,23 @@ def _field_control(f: FieldView) -> str:
     key_attr = html.escape(f.key, quote=True)
     if f.kind == schema.KIND_BOOL:
         checked = " checked" if f.value is True else ""
+        # UNMANAGED (schema.effective_value's sentinel for a mode-gated option outside its
+        # gating mode — e.g. github.ruleset's unattributed-approval knob on a non-autonomous
+        # repo): rig never asked GitHub for the live value, so an unchecked toggle here is NOT
+        # "off" — it is "unknown". A bare checkbox can't show a third state, so mark it visibly
+        # instead of silently rendering as an ordinary false. The control stays editable: a click
+        # still writes an explicit true/false override, which is a valid design (an explicit
+        # value always wins over the mode-gated default).
+        unmanaged_badge = (
+            ' <span class="badge unmanaged" title="rig has not asked GitHub for the live value '
+            'here — the toggle above does NOT reflect it">unmanaged</span>'
+            if f.value == schema.UNMANAGED
+            else ""
+        )
         return (
             f'<label class="switch"><input type="checkbox" data-key="{key_attr}" '
             f'data-kind="bool"{checked} onchange="edit(this)"><span class="slider"></span></label>'
+            f'{unmanaged_badge}'
         )
     if f.kind == schema.KIND_ENUM:
         if f.default is None:
@@ -592,8 +606,19 @@ def _layer_badge(layer: str) -> str:
 
 def _field_row(f: FieldView) -> str:
     is_default = f.value == f.default
+    # An UNMANAGED value is never "the default" — showing "· default false" next to it would
+    # read as confirmation the live value IS false, when rig genuinely doesn't know it.
     default_note = (
-        "" if is_default else f' · default <code>{html.escape(_fmt_value(f.default))}</code>'
+        ""
+        if is_default or f.value == schema.UNMANAGED
+        else f' · default <code>{html.escape(_fmt_value(f.default))}</code>'
+    )
+    unmanaged_note = (
+        '<div class="hint unmanaged">unmanaged: this key is absent and rig\'s mode-gating did '
+        "not inject a default here, so the toggle above does not reflect the live GitHub value — "
+        "toggling it writes an explicit override.</div>"
+        if f.value == schema.UNMANAGED
+        else ""
     )
     shadow_note = (
         f'<div class="hint shadow">shadowed: <code>{html.escape(f.shadowed_by)}</code> also sets '
@@ -609,6 +634,7 @@ def _field_row(f: FieldView) -> str:
         f'{_layer_badge(f.layer)}'
         f'<span class="ctl">{_field_control(f)}</span></div>'
         f'<div class="hint">{html.escape(f.hint)}{default_note}</div>'
+        f'{unmanaged_note}'
         f'{shadow_note}'
         '</div>'
     )
@@ -720,6 +746,7 @@ def build_html(
             border-radius:4px; font-weight:600; }}
   .badge.repo {{ background:#1e3a5f; color:#8ab4f8; }}
   .badge.global {{ background:#3d2f1e; color:#fbbc04; }}
+  .badge.unmanaged {{ background:#3a1e1e; color:#f28b82; margin-left:6px; }}
   input.txt, select {{ background:#16181c; color:#e8eaed; border:1px solid #3c4043;
             border-radius:6px; padding:5px 8px; font:13px system-ui; min-width:120px; }}
   .switch {{ position:relative; display:inline-block; width:40px; height:22px; }}

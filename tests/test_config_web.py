@@ -26,6 +26,7 @@ from riglib import config as cfg
 from riglib import config_web as cw
 from riglib import config_web_service as cws
 from riglib import errors
+from riglib import schema
 from riglib.layers import GLOBAL, REPO
 
 # Is the shared service lib importable in THIS environment? CI installs `.[test]` only (no
@@ -393,6 +394,29 @@ def test_field_row_escapes_hint():
     assert "<em>hinted</em>" not in row
     assert "&lt;em&gt;hinted&lt;/em&gt;" in row
     assert "&amp; risky" in row
+
+
+def test_bool_field_unmanaged_value_is_marked_not_silently_shown_as_off():
+    # a mode-gated bool option (e.g. github.ruleset's unattributed-approval knob) whose key is
+    # absent outside its gating mode reports schema.UNMANAGED, not False (schema.effective_value).
+    # A bare unchecked checkbox would read as "off" — the page must say "unmanaged" instead of
+    # silently implying rig knows the live GitHub value (codex review finding, rig-cli#399).
+    f = cw.FieldView(
+        key="github.ruleset.require_extra_approval_for_unattributed_changes",
+        kind="bool",
+        value=schema.UNMANAGED,
+        default=False,
+        hint="require a formal approve on an unattributed commit",
+        choices=(),
+        layer=REPO,
+    )
+    control = cw._field_control(f)
+    assert "checked" not in control  # a checkbox has no third state — stays unchecked
+    assert "unmanaged" in control  # but the page marks it, doesn't render it as a plain "off"
+
+    row = cw._field_row(f)
+    assert "· default" not in row  # never claim the unmanaged value IS the default
+    assert "unmanaged" in row
 
 
 # -- HTTP app edit handler -----------------------------------------------------------------

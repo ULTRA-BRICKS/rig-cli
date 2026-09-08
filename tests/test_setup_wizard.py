@@ -123,6 +123,23 @@ def test_effective_value_absent_block_presence_gated_block_shows_off():
         assert schema.effective_value(o, {}) is True, key
 
 
+def test_effective_value_mode_gated_option_shows_unmanaged_outside_autonomous():
+    # github.ruleset's unattributed-approval knob has NO unconditional default (plan.py only
+    # injects one under mode.name: autonomous) — showing option.default (False) when absent
+    # outside autonomous mode would claim rig knows the live GitHub value is off, when it never
+    # asked. It must show the UNMANAGED sentinel instead (codex review finding, rig-cli#399).
+    o = schema.option_for_key("github.ruleset.require_extra_approval_for_unattributed_changes")
+    assert o is not None and o.mode_gated_unmanaged is True
+    assert schema.effective_value(o, {}) == schema.UNMANAGED
+    assert schema.effective_value(o, {"mode": {"name": "supervised"}}) == schema.UNMANAGED
+    # under autonomous mode, absent falls back to the documented default (matches plan.py's inject)
+    assert schema.effective_value(o, {"mode": {"name": "autonomous"}}) is False
+    # an explicit value always wins, in or out of autonomous mode
+    assert schema.effective_value(
+        o, {"github": {"ruleset": {"require_extra_approval_for_unattributed_changes": True}}}
+    ) is True
+
+
 def test_github_ruleset_secure_defaults_in_schema():
     """required_conversation_resolution and dismiss_stale_reviews must be in the schema registry.
 

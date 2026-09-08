@@ -33,7 +33,7 @@ from .github_actions import GITHUB_ACTIONS_DEFAULTS
 from .github_browser import UI_ONLY_TOGGLES
 from .github_ghas import GITHUB_GHAS_DEFAULTS
 from .github_merge import GITHUB_MERGE_DEFAULTS
-from .github_ruleset import CI_GATE_CHECK_CONTEXTS, GITHUB_RULESET_DEFAULTS
+from .github_ruleset import CI_GATE_CHECK_CONTEXTS, GITHUB_RULESET_DEFAULTS, UNATTRIBUTED_APPROVAL_KEY
 from .harness_skills import HARNESS_SKILL_DIRS as _HARNESS_SKILL_DIRS
 from .harness_skills import codex_user_path as _codex_user_path
 from .harness_skills import instruction_file_for as _instruction_file_for
@@ -2253,6 +2253,36 @@ def _build_github_ruleset(config: LoadedConfig, catalog: Catalog, plan: InstallP
     are green, WITHOUT requiring a check whose workflow isn't present (which would wedge every PR).
     An explicit ``required_status_checks`` in the config wins verbatim (including ``[]`` to require
     none), so the auto-default never overrides a deliberate choice.
+
+    UNATTRIBUTED-APPROVAL KNOB, MODE-GATED. GitHub's
+    ``require_extra_approval_for_unattributed_changes`` requires one more approval than
+    ``required_approving_review_count`` on a PR GitHub classifies as opened under an app identity
+    not attributed to a person — GitHub's own docs name the Copilot coding agent as the documented
+    trigger ("When Copilot opens a pull request that isn't attributed to a person, the ruleset
+    requires one more approval than the number you configured"). Found ON (``true``) blocking
+    ``gh ship``'s merge on agent-tools' ``rig-managed`` ruleset and hand-patched to ``false`` via a
+    raw ``gh api ... -X PUT`` on 2026-09-07 as an emergency stopgap (rig-cli#399's investigation
+    could not independently confirm from the rule-suites log or PR authorship why it fired there —
+    agent-tools' recent merges are all attributed to a human login, which the documented mechanism
+    would not gate on; the exact causal story is unresolved, only the observed block + the hand-
+    patch are facts). This makes the fix durable regardless of the precise mechanism. rig defaults
+    it to ``False`` (never required), but ONLY for a repo whose EFFECTIVE ``mode.name`` is ``autonomous``
+    (:func:`_autonomous_block`, cascaded from the machine-wide ``~/.config/rig/config.yaml`` —
+    ``mode`` is a GLOBAL-only category, config.py rejects it from a committed repo ``rig.yaml``
+    outright — so THIS GATING IS PER-MACHINE, not per-repo: every repo `rig apply` touches from a
+    machine with ``mode.name: autonomous`` gets the knob managed). A repo NOT running in autonomous
+    mode gets no injected default: the knob is simply absent from ``options``, so it is never sent
+    in the DESIRED body and never compared for drift — it is UNMANAGED. An unrelated knob change
+    still PUTs the full ``pull_request`` rule (a full-replace update), which would otherwise reset
+    an unmanaged knob to GitHub's own platform default — so ``actions/runner.py``'s
+    ``_do_provision_github_ruleset`` carries the live-fetched value into the outgoing PUT
+    unchanged (``github_ruleset.carry_over_unattributed_approval``), NOT a full optimistic-
+    concurrency guarantee: a hand edit landing in the narrow window between that read and the PUT
+    can still be overwritten — the same read-then-write risk this module already carries for every
+    field it reconciles. An explicit
+    ``github.ruleset.require_extra_approval_for_unattributed_changes`` in the repo's own config
+    ALWAYS wins over this mode-gated default, in either direction and regardless of mode — this is
+    the way to opt a single repo back in even on an autonomous-mode machine.
     """
     gh = config.data.get("github")
     if gh is None:
@@ -2277,6 +2307,10 @@ def _build_github_ruleset(config: LoadedConfig, catalog: Catalog, plan: InstallP
     # none" and must survive the `v is not None` filter above — which it does, so check `ruleset`).
     if "required_status_checks" not in ruleset or ruleset.get("required_status_checks") is None:
         options["required_status_checks"] = _enabled_ci_check_contexts(config, catalog)
+    # Mode-gated default only — never overrides an explicit config value (setdefault, and the
+    # config-driven `overrides` merge above already ran).
+    if _autonomous_block(config) is not None:
+        options.setdefault(UNATTRIBUTED_APPROVAL_KEY, False)
     plan.actions.append(
         Action(
             kind="provision_github_ruleset",

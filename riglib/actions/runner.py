@@ -60,7 +60,9 @@ from ..github_ghas import (
 from ..github_merge import build_merge_body, normalize_merge
 from ..harness_mode import HARNESS_MODES
 from ..github_ruleset import (
+    UNATTRIBUTED_APPROVAL_KEY,
     build_ruleset_body,
+    carry_over_unattributed_approval,
     find_managed_ruleset,
     normalize_ruleset,
     parse_github_remote,
@@ -6443,7 +6445,17 @@ def github_ruleset_state(action: Action) -> tuple[str, dict]:
     except ValueError:
         info["detail"] = "gh api returned non-JSON ruleset"
         return "gh_error", info
-    if normalize_ruleset(current) == normalize_ruleset(desired):
+    # Carried by _do_provision_github_ruleset into the PUT body when the unattributed-approval
+    # knob is unmanaged (see carry_over_unattributed_approval) — an unrelated drift must not
+    # silently reset a live GitHub-side value rig never declared an opinion on.
+    info["current"] = current
+    # Compare with the SAME manage_unattributed_approval flag on both sides (see
+    # github_ruleset.normalize_ruleset's docstring) — it is present iff the plan builder
+    # mode-gated `require_extra_approval_for_unattributed_changes` into `action.options`.
+    manage_unattributed = UNATTRIBUTED_APPROVAL_KEY in action.options
+    if normalize_ruleset(
+        current, manage_unattributed_approval=manage_unattributed
+    ) == normalize_ruleset(desired, manage_unattributed_approval=manage_unattributed):
         return "ok", info
     return "update", info
 
@@ -6484,11 +6496,16 @@ def _do_provision_github_ruleset(action: Action, on_conflict: str) -> ActionResu
 
     # state == "update"
     rs_id = info.get("id")
+    # Preserve an UNMANAGED unattributed-approval value across this PUT (see
+    # github_ruleset.carry_over_unattributed_approval's docstring) — a PUT replaces the whole
+    # pull_request rule's parameters, so a live human choice on this security-relevant setting
+    # must not be silently reset to GitHub's default just because some OTHER knob drifted.
+    put_body = json.dumps(carry_over_unattributed_approval(desired, info.get("current")))
     if _gh_dry_run():
         return ActionResult(action, "updated", f"github-ruleset: RIG_GH_DRY_RUN — would UPDATE '{name}' (id={rs_id}) on {owner}/{repo} (not put)")
     rc, out, err = _gh_api(
         ["--method", "PUT", f"repos/{owner}/{repo}/rulesets/{rs_id}", "--input", "-"],
-        input_text=body,
+        input_text=put_body,
     )
     if rc != 0:
         return _ruleset_write_error(action, "update", owner, repo, err, out)

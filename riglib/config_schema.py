@@ -735,6 +735,24 @@ _GITHUB_RULESET_BLOCK = Block(
             "array", "contexts to require; empty emits no rule", items_type="string"
         ),
         "admin_bypass": Leaf("boolean", "add the repo Admin role to bypass_actors", default=True),
+        # NO unconditional `default` here (unlike every other leaf above): this knob is MODE-GATED,
+        # not unconditionally desired. rig defaults it to false only for a repo whose effective
+        # `mode.name` is `autonomous` (plan._build_github_ruleset); a non-autonomous repo's current
+        # GitHub-side value is left unmanaged. GitHub's `require_extra_approval_for_unattributed_
+        # changes` requires one more approval than `required_reviews` on a PR GitHub classifies as
+        # opened under an app identity not attributed to a person (GitHub's docs name the Copilot
+        # coding agent as the documented trigger). It was found ON blocking `gh ship`'s merge on
+        # agent-tools' ruleset and hand-patched off on 2026-09-07 — this makes that fix durable and
+        # reconcilable (rig-cli#399 could not independently confirm the exact causal mechanism from
+        # the rule-suites log; the observed block and hand-patch are the facts this is built on). An
+        # explicit value here always overrides the mode-gated default, in either direction.
+        "require_extra_approval_for_unattributed_changes": Leaf(
+            "boolean",
+            "pull_request rule sub-param: GitHub's own extra-approval-for-unattributed-changes "
+            "rule (documented for PRs opened under an app identity, e.g. Copilot). Mode-gated to "
+            "false for autonomous-mode repos; otherwise unmanaged (not compared for drift, and "
+            "preserved verbatim if an unrelated ruleset knob triggers a PUT).",
+        ),
     },
 )
 
