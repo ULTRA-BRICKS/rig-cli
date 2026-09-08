@@ -889,10 +889,18 @@ def test_opencode_apply_errors_on_non_object_bash(fake_agent_tools, tmp_path):
 def test_default_rules_are_scoped_and_conservative():
     deny = DEFAULT_RULES["claude-code"]["deny"]
     ask = DEFAULT_RULES["claude-code"]["ask"]
-    # every baked rule is SCOPED (Tool(specifier)) — a bare tool-name deny (e.g. "Bash") would
-    # remove the whole tool from the model's context; rig must never ship that as a default.
+    # every baked Bash rule is SCOPED (Tool(specifier)) — a bare "Bash" deny would remove the
+    # whole tool from the model's context. EnterWorktree is the one intentional whole-tool
+    # deny: the tool itself can CREATE a worktree at a model-supplied path, which is the
+    # location-bypass `rig worktree create` exists to close.
     for rule in (*deny, *ask):
+        if rule == "EnterWorktree":
+            continue
         assert rule.startswith("Bash(") and rule.endswith(")") and rule != "Bash(*)"
+    assert "EnterWorktree" in deny
+    assert "Bash(git worktree add:*)" in deny
+    # prefix-only on purpose: `git * worktree add` would also match a commit message
+    assert "Bash(git * worktree add:*)" not in deny
     # the CTO-decided deny baseline: raw PR merge, force push (flag-first AND later positions),
     # hook-bypass commit (flag-first only — see riglib.permissions for why), sudo rm, screencapture
     assert "Bash(gh pr merge:*)" in deny
@@ -1069,6 +1077,52 @@ def test_drift_missing_deny_ask_entries_then_converged(fake_agent_tools, tmp_pat
     assert any("permissions.deny" in d.detail and "Bash(gh pr merge:*)" in d.detail for d in missing)
     assert any("permissions.ask" in d.detail and "Bash(pkill:*)" in d.detail for d in missing)
     run_plan(plan)  # apply converges → clean
+    assert not [d for d in detect(plan).items if d.category == "permissions"]
+
+
+def test_plan_emits_enterworktree_and_git_worktree_add_denies(fake_agent_tools, tmp_path):
+    # default-on plan must carry both bans so `rig apply` provisions them with no config
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    plan = build(_cfg(repo, fake_agent_tools, settings), Catalog.scan(str(fake_agent_tools)),
+                 project_type="unknown")
+    opts = [a for a in plan.actions if a.kind == "provision_permissions"][0].options
+    assert "EnterWorktree" in opts["deny_rules"]
+    assert "Bash(git worktree add:*)" in opts["deny_rules"]
+
+
+def test_apply_enterworktree_deny_is_idempotent(fake_agent_tools, tmp_path):
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_cfg(repo, fake_agent_tools, settings, tools=["git"]), cat, project_type="unknown")
+    first = run_plan(plan)
+    assert not first.errors, [r.detail for r in first.errors]
+    deny = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["deny"]
+    assert "EnterWorktree" in deny
+    assert "Bash(git worktree add:*)" in deny
+    before = settings.read_text(encoding="utf-8")
+    second = run_plan(plan)
+    assert all(r.status == "skipped" for r in _perm_results(second))
+    assert settings.read_text(encoding="utf-8") == before
+
+
+def test_status_flags_missing_enterworktree_deny_as_drift(fake_agent_tools, tmp_path):
+    # the live-machine shape when this baseline entry is absent from settings.json:
+    # every other deny is present, EnterWorktree is not — `rig status` must name that one.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    deny_without = [r for r in DEFAULT_RULES["claude-code"]["deny"] if r != "EnterWorktree"]
+    settings.write_text(json.dumps({"permissions": {
+        "allow": ["Bash(git:*)"],
+        "deny": deny_without,
+        "ask": list(DEFAULT_RULES["claude-code"]["ask"]),
+    }}), encoding="utf-8")
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_cfg(repo, fake_agent_tools, settings, tools=["git"]), cat, project_type="unknown")
+    missing = [d for d in detect(plan).by_direction("missing") if d.category == "permissions"]
+    assert any("EnterWorktree" in d.detail and "permissions.deny" in d.detail for d in missing)
+    run_plan(plan)
     assert not [d for d in detect(plan).items if d.category == "permissions"]
 
 

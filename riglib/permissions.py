@@ -313,6 +313,9 @@ OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
     GuardRule("rg-pre", "rg --pre runs an arbitrary preprocessor command",
               "subcommand_flags", ("rg",), ("--pre",),
               flags_with_value=("--pre",)),
+    # raw `git worktree add` is banned — worktrees go through `rig worktree create`
+    GuardRule("git-worktree-add", "raw git worktree add is banned — use `rig worktree create`",
+              "argv_prefix", ("git", "worktree", "add")),
 )
 
 # ask = sometimes-legit: confirm with the operator when a UI exists; BLOCK headless (a prompt
@@ -493,6 +496,22 @@ CLAUDE_CODE_DENY_RULES: tuple[str, ...] = (
     "Bash(rg * --pre)",
     "Bash(rg --pre=*)",
     "Bash(rg * --pre=*)",
+    # raw `git worktree add` is banned — worktrees go through `rig worktree create` (same
+    # pattern as `gh pr merge` vs `gh ship`). The child `git worktree add` inside `rig` is
+    # not a gated tool call, so the sanctioned path still works. Prefix form only:
+    # `git -C <repo> worktree add` (and `--git-dir` / `--work-tree`) does not match — the
+    # same prefix-anchor gap as `gh pr merge`. Unlike that case there is no argv-precise
+    # claude-code hook backstopping this belt yet. A mid-pattern
+    # `Bash(git * worktree add:*)` would also match a commit message that merely mentions
+    # "worktree add", so it stays prefix-only on purpose.
+    "Bash(git worktree add:*)",
+    # EnterWorktree is a WHOLE-TOOL deny on purpose. The tool's own description says it
+    # "Creates an isolated worktree (via git or configured hooks) and switches the session
+    # into it" — a model-supplied path can land outside <repo>/.worktrees/ (GH-329). A
+    # specifier-shaped glob cannot express "only the canonical path"; denying the tool
+    # removes the prompt AND the location-bypass. CC-only (no EnterWorktree equivalent
+    # on opencode/codex/omp).
+    "EnterWorktree",
 )
 
 # ask = sometimes-legit: force a prompt (tg-ctl relays it to the operator's phone), don't block.
@@ -526,6 +545,8 @@ OPENCODE_DENY_RULES: tuple[str, ...] = (
     "git commit --no-verify*",
     "sudo rm*",
     "screencapture*",
+    # raw `git worktree add` is banned — worktrees go through `rig worktree create`
+    "git worktree add*",
     # rig-cli#187: `rg --pre` runs an arbitrary preprocessor command. A single `rg*--pre*` entry
     # was REJECTED (review finding): opencode's `*` has no word boundary, so it would also deny
     # the legitimate, read-only `--pretty` flag (`--pretty` contains the substring `--pre`).
@@ -683,6 +704,7 @@ def desired_entries(kind: str, tools: list[str]) -> list[str]:
 # shadowed by the allow rule.
 CODEX_DENY_RULES: tuple[tuple[str, ...], ...] = (
     ("gh", "pr", "merge"),
+    ("git", "worktree", "add"),
     ("sudo", "rm"),
     ("screencapture",),
     ("rg", "--pre"),
