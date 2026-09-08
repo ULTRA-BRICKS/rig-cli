@@ -6,18 +6,20 @@ The sibling ``test_cleanroom_e2e.py`` (Docker) proves ``rig init`` for a brand-n
 only ever with ``harness.kind: claude-code``. This module runs the SAME clean-room shape
 (fresh non-root user, empty ``$HOME``, self-contained fake agent-tools checkout, the REAL CLI,
 an in-container assertion script) under Apple's ``container`` CLI instead of Docker, and
-parametrizes it over every supported harness kind: claude-code, codex, opencode, omp.
+parametrizes it over every supported harness kind: claude-code, codex, opencode, omp, pi, commandcode.
 
 Per kind the in-container script asserts (#337's acceptance list, 1:1):
 
 (a) SKILLS ARE DISCOVERABLE THE WAY THAT HARNESS EXPECTS — ``riglib/harness_skills.py``'s
     discovery families: a symlink dir for claude-code (``~/.claude/skills``) and codex
     (``~/.codex/skills``), native ``~/.agents/skills`` loading for opencode and omp (rig links
-    nothing AND says so in the plan notes).
+    nothing AND says so in the plan notes), and a global instruction file for pi
+    (``~/.config/pi/AGENTS.md``) and commandcode (``~/.commandcode/AGENTS.md``) with a
+    visible "no skill-discovery dir" note (rig-cli#461).
 (b) AUTO-MODE WRITE HAPPENED **OR** IS A VISIBLE SKIP — a ``harness/<kind>`` plan action
     (claude-code / codex / opencode), or omp's mode written by the permissions approval
     action (noted as ``harness: omp auto-mode … is written by the permissions approval
-    action``, rig-cli#370/#355), or an ``auto-mode write skipped`` note. Silent = FAIL.
+    action``, rig-cli#370/#355), or an ``auto-mode write skipped`` / ``no auto/permission-mode setting`` n/a note (pi/commandcode). Silent = FAIL.
 (c) AGENTS-HOOKS BRIDGE REGISTERED **OR** VISIBLY SKIPPED — a ``harness/hook-bridge`` action
     whose target file exists and names the bridge module, or a ``hook_bridge: skipped`` note.
     Silent = FAIL. omp_hook_bridge is a first-class kind (rig-cli#352 / agent-tools#556).
@@ -70,7 +72,7 @@ import test_cleanroom_e2e as cr
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-KINDS: tuple[str, ...] = ("claude-code", "codex", "opencode", "omp")
+KINDS: tuple[str, ...] = ("claude-code", "codex", "opencode", "omp", "pi", "commandcode")
 MIN_FREE_DISK_GB = 3.0
 
 _E2E_OPTED_IN = os.environ.get("RIG_CONTAINER_E2E", "").strip().lower() in ("1", "true", "yes")
@@ -373,9 +375,12 @@ _ASSERT_SCRIPT = textwrap.dedent(
     [ -d "$HOME/.agents/skills" ] || fail "skills not installed into ~/.agents/skills"
     installed=$(find "$HOME/.agents/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d ' ')
     [ "$installed" -eq 5 ] || fail "expected exactly 5 installed skills, got $installed"
+    INSTR=""
     case "$KIND" in
       claude-code) SKILL_DIR="$HOME/.claude/skills" ;;
       codex)       SKILL_DIR="$HOME/.codex/skills" ;;
+      pi)          SKILL_DIR="" ; INSTR="$HOME/.config/pi/AGENTS.md" ;;
+      commandcode) SKILL_DIR="" ; INSTR="$HOME/.commandcode/AGENTS.md" ;;
       *)           SKILL_DIR="" ;;
     esac
     if [ -n "$SKILL_DIR" ]; then
@@ -389,6 +394,12 @@ _ASSERT_SCRIPT = textwrap.dedent(
       done
       [ "$linked" -eq 5 ] || fail "expected exactly 5 harness-linked skills, got $linked"
       pass "skills discoverable via symlink dir ($linked links resolve in $SKILL_DIR)"
+    elif [ -n "$INSTR" ]; then
+      # instruction-file: no skill dir, a global AGENTS.md, and a VISIBLE note (silent no-link is a gap)
+      [ ! -e "$HOME/.claude/skills" ] || fail "kind $KIND is instruction-file but rig created ~/.claude/skills"
+      grep -q "has no skill-discovery dir" "$OUT/info.log" || { cat "$OUT/info.log"; fail "no instruction-file discovery note for kind $KIND"; }
+      [ -f "$INSTR" ] || fail "advisory instruction file $INSTR not written"
+      pass "skills: instruction-file kind (5 in ~/.agents/skills, no links, discovery note present; advisory $INSTR written)"
     else
       # native discovery: rig links NOTHING and the plan SAYS so (a silent no-link is a gap)
       [ ! -e "$HOME/.claude/skills" ] || fail "kind $KIND discovers natively but rig created ~/.claude/skills"
@@ -403,8 +414,12 @@ _ASSERT_SCRIPT = textwrap.dedent(
       codex)       HOOKS_DIR="$HOME/.codex/hooks" ;;
       opencode)    HOOKS_DIR="$HOME/.config/opencode/hooks" ;;
       omp)         HOOKS_DIR="$HOME/.omp/agent/hooks" ;;
+      pi|commandcode) HOOKS_DIR="" ;;
     esac
-    desc="$(find "$HOOKS_DIR" -name 'block-no-verify*.json' -print -quit 2>/dev/null || true)"
+    desc=""
+    if [ -n "$HOOKS_DIR" ]; then
+      desc="$(find "$HOOKS_DIR" -name 'block-no-verify*.json' -print -quit 2>/dev/null || true)"
+    fi
     if [ -n "$desc" ]; then
       pass "agent-hook descriptors installed in $HOOKS_DIR"
       HOOKS_NOTE="native-dir"
@@ -445,6 +460,10 @@ _ASSERT_SCRIPT = textwrap.dedent(
       printf 'AUTO-MODE[%s]: written-via-approval\\n' "$KIND"
     elif grep -q "auto-mode write skipped" "$OUT/info.log" && grep -q "$KIND" "$OUT/info.log"; then
       printf 'AUTO-MODE[%s]: visible-skip\\n' "$KIND"
+    elif grep -q "no auto/permission-mode setting" "$OUT/info.log" && grep -q "$KIND" "$OUT/info.log"; then
+      printf 'AUTO-MODE[%s]: visible-skip (n/a)\\n' "$KIND"
+    elif grep -q "auto-mode n/a" "$OUT/info.log" && grep -q "$KIND" "$OUT/info.log"; then
+      printf 'AUTO-MODE[%s]: visible-skip (n/a)\\n' "$KIND"
     else
       cat "$OUT/info.log"; fail "auto-mode neither written nor visibly noted for kind $KIND (SILENT)"
     fi
@@ -485,8 +504,11 @@ _ASSERT_SCRIPT = textwrap.dedent(
     case "$KIND" in
       claude-code) MODULE=cc_hook_bridge ;; codex) MODULE=codex_hook_bridge ;;
       opencode) MODULE=opencode_hook_bridge ;; omp) MODULE=omp_hook_bridge ;;
+      pi|commandcode) MODULE="" ;;
     esac
-    if [ ! -f "$OUT/parity-enabled" ]; then
+    if [ -z "$MODULE" ]; then
+      printf 'PARITY-BLOCKED[%s]: instruction-file harness has no agents-hooks bridge\\n' "$KIND"
+    elif [ ! -f "$OUT/parity-enabled" ]; then
       printf 'PARITY-SKIPPED[%s]: no real agent-tools checkout on the host — stub bridges only\\n' "$KIND"
     elif [ ! -f "$SRC/lib/$MODULE/dispatch.py" ] || [ ! -f "$SRC/lib/$MODULE/__main__.py" ]; then
       printf 'PARITY-BLOCKED[%s]: %s not in the agent-tools checkout (%s)\\n' "$KIND" "$MODULE" \\
@@ -719,6 +741,10 @@ _LIVE_PY = textwrap.dedent(
                  "(feature apply_patch_freeform is removed) — edits flow through exec_command, "
                  "which codex_hook_bridge maps to pre-bash, so the pre-write worktree-only guard "
                  "cannot fire in a live codex session; covered by the synthetic bridge event only",
+        "pi": "LIVE-BLOCKED: pi is an instruction-file harness with no agents-hooks bridge "
+              "and no live session driver in this matrix — covered by the visible auto-mode n/a and hook_bridge skip notes",
+        "commandcode": "LIVE-BLOCKED: commandcode is an instruction-file harness with no agents-hooks bridge "
+              "and no live session driver in this matrix — covered by the visible auto-mode n/a and hook_bridge skip notes",
     }
 
 
