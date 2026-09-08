@@ -9,9 +9,10 @@ each raw tool name + (for shells) the command string through :func:`categorize`.
 Why a shell command needs inspecting: every harness exposes ONE shell tool (Bash /
 exec_command / run_shell_command / bash). A bare count of that tool tells us nothing about
 adoption — the signal is *what the agent ran inside it*. So a Bash call whose command
-invokes ``review`` / ``tg`` / ``rig`` / ``draw`` / ``3d`` / ``task`` / ``dev`` is re-labelled as an
-"ours" CLI invocation and pulled OUT of the baseline shell count. That re-labelling is the
-core measurement this whole command exists to produce.
+invokes ``tg`` / ``rig`` / ``draw`` / ``3d`` / ``task`` / ``dev`` is re-labelled as an
+"ours" CLI invocation and pulled OUT of the baseline shell count. A Bash call that
+invokes ``review`` is re-labelled ``review-cycles`` so review volume does not inflate
+agent-tools adoption. That re-labelling is the core measurement this whole command exists to produce.
 """
 
 from __future__ import annotations
@@ -90,11 +91,13 @@ BASELINE_ALIASES: dict[str, str] = {
 # could exist on some machine and be miscounted as ours) — the same accepted tradeoff, a knob the
 # CTO can drop here if it ever skews a real number. The remaining names are unambiguous.
 OUR_CLIS: frozenset[str] = frozenset(
-    {"rig", "review", "tg", "draw", "3d", "task", "dev", "pm", "research"}
+    {"rig", "tg", "draw", "3d", "task", "dev", "pm", "research"}
 )
+REVIEW_CLIS: frozenset[str] = frozenset({"review"})
 
 # ── OUR MCP servers (the `mcp__<server>__<tool>` prefix) ───────────────────────────────
-OUR_MCP_SERVERS: frozenset[str] = frozenset({"review"})
+OUR_MCP_SERVERS: frozenset[str] = frozenset()
+REVIEW_MCP_SERVERS: frozenset[str] = frozenset({"review"})
 
 # ── OUR skills (Skill-tool `skill:` arg). Names match ~/.agents/skills/ entries we ship. ─
 # Kept as a set the CTO extends; everything else invoked through the Skill tool is treated
@@ -102,7 +105,6 @@ OUR_MCP_SERVERS: frozenset[str] = frozenset({"review"})
 OUR_SKILLS: frozenset[str] = frozenset(
     {
         "rig",
-        "review",
         "tg",
         "draw",
         "ai-review-before-commit",
@@ -347,9 +349,13 @@ def _resolve_stage_program(tokens: list[str], i: int) -> tuple[str | None, int]:
 
 
 def detect_our_cli(command: str) -> str | None:
-    """Return the OUR-CLI name if any pipeline stage runs one, else None."""
+    """Return the ecosystem CLI name if any pipeline stage runs one, else None.
+
+    Union of OUR_CLIS and REVIEW_CLIS so ``review`` is still detected (then
+    bucketed as review-cycles by :func:`categorize`).
+    """
     for prog in _command_programs(command):
-        if prog in OUR_CLIS:
+        if prog in OUR_CLIS or prog in REVIEW_CLIS:
             return prog
     return None
 
@@ -363,9 +369,11 @@ def _mcp_server(tool_name: str) -> str | None:
 
 
 def _classify_skill(skill: str) -> str:
+    base = skill.split(":", 1)[0]
+    if skill == "review" or base == "review":
+        return "review-cycles"
     if skill in OUR_SKILLS:
         return "ours"
-    base = skill.split(":", 1)[0]
     if skill in EXTERNAL_SKILLS or base in EXTERNAL_SKILLS:
         return "external-advertised"
     if any(skill.startswith(p) or base.startswith(p) for p in EXTERNAL_SKILL_PREFIXES):
@@ -385,6 +393,8 @@ def categorize(raw_tool: str, *, command: str | None = None, skill: str | None =
     # 1) MCP — prefix decides ours/external regardless of the specific tool.
     server = _mcp_server(raw_tool)
     if server is not None:
+        if server in REVIEW_MCP_SERVERS:
+            return "review-cycles", raw_tool
         if server in OUR_MCP_SERVERS:
             return "ours", raw_tool
         if server in EXTERNAL_MCP_SERVERS:
@@ -400,6 +410,8 @@ def categorize(raw_tool: str, *, command: str | None = None, skill: str | None =
         if command:
             cli = detect_our_cli(command)
             if cli:
+                if cli in REVIEW_CLIS:
+                    return "review-cycles", f"{cli} (cli)"
                 return "ours", f"{cli} (cli)"
         return "baseline", "Bash"
 

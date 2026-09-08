@@ -15,11 +15,12 @@ from ..hatches import HatchAggregate
 from ..model import CATEGORIES
 from ._util import shorten
 
-# the SAME four categories as tui._CAT_COLOR, expressed in CSS hex (the tui table is a rich
+# the SAME categories as tui._CAT_COLOR, expressed in CSS hex (the tui table is a rich
 # terminal palette). Keep the two in sync by meaning when adding a category.
 _CAT_COLOR = {
     "baseline": "#9aa0a6",
     "ours": "#34a853",
+    "review-cycles": "#00acc1",
     "external-advertised": "#fbbc04",
     "other": "#5f6368",
 }
