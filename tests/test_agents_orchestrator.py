@@ -100,6 +100,8 @@ def _assert_gh_delegation(text: str) -> None:
     assert "rig apply commit" in text
     assert "merge is not done" in text
     assert "SHA/on-disk is not a proof" in text
+    assert "yield is not done" in text
+    assert "live-proven" in text
 
 
 def _assert_both_blocks(text: str) -> None:

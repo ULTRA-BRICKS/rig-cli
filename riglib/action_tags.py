@@ -143,6 +143,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "(opencode plugin, codex TOML block, or omp extension symlink) so the same installed "
         "hook descriptors fire under that harness too.",
     ),
+    "provision_omp_idle_ttl": _tag(
+        "provision_omp_idle_ttl", "permission_guard", AUDIENCE_AGENT,
+        "Writes task.agentIdleTtlMs: 0 into omp config.yml so yielded helpers stay on the "
+        "live roster instead of parking off it after the default 7-minute idle TTL.",
+    ),
     "provision_schedule": _tag(
         "provision_schedule", "starts_reloads_service", AUDIENCE_BOTH,
         "Installs a launchd/cron schedule (e.g. the daily model-freshness check) that runs "

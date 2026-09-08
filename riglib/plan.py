@@ -130,7 +130,7 @@ def _agent_hooks_target_for_kind(kind: str) -> str | None:
 class Action:
     """A single planned install step. ``kind`` selects the runner in ``actions/``."""
 
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
+    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
     category: str
     item: str
     source: Path  # carrier path in the agent-tools checkout
@@ -887,6 +887,9 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
 
     # ── hook bridge (make agents-hooks/v1 descriptors FIRE in the harness) ─────────
     _build_hook_bridge(config, catalog, plan)
+
+    # ── omp idle-TTL keepalive (yielded helpers stay on the live roster) ──────────
+    _build_omp_idle_ttl(config, plan)
 
     # ── models (daily model-freshness checker schedule) ───────────────────────────
     _build_models(config, catalog, plan)
@@ -1834,6 +1837,30 @@ def _codex_extra_stop_hooks(config: LoadedConfig) -> list[str]:
     t = config.data.get("tg_ctl") or {}
     cmd = codex_usage_hook_command(t, home=Path.home())
     return [cmd] if cmd else []
+
+
+def _build_omp_idle_ttl(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan ``task.agentIdleTtlMs: 0`` into omp's agent config so yielded helpers stay live.
+
+    omp parks idle helpers after ``task.agentIdleTtlMs`` (default 420000 ms); parked agents
+    drop off the live hub roster. ``<= 0`` disables parking (docs/tools/task.md). Emitted
+    whenever a configured harness kind is omp and the harness block is enabled.
+    """
+    if _enabled_harness_block(config) is None:
+        return
+    if "omp" not in _configured_harness_kinds(config):
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_omp_idle_ttl",
+            category="harness",
+            item="omp-idle-ttl",
+            source=config.repo_root,
+            target=_expand(_omp_user_path("config.yml"), config.repo_root),
+            options={"kind": "omp"},
+        )
+    )
+
 
 
 def _build_agents_symlink(config: LoadedConfig, plan: InstallPlan) -> None:
