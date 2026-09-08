@@ -19,7 +19,7 @@ from riglib.omp_web_search import (
     missing_exclude_entries,
     resolve_exclude,
 )
-from riglib.plan import Action, build
+from riglib.plan import Action, InstallPlan, build
 
 
 def _cfg(repo: Path, source: Path, harness: dict | None = None, **extra) -> LoadedConfig:
@@ -222,12 +222,15 @@ def test_apply_skip_does_not_rewrite(fake_agent_tools, tmp_path, monkeypatch):
     from riglib.actions.runner import run_plan
 
     home, plan = _plan(fake_agent_tools, tmp_path, monkeypatch)
-    plan.on_conflict = "skip"
     cfg = _yml(home)
     cfg.parent.mkdir(parents=True)
     before = "theme: titanium\n"
     cfg.write_text(before, encoding="utf-8")
-    res = [r for r in run_plan(plan).results if r.action.kind == "provision_omp_web_search"][0]
+    only = InstallPlan(
+        actions=_actions(plan, "provision_omp_web_search"),
+        on_conflict="skip",
+    )
+    res = run_plan(only).results[0]
     assert res.status == "skipped"
     assert cfg.read_text(encoding="utf-8") == before
 
