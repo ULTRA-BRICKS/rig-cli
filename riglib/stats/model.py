@@ -22,8 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-# The four buckets every invocation lands in. Order is the canonical display order.
-CATEGORIES: tuple[str, ...] = ("baseline", "ours", "external-advertised", "other")
+# The five buckets every invocation lands in. Order is the canonical display order.
+CATEGORIES: tuple[str, ...] = ("baseline", "ours", "review-cycles", "external-advertised", "other")
 
 
 @dataclass(frozen=True, slots=True)

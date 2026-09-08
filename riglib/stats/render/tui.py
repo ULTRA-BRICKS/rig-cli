@@ -13,12 +13,13 @@ from ..model import CATEGORIES
 from ._util import shorten
 
 # fixed colours per category so bars/tables read consistently. These are RICH colour names;
-# the web renderer keeps the SAME four categories in hex (web._CAT_COLOR). The two tables are
+# the web renderer keeps the SAME categories in hex (web._CAT_COLOR). The two tables are
 # intentionally separate (one terminal palette, one CSS palette) — keep them in sync by
 # meaning, not value.
 _CAT_COLOR = {
     "baseline": "grey70",
     "ours": "green",
+    "review-cycles": "cyan",
     "external-advertised": "yellow",
     "other": "grey42",
 }
