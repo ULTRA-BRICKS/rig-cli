@@ -538,6 +538,8 @@ def detect(
             _check_tg_ctl(action, report)
         elif action.kind == "provision_spotlight":
             _check_spotlight(action, report)
+        elif action.kind == "provision_bunfig":
+            _check_bunfig(action, report)
 
     _extras_skills(declared_skill_dirs, report, known.get("skills", set()), catalog.get("skills"))
     _extras_ci(declared_ci_dirs, report, known.get("ci", set()), catalog.get("ci"))
@@ -1385,6 +1387,30 @@ def _check_global_excludes(action: Action, report: DriftReport) -> None:
         report.items.append(
             DriftItem("modified", "gitignore", "block", target, r.detail)
         )
+
+
+def _check_bunfig(action: Action, report: DriftReport) -> None:
+    """Flag drift in ``~/.bunfig.toml`` using the same :func:`bunfig.resolve` apply uses."""
+    from . import bunfig
+
+    r = bunfig.resolve(action.target)
+    if r.state == "ok":
+        return
+    if r.state == "create":
+        report.items.append(
+            DriftItem("missing", "bun", "bunfig", r.path,
+                      "~/.bunfig.toml missing isolated linker + globalStore (apply splices it)")
+        )
+        return
+    if r.state == "update":
+        report.items.append(
+            DriftItem("modified", "bun", "bunfig", r.path,
+                      "managed ~/.bunfig.toml is stale (apply rewrites it)")
+        )
+        return
+    report.items.append(
+        DriftItem("modified", "bun", "bunfig", r.path, r.detail)
+    )
 
 
 def check_disabled_global_excludes(action: Action, report: DriftReport) -> None:

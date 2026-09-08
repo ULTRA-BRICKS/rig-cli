@@ -927,6 +927,9 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     # ── spotlight (macOS: keep Spotlight from indexing dependency/build dirs) ───────
     _build_spotlight(config, plan)
 
+    # ── bun (isolated linker + global virtual store in ~/.bunfig.toml) ────────────
+    _build_bun(config, plan)
+
     # ── tools (the personal CLI ecosystem: tg/review/task/draw/…) ──────────────────
     _build_tools(config, plan)
 
@@ -2662,6 +2665,33 @@ def _build_spotlight(config: LoadedConfig, plan: InstallPlan) -> None:
             },
         )
     )
+
+
+def _build_bun(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the global bunfig isolated-linker + globalStore splice.
+
+    Default **OFF** (opt-in): an absent, empty, or ``enabled: false`` block emits NO action.
+    GLOBAL-only. Writes both ``linker = "isolated"`` and ``globalStore = true`` because
+    bun's global store is a no-op under the hoisted linker.
+    """
+    from . import bunfig
+
+    block = config.data.get("bun")
+    if block is None or not isinstance(block, dict):
+        return
+    if not block.get("enabled"):
+        return
+    target = bunfig.bunfig_path()
+    plan.actions.append(
+        Action(
+            kind="provision_bunfig",
+            category="bun",
+            item="bunfig",
+            source=config.repo_root,
+            target=target,
+        )
+    )
+
 
 
 def _build_project_tools(config: LoadedConfig, plan: InstallPlan) -> None:

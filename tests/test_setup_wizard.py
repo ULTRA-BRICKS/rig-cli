@@ -33,7 +33,7 @@ def test_registry_covers_every_status_area():
     expected = {
         "stack",
         "skills", "agent_hooks", "git_hooks", "ci", "mcp", "harness", "permissions",
-        "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "tg_ctl",
+        "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "bun", "tg_ctl",
         "linters", "project_tools",
     }
     assert cats == expected
@@ -42,7 +42,7 @@ def test_registry_covers_every_status_area():
 def test_global_only_categories_route_to_global_not_repo():
     # the footgun guard: a machine-wide, never-scaffolded block must NOT be writable into a
     # committed repo rig.yaml. These are documented global-only.
-    for cat in ("gitignore", "tg_ctl", "tmux", "mode"):
+    for cat in ("gitignore", "spotlight", "bun", "tg_ctl", "tmux", "mode"):
         assert schema.writable_layer_for_category(cat) == schema.GLOBAL
     # harness/models/git_hooks are status-grouped GLOBAL but the scaffold writes them into the
     # committed repo rig.yaml, so an EDIT of their value belongs in the repo file.

@@ -66,6 +66,7 @@ _VALID_TOP_KEYS = {
     "env",
     "gitignore",
     "spotlight",
+    "bun",
     "tools",
     "tg_ctl",
     "ship_delegator",
@@ -610,6 +611,7 @@ def validate(data: dict[str, Any]) -> None:
     _validate_env(data.get("env", {}))
     _validate_gitignore(data.get("gitignore", {}))
     _validate_spotlight(data.get("spotlight", {}))
+    _validate_bun(data.get("bun", {}))
     _validate_tools(data.get("tools", {}))
     _validate_tg_ctl(data.get("tg_ctl", {}))
     _validate_ship_delegator(data.get("ship_delegator", {}))
@@ -2137,6 +2139,23 @@ def _validate_spotlight(s: dict[str, Any]) -> None:
             f"spotlight.max_depth must be a positive int, got {max_depth!r}",
             schema_path="spotlight.max_depth",
         )
+
+
+def _validate_bun(s: dict[str, Any]) -> None:
+    """Validate the ``bun`` block — GLOBAL bunfig isolated linker + globalStore splice.
+
+    Default **OFF** (opt-in). An absent/empty block is a no-op. Fail-closed on a non-mapping
+    block, a non-bool ``enabled``, and an unknown key.
+    """
+    if not isinstance(s, dict):
+        raise ConfigError("bun must be a mapping", schema_path="bun")
+    if not s:
+        return
+    _reject_unknown_keys(s, "bun")
+    enabled = s.get("enabled")
+    if enabled is not None and not isinstance(enabled, bool):
+        raise ConfigError(f"bun.enabled must be a bool, got {enabled!r}", schema_path="bun.enabled")
+
 
 
 # The ruleset knobs that are plain booleans (typo + type guard). Listed once so the

@@ -1400,6 +1400,18 @@
       },
       "additionalProperties": false
     },
+    "bun": {
+      "type": "object",
+      "description": "GLOBAL bunfig: splice [install] linker=isolated and globalStore=true.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in)",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
     "tools": {
       "type": "object",
       "description": "the personal CLI tool ecosystem (tg/review/task/draw/…) rig installs + advertises at apply, by running each tool's own install.sh. rig also keeps a provisioned checkout FRESH: if a tool repo ships scripts/deploy.sh, apply runs it (ff-only git pull) even when already installed — opt-in per tool, non-fatal. Default OFF (opt-in): list tools under items. A per-MACHINE concern — belongs in the GLOBAL layer, not a committed rig.yaml.",

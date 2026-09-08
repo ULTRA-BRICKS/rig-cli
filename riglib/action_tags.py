@@ -228,6 +228,10 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Drops Spotlight-exclude sentinels under dependency/build dirs and may install a launchd "
         "re-sweep agent — a macOS Finder/Spotlight setting, not agent-facing.",
     ),
+    "provision_bunfig": _tag(
+        "provision_bunfig", "edits_file", AUDIENCE_HUMAN,
+        "Splices linker=isolated and globalStore=true into ~/.bunfig.toml.",
+    ),
     "provision_tools": _tag(
         "provision_tools", "installs_system_tool", AUDIENCE_HUMAN,
         "Runs a personal CLI tool's own install.sh (e.g. tg/review/dev) — installs a real binary "
