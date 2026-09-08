@@ -2049,11 +2049,9 @@ def _do_provision_omp_idle_ttl(action: Action, on_conflict: str) -> ActionResult
             "apply never clobbers — change it by hand or remove the key)",
         )
 
-    if existed and on_conflict == "skip":
-        return ActionResult(
-            action, "skipped",
-            f"{label}: {config_file} would be rewritten but on_conflict=skip — left unchanged",
-        )
+    # A missing key is additive, not a conflict: skip-forever would leave permanent
+    # drift when a sibling (provision_harness_approval) created the file in this
+    # same apply. YAML dump may drop comments — same tax the approval writer pays.
     config_file.parent.mkdir(parents=True, exist_ok=True)
     backup_note = ""
     if existed and _should_backup(on_conflict):

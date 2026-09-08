@@ -177,3 +177,21 @@ def test_drift_missing_then_clean(fake_agent_tools, tmp_path, monkeypatch):
     run_plan(plan)
     after = detect(plan)
     assert not any(i.item == "omp-idle-ttl" for i in after.items), after.items
+
+
+def test_skip_still_writes_missing_key(fake_agent_tools, tmp_path, monkeypatch):
+    """A sibling may have created config.yml in this apply; skip must not freeze missing TTL."""
+    home = tmp_path / "home"
+    cfg_yml = home / ".omp" / "agent" / "config.yml"
+    cfg_yml.parent.mkdir(parents=True)
+    cfg_yml.write_text("tools:\n  approvalMode: yolo\n", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _cfg(repo, fake_agent_tools)
+    cfg.data["defaults"] = {"on_conflict": "skip"}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    res = [r for r in run_plan(plan).results if r.action.kind == "provision_omp_idle_ttl"][0]
+    assert res.status in {"updated", "created", "backed_up"}, res.detail
+    assert _read_yml(cfg_yml)["task"]["agentIdleTtlMs"] == 0
+    assert _read_yml(cfg_yml)["tools"]["approvalMode"] == "yolo"
