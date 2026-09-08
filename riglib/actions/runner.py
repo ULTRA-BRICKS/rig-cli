@@ -2271,7 +2271,17 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
     notification, so the subagent must use Bash ``run_in_background`` for one ordinary
     command or a foreground heartbeat loop for anything else), and ``EnterWorktree`` for
     switching into a worktree (the agent-tools
-    ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created).
+    ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created), and
+    ``Workflow`` for a dynamic multi-agent script (ultracode). Claude Code's ``permissions.allow``
+    lists ``Workflow`` bare so ultracode is never prompted on spawn — that allow is NOT a blanket
+    pass for the script's contents: this matcher is what makes the agent-tools
+    ``workflow-danger-gate`` (the ``pre-workflow`` point) actually run, denying a script whose
+    executable JS contains a raw ``gh pr merge``, ``git reset --hard``, a force-push, ``sudo rm``,
+    ``--no-verify``, ``git clean -f``, or ``screencapture`` while leaving comments and ultracode's
+    own ``agent(...)`` dispatch untouched. Without this row registered, ``point_for_event`` maps
+    Workflow to ``pre-workflow`` in agent-tools but Claude Code never calls the bridge for it, so
+    the gate never fires — the same "mapped but not wired" gap ``pre-skill``/``pre-worktree-enter``
+    were in before their matcher was added (see the safety-property paragraph below).
     Codex uses the hook matchers exposed by its TOML contract here: ``Bash`` and
     ``apply_patch`` (no ``pre-agent``/``pre-skill``/``pre-monitor``/``pre-worktree-enter``
     mapping yet — same gap, tracked upstream in agent-tools; Codex has no Monitor-equivalent
@@ -2340,6 +2350,7 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
             ("Skill", cmd("PreToolUse")),
             ("Monitor", cmd("PreToolUse")),
             ("EnterWorktree", cmd("PreToolUse")),
+            ("Workflow", cmd("PreToolUse")),
         ],
         "PostToolUse": [
             ("Edit|Write|MultiEdit|NotebookEdit", cmd("PostToolUse")),

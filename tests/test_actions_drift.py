@@ -2420,8 +2420,8 @@ def _read_toml(path: Path) -> dict:
 
 
 def test_hook_bridge_registers_dispatcher_in_settings(fake_agent_tools, tmp_path):
-    """Apply wires PreToolUse (Bash + writes + Agent|Task + Skill + Monitor + EnterWorktree),
-    PostToolUse and Stop hooks."""
+    """Apply wires PreToolUse (Bash + writes + Agent|Task + Skill + Monitor + EnterWorktree +
+    Workflow), PostToolUse and Stop hooks."""
     repo = tmp_path / "repo"
     repo.mkdir()
     settings = repo / ".claude" / "settings.json"
@@ -2443,6 +2443,7 @@ def test_hook_bridge_registers_dispatcher_in_settings(fake_agent_tools, tmp_path
     assert "Skill" in matchers
     assert "Monitor" in matchers
     assert "EnterWorktree" in matchers
+    assert "Workflow" in matchers
     for b in pre:
         cmd = b["hooks"][0]["command"]
         assert "cc_hook_bridge PreToolUse" in cmd
@@ -4907,6 +4908,8 @@ def test_hook_bridge_drift_detects_stale_command(fake_agent_tools, tmp_path):
              "command": "PYTHONPATH=/old/lib python3 -m cc_hook_bridge PreToolUse"}]},
             {"matcher": "EnterWorktree", "hooks": [{"type": "command",
              "command": "PYTHONPATH=/old/lib python3 -m cc_hook_bridge PreToolUse"}]},
+            {"matcher": "Workflow", "hooks": [{"type": "command",
+             "command": "PYTHONPATH=/old/lib python3 -m cc_hook_bridge PreToolUse"}]},
         ],
         "PostToolUse": [
             {"matcher": "Edit|Write|MultiEdit|NotebookEdit", "hooks": [{"type": "command",
@@ -4972,6 +4975,7 @@ def test_hook_bridge_skip_leaves_stale_command_untouched(fake_agent_tools, tmp_p
         {"matcher": "Skill", "hooks": [{"type": "command", "command": stale}]},
         {"matcher": "Monitor", "hooks": [{"type": "command", "command": stale}]},
         {"matcher": "EnterWorktree", "hooks": [{"type": "command", "command": stale}]},
+        {"matcher": "Workflow", "hooks": [{"type": "command", "command": stale}]},
     ], "PostToolUse": [
         {"matcher": "Edit|Write|MultiEdit|NotebookEdit", "hooks": [{"type": "command",
          "command": "PYTHONPATH=/old/lib python3 -m cc_hook_bridge PostToolUse"}]},
