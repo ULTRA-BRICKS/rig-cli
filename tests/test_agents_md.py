@@ -411,7 +411,10 @@ def test_plan_opt_out(fake_agent_tools, tmp_path, block):
 
     cat = Catalog.scan(str(fake_agent_tools))
     plan = build(_cfg({"agents_md": block}, tmp_path), cat, project_type="cli")
-    assert not any(a.kind == "provision_agents_symlink" for a in plan.actions)
+    kinds = {a.kind for a in plan.actions}
+    assert "provision_agents_symlink" not in kinds
+    assert "provision_agents_orchestrator" not in kinds
+    assert "provision_agents_autonomous_mode" not in kinds
 
 
 # ── config validation (fail-closed) ───────────────────────────────────────────────

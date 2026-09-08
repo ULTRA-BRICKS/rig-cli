@@ -516,6 +516,10 @@ def detect(
             _check_schedule(action, report)
         elif action.kind == "provision_agents_symlink":
             _check_agents_symlink(action, report)
+        elif action.kind == "provision_agents_orchestrator":
+            _check_agents_orchestrator(action, report)
+        elif action.kind == "provision_agents_autonomous_mode":
+            _check_agents_autonomous_mode(action, report)
         elif action.kind == "provision_ship_delegator":
             _check_ship_delegator(action, report)
         elif action.kind == "provision_gh_ship_alias":
@@ -738,6 +742,92 @@ def _check_agents_symlink(action: Action, report: DriftReport) -> None:
         report.items.append(
             DriftItem("modified", "agents_md", "symlink", r.link, r.detail)
         )
+
+
+def _check_agents_md_splice(
+    action: Action,
+    report: DriftReport,
+    *,
+    desired: str,
+    begin: str,
+    end: str,
+    missing_file: str,
+    missing_block: str,
+    conflict: str,
+    stale: str,
+) -> None:
+    """missing/modified mirror the instruction-policy checker (same splice resolver)."""
+    from .actions.runner import _agents_md_splice_target, _splice_managed_block
+
+    path = _agents_md_splice_target(action.target)
+    if path is None or not path.is_file():
+        report.items.append(
+            DriftItem("missing", "agents_md", action.item, action.target / "AGENTS.md", missing_file)
+        )
+        return
+    try:
+        with path.open(encoding="utf-8", newline="") as fh:
+            content = fh.read()
+    except OSError as exc:
+        report.items.append(
+            DriftItem("modified", "agents_md", action.item, path, f"cannot read {path}: {exc}")
+        )
+        return
+    _, state, _detail = _splice_managed_block(content, desired, begin, end)
+    if state == "ok":
+        return
+    if state == "create":
+        report.items.append(
+            DriftItem("missing", "agents_md", action.item, path, missing_block)
+        )
+    elif state == "conflict":
+        report.items.append(
+            DriftItem("modified", "agents_md", action.item, path, conflict)
+        )
+    else:  # update
+        report.items.append(
+            DriftItem("modified", "agents_md", action.item, path, stale)
+        )
+
+
+def _check_agents_orchestrator(action: Action, report: DriftReport) -> None:
+    """Flag drift on the rig-managed orchestrator block in the repo AGENTS.md."""
+    from .actions.runner import (
+        ORCHESTRATOR_BEGIN_MARKER,
+        ORCHESTRATOR_END_MARKER,
+        orchestrator_block_text,
+    )
+
+    _check_agents_md_splice(
+        action, report,
+        desired=orchestrator_block_text(),
+        begin=ORCHESTRATOR_BEGIN_MARKER,
+        end=ORCHESTRATOR_END_MARKER,
+        missing_file="AGENTS.md not present (orchestrator splice skips until the symlink action creates it)",
+        missing_block="no rig-managed orchestrator block (apply adds it)",
+        conflict="unbalanced/misordered rig-managed orchestrator markers — reconcile by hand, then re-run",
+        stale="rig-managed orchestrator block is stale (apply rewrites it)",
+    )
+
+
+def _check_agents_autonomous_mode(action: Action, report: DriftReport) -> None:
+    """Flag drift on the rig-managed autonomous-mode block in the repo AGENTS.md."""
+    from .actions.runner import (
+        AUTONOMOUS_BEGIN_MARKER,
+        AUTONOMOUS_END_MARKER,
+        autonomous_mode_block_text,
+    )
+
+    _check_agents_md_splice(
+        action, report,
+        desired=autonomous_mode_block_text(),
+        begin=AUTONOMOUS_BEGIN_MARKER,
+        end=AUTONOMOUS_END_MARKER,
+        missing_file="AGENTS.md not present (autonomous-mode splice skips until the symlink action creates it)",
+        missing_block="no rig-managed autonomous-mode block (apply adds it)",
+        conflict="unbalanced/misordered rig-managed autonomous-mode markers — reconcile by hand, then re-run",
+        stale="rig-managed autonomous-mode block is stale (apply rewrites it)",
+    )
 
 
 def _nearest_existing_ancestor(path: Path) -> Path | None:

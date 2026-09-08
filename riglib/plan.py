@@ -130,7 +130,7 @@ def _agent_hooks_target_for_kind(kind: str) -> str | None:
 class Action:
     """A single planned install step. ``kind`` selects the runner in ``actions/``."""
 
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_schedule | provision_agents_symlink | provision_project_tool | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
+    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
     category: str
     item: str
     source: Path  # carrier path in the agent-tools checkout
@@ -1840,10 +1840,11 @@ def _build_agents_symlink(config: LoadedConfig, plan: InstallPlan) -> None:
     """Plan the AGENTS.md (canonical) + CLAUDE.md (symlink) provisioning for the repo.
 
     Default **ON**: every repo should expose one agent-guide file under both names so every
-    harness reads the same instructions. Opt out with ``agents_md: { enabled: false }`` (or
-    ``{ symlink: false }``). The classify-and-converge logic lives in ``actions/`` (it depends
-    on what is already on disk), so the plan emits one idempotent action anchored at the repo
-    root; no carrier in agent-tools.
+    harness reads the same instructions, plus the marker-delimited orchestrator and
+    autonomous-mode reminders spliced into that guide. Opt out with
+    ``agents_md: { enabled: false }`` (or ``{ symlink: false }``). The classify-and-converge
+    logic lives in ``actions/`` (it depends on what is already on disk), so the plan emits
+    idempotent actions anchored at the repo root; no carrier in agent-tools.
     """
     am = config.data.get("agents_md")
     if am is None:
@@ -1857,6 +1858,27 @@ def _build_agents_symlink(config: LoadedConfig, plan: InstallPlan) -> None:
             kind="provision_agents_symlink",
             category="agents_md",
             item="symlink",
+            source=config.repo_root,
+            target=config.repo_root,
+            options={},
+        )
+    )
+    # Symlink first so create_both writes the placeholder before these splices run.
+    plan.actions.append(
+        Action(
+            kind="provision_agents_orchestrator",
+            category="agents_md",
+            item="orchestrator",
+            source=config.repo_root,
+            target=config.repo_root,
+            options={},
+        )
+    )
+    plan.actions.append(
+        Action(
+            kind="provision_agents_autonomous_mode",
+            category="agents_md",
+            item="autonomous-mode",
             source=config.repo_root,
             target=config.repo_root,
             options={},

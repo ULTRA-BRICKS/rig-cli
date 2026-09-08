@@ -1138,6 +1138,13 @@ names so every harness reads the same instructions: **`AGENTS.md`** is the real 
 reads it). Default **ON** — on `rig init` AND `rig apply`, rig converges the repo to this
 invariant; idempotent (a re-apply that finds it already correct is a no-op).
 
+When enabled, apply also splices two marker-delimited blocks into the canonical
+guide: an orchestrator block (`# >>> rig-managed orchestrator`) and an
+autonomous-mode block (`# >>> rig-managed autonomous-mode`, naming
+`Skill: autonomous-mode`). User body outside the markers is untouched;
+re-apply is a no-op; opt-out is `agents_md.enabled: false`. Class:
+marker-managed (see [managed-files.md](managed-files.md)).
+
 ```yaml
 agents_md:
   enabled: true     # provision AGENTS.md (canonical) + CLAUDE.md (symlink). Default ON.
