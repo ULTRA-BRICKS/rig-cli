@@ -4075,6 +4075,8 @@ def tmux_plan_from_action(action: Action):
         continuum=dict(opts.get("continuum", {}) or {}),
         moshi=dict(opts.get("moshi", {}) or {}),
         cc_restore=dict(opts.get("cc_restore", {}) or {}),
+        omp_restore=dict(opts.get("omp_restore", {}) or {}),
+        codex_restore=dict(opts.get("codex_restore", {}) or {}),
         anti_sprawl=dict(opts.get("anti_sprawl", {}) or {}),
         boot=dict(opts.get("boot", {}) or {}),
         login_shell=dict(opts.get("login_shell", {}) or {}),

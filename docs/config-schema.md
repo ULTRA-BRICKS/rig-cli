@@ -1740,6 +1740,10 @@ tmux:
     enabled: false              # opt-in Moshi (iOS client) status-line tweaks — see below
   cc_restore:
     enabled: true               # per-window Claude Code resume by exact session id
+  omp_restore:
+    enabled: true               # per-window omp (oh-my-pi) resume by exact session file
+  codex_restore:
+    enabled: true               # per-window Codex CLI resume by exact session id
   anti_sprawl:
     enabled: true               # install an attach-or-create entry (one canonical session)
     session: main               # the canonical session name
@@ -1772,14 +1776,16 @@ tmux:
 | `enabled` | bool | — (opt-in) | provision the rig-managed tmux config (`false`/absent → leave tmux alone) |
 | `apply` | enum | `import` | apply mechanism: `import` (preferred) or `block` (managed-block fallback) |
 | `conf_path` | path | `~/.tmux.conf` | the user's tmux config rig migrates and wires |
-| `generated_dir` | path | `~/.config/rig/tmux` | where rig writes `rig.tmux.conf` + cc-save/cc-restore/tmux-attach scripts |
-| `resurrect.processes` | list[str] | `[ssh, psql, mysql, sqlite3]` | `@resurrect-processes`. `claude` is **omitted by default while cc_restore is on** (cc-restore owns the exact resume); rig adds it only when cc_restore is off (fallback). List it explicitly to force it. |
+| `generated_dir` | path | `~/.config/rig/tmux` | where rig writes `rig.tmux.conf` + cc-save/cc-restore/omp-save/omp-restore/codex-save/codex-restore/tmux-attach scripts |
+| `resurrect.processes` | list[str] | `[ssh, psql, mysql, sqlite3]` | `@resurrect-processes`. `claude`/`omp`/`codex` are each **omitted by default while their own `*_restore` is on** (the matching `*-restore` script owns the exact resume); rig adds a name back only when that harness's restore is off (fallback). List it explicitly to force it. |
 | `resurrect.capture_pane_contents` | bool | `true` | `@resurrect-capture-pane-contents on` |
 | `continuum.restore` | bool | `true` | `@continuum-restore on` |
 | `continuum.save_interval` | int ≥ 1 | `15` | `@continuum-save-interval` (minutes) |
 | `continuum.boot` | bool | `true` | **no-op** — rig always emits `@continuum-boot 'off'` (its own launchd agent owns boot; see `boot.enabled`). Kept for forward-compat. |
 | `moshi.enabled` | bool | `false` | opt-in Moshi status-line tweaks, emitted **before** continuum init |
 | `cc_restore.enabled` | bool | `true` | wire cc-save/cc-restore via resurrect post-save/post-restore hooks |
+| `omp_restore.enabled` | bool | `true` | wire omp-save/omp-restore via resurrect post-save/post-restore hooks |
+| `codex_restore.enabled` | bool | `true` | wire codex-save/codex-restore via resurrect post-save/post-restore hooks |
 | `anti_sprawl.enabled` | bool | `true` | install the attach-or-create entry script |
 | `anti_sprawl.session` | str | `main` | the one canonical session name |
 | `boot.enabled` | bool | `true` | write a launchd agent (macOS) that runs the boot script after a reboot, and `launchctl load -w` it on apply |
@@ -1851,7 +1857,7 @@ boot plist, the import line / managed block) — never on the user's hand-writte
 **The root-cause ordering guarantee.** tmux-continuum's autosave timer lives in `status-right`.
 A hand-written conf that ran `set -g status-right ''` (a Moshi tweak) **after**
 `run-shell …/continuum.tmux` silently wiped continuum's hook → autosave died → a reboot restored
-a weeks-stale session. rig's generator pins the order: plugin options → cc-restore hooks →
+a weeks-stale session. rig's generator pins the order: plugin options → session-resume hooks (cc/omp/codex) →
 **pane_titles (default-on) + the Moshi tweak (opt-in), BOTH BEFORE continuum init** → resurrect
 init → **continuum init LAST** → tpm init last-of-all. So neither tweak can ever wipe continuum's
 hook. `pane_titles.clear_status_right` (default-on when `pane_titles.enabled` is also on) also
@@ -1904,20 +1910,57 @@ scripts and wires them via `@resurrect-hook-post-save-all` / `@resurrect-hook-po
   falls back to `claude --continue` (most-recent session in that cwd) so a reboot is never left
   with a dead pane.
 
-**Why `claude` is NOT in the default `@resurrect-processes`.** When `cc_restore` is on, cc-restore
-owns the resume, so rig **deliberately leaves `claude` OUT** of `@resurrect-processes`: if it were
-in the list, tmux-resurrect would restart the pane as a *bare* `claude` (a new/default session)
-**before** the cc-restore hook runs, and cc-restore — which only ever resumes a *fresh shell* —
-would then skip that pane, leaving the wrong session. So resurrect brings the **shell** back and
-cc-restore does the exact `claude --resume <id>`. (With `cc_restore: { enabled: false }`, `claude`
-*is* added to `@resurrect-processes` as the best-effort fallback. You can also list `claude`
-explicitly in `resurrect.processes` to force it in.)
+**Why `claude`/`omp`/`codex` are NOT in the default `@resurrect-processes`.** When a harness's
+own `*_restore` is on, its `*-restore` script owns the resume, so rig **deliberately leaves that
+harness's name OUT** of `@resurrect-processes`: if it were in the list, tmux-resurrect would
+restart the pane as a *bare* process (a new/default session) **before** the `*-restore` hook
+runs, and `*-restore` — which only ever resumes a *fresh shell* — would then skip that pane,
+leaving the wrong session. So resurrect brings the **shell** back and `*-restore` does the exact
+resume. (With e.g. `cc_restore: { enabled: false }`, `claude` *is* added to
+`@resurrect-processes` as the best-effort fallback — independently for each of `omp_restore` /
+`codex_restore`. You can also list a name explicitly in `resurrect.processes` to force it in.)
 
-**Known limitation — per-cwd, not strictly per-pane.** Claude Code does not expose its session id
-per tmux pane, so cc-save records the **newest** session id for each pane's **cwd**. Two `claude`
-panes in the **same** directory therefore map to the same session id and cc-restore resumes both
-into it. Per-window exact resume holds when each claude pane is in a **distinct** cwd (the common
-case).
+**Known limitation — per-cwd, not strictly per-pane.** None of the three harnesses expose their
+session id per tmux pane, so each `*-save` script records the **newest** matching session for
+each pane's **cwd**. Two panes of the **same** harness in the **same** directory therefore map to
+the same session and `*-restore` resumes both into it. Per-window exact resume holds when each
+pane is in a **distinct** cwd (the common case).
+
+**omp-restore / codex-restore — the same exact-id resume, generalized to omp and Codex CLI.**
+rig installs the same `*-save.sh` / `*-restore.sh` pair for **omp** (this harness, oh-my-pi) and
+**Codex CLI**, wired through the SAME `@resurrect-hook-post-save-all` /
+`@resurrect-hook-post-restore-all` hooks as cc-restore. Since each of those is a single tmux
+option holding one shell command, every **enabled** harness's script is **chained** into that one
+hook value (`'cc-save.sh'; 'omp-save.sh'; 'codex-save.sh'`, `eval`'d in sequence by resurrect) —
+turning a harness off simply removes its command from the chain, it never clobbers the others'.
+
+- **`omp-save.sh` / `omp-restore.sh`** — same process-tree-walk detection as cc-save (omp's own
+  binary is a direct/descendant child of the pane's shell), matching argv[0] `omp` or `*/omp`
+  (omp installs as a single compiled binary, so — unlike claude — there is no versioned-symlink
+  quirk to also match). omp keys `~/.omp/agent/sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl`, where
+  `<cwd-slug>` is the cwd **relative to `$HOME`** with every `/` replaced by `-` (dots preserved)
+  — a **different** encoding from Claude Code's full-absolute-path, dot-folding
+  `~/.claude/projects/<enc>` convention. `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` are honored if
+  set in the ambient environment the resurrect hook runs under, mirroring omp's own resolution.
+  The map records the **full session file path** (not a bare id) — `omp --resume` accepts "an ID
+  prefix, a path, or picker" per `omp --help`, and a path sidesteps any ambiguity over whether the
+  session's leading ISO-timestamp is part of its "id". After a reboot, `omp-restore.sh` runs
+  `omp --resume <path>` into a fresh shell pane; a stale/missing file falls back to
+  `omp --continue`.
+- **`codex-save.sh` / `codex-restore.sh`** — same process-tree-walk detection, matching argv[0]
+  `codex`/`*/codex` (the Codex CLI's `node` launcher `spawn()`s a native per-platform `codex`
+  binary as a child; the walk finds that descendant). Unlike claude/omp, Codex's session store is
+  **not cwd-keyed on disk**: rollout files live under
+  `~/.codex/sessions/<local-YYYY>/<local-MM>/<local-DD>/rollout-<local-ISO-ts>-<uuid>.jsonl`, and
+  the cwd is recorded only inside each file's first `session_meta` JSON line. So codex-save scans
+  the last **2 days** of local-date directories (newest day/file first) reading just each
+  candidate's first line until a cwd match is found — **known limitation:** a cwd whose most
+  recent Codex session predates that 2-day window is missed (unbounded scanning of a
+  multi-gigabyte session store on every periodic save is not an acceptable tradeoff). `RIG_CODEX_HOME`
+  overrides the session-store root (ambient `CODEX_HOME` is deliberately ignored, mirroring rig's
+  own Codex config-root resolution); default `~/.codex`. After a reboot, `codex-restore.sh` runs
+  `codex resume <session-id>` into a fresh shell pane; a stale/missing rollout file falls back to
+  `codex resume --last`.
 
 **anti-sprawl — one canonical session.** A Moshi/iTerm reconnect that ran a bare `tmux` spawned
 a **duplicate** session. rig installs `tmux-attach.sh` (attach `<session>` if it exists, else

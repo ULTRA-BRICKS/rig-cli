@@ -57,6 +57,8 @@ def test_tmux_full_block_accepted():
                 },
                 "moshi": {"enabled": True},
                 "cc_restore": {"enabled": True},
+                "omp_restore": {"enabled": True},
+                "codex_restore": {"enabled": True},
                 "anti_sprawl": {"enabled": True, "session": "main"},
                 "boot": {"enabled": True},
                 "focus_events": {"enabled": True},
@@ -367,6 +369,37 @@ def test_claude_in_resurrect_processes_when_cc_restore_off():
     conf = tmux.build_tmux(repo_home=Path("/home/u"), cc_restore={"enabled": False}).render_rig_conf()
     line = next(ln for ln in conf.splitlines() if "@resurrect-processes" in ln)
     assert "claude" in line
+
+
+def test_default_resurrect_processes_excludes_omp_and_codex_when_their_restore_on():
+    """omp/codex mirror claude: their own name is excluded from @resurrect-processes while
+    their `*_restore` is on (default) — their own `*-restore` script owns the exact resume."""
+    conf = _plan().render_rig_conf()
+    line = next(ln for ln in conf.splitlines() if "@resurrect-processes" in ln)
+    assert "omp" not in line.split("'")[1].split()
+    assert "codex" not in line.split("'")[1].split()
+
+
+def test_omp_added_to_resurrect_processes_when_omp_restore_off():
+    conf = tmux.build_tmux(repo_home=Path("/home/u"), omp_restore={"enabled": False}).render_rig_conf()
+    line = next(ln for ln in conf.splitlines() if "@resurrect-processes" in ln)
+    assert "omp" in line.split("'")[1].split()
+
+
+def test_codex_added_to_resurrect_processes_when_codex_restore_off():
+    conf = tmux.build_tmux(repo_home=Path("/home/u"), codex_restore={"enabled": False}).render_rig_conf()
+    line = next(ln for ln in conf.splitlines() if "@resurrect-processes" in ln)
+    assert "codex" in line.split("'")[1].split()
+
+
+def test_omp_restore_off_does_not_affect_codex_or_claude_exemption():
+    """Turning one harness's restore off must not disturb the other two's exemption."""
+    conf = tmux.build_tmux(repo_home=Path("/home/u"), omp_restore={"enabled": False}).render_rig_conf()
+    line = next(ln for ln in conf.splitlines() if "@resurrect-processes" in ln)
+    procs = line.split("'")[1].split()
+    assert "omp" in procs
+    assert "claude" not in procs
+    assert "codex" not in procs
 
 
 def test_render_capture_pane_contents_on():
@@ -953,6 +986,34 @@ def test_tmux_plan_from_action_on_pre_upgrade_action_defaults_to_focus_events_on
     assert "set -g focus-events on" in conf
 
 
+def test_tmux_plan_from_action_on_pre_upgrade_action_defaults_to_omp_and_codex_restore_on():
+    """Same drift-check-replay contract as pane_titles/focus_events above, for the new
+    `omp_restore`/`codex_restore` knobs: a persisted Action from before this feature existed
+    (no `omp_restore`/`codex_restore` keys at all) must still wire omp-save/omp-restore and
+    codex-save/codex-restore — the same on-by-default a freshly-built plan gets."""
+    from riglib.actions.runner import tmux_plan_from_action
+    from riglib.plan import Action
+
+    action = Action(
+        kind="provision_tmux",
+        category="tmux",
+        item="config",
+        source=Path("/repo"),
+        target=Path("/home/u/.tmux.conf"),
+        options={
+            "conf_path": "/home/u/.tmux.conf",
+            "generated_dir": "/home/u/.config/rig/tmux",
+            # no "omp_restore" / "codex_restore" keys — a pre-upgrade persisted action.
+        },
+    )
+    plan = tmux_plan_from_action(action)
+    assert plan.omp_restore_enabled is True
+    assert plan.codex_restore_enabled is True
+    conf = plan.render_rig_conf()
+    assert "omp-save.sh" in conf and "omp-restore.sh" in conf
+    assert "codex-save.sh" in conf and "codex-restore.sh" in conf
+
+
 def test_render_moshi_on_guards_under_moshi_client():
     """The Moshi tweak must be gated on $MOSHI_CLIENT (it only applies on the iOS client)."""
     conf = tmux.build_tmux(repo_home=Path("/home/u"), moshi={"enabled": True}).render_rig_conf()
@@ -969,8 +1030,80 @@ def test_render_cc_restore_wires_resurrect_hooks():
 
 
 def test_render_cc_restore_off_omits_hooks():
+    """With cc_restore OFF alone, omp/codex restore stay at their own (on) default, so the
+    hook itself is still wired for them — only cc-save.sh must be gone from it."""
     conf = tmux.build_tmux(repo_home=Path("/home/u"), cc_restore={"enabled": False}).render_rig_conf()
+    assert "cc-save.sh" not in conf
+    assert "cc-restore.sh" not in conf
+    assert "@resurrect-hook-post-save-all" in conf  # omp/codex are still on by default
+
+
+def test_render_omp_restore_wires_resurrect_hooks():
+    """omp-restore wires omp-save/omp-restore via the SAME resurrect post-save/post-restore
+    hooks cc-restore uses (each is a single tmux option, so multiple enabled harnesses'
+    commands must be chained into that one value, not overwrite each other)."""
+    conf = tmux.build_tmux(repo_home=Path("/home/u")).render_rig_conf()
+    assert "@resurrect-hook-post-save-all" in conf
+    assert "@resurrect-hook-post-restore-all" in conf
+    assert "omp-save.sh" in conf
+    assert "omp-restore.sh" in conf
+
+
+def test_render_codex_restore_wires_resurrect_hooks():
+    conf = tmux.build_tmux(repo_home=Path("/home/u")).render_rig_conf()
+    assert "codex-save.sh" in conf
+    assert "codex-restore.sh" in conf
+
+
+def test_render_omp_restore_off_omits_omp_scripts_from_hooks():
+    conf = tmux.build_tmux(repo_home=Path("/home/u"), omp_restore={"enabled": False}).render_rig_conf()
+    assert "omp-save.sh" not in conf
+    assert "omp-restore.sh" not in conf
+    # the other two harnesses (on by default) must still be wired.
+    assert "cc-save.sh" in conf
+    assert "codex-save.sh" in conf
+
+
+def test_render_codex_restore_off_omits_codex_scripts_from_hooks():
+    conf = tmux.build_tmux(repo_home=Path("/home/u"), codex_restore={"enabled": False}).render_rig_conf()
+    assert "codex-save.sh" not in conf
+    assert "codex-restore.sh" not in conf
+    assert "cc-save.sh" in conf
+    assert "omp-save.sh" in conf
+
+
+def test_render_all_three_restores_off_omits_hooks_entirely():
+    """With every harness's exact-id resume disabled, rig must not emit an empty/dangling
+    resurrect hook pair at all — mirrors test_render_cc_restore_off_omits_hooks generalized."""
+    conf = tmux.build_tmux(
+        repo_home=Path("/home/u"),
+        cc_restore={"enabled": False},
+        omp_restore={"enabled": False},
+        codex_restore={"enabled": False},
+    ).render_rig_conf()
     assert "@resurrect-hook-post-save-all" not in conf
+    assert "@resurrect-hook-post-restore-all" not in conf
+
+
+def test_render_chains_multiple_harnesses_into_one_hook_value():
+    """resurrect's hook option holds ONE shell command string (`eval`'d) — every enabled
+    harness's save/restore script must be `;`-joined into that single value, not clobber the
+    others via a repeated `set -g`."""
+    conf = tmux.build_tmux(repo_home=Path("/home/u")).render_rig_conf()
+    save_line = next(ln for ln in conf.splitlines() if "@resurrect-hook-post-save-all" in ln)
+    restore_line = next(ln for ln in conf.splitlines() if "@resurrect-hook-post-restore-all" in ln)
+    for line in (save_line, restore_line):
+        assert line.count("set -g @resurrect-hook") == 1  # exactly ONE set per hook point
+    assert "cc-save.sh" in save_line and "omp-save.sh" in save_line and "codex-save.sh" in save_line
+    assert (
+        "cc-restore.sh" in restore_line
+        and "omp-restore.sh" in restore_line
+        and "codex-restore.sh" in restore_line
+    )
+    # exactly one @resurrect-hook-post-save-all / post-restore-all `set -g` line each — no
+    # second, overwriting `set -g` for the same option anywhere in the file.
+    assert sum(1 for ln in conf.splitlines() if "@resurrect-hook-post-save-all" in ln) == 1
+    assert sum(1 for ln in conf.splitlines() if "@resurrect-hook-post-restore-all" in ln) == 1
 
 
 def test_render_is_deterministic():
@@ -1050,6 +1183,229 @@ def test_attach_script_shell_quotes_session_name():
                            anti_sprawl={"enabled": True, "session": "my sess; rm -rf /"}).render_attach_script()
     # the dangerous name must be single-quoted (shlex.quote), not bare.
     assert "SESSION='my sess; rm -rf /'" in body
+
+
+# ── omp-save / omp-restore script rendering ──────────────────────────────────────────────
+def test_omp_save_encodes_cwd_relative_to_home_dot_preserved():
+    """omp's session-dir slug is the cwd RELATIVE TO $HOME with '/' -> '-' — dots are
+    PRESERVED (unlike Claude Code's full-path, dot-folding encoding). VERIFIED against a real
+    on-disk session dir: $HOME/xp/review-cli/.worktrees/450-mimo-seat ->
+    -xp-review-cli-.worktrees-450-mimo-seat."""
+    body = _plan().render_omp_save()
+    assert "sessions" in body
+    assert ".jsonl" in body
+    # a bare '/' -> '-' encoder (NOT the claude tr './' '--' one — dots must stay literal).
+    assert "tr '/' '-'" in body
+    assert "tr './' '--'" not in body
+
+
+def test_omp_save_walks_pane_process_tree():
+    body = _plan().render_omp_save()
+    assert "ps -eo pid=,ppid=,args=" in body
+    assert "pane_current_path" in body or "#{pane_current_path}" in body
+
+
+def test_omp_save_matches_omp_basename_only():
+    """Matches `omp`/`*/omp` (argv[0] only) — omp is a single compiled binary, no versioned-
+    symlink quirk to also match (unlike claude)."""
+    body = _plan().render_omp_save()
+    assert "omp|*/omp" in body
+
+
+def test_omp_save_records_full_session_path_not_bare_id():
+    """`omp --resume` accepts an id prefix OR a path; the map stores the resolved session
+    FILE'S FULL PATH to sidestep any ambiguity over what counts as the bare 'id'."""
+    body = _plan().render_omp_save()
+    assert "newest_session_file" in body
+    assert "send-keys" not in body  # omp-save only RECORDS; resume is omp-restore's job.
+
+
+def test_omp_save_honors_pi_coding_agent_dir_override():
+    body = _plan().render_omp_save()
+    assert "PI_CODING_AGENT_DIR" in body
+    assert "PI_CONFIG_DIR" in body
+
+
+def test_omp_restore_resumes_by_exact_path():
+    body = _plan().render_omp_restore()
+    assert "omp --resume $qsf" in body
+    assert "omp --continue" in body  # stale/missing-file fallback
+
+
+def test_omp_restore_does_not_clobber_running_omp():
+    body = _plan().render_omp_restore()
+    assert "pane_current_command" in body or "#{pane_current_command}" in body
+
+
+def test_omp_restore_skips_missing_and_nonshell_panes():
+    body = _plan().render_omp_restore()
+    assert '[ -n "$cur" ] || continue' in body
+    assert "sh|bash|zsh|fish" in body
+    assert "*) continue" in body
+
+
+def test_omp_restore_shell_quotes_runtime_values():
+    body = _plan().render_omp_restore()
+    assert "printf '%q'" in body
+    assert "omp --resume $qsf" in body and "cd $qcwd" in body
+    assert 'send-keys -t "$addr" "cd $cwd && omp --resume $sf"' not in body
+
+
+def test_omp_scripts_have_shebang():
+    assert _plan().render_omp_save().startswith("#!/")
+    assert _plan().render_omp_restore().startswith("#!/")
+
+
+# ── codex-save / codex-restore script rendering ──────────────────────────────────────────
+def test_codex_save_matches_codex_basename_only():
+    """Matches `codex`/`*/codex` — the Codex CLI's `node` launcher spawns a native per-platform
+    `codex` binary as a child; the walk finds THAT descendant (basename `codex`, no version
+    quirk)."""
+    body = _plan().render_codex_save()
+    assert "codex|*/codex" in body
+
+
+def test_codex_save_walks_pane_process_tree():
+    body = _plan().render_codex_save()
+    assert "ps -eo pid=,ppid=,args=" in body
+    assert "pane_current_path" in body or "#{pane_current_path}" in body
+
+
+def test_codex_save_scans_local_date_directories_newest_first():
+    """codex's session store is NOT cwd-keyed on disk (unlike claude/omp) — sessions live
+    under $CODEX_HOME/sessions/<local-YYYY>/<local-MM>/<local-DD>/rollout-*.jsonl, and cwd is
+    read from each candidate's first line. The scan must walk days/files newest-first (so the
+    first cwd match found is the overall newest) and be BOUNDED (LOOKBACK_DAYS), not scan the
+    entire session store on every save."""
+    body = _plan().render_codex_save()
+    assert "LOOKBACK_DAYS" in body
+    assert "sessions" in body
+    assert "ls -t" in body  # newest-first within a day
+    assert 'session_field "$f" cwd' in body  # reads the session_meta cwd field
+    assert 'session_field "$f" session_id' in body  # reads the session_meta session_id field
+
+
+def test_codex_save_cross_platform_date_fallback():
+    """GNU `date -d` first (Linux), BSD/macOS `date -v` fallback — same GNU-first pattern as
+    render_autosave_script's mtime probe (the form that fails on THIS platform must fail
+    cleanly, not print garbage)."""
+    body = _plan().render_codex_save()
+    assert "date -d" in body
+    assert "date -v" in body
+
+
+def test_codex_save_honors_rig_codex_home_override_and_ignores_ambient_codex_home():
+    """Mirrors riglib.harness_skills.codex_home(): RIG_CODEX_HOME is the only override; ambient
+    CODEX_HOME must NOT appear as an honored override (a codex session may repoint it at a
+    runtime/install tree)."""
+    body = _plan().render_codex_save()
+    assert "RIG_CODEX_HOME" in body
+    assert "${CODEX_HOME" not in body
+
+
+def test_codex_save_records_session_id_and_rollout_path():
+    body = _plan().render_codex_save()
+    assert "send-keys" not in body  # codex-save only RECORDS; resume is codex-restore's job.
+
+
+def test_codex_restore_resumes_by_exact_session_id():
+    body = _plan().render_codex_restore()
+    assert "codex resume $qsid" in body
+    assert "codex resume --last" in body  # stale/missing-rollout fallback
+
+
+def test_codex_restore_does_not_clobber_running_codex():
+    body = _plan().render_codex_restore()
+    assert "pane_current_command" in body or "#{pane_current_command}" in body
+
+
+def test_codex_restore_skips_missing_and_nonshell_panes():
+    body = _plan().render_codex_restore()
+    assert '[ -n "$cur" ] || continue' in body
+    assert "sh|bash|zsh|fish" in body
+    assert "*) continue" in body
+
+
+def test_codex_restore_shell_quotes_runtime_values():
+    body = _plan().render_codex_restore()
+    assert "printf '%q'" in body
+    assert "codex resume $qsid" in body and "cd $qcwd" in body
+    assert 'send-keys -t "$addr" "cd $cwd && codex resume $sid"' not in body
+
+
+def test_codex_scripts_have_shebang():
+    assert _plan().render_codex_save().startswith("#!/")
+    assert _plan().render_codex_restore().startswith("#!/")
+
+
+# ── managed_scripts(): presence/absence gated by each harness's own restore knob ─────────
+def test_omp_scripts_in_managed_scripts_when_enabled():
+    p = tmux.build_tmux(repo_home=Path("/home/u"))
+    assert any(path == p.omp_save_path for path, _ in p.managed_scripts())
+    assert any(path == p.omp_restore_path for path, _ in p.managed_scripts())
+
+
+def test_omp_scripts_absent_from_managed_scripts_when_disabled():
+    off = tmux.build_tmux(repo_home=Path("/home/u"), omp_restore={"enabled": False})
+    assert all(path != off.omp_save_path for path, _ in off.managed_scripts())
+    assert all(path != off.omp_restore_path for path, _ in off.managed_scripts())
+    # cc's scripts are unconditional (unchanged legacy behavior) — must still be present.
+    assert any(path == off.cc_save_path for path, _ in off.managed_scripts())
+
+
+def test_codex_scripts_in_managed_scripts_when_enabled():
+    p = tmux.build_tmux(repo_home=Path("/home/u"))
+    assert any(path == p.codex_save_path for path, _ in p.managed_scripts())
+    assert any(path == p.codex_restore_path for path, _ in p.managed_scripts())
+
+
+def test_codex_scripts_absent_from_managed_scripts_when_disabled():
+    off = tmux.build_tmux(repo_home=Path("/home/u"), codex_restore={"enabled": False})
+    assert all(path != off.codex_save_path for path, _ in off.managed_scripts())
+    assert all(path != off.codex_restore_path for path, _ in off.managed_scripts())
+
+
+# ── idempotency across two build_tmux() calls ─────────────────────────────────────────────
+def test_omp_codex_render_is_idempotent_across_two_builds():
+    """Two independent build_tmux() calls with identical input must render byte-identical
+    output for every new artifact — no wall-clock/random/ordering nondeterminism."""
+    a = tmux.build_tmux(repo_home=Path("/home/u"))
+    b = tmux.build_tmux(repo_home=Path("/home/u"))
+    assert a.render_omp_save() == b.render_omp_save()
+    assert a.render_omp_restore() == b.render_omp_restore()
+    assert a.render_codex_save() == b.render_codex_save()
+    assert a.render_codex_restore() == b.render_codex_restore()
+    assert a.render_rig_conf() == b.render_rig_conf()
+    # managed_scripts() itself is stable across builds (same paths, same bodies, same order).
+    assert a.managed_scripts() == b.managed_scripts()
+
+
+def test_claude_path_unchanged_when_omp_and_codex_restore_default_on():
+    """Regression guard: with ONLY cc_restore explicitly set (omp/codex at their own defaults),
+    claude's own save/restore script bodies must be byte-identical to a plan built before this
+    generalization existed — the exact same render_cc_save()/render_cc_restore() output."""
+    p = tmux.build_tmux(repo_home=Path("/home/u"), cc_restore={"enabled": True})
+    assert "claude --resume $qsid" in p.render_cc_restore()
+    assert "claude --continue" in p.render_cc_restore()
+    assert "tr './' '--'" in p.render_cc_save()
+
+
+def test_claude_only_hook_value_unchanged_when_omp_and_codex_restore_off():
+    """With omp/codex restore OFF, the resurrect hook value must be EXACTLY the single
+    cc-save.sh / cc-restore.sh path — byte-identical to the pre-generalization claude-only
+    behavior (no stray '; ' chaining artifact from an empty list)."""
+    p = tmux.build_tmux(
+        repo_home=Path("/home/u"), omp_restore={"enabled": False}, codex_restore={"enabled": False}
+    )
+    conf = p.render_rig_conf()
+    save_line = next(ln for ln in conf.splitlines() if "@resurrect-hook-post-save-all" in ln)
+    restore_line = next(ln for ln in conf.splitlines() if "@resurrect-hook-post-restore-all" in ln)
+    import shlex as _shlex
+
+    expected_save = f'set -g @resurrect-hook-post-save-all "{_shlex.quote(str(p.cc_save_path))}"'
+    expected_restore = f'set -g @resurrect-hook-post-restore-all "{_shlex.quote(str(p.cc_restore_path))}"'
+    assert save_line == expected_save
+    assert restore_line == expected_restore
 
 
 # ── boot launchd plist (#19) ─────────────────────────────────────────────────────────────
@@ -1555,12 +1911,14 @@ def test_null_nested_knobs_normalize_to_default():
         repo_home=Path("/home/u"),
         continuum={"save_interval": None, "restore": None, "boot": None},
         cc_restore={"enabled": None}, moshi={"enabled": None},
+        omp_restore={"enabled": None}, codex_restore={"enabled": None},
         anti_sprawl={"enabled": None, "session": None}, boot={"enabled": None, "label": None},
         autosave={"enabled": False},  # keep continuum's own save so save_interval-default is visible
     )
     conf = p.render_rig_conf()
     assert f"@continuum-save-interval '{tmux.DEFAULT_SAVE_INTERVAL}'" in conf
     assert p.continuum_restore is True and p.cc_restore_enabled is True  # null → default True
+    assert p.omp_restore_enabled is True and p.codex_restore_enabled is True  # null → default True
     assert p.anti_sprawl_session == tmux.DEFAULT_SESSION  # null → default
     assert p.boot_label == tmux.DEFAULT_BOOT_LABEL
 
