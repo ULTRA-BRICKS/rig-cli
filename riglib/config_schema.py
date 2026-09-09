@@ -1036,6 +1036,19 @@ _LINTERS_BLOCK = Block(
     open_map_item_required=("tool", "path"),
 )
 
+_ECOSYSTEM_README_BLOCK = Block(
+    doc=(
+        "writes/updates a marker-delimited '## Ecosystem' section in a target repo's README from "
+        "one canonical, in-code tool registry (riglib.ecosystem_readme), so the hand-copied "
+        "sibling-tool list every repo carries stops silently drifting (rig-cli#308). Default OFF "
+        "(opt-in) — enable it, then `rig apply` inserts the section (or updates a stale one)."
+    ),
+    leaves={
+        "enabled": Leaf("boolean", "provision the README Ecosystem block (opt-in)", default=False),
+        "target": Leaf("string", "repo-relative README path to reconcile", default="README.md"),
+    },
+)
+
 _PROJECT_TOOLS_BLOCK = Block(
     doc="repo-local integration carriers for Haft, Serena, and Sverklo.",
     leaves={
@@ -1265,6 +1278,7 @@ BLOCKS: dict[str, Block] = {
     "ship_delegator": _SHIP_DELEGATOR_BLOCK,
     "linters": _LINTERS_BLOCK,
     "project_tools": _PROJECT_TOOLS_BLOCK,
+    "ecosystem_readme": _ECOSYSTEM_README_BLOCK,
     "task": _TASK_BLOCK,
 }
 

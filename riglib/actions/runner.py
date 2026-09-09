@@ -70,6 +70,7 @@ from ..github_ruleset import (
 from ..logging import log_event
 from ..paths import expand_user_path
 from ..plan import Action, InstallPlan
+from .. import ecosystem_readme
 from .. import project_tools
 from . import fsutil
 
@@ -1573,7 +1574,7 @@ def _splice_managed_block(
     begins = _find_marker_lines(content, begin_marker)
     ends = _find_marker_lines(content, end_marker)
     if len(begins) != len(ends) or (ends and not begins):
-        return "", "conflict", "unbalanced rig-managed execpolicy markers — reconcile by hand, then re-run"
+        return "", "conflict", "unbalanced rig-managed markers — reconcile by hand, then re-run"
     if not begins:
         body = content.rstrip("\n")
         sep = "\n\n" if body else ""
@@ -1584,7 +1585,7 @@ def _splice_managed_block(
     pending = -1
     for start, line_end, kind in markers:
         if kind != expect:
-            return "", "conflict", "misordered/nested rig-managed execpolicy markers — reconcile by hand, then re-run"
+            return "", "conflict", "misordered/nested rig-managed markers — reconcile by hand, then re-run"
         if kind == "begin":
             pending = start
             expect = "end"
@@ -1604,6 +1605,87 @@ def _splice_managed_block(
         cursor = r_end
     out.append(content[cursor:])
     return "".join(out), "update", ""
+
+
+# ── README ecosystem-block provisioning (rig-cli#308) ──────────────────────────────────────────
+# Writes/updates a marker-delimited "## Ecosystem" section into a target repo's README.md from the
+# ONE canonical registry in riglib.ecosystem_readme. Reuses the SAME `_splice_managed_block` offset
+# machinery the execpolicy / global-excludes / ship-delegator managed blocks use, so a re-apply
+# with an unchanged registry is a byte-identical no-op and any content a user put OUTSIDE the
+# markers (their own README prose) survives verbatim.
+ECOSYSTEM_README_BEGIN_MARKER = ecosystem_readme.ECOSYSTEM_README_BEGIN_MARKER
+ECOSYSTEM_README_END_MARKER = ecosystem_readme.ECOSYSTEM_README_END_MARKER
+
+
+def ecosystem_readme_file(action: Action) -> Path:
+    """The README a ``apply_ecosystem_readme`` action targets (shared by apply + drift)."""
+    return action.target
+
+
+def ecosystem_readme_block_text(action: Action) -> str:
+    """The exact marker-delimited block rig owns for this action (no trailing newline).
+
+    Single source of truth shared by the install handler and drift, so both agree byte-for-byte.
+    Content is entirely registry-driven (no per-repo variation), unlike execpolicy's per-kind
+    tool set.
+    """
+    return ecosystem_readme.render_ecosystem_block()
+
+
+def _do_apply_ecosystem_readme(action: Action, on_conflict: str) -> ActionResult:
+    """Reconcile rig's managed Ecosystem block into the target README.md — idempotent, additive.
+
+    Mirrors ``_do_provision_execpolicy`` exactly: append the block to a README that lacks it
+    (creating the file/dirs), collapse any duplicated managed regions to ONE correct block in
+    place, or no-op a correct single block. Every line OUTSIDE the markers is preserved verbatim.
+    An unbalanced/misordered marker pair is a hard error rig refuses to guess at. ``on_conflict=
+    backup`` keeps a timestamped copy before a rewrite; ``skip`` leaves a drifted block untouched.
+    """
+    desired = ecosystem_readme_block_text(action)
+    path = ecosystem_readme_file(action)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not path.exists():
+        # newline="" (matching the read below): a fresh file's content is entirely OUR OWN LF text,
+        # but writing without it would still hit Path.write_text's default OS-newline translation
+        # on Windows for no benefit here — keep the write side symmetric with the read side always.
+        path.write_text(desired + "\n", encoding="utf-8", newline="")
+        return ActionResult(action, "created", f"ecosystem_readme/{action.item}: wrote {path}")
+    try:
+        with path.open(encoding="utf-8", newline="") as fh:
+            content = fh.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        # unlike execpolicy's own rig-generated .rules file, a README target is a pre-existing,
+        # arbitrary user-authored file — non-UTF-8 bytes are a real, reachable case here, not a
+        # rig-generated: report it as an actionable error instead of letting it crash apply.
+        return ActionResult(action, "error", f"ecosystem_readme/{action.item}: cannot read {path}: {exc}")
+
+    new_content, state, detail = _splice_managed_block(
+        content, desired, ECOSYSTEM_README_BEGIN_MARKER, ECOSYSTEM_README_END_MARKER
+    )
+    if state == "conflict":
+        return ActionResult(action, "error", f"ecosystem_readme/{action.item}: {detail}")
+    if state == "ok":
+        return ActionResult(action, "skipped", f"ecosystem_readme/{action.item}: already current in {path}")
+    backup_note = ""
+    if state == "update":
+        if on_conflict == "skip":
+            return ActionResult(
+                action, "skipped",
+                f"ecosystem_readme/{action.item}: {path} block differs but on_conflict=skip — left unchanged (drift NOT reconciled)",
+            )
+        if _should_backup(on_conflict):
+            bak = fsutil.backup_path(path)
+            shutil.copy2(str(path), str(bak))
+            backup_note = f" (backed up prior → {bak})"
+    # newline="" mirrors the read: unlike execpolicy's rig-generated .rules file, this splice can
+    # carry a PRE-EXISTING CRLF README's content verbatim in the preserved (outside-markers) text —
+    # a plain write_text() would apply Path.write_text's default OS-newline translation on top of
+    # already-literal \r\n bytes, corrupting them to \r\r\n on Windows.
+    path.write_text(new_content, encoding="utf-8", newline="")
+    status = "backed_up" if backup_note else "updated"
+    verb = "appended block to" if state == "create" else "reconciled block in"
+    return ActionResult(action, status, f"ecosystem_readme/{action.item}: {verb} {path}{backup_note}")
 
 
 # ── omp guard extension provisioning (~/.omp/agent/extensions/rig-permissions-guard.ts) ──────
@@ -8060,6 +8142,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_linter_config": _do_provision_linter_config,
     "provision_linter_bundle": _do_provision_linter_bundle,
     "provision_project_tool": _do_provision_project_tool,
+    "apply_ecosystem_readme": _do_apply_ecosystem_readme,
     "provision_github_ruleset": _do_provision_github_ruleset,
     "provision_github_merge": _do_provision_github_merge,
     "provision_github_ghas": _do_provision_github_ghas,

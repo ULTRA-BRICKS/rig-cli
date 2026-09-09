@@ -1468,6 +1468,44 @@ apply-only maintenance and has no cheap drift read-back.
 
 ---
 
+## `ecosystem_readme`
+
+Writes/updates a marker-delimited `## Ecosystem` section in this repo's README from ONE
+canonical, in-code tool registry (`riglib/ecosystem_readme.py`), instead of every sibling repo
+hand-copying and letting the list silently drift (rig-cli#308). This is a **repo** block, default
+**OFF** (opt-in) — a fresh `rig apply` never rewrites a repo's README unprompted. Enable it via
+`rig setup` (which shows/edits it like every other reconciled area) or `rig config set
+ecosystem_readme.enabled true`.
+
+```yaml
+ecosystem_readme:
+  enabled: true
+  target: README.md  # repo-relative; defaults to README.md
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | provision the README Ecosystem block (opt-in) |
+| `target` | string | `README.md` | repo-relative README path to reconcile |
+
+**How it reconciles.** The block is delimited by `<!-- rig:ecosystem-block -->` /
+`<!-- /rig:ecosystem-block -->` HTML comments (invisible in a rendered Markdown viewer) and
+spliced in using the SAME marker-offset machinery the codex execpolicy `.rules` block uses: a
+target missing the markers gets the block APPENDED (creating the README if it does not exist
+yet); a target whose managed block differs from the canonical rendering gets it REWRITTEN
+in place; a target already matching is a byte-identical no-op. Everything OUTSIDE the markers —
+the rest of your README — is preserved verbatim. An unbalanced or misordered marker pair is a
+hard error rig refuses to guess at (fix it by hand, then re-apply). A rewrite honors
+`defaults.on_conflict` like every other managed block: `backup` (default) keeps a timestamped
+copy before rewriting; `skip` leaves a stale block untouched (drift stays visible in `rig
+status`) but still performs the additive append when no managed block exists yet.
+
+**Drift.** `rig status` flags the block as missing when the target file (or a managed block
+inside it) is absent, and modified when the on-disk block differs from the canonical rendering
+(including an unbalanced/misordered marker pair, which needs a hand fix).
+
+---
+
 ## `github`
 
 Provisions a **GitHub repository branch ruleset** — the modern replacement for branch
@@ -2481,8 +2519,8 @@ there is one emitter and the schema is never maintained in parallel (see "The JS
 **Which file a change is written to.** Each option is routed to its **owning layer**:
 
 - **REPO** options (`skills`, `agent_hooks`, `git_hooks`, `ci`, `mcp`, `harness`, `scripts`,
-  `dev`, `models`, `github`, `agents_md`, `linters`, `project_tools`) are written to the repo's `./rig.yaml` — the
-  values the default scaffold commits.
+  `dev`, `models`, `github`, `agents_md`, `linters`, `project_tools`, `ecosystem_readme`) are
+  written to the repo's `./rig.yaml` — the values the default scaffold commits.
 - **GLOBAL-only** options (`gitignore`, `tg_ctl`, `tmux`, `mode`) are machine-wide blocks the
   scaffold never writes into a committed repo file; the wizard writes them to
   `~/.config/rig/config.yaml` only — it never lands a global-only block in a committed repo
@@ -2550,8 +2588,8 @@ rig config set harness.auto_mode false --no-apply        # write only, print the
 strict**: an unknown FIXED key in *any* block — `defaults`, `skills`, `agent_hooks`, `git_hooks`
 (+ `dispatcher`), `ci`, `mcp`, `harness` (+ `hook_bridge` / `web_search`), `permissions`, `models` (+ `schedule`),
 `agents_md`, `scripts`, `dev` (+ `server` / `e2e`), `github` (+ `ruleset` / `merge` / `ghas` / `actions` / `browser`), `tmux` (+ every
-sub-block), `gitignore`, `tg_ctl`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`) — is
-rejected with the schema path of the offender, not silently ignored. (The open maps are
+sub-block), `gitignore`, `tg_ctl`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`),
+`ecosystem_readme` — is rejected with the schema path of the offender, not silently ignored. (The open maps are
 top-level `scripts:`, the catalog-keyed `items:` / `fragments:` maps, plus `dev.e2e.jobs:` — see
 "Strict by default" above.) Bad-value rejections
 include: unsupported `version`, invalid `on_conflict` / ci `tier` / agent-hook `on_error`, an

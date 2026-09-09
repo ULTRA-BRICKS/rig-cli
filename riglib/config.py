@@ -71,6 +71,7 @@ _VALID_TOP_KEYS = {
     "ship_delegator",
     "linters",
     "project_tools",
+    "ecosystem_readme",
     "scripts",
     "dev",
     "task",
@@ -640,6 +641,7 @@ def validate(data: dict[str, Any]) -> None:
     _validate_ship_delegator(data.get("ship_delegator", {}))
     _validate_linters(data.get("linters", {}))
     _validate_project_tools(data.get("project_tools", {}))
+    _validate_ecosystem_readme(data.get("ecosystem_readme", {}))
     _validate_task(data.get("task", {}))
 
 
@@ -2008,6 +2010,29 @@ def _validate_project_tools(pt: dict[str, Any]) -> None:
                 )
         for key in ("enabled", "register", "reindex"):
             _check_bool(sverklo, key, f"project_tools.sverklo.{key}")
+
+
+def _validate_ecosystem_readme(er: dict[str, Any]) -> None:
+    """Validate the rig-managed README ``## Ecosystem`` block (rig-cli#308).
+
+    Default-off (opt-in): an absent or empty block is valid and provisions nothing. ``target``
+    (default ``README.md``) must be a relative path that stays inside the repo — the SAME
+    containment guard (:func:`linter_path_escapes_repo`) the ``linters.items`` block uses for
+    its own repo-relative writes.
+    """
+    if not isinstance(er, dict):
+        raise ConfigError("ecosystem_readme must be a mapping", schema_path="ecosystem_readme")
+    if not er:
+        return
+    _reject_unknown_keys(er, "ecosystem_readme")
+    _check_bool(er, "enabled", "ecosystem_readme.enabled")
+    _check_str(er, "target", "ecosystem_readme.target")
+    target = er.get("target")
+    if isinstance(target, str) and target and linter_path_escapes_repo(target):
+        raise ConfigError(
+            f"ecosystem_readme.target must be a relative path inside the repo, got {target!r}",
+            schema_path="ecosystem_readme.target",
+        )
 
 
 def _validate_env(e: dict[str, Any]) -> None:
