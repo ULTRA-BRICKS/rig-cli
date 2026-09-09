@@ -4081,6 +4081,7 @@ def tmux_plan_from_action(action: Action):
         autosave=dict(opts.get("autosave", {}) or {}),
         pane_titles=dict(opts.get("pane_titles", {}) or {}),
         focus_events=dict(opts.get("focus_events", {}) or {}),
+        clipboard=dict(opts.get("clipboard", {}) or {}),
     )
 
 
@@ -4137,6 +4138,19 @@ def _do_provision_tmux(action: Action, on_conflict: str) -> ActionResult:
     # conflict-skipped managed scripts (left as the user's under on_conflict=skip) — surfaced in
     # the result detail but NOT counted as a change (nothing was written): unresolved drift.
     skipped_conflicts: list[str] = []
+
+    # tmux.clipboard is on but no clipboard command could be resolved on this platform (no
+    # pbcopy/wl-copy/xclip/xsel on PATH, and no explicit override) — render_rig_conf already
+    # emits NO clipboard bindings in that case (never a binding that shells out to a missing
+    # command). Recorded into `skipped_conflicts` (not `details`) so it stays VISIBLE even on a
+    # fully-idempotent "already current" re-apply — `details` is discarded on that path below,
+    # but `skipped_conflicts` is folded into the message either way (this is the established
+    # "surface every apply, changed or not" slot, same as an unresolved conflict-skip).
+    if plan.clipboard_enabled and not plan.clipboard_command:
+        skipped_conflicts.append(
+            "clipboard: no clipboard command found on this platform (install pbcopy/wl-copy/"
+            "xclip/xsel, or set tmux.clipboard.command) — copy-mode clipboard bindings skipped"
+        )
 
     # 1) the generated rig.tmux.conf (wholesale, idempotent on identical bytes).
     # `rig_conf_conflicted` records a DIFFERING generated config left untouched under skip: it may

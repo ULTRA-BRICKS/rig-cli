@@ -1765,6 +1765,13 @@ tmux:
                                   # events to programs running inside panes (some editors/
                                   # tools need this). A plain terminal-capability toggle, no
                                   # interaction with the resurrect/continuum/tpm ordering.
+  clipboard:
+    enabled: true                # copy-mode clipboard: pipe a copy-mode selection (keyboard
+                                  # `prefix [`, `v`, `Enter`/`y`, or a mouse-drag release)
+                                  # through a resolved system-clipboard command
+    command: ""                  # "" → auto-detect (macOS pbcopy; Linux wl-copy/xclip/xsel);
+                                  # a non-empty override is used verbatim (shell-quoted safety
+                                  # checked, same class as pane_titles.format)
 ```
 
 | Key | Type | Default | Meaning |
@@ -1794,6 +1801,8 @@ tmux:
 | `login_shell.enabled` | bool | `true` | set a **login-shell** `default-command` so restored panes source `~/.zprofile`/PATH (resurrect otherwise restores a non-login shell with a broken env) |
 | `login_shell.shell` | str | `""` | login shell path. `""` resolves the user's `$SHELL` at apply (falling back to `/bin/zsh` then `/bin/sh`); a non-empty override **must be an absolute path** to the shell binary (a relative name or a command-with-args is rejected, so it can't silently produce a broken `default-command`) and is used verbatim. The path is **baked at generation** — NOT a tmux `${SHELL}` reference, because tmux rejects `${VAR:-default}` and would abort the whole config |
 | `focus_events.enabled` | bool | `true` | `set -g focus-events` on/off — tmux reports terminal focus in/out events to programs running inside panes (needed by editors/tools that react to focus). A plain capability toggle: it carries none of the resurrect/continuum/tpm ordering constraints below (it's placed first in the generated file purely for readability, not because position is load-bearing here). Like every other modeled boolean, `false` emits an explicit `set -g focus-events off` rather than omitting the line. |
+| `clipboard.enabled` | bool | `true` | provision the copy-mode clipboard key bindings: `v` (begin-selection), `y`/`Enter`/`MouseDragEnd1Pane` (copy-pipe-and-cancel through the resolved clipboard command) in the `copy-mode-vi` table, plus `Enter`/`MouseDragEnd1Pane` mirrored into the plain `copy-mode` (emacs) table too — tmux's own default `mode-keys` is `emacs` (rig does not override it), so the `copy-mode-vi` table is otherwise never active. `false` emits none of them. When no clipboard command can be resolved on this platform (no `pbcopy`/`wl-copy`/`xclip`/`xsel` on PATH and no `command` override), rig emits NO clipboard section at all — never a binding that shells out to a missing command — and surfaces a note in the `rig apply`/`rig status` detail line instead. |
+| `clipboard.command` | str | `""` | explicit clipboard-write command override. `""` (default) auto-detects: macOS → `pbcopy`; Linux → `wl-copy` (only when `$WAYLAND_DISPLAY` is set AND the binary is on PATH), else `xclip -selection clipboard -in`, else `xsel --clipboard --input`, else unresolved (see `clipboard.enabled` above). A non-empty override is used verbatim and must **not** contain `"`, `\`, `$`, `#(` (a shell-exec token), or a non-printable character other than a plain tab — the same injection-safety class as `pane_titles.format` (both interpolate into a tmux double-quoted option value); rejected at validate time (and in the published JSON schema), and defensively substituted back to the platform-detected command if an unsafe value ever reaches the renderer some other way. |
 
 **Apply mechanism — import-preferred, managed-block fallback.**
 

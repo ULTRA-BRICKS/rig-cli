@@ -2375,6 +2375,7 @@ _TMUX_TOP_KEYS = {
     "autosave",
     "pane_titles",
     "focus_events",
+    "clipboard",
 }
 _TMUX_SUBKEYS = {
     "resurrect": {"processes", "capture_pane_contents"},
@@ -2387,6 +2388,7 @@ _TMUX_SUBKEYS = {
     "autosave": {"enabled", "label", "stale_after"},
     "pane_titles": {"enabled", "position", "format", "clear_status_right"},
     "focus_events": {"enabled"},
+    "clipboard": {"enabled", "command"},
 }
 
 
@@ -2478,12 +2480,37 @@ def _validate_tmux(t: dict[str, Any]) -> None:
         "autosave",
         "pane_titles",
         "focus_events",
+        "clipboard",
     ):
         block = t.get(sub, {})
         if isinstance(block, dict):
             value = block.get("enabled")
             if value is not None and not isinstance(value, bool):
                 raise ConfigError(f"tmux.{sub}.enabled must be a bool, got {value!r}")
+    clipboard = t.get("clipboard", {})
+    if isinstance(clipboard, dict):
+        # Same double-quoted-tmux-value injection hazard as `pane_titles.format` (the command is
+        # interpolated into `copy-pipe-and-cancel "<command>"`) -- reuse the SAME check
+        # (`_clipboard_command_is_safe` delegates to `_pane_titles_format_is_safe`) rather than
+        # re-deriving the character class here.
+        from .tmux import _clipboard_command_is_safe
+
+        command = clipboard.get("command")
+        if command is not None:
+            if not isinstance(command, str):
+                raise ConfigError(f"tmux.clipboard.command must be a string, got {command!r}")
+            if command and not _clipboard_command_is_safe(command):
+                raise ConfigError(
+                    r"""tmux.clipboard.command must not contain '"', '\', '$', '#(' (a """
+                    "shell-exec token), or a non-printable character other than a plain tab "
+                    "(they can corrupt, inject into, or execute code from the generated tmux "
+                    f"config), got {command!r}",
+                    fix=(
+                        "drop the offending character/sequence, or leave `command` unset to use "
+                        "the platform-detected clipboard command"
+                    ),
+                    schema_path="tmux.clipboard.command",
+                )
     pane_titles = t.get("pane_titles", {})
     if isinstance(pane_titles, dict):
         # Import here (not at module top) only to sidestep import-order churn in this large

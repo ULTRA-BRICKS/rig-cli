@@ -51,6 +51,7 @@ from __future__ import annotations
 import os
 import shlex
 import shutil
+import sys
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -175,6 +176,73 @@ def _pane_titles_format_is_safe(fmt: str) -> bool:
         return False
     return all(c == "\t" or unicodedata.category(c) != "Cc" for c in fmt)
 
+
+# ── copy-mode clipboard (2026-09-09, "выделение появляется но ничего не копируется") ───────
+# tmux's OWN built-in copy-mode-vi bindings for `Enter`/`MouseDragEnd1Pane` already run
+# `send-keys -X copy-pipe-and-cancel` — but with NO pipe command, which only fills tmux's OWN
+# internal paste buffer, never the system clipboard (unless the terminal supports OSC 52 AND
+# `set-clipboard` is on; Terminal.app on macOS supports neither). So a mouse-drag release, or the
+# documented `prefix [` -> `v` -> `Enter` keyboard flow, visibly selects/highlights and then copies
+# NOWHERE the user can paste from -- exactly the reported symptom. Piping the selection through an
+# explicit, resolved platform clipboard command is the reliable, terminal-independent fix.
+#
+# ALSO LOAD-BEARING: tmux's own default `mode-keys` is `emacs` (rig does not override it), so on a
+# bare rig-managed setup the `copy-mode-vi` key table is NEVER the active one -- `bind-key -T
+# copy-mode-vi ...` bindings alone would sit unused. `Enter`/`MouseDragEnd1Pane` are therefore
+# rendered into BOTH the `copy-mode` (emacs) and `copy-mode-vi` tables, so the mouse-drag-release
+# fix works regardless of `mode-keys`; `v` (begin-selection) and `y` (yank) are vi-only keys with
+# no bare-key equivalent to add in the emacs table (`Space`/`C-Space` already begin selection
+# there), so they stay `copy-mode-vi`-only, matching the reported `prefix [`, `v`, `Enter` flow.
+DEFAULT_CLIPBOARD_ENABLED = True
+
+
+def _clipboard_command_is_safe(cmd: str) -> bool:
+    """True iff ``cmd`` is safe to interpolate into a tmux double-quoted option value.
+
+    A resolved/overridden clipboard command is interpolated into
+    ``send-keys -X copy-pipe-and-cancel "<cmd>"`` exactly like `pane_titles.format` is
+    interpolated into `pane-border-format "<fmt>"` -- same hazard class (breaking out of the
+    double-quoted value to corrupt or inject an extra tmux directive), so this reuses
+    :func:`_pane_titles_format_is_safe`'s exact char/substring blocklist rather than
+    re-deriving it (there is nothing clipboard-specific about the safety rule)."""
+    return _pane_titles_format_is_safe(cmd)
+
+
+def _detect_platform_clipboard_command() -> str:
+    """Auto-detect this host's clipboard-write command, or ``""`` if none is resolvable.
+
+    macOS -> ``pbcopy`` (ships with the OS; still probed via PATH for determinism/testability).
+    Linux -> prefer Wayland's ``wl-copy`` (ONLY when ``$WAYLAND_DISPLAY`` is set AND the binary is
+    on PATH -- a `wl-copy` binary present under a plain X11 session would hang waiting for a
+    Wayland compositor that isn't running), else X11 ``xclip``, else ``xsel``. Anything else
+    (including a Linux host with none of the three installed) -> ``""`` -- the caller must render
+    NO clipboard section rather than a binding that shells out to a missing command on every copy.
+    """
+    if sys.platform == "darwin":
+        return "pbcopy" if shutil.which("pbcopy") else ""
+    if sys.platform.startswith("linux"):
+        if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-copy"):
+            return "wl-copy"
+        if shutil.which("xclip"):
+            return "xclip -selection clipboard -in"
+        if shutil.which("xsel"):
+            return "xsel --clipboard --input"
+    return ""
+
+
+def _resolve_clipboard_command(clipboard: dict) -> str:
+    """The effective clipboard command: an explicit, SAFE ``command`` override wins verbatim;
+    otherwise the platform auto-detected command; otherwise ``""`` (no-op -- see
+    :func:`_detect_platform_clipboard_command`). Mirrors ``_resolve_pane_titles_format``'s
+    defense-in-depth rationale: `config.validate` rejects an unsafe override on a fresh
+    `rig apply`/`init`, but a replayed/stored `Action.options` or a direct `build_tmux` caller
+    bypasses `validate()` entirely, so this clamps again at resolve time."""
+    explicit = clipboard.get("command")
+    if isinstance(explicit, str) and explicit and _clipboard_command_is_safe(explicit):
+        return explicit
+    return _detect_platform_clipboard_command()
+
+
 # The two managed cc scripts' basenames (live in the generated dir).
 CC_SAVE_NAME = "cc-save.sh"
 CC_RESTORE_NAME = "cc-restore.sh"
@@ -268,6 +336,13 @@ class TmuxPlan:
     # panes (needed by editors/tools that react to focus). A plain terminal-capability toggle,
     # independent of the resurrect/continuum/tpm ordering surface. Default-on (Alex, 2026-08-05).
     focus_events_enabled: bool
+    # ── copy-mode clipboard (2026-09-09) ────────────────────────────────────────────
+    # See the module-level comment above `_detect_platform_clipboard_command` for the full
+    # root-cause writeup. `clipboard_command` is the FULLY RESOLVED command (explicit override or
+    # platform-detected), baked here at plan time — same determinism contract as `tmux_bin`/
+    # `login_shell` (render must not re-probe PATH/env per invocation).
+    clipboard_enabled: bool
+    clipboard_command: str  # "" → no clipboard command could be resolved; render emits nothing
 
     # ── resolved artifact paths ──────────────────────────────────────────────────────
     @property
@@ -388,9 +463,11 @@ class TmuxPlan:
           4. pane-titles (default-on) + the Moshi ``status-right`` tweak (opt-in) — BOTH BEFORE
              any plugin init, since continuum's own status-right autosave indicator (when it
              fires) appends onto whatever status-right already holds
-          5. resurrect ``run-shell`` init
-          6. continuum ``run-shell`` init  ← LAST, so nothing after it wipes its hook
-          7. tpm init (must be the very last line per tpm's own contract)
+          5. copy-mode clipboard bindings (default-on) — no ordering dependency on continuum;
+             placed here purely for section-grouping consistency with pane-titles/Moshi above
+          6. resurrect ``run-shell`` init
+          7. continuum ``run-shell`` init  ← LAST, so nothing after it wipes its hook
+          8. tpm init (must be the very last line per tpm's own contract)
         """
         # cc-restore owns the exact `claude --resume <id>` (resurrect brings the shell back), so
         # `claude` goes in @resurrect-processes ONLY when cc-restore is OFF (fallback to
@@ -519,6 +596,34 @@ class TmuxPlan:
                 "  set -g status-left ''",
                 "  set -g status-right ''",
                 "}",
+            ]
+
+        if self.clipboard_enabled and self.clipboard_command:
+            # Placed BEFORE continuum's run-shell init, same as pane-titles/Moshi above — no
+            # ordering dependency on continuum here, just consistent section placement.
+            cmd = self.clipboard_command
+            out += [
+                "",
+                "# ── copy-mode clipboard (rig apply tmux.clipboard) ──────────────────────────",
+                "# tmux's own copy-mode-vi Enter/MouseDragEnd1Pane already run copy-pipe-and-cancel",
+                "# with NO pipe command — that only fills tmux's OWN paste buffer, never the system",
+                "# clipboard (Terminal.app has no OSC-52 clipboard support at all). Piping through",
+                f"# the resolved '{cmd}' fixes both the keyboard (prefix [, v, Enter) and the",
+                "# mouse-drag-release flow. NOTE: `set -g mouse on` is a personal ~/.tmux.conf",
+                "# preference (not rig-managed) — it must ALSO be set for tmux to report a",
+                "# mouse-drag-release event at all; rig does not force it.",
+                "bind-key -T copy-mode-vi v send-keys -X begin-selection",
+                f'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "{cmd}"',
+                f'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "{cmd}"',
+                f'bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{cmd}"',
+                # Mirrored into the plain `copy-mode` (emacs) table: tmux's own default
+                # `mode-keys` is `emacs` (rig never overrides it), so on a bare rig-managed setup
+                # `copy-mode-vi` is NEVER the active table unless the user separately sets
+                # `setw -g mode-keys vi` — without this mirror, Enter/mouse-release would keep
+                # falling through to tmux's built-in argument-less copy-pipe-and-cancel (tmux's
+                # own paste buffer only) regardless of this whole feature.
+                f'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "{cmd}"',
+                f'bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{cmd}"',
             ]
 
         out += [
@@ -1144,6 +1249,7 @@ def build_tmux(
     autosave: dict | None = None,
     pane_titles: dict | None = None,
     focus_events: dict | None = None,
+    clipboard: dict | None = None,
 ) -> TmuxPlan:
     """Resolve the desired :class:`TmuxPlan` from the (already-validated) tmux config block.
 
@@ -1151,7 +1257,8 @@ def build_tmux(
     HOME-relative ``conf_path`` / ``generated_dir`` are expanded against it. Every nested
     knob defaults to the safe, root-cause-fixing value; an empty block yields the full default
     config (claude in resurrect, capture-pane on, continuum restore+boot, Moshi off, cc-restore
-    on, anti-sprawl on, boot on, login-shell default-command on, focus-events on).
+    on, anti-sprawl on, boot on, login-shell default-command on, focus-events on, copy-mode
+    clipboard on with the platform-detected command).
     """
     resurrect = resurrect or {}
     continuum = continuum or {}
@@ -1163,6 +1270,7 @@ def build_tmux(
     focus_events = focus_events or {}
     autosave = autosave or {}
     pane_titles = pane_titles or {}
+    clipboard = clipboard or {}
 
     def _expand(p: str | Path) -> Path:
         s = str(p)
@@ -1215,6 +1323,8 @@ def build_tmux(
         pane_titles_format=_resolve_pane_titles_format(pane_titles),
         pane_titles_clear_status_right=bool(_knob(pane_titles, "clear_status_right", True)),
         focus_events_enabled=bool(_knob(focus_events, "enabled", True)),
+        clipboard_enabled=bool(_knob(clipboard, "enabled", DEFAULT_CLIPBOARD_ENABLED)),
+        clipboard_command=_resolve_clipboard_command(clipboard),
     )
 
 

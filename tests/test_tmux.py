@@ -903,6 +903,122 @@ def test_render_pane_titles_empty_format_renders_empty_pane_border_format():
     assert 'pane-border-format ""' in conf
 
 
+# ── copy-mode clipboard rendering ────────────────────────────────────────────────────────
+def test_render_clipboard_default_on_darwin_emits_pbcopy_bindings(monkeypatch):
+    """Default (no `tmux.clipboard` block): on macOS with pbcopy on PATH, the four documented
+    bindings (v begin-selection, y/Enter/MouseDragEnd1Pane copy-pipe-and-cancel via copy-mode-vi)
+    plus the copy-mode (emacs) mirror for Enter/MouseDragEnd1Pane are all emitted with pbcopy."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    conf = _plan().render_rig_conf()
+    assert "bind-key -T copy-mode-vi v send-keys -X begin-selection" in conf
+    assert 'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    assert 'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    assert 'bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    # mirrored into the plain (emacs) copy-mode table too — see the module-level comment on why.
+    assert 'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    assert 'bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+
+
+def test_render_clipboard_disabled_omits_all_bindings(monkeypatch):
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    conf = tmux.build_tmux(
+        repo_home=Path("/home/u"), clipboard={"enabled": False}
+    ).render_rig_conf()
+    assert "copy-mode-vi" not in conf
+    assert "copy-pipe-and-cancel" not in conf
+
+
+def test_render_clipboard_no_resolvable_command_omits_section(monkeypatch):
+    """No pbcopy/wl-copy/xclip/xsel found and no explicit override: the plan resolves an empty
+    clipboard_command and render emits NO clipboard section at all — never a binding that shells
+    out to a missing command."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: None)
+    plan = tmux.build_tmux(repo_home=Path("/home/u"))
+    assert plan.clipboard_command == ""
+    conf = plan.render_rig_conf()
+    assert "copy-mode-vi" not in conf
+    assert "copy-pipe-and-cancel" not in conf
+
+
+def test_render_clipboard_explicit_command_used_verbatim(monkeypatch):
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: None)
+    conf = tmux.build_tmux(
+        repo_home=Path("/home/u"), clipboard={"command": "my-custom-clip"}
+    ).render_rig_conf()
+    assert 'copy-pipe-and-cancel "my-custom-clip"' in conf
+
+
+def test_render_clipboard_unsafe_explicit_command_falls_back_to_detected(monkeypatch):
+    """An unsafe override (defense-in-depth: `config.validate` should already have rejected it,
+    but a replayed/stored plan can bypass validate()) is dropped, falling back to the
+    platform-detected command rather than interpolating unsafe text into the generated conf."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    plan = tmux.build_tmux(
+        repo_home=Path("/home/u"), clipboard={"command": 'evil"; set -g status-left BAD'}
+    )
+    assert plan.clipboard_command == "pbcopy"
+    conf = plan.render_rig_conf()
+    assert "evil" not in conf
+    assert 'copy-pipe-and-cancel "pbcopy"' in conf
+
+
+def test_render_clipboard_linux_prefers_wayland_over_x11(monkeypatch):
+    monkeypatch.setattr(tmux.sys, "platform", "linux")
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    monkeypatch.setattr(
+        tmux.shutil, "which",
+        lambda name: "/usr/bin/" + name if name in ("wl-copy", "xclip", "xsel") else None,
+    )
+    conf = _plan().render_rig_conf()
+    assert 'copy-pipe-and-cancel "wl-copy"' in conf
+
+
+def test_render_clipboard_linux_x11_prefers_xclip_over_xsel(monkeypatch):
+    monkeypatch.setattr(tmux.sys, "platform", "linux")
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setattr(
+        tmux.shutil, "which",
+        lambda name: "/usr/bin/" + name if name in ("xclip", "xsel") else None,
+    )
+    conf = _plan().render_rig_conf()
+    assert 'copy-pipe-and-cancel "xclip -selection clipboard -in"' in conf
+
+
+def test_render_clipboard_linux_falls_back_to_xsel(monkeypatch):
+    monkeypatch.setattr(tmux.sys, "platform", "linux")
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/xsel" if name == "xsel" else None)
+    conf = _plan().render_rig_conf()
+    assert 'copy-pipe-and-cancel "xsel --clipboard --input"' in conf
+
+
+def test_render_clipboard_linux_wayland_binary_absent_under_x11_skips_wayland(monkeypatch):
+    """`$WAYLAND_DISPLAY` alone is not enough — `wl-copy` must actually be on PATH, or a Wayland
+    var left over from a different session must not select a missing binary."""
+    monkeypatch.setattr(tmux.sys, "platform", "linux")
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/xclip" if name == "xclip" else None)
+    conf = _plan().render_rig_conf()
+    assert 'copy-pipe-and-cancel "xclip -selection clipboard -in"' in conf
+
+
+def test_render_clipboard_before_plugin_init(monkeypatch):
+    """Same section-placement convention as pane-titles/Moshi: the clipboard bindings land
+    BEFORE the resurrect/continuum run-shell init lines."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    conf = _plan().render_rig_conf()
+    lines = conf.splitlines()
+    clip_idx = next(i for i, ln in enumerate(lines) if "copy-mode-vi v" in ln)
+    plugin_init_idx = next(i for i, ln in enumerate(lines) if "resurrect/resurrect.tmux" in ln)
+    assert clip_idx < plugin_init_idx
+
+
 def test_tmux_plan_from_action_on_pre_upgrade_action_defaults_to_new_pane_titles_behavior():
     """A DRIFT-CHECK REPLAY: `tmux_plan_from_action` on `Action.options` persisted by a version
     of rig that pre-dates this feature (no `pane_titles` key at all) now renders pane titles ON
@@ -2135,6 +2251,50 @@ def test_plan_to_render_round_trip_carries_focus_events_disabled(fake_agent_tool
     conf = tmux_plan_from_action(a).render_rig_conf()
     assert "set -g focus-events off" in conf
     assert "set -g focus-events on" not in conf
+
+
+def test_plan_carries_clipboard_block(fake_agent_tools, tmp_path):
+    plan = _build(
+        {"tmux": {"enabled": True, "clipboard": {"command": "my-clip"}}}, tmp_path, fake_agent_tools
+    )
+    a = [a for a in plan.actions if a.kind == "provision_tmux"][0]
+    assert a.options["clipboard"] == {"command": "my-clip"}
+
+
+def test_plan_defaults_clipboard_to_empty_dict_when_absent(fake_agent_tools, tmp_path):
+    plan = _build({"tmux": {"enabled": True}}, tmp_path, fake_agent_tools)
+    a = [a for a in plan.actions if a.kind == "provision_tmux"][0]
+    assert a.options["clipboard"] == {}
+
+
+def test_plan_to_render_round_trip_carries_clipboard_disabled(fake_agent_tools, tmp_path, monkeypatch):
+    """rig.yaml -> plan action -> runner's tmux_plan_from_action -> render, end to end — the same
+    FULL pass-through chain the focus-events round-trip test above exercises, for `clipboard`."""
+    from riglib.actions.runner import tmux_plan_from_action
+
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    plan = _build(
+        {"tmux": {"enabled": True, "clipboard": {"enabled": False}}}, tmp_path, fake_agent_tools
+    )
+    a = next(act for act in plan.actions if act.kind == "provision_tmux")
+    conf = tmux_plan_from_action(a).render_rig_conf()
+    assert "copy-pipe-and-cancel" not in conf
+
+
+def test_plan_to_render_round_trip_carries_clipboard_command_override(
+    fake_agent_tools, tmp_path, monkeypatch
+):
+    from riglib.actions.runner import tmux_plan_from_action
+
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: None)
+    plan = _build(
+        {"tmux": {"enabled": True, "clipboard": {"command": "my-clip"}}}, tmp_path, fake_agent_tools
+    )
+    a = next(act for act in plan.actions if act.kind == "provision_tmux")
+    conf = tmux_plan_from_action(a).render_rig_conf()
+    assert 'copy-pipe-and-cancel "my-clip"' in conf
 
 
 def test_plan_disables_autosave_off_darwin(fake_agent_tools, tmp_path, monkeypatch):
