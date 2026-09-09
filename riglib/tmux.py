@@ -186,14 +186,23 @@ def _pane_titles_format_is_safe(fmt: str) -> bool:
 # NOWHERE the user can paste from -- exactly the reported symptom. Piping the selection through an
 # explicit, resolved platform clipboard command is the reliable, terminal-independent fix.
 #
-# ALSO LOAD-BEARING: tmux's own default `mode-keys` is `emacs` (rig does not override it), so on a
-# bare rig-managed setup the `copy-mode-vi` key table is NEVER the active one -- `bind-key -T
-# copy-mode-vi ...` bindings alone would sit unused. `Enter`/`MouseDragEnd1Pane` are therefore
-# rendered into BOTH the `copy-mode` (emacs) and `copy-mode-vi` tables, so the mouse-drag-release
-# fix works regardless of `mode-keys`; `v` (begin-selection) and `y` (yank) are vi-only keys with
-# no bare-key equivalent to add in the emacs table (`Space`/`C-Space` already begin selection
-# there), so they stay `copy-mode-vi`-only, matching the reported `prefix [`, `v`, `Enter` flow.
+# ALSO LOAD-BEARING (2026-09-09, follow-up): tmux's own default `mode-keys` is `emacs` (a bare
+# rig-managed setup never set it), so the `copy-mode-vi` key table is NEVER the active one on a
+# fresh install -- `v` (begin-selection) and `y` (yank) are vi-only keys bound ONLY in
+# `copy-mode-vi`, so under the real default they are simply dead: pressing `v` does nothing, and
+# the following `Enter` then copy-pipe-and-cancels an EMPTY/stale selection. That is the literal
+# `prefix [` -> `v` -> `Enter` repro still failing even with the bindings above in place.
+# `Enter`/`MouseDragEnd1Pane` are mirrored into the plain `copy-mode` (emacs) table so the
+# mouse-drag-release flow works regardless of `mode-keys`. The actual fix: default
+# `tmux.clipboard.mode_keys` to `"vi"`, which emits `set -g mode-keys vi` so `copy-mode-vi`
+# becomes the live table and `v`/`y` are genuinely reachable via their documented vi bindings.
+# `mode_keys: "emacs"` opts a user back out (keeps emacs navigation as the live table) — in that
+# case `v`/`y` are ALSO mirrored into the plain `copy-mode` table (verified live: tmux's own
+# emacs-table defaults leave both unbound, so this clobbers nothing) so the clipboard flow still
+# works, just without vi's other motion keys.
 DEFAULT_CLIPBOARD_ENABLED = True
+DEFAULT_CLIPBOARD_MODE_KEYS = "vi"
+VALID_CLIPBOARD_MODE_KEYS = {"vi", "emacs"}
 
 
 def _clipboard_command_is_safe(cmd: str) -> bool:
@@ -241,6 +250,20 @@ def _resolve_clipboard_command(clipboard: dict) -> str:
     if isinstance(explicit, str) and explicit and _clipboard_command_is_safe(explicit):
         return explicit
     return _detect_platform_clipboard_command()
+
+
+def _resolve_clipboard_mode_keys(clipboard: dict) -> str:
+    """The effective ``mode_keys`` choice, DEFENSIVELY clamped to ``VALID_CLIPBOARD_MODE_KEYS``.
+
+    Same defense-in-depth rationale as :func:`_resolve_pane_titles_position`: ``config.validate``
+    already rejects an invalid value for a fresh ``rig apply``/``init``, but a replayed/stored
+    ``Action.options`` or a direct ``build_tmux`` caller bypasses ``validate()`` entirely, so this
+    clamps again at resolve time rather than emitting a `set` tmux would reject."""
+    value = clipboard.get("mode_keys")
+    if value is None:
+        return DEFAULT_CLIPBOARD_MODE_KEYS
+    value = str(value)
+    return value if value in VALID_CLIPBOARD_MODE_KEYS else DEFAULT_CLIPBOARD_MODE_KEYS
 
 
 # The two managed cc scripts' basenames (live in the generated dir).
@@ -343,6 +366,10 @@ class TmuxPlan:
     # `login_shell` (render must not re-probe PATH/env per invocation).
     clipboard_enabled: bool
     clipboard_command: str  # "" → no clipboard command could be resolved; render emits nothing
+    # "vi" (default) emits `set -g mode-keys vi` so copy-mode-vi (v/y) is the LIVE table -- see
+    # the module-level comment above for why this is load-bearing, not cosmetic. "emacs" keeps
+    # tmux's own default and skips the override (opt-out; v/y stay unreachable by design).
+    clipboard_mode_keys: str
 
     # ── resolved artifact paths ──────────────────────────────────────────────────────
     @property
@@ -612,19 +639,41 @@ class TmuxPlan:
                 "# mouse-drag-release flow. NOTE: `set -g mouse on` is a personal ~/.tmux.conf",
                 "# preference (not rig-managed) — it must ALSO be set for tmux to report a",
                 "# mouse-drag-release event at all; rig does not force it.",
+            ]
+            if self.clipboard_mode_keys == "vi":
+                out += [
+                    "# `mode-keys` MUST be `vi` for the `v`/`y` bindings below to be reachable at",
+                    "# all: tmux's own default is `emacs`, under which `copy-mode-vi` is simply the",
+                    "# INACTIVE key table — `v` does nothing and `Enter` then copies an empty/stale",
+                    "# selection. This `set` must come BEFORE the bind-key lines below (tmux.clipboard.",
+                    "# mode_keys: emacs opts out and skips this line, trading away v/y for that).",
+                    "set -g mode-keys vi",
+                ]
+            out += [
                 "bind-key -T copy-mode-vi v send-keys -X begin-selection",
                 f'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "{cmd}"',
                 f'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "{cmd}"',
                 f'bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{cmd}"',
-                # Mirrored into the plain `copy-mode` (emacs) table: tmux's own default
-                # `mode-keys` is `emacs` (rig never overrides it), so on a bare rig-managed setup
-                # `copy-mode-vi` is NEVER the active table unless the user separately sets
-                # `setw -g mode-keys vi` — without this mirror, Enter/mouse-release would keep
-                # falling through to tmux's built-in argument-less copy-pipe-and-cancel (tmux's
-                # own paste buffer only) regardless of this whole feature.
+                # Mirrored into the plain `copy-mode` (emacs) table: whatever `mode-keys` ends up
+                # being (see above), `Enter`/`MouseDragEnd1Pane` still fire the resolved clipboard
+                # command in the OTHER table too — the mouse-drag-release flow (and a bare
+                # `prefix [ ... Enter` with no vi-style selection) works either way, and a user who
+                # opts back into `mode_keys: emacs` still gets these two rather than nothing.
                 f'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "{cmd}"',
                 f'bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{cmd}"',
             ]
+            if self.clipboard_mode_keys == "emacs":
+                # Opt-out case: `mode-keys` stays `emacs`, so `copy-mode-vi` never activates and
+                # `v`/`y` above are unreachable dead bindings. tmux's own emacs-table defaults
+                # leave both `v` and `y` UNBOUND (verified live: `tmux list-keys -T copy-mode` on
+                # a stock 3.5a server has no `v`/`y` entry — nothing here clobbers a real default),
+                # so mirror the SAME two keys into the plain `copy-mode` table: a user who
+                # explicitly keeps emacs navigation still gets the full `prefix [`, `v`, `y`/`Enter`
+                # keyboard flow, just without vi's other motion keys.
+                out += [
+                    "bind-key -T copy-mode v send-keys -X begin-selection",
+                    f'bind-key -T copy-mode y send-keys -X copy-pipe-and-cancel "{cmd}"',
+                ]
 
         out += [
             "",
@@ -1325,6 +1374,7 @@ def build_tmux(
         focus_events_enabled=bool(_knob(focus_events, "enabled", True)),
         clipboard_enabled=bool(_knob(clipboard, "enabled", DEFAULT_CLIPBOARD_ENABLED)),
         clipboard_command=_resolve_clipboard_command(clipboard),
+        clipboard_mode_keys=_resolve_clipboard_mode_keys(clipboard),
     )
 
 

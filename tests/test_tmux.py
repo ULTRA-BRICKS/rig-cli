@@ -907,10 +907,15 @@ def test_render_pane_titles_empty_format_renders_empty_pane_border_format():
 def test_render_clipboard_default_on_darwin_emits_pbcopy_bindings(monkeypatch):
     """Default (no `tmux.clipboard` block): on macOS with pbcopy on PATH, the four documented
     bindings (v begin-selection, y/Enter/MouseDragEnd1Pane copy-pipe-and-cancel via copy-mode-vi)
-    plus the copy-mode (emacs) mirror for Enter/MouseDragEnd1Pane are all emitted with pbcopy."""
+    plus the copy-mode (emacs) mirror for Enter/MouseDragEnd1Pane are all emitted with pbcopy,
+    AND `mode_keys` defaults to "vi" — `set -g mode-keys vi` is emitted BEFORE the bind-key
+    lines, so copy-mode-vi is the LIVE table and v/y are actually reachable."""
     monkeypatch.setattr(tmux.sys, "platform", "darwin")
     monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
-    conf = _plan().render_rig_conf()
+    plan = _plan()
+    assert plan.clipboard_mode_keys == "vi"
+    conf = plan.render_rig_conf()
+    assert "set -g mode-keys vi" in conf
     assert "bind-key -T copy-mode-vi v send-keys -X begin-selection" in conf
     assert 'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
     assert 'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
@@ -918,6 +923,53 @@ def test_render_clipboard_default_on_darwin_emits_pbcopy_bindings(monkeypatch):
     # mirrored into the plain (emacs) copy-mode table too — see the module-level comment on why.
     assert 'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
     assert 'bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    # `mode-keys` MUST precede the copy-mode-vi bind-key lines (tmux applies key-table
+    # activation top-down; a `set` after the binds would still work, but the generator commits
+    # to emitting it first — assert the actual order, not just presence).
+    lines = conf.splitlines()
+    mode_keys_idx = next(i for i, ln in enumerate(lines) if ln == "set -g mode-keys vi")
+    first_bind_idx = next(i for i, ln in enumerate(lines) if "bind-key -T copy-mode-vi v" in ln)
+    assert mode_keys_idx < first_bind_idx
+
+
+def test_render_clipboard_mode_keys_emacs_omits_set_and_mirrors_v_y(monkeypatch):
+    """`mode_keys: emacs` (opt-out): no `set -g mode-keys vi` override (tmux's own emacs
+    default stays live), and `v`/`y` are instead mirrored into the plain `copy-mode` (emacs)
+    table so the clipboard flow still works without vi's other motion keys."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    plan = tmux.build_tmux(repo_home=Path("/home/u"), clipboard={"mode_keys": "emacs"})
+    assert plan.clipboard_mode_keys == "emacs"
+    conf = plan.render_rig_conf()
+    assert "set -g mode-keys vi" not in conf
+    assert "mode-keys" not in conf
+    # v/y still bound in copy-mode-vi (harmless — just unreachable while mode-keys is emacs)...
+    assert "bind-key -T copy-mode-vi v send-keys -X begin-selection" in conf
+    # ...AND mirrored into the plain copy-mode (emacs) table, which IS reachable.
+    assert "bind-key -T copy-mode v send-keys -X begin-selection" in conf
+    assert 'bind-key -T copy-mode y send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+
+
+def test_render_clipboard_mode_keys_vi_does_not_mirror_v_y_into_copy_mode(monkeypatch):
+    """The opposite of the emacs case: under the default `mode_keys: vi`, `v`/`y` are NOT
+    duplicated into the plain `copy-mode` table (only Enter/MouseDragEnd1Pane are, for the
+    unconditional mouse-drag-release flow) — copy-mode-vi is already the live table."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    conf = _plan().render_rig_conf()
+    assert "bind-key -T copy-mode v send-keys" not in conf
+    assert "bind-key -T copy-mode y send-keys" not in conf
+
+
+def test_build_tmux_clamps_invalid_mode_keys_instead_of_rendering_garbage():
+    """Same defense-in-depth contract as `pane_titles.position`: `build_tmux` (reached directly,
+    or via `tmux_plan_from_action` replaying stored `Action.options`) bypasses
+    `config.validate` entirely. An invalid `mode_keys` must clamp back to the default "vi"
+    rather than being rendered/trusted verbatim."""
+    plan = tmux.build_tmux(repo_home=Path("/home/u"), clipboard={"mode_keys": "sideways"})
+    assert plan.clipboard_mode_keys == "vi"
+    conf = plan.render_rig_conf()
+    assert "sideways" not in conf
 
 
 def test_render_clipboard_disabled_omits_all_bindings(monkeypatch):

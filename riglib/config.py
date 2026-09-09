@@ -2388,7 +2388,7 @@ _TMUX_SUBKEYS = {
     "autosave": {"enabled", "label", "stale_after"},
     "pane_titles": {"enabled", "position", "format", "clear_status_right"},
     "focus_events": {"enabled"},
-    "clipboard": {"enabled", "command"},
+    "clipboard": {"enabled", "command", "mode_keys"},
 }
 
 
@@ -2511,6 +2511,22 @@ def _validate_tmux(t: dict[str, Any]) -> None:
                     ),
                     schema_path="tmux.clipboard.command",
                 )
+        # `mode_keys: "vi"` (default) emits `set -g mode-keys vi` so the copy-mode-vi bind-key
+        # table below (v/y) is actually the LIVE table -- tmux's own default is `emacs`, under
+        # which copy-mode-vi never activates and v/y are dead. Same enum-clamp pattern as
+        # `pane_titles.position`.
+        from .tmux import VALID_CLIPBOARD_MODE_KEYS
+
+        mode_keys = clipboard.get("mode_keys")
+        if mode_keys is not None and (
+            not isinstance(mode_keys, str) or mode_keys not in VALID_CLIPBOARD_MODE_KEYS
+        ):
+            raise ConfigError(
+                f"tmux.clipboard.mode_keys must be one of "
+                f"{sorted(VALID_CLIPBOARD_MODE_KEYS)}, got {mode_keys!r}",
+                fix=f"use one of: {', '.join(sorted(VALID_CLIPBOARD_MODE_KEYS))}",
+                schema_path="tmux.clipboard.mode_keys",
+            )
     pane_titles = t.get("pane_titles", {})
     if isinstance(pane_titles, dict):
         # Import here (not at module top) only to sidestep import-order churn in this large
