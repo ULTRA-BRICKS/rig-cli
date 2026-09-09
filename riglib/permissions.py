@@ -301,6 +301,15 @@ OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
     # Spaces and trips macOS Screen Recording grants (the documented hard rule)
     GuardRule("screencapture", "screenshots go through Playwright/CDP, not screencapture",
               "argv_prefix", ("screencapture",)),
+    # AppleScript/System Events sent from bash triggers an unapprovable macOS TCC "bash would
+    # like to access data from other apps" prompt (root-caused via a personal
+    # ~/.files/bin/vscmd script sending VS Code keystrokes through `tell application "System
+    # Events"`). No legitimate agent flow in this ecosystem invokes osascript directly from a
+    # bash tool call — native UI automation goes through the `computer` eval helpers (AX tree +
+    # native input), which never touch Apple Events, and app-specific remote control should use
+    # that app's own CLI/IPC (e.g. VS Code's `code --command`) instead of simulated keystrokes.
+    GuardRule("osascript", "AppleScript/System Events from bash trigger unapprovable TCC prompts — use computer.* (AX/native input) or an app's own CLI instead",
+              "argv_prefix", ("osascript",)),
     # rig-cli#187: `rg --pre` runs an arbitrary preprocessor command — argv matching catches it
     # in ANY position with no false positive on `--pretty` (a DIFFERENT exact token), the gap
     # the claude-code/opencode glob belts can only approximate. `--pre-glob` is deliberately
@@ -466,6 +475,11 @@ CLAUDE_CODE_DENY_RULES: tuple[str, ...] = (
     # screenshots go through Playwright/CDP; `screencapture` black-frames windows on other
     # Spaces and trips macOS Screen Recording grants (the documented hard rule)
     "Bash(screencapture:*)",
+    # AppleScript/System Events sent from bash triggers an unapprovable macOS TCC "bash would
+    # like to access data from other apps" prompt — same class as screencapture above. No
+    # legitimate agent flow invokes osascript directly from bash; native UI automation goes
+    # through the harness's own AX/native-input helpers instead.
+    "Bash(osascript:*)",
     # `rg --pre <CMD>` / `--pre=<CMD>` runs CMD as an arbitrary preprocessor on every matched
     # file — the default `Bash(rg:*)` allow grant is meant for read-only search, not arbitrary
     # subprocess execution (rig-cli#187). rg's arg parser allows flags in any position (unlike
@@ -545,6 +559,9 @@ OPENCODE_DENY_RULES: tuple[str, ...] = (
     "git commit --no-verify*",
     "sudo rm*",
     "screencapture*",
+    # AppleScript/System Events sent from bash triggers an unapprovable macOS TCC prompt — same
+    # class as screencapture above.
+    "osascript*",
     # raw `git worktree add` is banned — worktrees go through `rig worktree create`
     "git worktree add*",
     # rig-cli#187: `rg --pre` runs an arbitrary preprocessor command. A single `rg*--pre*` entry
@@ -707,6 +724,7 @@ CODEX_DENY_RULES: tuple[tuple[str, ...], ...] = (
     ("git", "worktree", "add"),
     ("sudo", "rm"),
     ("screencapture",),
+    ("osascript",),
     ("rg", "--pre"),
 )
 

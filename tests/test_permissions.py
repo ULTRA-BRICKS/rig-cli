@@ -912,6 +912,7 @@ def test_default_rules_are_scoped_and_conservative():
     assert "Bash(git commit --no-verify:*)" in deny
     assert "Bash(sudo rm:*)" in deny
     assert "Bash(screencapture:*)" in deny
+    assert "Bash(osascript:*)" in deny
     # rig-cli#187: `rg --pre` is arbitrary subprocess execution behind a read-only search grant.
     # rg's arg parser allows flags anywhere, so both flag-first AND later-position forms are
     # required, for BOTH the space value (`--pre CMD`) and `=` value (`--pre=CMD`) shapes — `=`
