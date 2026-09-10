@@ -1,0 +1,159 @@
+{
+  "generated_at": "2026-09-10T12:15:07.797823+00:00",
+  "scope": "all accessible public issues and PRs, all states, no historical cutoff; private harness-cli collected separately",
+  "repositories": {
+    "rig-cli": {
+      "default_branch": "main",
+      "source_sha": "97023cfd0c1ec4c8ba5c9e6a7666e26391ecc6ad",
+      "issues": 338,
+      "open": 170,
+      "closed": 168,
+      "prs": 182,
+      "merged_prs": 166,
+      "recent_issues": 159,
+      "comments": 302,
+      "snapshot_sha256": "1986c56c878bfe8ce9e9a6ff3b045443564a6e7d9b0a1ea4d38888f71c03d90e",
+      "complete": true
+    },
+    "agent-tools": {
+      "default_branch": "main",
+      "source_sha": "5bd4dca121baf3034f9800c70c58fae2f53c3f82",
+      "issues": 410,
+      "open": 231,
+      "closed": 179,
+      "prs": 312,
+      "merged_prs": 262,
+      "recent_issues": 161,
+      "comments": 481,
+      "snapshot_sha256": "7f5528d07dceae4dc5227addf5606e2353fff52fa3fb2166eeac25443e1ed28d",
+      "complete": true
+    },
+    "review-cli": {
+      "default_branch": "main",
+      "source_sha": "c3779b4a2592961f4dcc2d9a98da65ef0e954442",
+      "issues": 331,
+      "open": 201,
+      "closed": 130,
+      "prs": 166,
+      "merged_prs": 145,
+      "recent_issues": 162,
+      "comments": 246,
+      "snapshot_sha256": "8bf1a7b127c21c0e69f11b9a46db35e09200d1020fa79eba5f8fadb675ad7c10",
+      "complete": true
+    },
+    "task-cli": {
+      "default_branch": "main",
+      "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+      "issues": 125,
+      "open": 67,
+      "closed": 58,
+      "prs": 59,
+      "merged_prs": 59,
+      "recent_issues": 64,
+      "comments": 89,
+      "snapshot_sha256": "931eb71a17a301b6d2a73ef3049a1c74d264438640406defe4acb32bdba2e4b4",
+      "complete": true
+    },
+    "tg-cli": {
+      "default_branch": "main",
+      "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+      "issues": 216,
+      "open": 108,
+      "closed": 108,
+      "prs": 165,
+      "merged_prs": 152,
+      "recent_issues": 76,
+      "comments": 210,
+      "snapshot_sha256": "ce1e8e4f97b8118b3722c9900468ddc4e88ebaa24510119440185082f2d79f8e",
+      "complete": true
+    },
+    "qa-cli": {
+      "default_branch": "main",
+      "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+      "issues": 7,
+      "open": 0,
+      "closed": 7,
+      "prs": 5,
+      "merged_prs": 5,
+      "recent_issues": 7,
+      "comments": 23,
+      "snapshot_sha256": "13212abddb787c0f8a8f8b09c2e0e7186df74b15119e4a4daf3b7732c3f658ba",
+      "complete": true
+    },
+    "draw-cli": {
+      "default_branch": "main",
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "issues": 10,
+      "open": 2,
+      "closed": 8,
+      "prs": 13,
+      "merged_prs": 12,
+      "recent_issues": 5,
+      "comments": 14,
+      "snapshot_sha256": "d4d200f15f54e5e0a9cc99ce78e455ab0e768a8bfa13302c199c61055643c394",
+      "complete": true
+    },
+    "stt-cli": {
+      "default_branch": "main",
+      "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+      "issues": 32,
+      "open": 23,
+      "closed": 9,
+      "prs": 8,
+      "merged_prs": 7,
+      "recent_issues": 32,
+      "comments": 25,
+      "snapshot_sha256": "a5cf05fe1ba6ef14f768cdcb2ea88c23e318e0fa6a8a46f0c86d37c16aea5324",
+      "complete": true
+    },
+    "research-cli": {
+      "default_branch": "main",
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "issues": 11,
+      "open": 2,
+      "closed": 9,
+      "prs": 7,
+      "merged_prs": 7,
+      "recent_issues": 5,
+      "comments": 14,
+      "snapshot_sha256": "9abeeb5066a1fccc69110ebf9652e911a775750e56c3795e76ae43481413f566",
+      "complete": true
+    },
+    "dev-cli": {
+      "default_branch": "main",
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "issues": 20,
+      "open": 5,
+      "closed": 15,
+      "prs": 9,
+      "merged_prs": 7,
+      "recent_issues": 15,
+      "comments": 21,
+      "snapshot_sha256": "8a2a28ddcd7a11be5f0f74030a853d294a3b071e226c87a2ab648bbbce83f466",
+      "complete": true
+    },
+    "pm-cli": {
+      "default_branch": "main",
+      "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+      "issues": 19,
+      "open": 8,
+      "closed": 11,
+      "prs": 9,
+      "merged_prs": 8,
+      "recent_issues": 11,
+      "comments": 14,
+      "snapshot_sha256": "215fbaef3b748ae330681ab9297071d3f15308bc0b845ae2c113728d9923e1df",
+      "complete": true
+    }
+  },
+  "excluded": {
+    "harness-cli": "private; use repository-local authorized workflow, not this public snapshot"
+  },
+  "issue_mutations": 0,
+  "total_issues": 1519,
+  "total_prs": 935,
+  "complete_public_scope": true,
+  "spec_dev_probe": {
+    "error": "HTTP Error 404: Not Found"
+  }
+}
