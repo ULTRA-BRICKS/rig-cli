@@ -1,0 +1,140 @@
+name: Publish working v4 retrospective reader
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths:
+      - .github/workflows/v4-reader-publication.yml
+      - portal/v4.html
+permissions:
+  contents: write
+concurrency:
+  group: v4-reader-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Install isolated Chromium test tooling
+        run: |
+          python3 -m pip install --user 'playwright==1.55.0'
+          python3 -m playwright install --with-deps chromium
+      - name: Pin the published reader to the exact source-data revision
+        run: |
+          python3 - <<'PY'
+          import os,pathlib
+          sha=os.environ['GITHUB_SHA'];source=pathlib.Path('portal/v4.html').read_text()
+          source=source.replace('raw.githubusercontent.com/alex-mextner/rig-cli/refs/heads/docs/full-grooming-2026-09-10/','raw.githubusercontent.com/alex-mextner/rig-cli/'+sha+'/')
+          source=source.replace('github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/','github.com/alex-mextner/rig-cli/blob/'+sha+'/')
+          source=source.replace('RIG / Ревью v4','RIG / Ревью v4 · '+sha[:12])
+          pathlib.Path('portal/v4-snapshot.html').write_text(source)
+          PY
+      - name: Check the actual retrospective, quotation registry and mobile navigation
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,subprocess,time,urllib.parse,urllib.request,os
+          from playwright.sync_api import sync_playwright
+          out=pathlib.Path('docs/grooming/v4-2026-09-10/reader-browser');out.mkdir(parents=True,exist_ok=True)
+          report={'version':4,'data_sha':os.environ['GITHUB_SHA'],'scope':'Published specification reader; not functional certification of the whole ecosystem','errors':[]}
+          server=subprocess.Popen(['python3','-m','http.server','8765','--bind','127.0.0.1','--directory','portal'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+          try:
+              for _ in range(50):
+                  try:urllib.request.urlopen('http://127.0.0.1:8765/v4-snapshot.html',timeout=1);break
+                  except Exception:time.sleep(.1)
+              with sync_playwright() as p:
+                  b=p.chromium.launch();page=b.new_page(viewport={'width':1440,'height':1000})
+                  page.on('pageerror',lambda e:report['errors'].append(str(e)))
+                  base='http://127.0.0.1:8765/v4-snapshot.html'
+                  page.goto(base,wait_until='networkidle')
+                  page.locator('h1').filter(has_text='исходного запроса').wait_for()
+                  page.screenshot(path=str(out/'v4-reader-home.png'),full_page=False)
+                  page.goto(base+'#/spec/'+urllib.parse.quote('docs/specs/recovery/01-retrospective-v4.md',safe=''))
+                  page.locator('article.document').wait_for(timeout=60000)
+                  report['retrospective_characters']=len(page.locator('article.document').inner_text())
+                  assert report['retrospective_characters']>12000
+                  assert page.locator('#toc a').count()>=10
+                  try:page.locator('article.document svg').first.wait_for(timeout=60000)
+                  except Exception:report['diagram_renderer']='source retained; external Mermaid renderer did not complete'
+                  else:report['diagram_renderer']='real Mermaid rendering verified'
+                  page.screenshot(path=str(out/'v4-reader-retrospective.png'),full_page=False)
+                  page.goto(base+'#/quotes')
+                  page.locator('#query').wait_for(timeout=60000)
+                  report['quote_records']=page.locator('#results .row').count()
+                  assert report['quote_records']==505
+                  page.locator('#query').fill('quota')
+                  page.set_viewport_size({'width':393,'height':852})
+                  page.goto(base)
+                  page.locator('#menu').click()
+                  assert page.locator('aside').is_visible()
+                  page.locator('aside a[href="#/catalog"]').click()
+                  page.locator('#query').wait_for(timeout=60000)
+                  page.screenshot(path=str(out/'v4-reader-mobile.png'),full_page=False)
+                  b.close()
+              assert not report['errors'],report['errors']
+              report['passed']=True
+          finally:
+              server.terminate();server.wait(timeout=10)
+              (out/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          PY
+      - name: Commit the tested snapshot and screenshots
+        run: |
+          git config user.name 'Rig v4 spec publisher'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add portal/v4-snapshot.html docs/grooming/v4-2026-09-10/reader-browser/
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs(review): publish a tested v4 reader pinned to source-data revision'
+            git pull --rebase origin docs/full-grooming-2026-09-10
+            git push origin HEAD:docs/full-grooming-2026-09-10
+          fi
+          echo "READER_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Verify public HTML and external browser rendering
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,time,urllib.parse,urllib.request
+          from playwright.sync_api import sync_playwright
+          sha=os.environ['READER_SHA'];url='https://rawcdn.githack.com/alex-mextner/rig-cli/'+sha+'/portal/v4-snapshot.html'
+          expected=hashlib.sha256(pathlib.Path('portal/v4-snapshot.html').read_bytes()).hexdigest()
+          report={'version':4,'url':url,'retrospective_url':url+'#/spec/'+urllib.parse.quote('docs/specs/recovery/01-retrospective-v4.md',safe=''),'reader_sha':sha,'data_sha':os.environ['GITHUB_SHA'],'authentication':'Public reading; reviews submitted through GitHub authentication, not private-reader OAuth','bulk_grooming_completion_implied':False}
+          for attempt in range(12):
+              try:
+                  req=urllib.request.Request(url,headers={'User-Agent':'rig-v4-reader-proof','Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(req,timeout=45) as response:raw=response.read();status=response.status
+                  report['http_status']=status;report['sha256']=hashlib.sha256(raw).hexdigest()
+                  if status==200 and report['sha256']==expected:break
+              except Exception as exc:report['last_error']=type(exc).__name__
+              time.sleep(min(30,3*(attempt+1)))
+          report['same_content_verified']=report.get('http_status')==200 and report.get('sha256')==expected
+          if report['same_content_verified']:
+              with sync_playwright() as p:
+                  b=p.chromium.launch();page=b.new_page(viewport={'width':1440,'height':1000})
+                  page.goto(report['retrospective_url'],wait_until='networkidle',timeout=90000)
+                  page.locator('article.document').wait_for(timeout=60000)
+                  report['external_browser_verified']=len(page.locator('article.document').inner_text())>12000
+                  page.screenshot(path='docs/grooming/v4-2026-09-10/reader-browser/v4-reader-public.png',full_page=False)
+                  b.close()
+          pathlib.Path('docs/grooming/v4-2026-09-10/reader-publication.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          assert report['same_content_verified'] and report.get('external_browser_verified'), 'Reader publication not verified'
+          PY
+      - name: Preserve the factual publication outcome
+        if: always()
+        run: |
+          git config user.name 'Rig v4 spec publisher'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/grooming/v4-2026-09-10/reader-browser/ docs/grooming/v4-2026-09-10/reader-publication.json 2>/dev/null || git add docs/grooming/v4-2026-09-10/reader-browser/
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs(review): record actual public v4-reader URL and browser outcome'
+            git pull --rebase origin docs/full-grooming-2026-09-10
+            git push origin HEAD:docs/full-grooming-2026-09-10
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: v4-reader-publication-evidence
+          path: |
+            docs/grooming/v4-2026-09-10/reader-browser/
+            docs/grooming/v4-2026-09-10/reader-publication.json
+          retention-days: 30
