@@ -80,8 +80,8 @@ mcp:
 # tool set, so rig pre-allows tg/review/draw/3d/rig/task/dev/pm/research + read-only rg/jq/gitleaks in the
 # harness's permission allowlist (claude-code: permissions.allow in ~/.claude/settings.json;
 # opencode: permission.bash) — AND, for claude-code, asserts the conservative deny/ask rule
-# baselines (raw `gh pr merge`, force pushes, sudo rm, screencapture, `rg --pre`,
-# `git worktree add`, and Claude Code `EnterWorktree` denied (`--pre-glob` is never denied
+# baselines (raw `gh pr merge`, force pushes, sudo rm, screencapture, osascript/System Events,
+# `rg --pre`, `git worktree add`, and Claude Code `EnterWorktree` denied (`--pre-glob` is never denied
 # anywhere — no effect without `--pre`, which is caught on its own); pkill/killall/`git reset --hard` prompt) — the OUTER belt the harness evaluates before hooks.
 # The merge is ADDITIVE — every existing entry is preserved, the desired ones are merged in, deduped; a
 # re-apply is a no-op; extras are reported as drift, never deleted. The allow grant is at the
@@ -116,6 +116,13 @@ harness:
   enabled: true
   kind: claude-code
   auto_mode: true
+
+# ── ecosystem_readme — dogfood the README "## Ecosystem" reconciler (rig-cli#308) ──
+# The section is wrapped in <!-- rig:ecosystem-block --> / <!-- /rig:ecosystem-block --> markers
+# below the "## Ecosystem" heading in README.md; `rig apply` keeps it in sync with the canonical
+# registry in riglib/ecosystem_readme.py instead of it being hand-copied and drifting.
+ecosystem_readme:
+  enabled: true
 
 # ── tmux — rig-managed tmux config (generate + migrate ~/.tmux.conf) ───────────────
 # OPT-IN and per-MACHINE (like auto-mode): tmux config is a developer-machine concern, so

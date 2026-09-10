@@ -66,11 +66,14 @@ _VALID_TOP_KEYS = {
     "env",
     "gitignore",
     "spotlight",
+    "bun",
     "tools",
     "tg_ctl",
+    "tcc_watch",
     "ship_delegator",
     "linters",
     "project_tools",
+    "ecosystem_readme",
     "scripts",
     "dev",
     "task",
@@ -635,11 +638,14 @@ def validate(data: dict[str, Any]) -> None:
     _validate_env(data.get("env", {}))
     _validate_gitignore(data.get("gitignore", {}))
     _validate_spotlight(data.get("spotlight", {}))
+    _validate_bun(data.get("bun", {}))
     _validate_tools(data.get("tools", {}))
     _validate_tg_ctl(data.get("tg_ctl", {}))
+    _validate_tcc_watch(data.get("tcc_watch", {}))
     _validate_ship_delegator(data.get("ship_delegator", {}))
     _validate_linters(data.get("linters", {}))
     _validate_project_tools(data.get("project_tools", {}))
+    _validate_ecosystem_readme(data.get("ecosystem_readme", {}))
     _validate_task(data.get("task", {}))
 
 
@@ -932,6 +938,138 @@ def _validate_by_stack_items(bs: Any) -> None:
             )
 
 
+def _harness_block(path: Path) -> Any:
+    """The ``harness`` mapping of one config file — via PyYAML when present, else a stdlib
+    fallback that reads ONLY the two fan-out keys. ``rig doctor`` is documented to run with zero
+    third-party imports, so a missing PyYAML must not make it blind to a configured opt-out."""
+    try:
+        doc = read_yaml_file(path)
+    except ImportError:
+        return _fan_out_keys_without_yaml(path.read_text(encoding="utf-8"))
+    # an empty / whitespace-only file parses to None, a scalar or a list is not a mapping
+    return doc.get("harness") if isinstance(doc, dict) else None
+
+
+_YAML_TRUE = ("true", "yes", "on")  # the YAML 1.1 booleans PyYAML itself accepts
+_YAML_FALSE = ("false", "no", "off")
+
+
+def _yaml_scalar(raw: str) -> Any:
+    text = raw.split("#", 1)[0].strip().strip("'\"")
+    if text.lower() in _YAML_TRUE:
+        return True
+    if text.lower() in _YAML_FALSE:
+        return False
+    return text
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+def _fan_out_keys_without_yaml(text: str) -> dict[str, Any]:
+    """Extract ``harness.settings_paths`` / ``harness.discover_config_dirs`` with the stdlib only.
+
+    Understands the shapes ``rig setup`` / ``config set`` write and the docs show: a top-level
+    ``harness:`` block, ``discover_config_dirs: <bool>``, and ``settings_paths`` as a flow list
+    (``[a, b]``) or a block list (``- a``). The block's child indent is whatever its first key
+    uses (2 or 4 spaces — a hand-edited file must not lose keys); deeper lines are nested
+    mappings and skipped. Anything else is ignored (the caller falls back to the defaults for
+    that key) — never a parse error.
+    """
+    out: dict[str, Any] = {}
+    in_harness = False
+    child_indent: int | None = None
+    paths: list[str] | None = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if not line[0].isspace():
+            # `harness:  # a comment` is still the header — strip the comment like every value
+            in_harness = stripped.split("#", 1)[0].strip() == "harness:"
+            child_indent = None
+            paths = None
+            continue
+        if not in_harness:
+            continue
+        if paths is not None and stripped.startswith("- "):
+            paths.append(str(_yaml_scalar(stripped[2:])))
+            continue
+        paths = None
+        if child_indent is None:
+            child_indent = _indent(line)
+        key, sep, value = stripped.partition(":")
+        if not sep or _indent(line) != child_indent:
+            continue
+        key = key.strip()
+        if key == "discover_config_dirs":
+            out[key] = _yaml_scalar(value)
+        elif key == "settings_paths":
+            flow = value.split("#", 1)[0].strip()
+            if flow.startswith("[") and flow.endswith("]"):
+                out[key] = [str(_yaml_scalar(v)) for v in flow[1:-1].split(",") if v.strip()]
+            else:
+                paths = out.setdefault(key, [])
+    return out
+
+
+def load_harness_fan_out(repo_root: Path) -> dict[str, Any]:
+    """The effective ``harness`` fan-out keys (``settings_paths``, ``discover_config_dirs``) — LENIENT.
+
+    For ``rig doctor``, which loads no config: read the global layer and the repo's ``rig.yaml``
+    (when present), merge only the ``harness`` block and validate only the two fan-out keys.
+    Without PyYAML the two keys are read by a stdlib fallback (:func:`_fan_out_keys_without_yaml`).
+    Any failure — an unreadable or non-UTF-8 file, a config that fails validation elsewhere (a
+    stale key another rig version added) — yields ``{}``: the built-in defaults, so doctor
+    never goes blind because the rest of the config is broken.
+    """
+    harness: dict[str, Any] = {}
+    for path in (global_config_path(), repo_root / "rig.yaml"):
+        if not path.is_file():
+            continue
+        try:
+            block = _harness_block(path)
+        except (ConfigError, OSError, ValueError):  # ValueError: UnicodeDecodeError
+            return {}
+        if isinstance(block, dict):
+            harness = _deep_merge(harness, block)
+    fan_out = {k: harness[k] for k in ("settings_paths", "discover_config_dirs") if k in harness}
+    try:
+        _validate_harness_fan_out(fan_out)
+    except ConfigError:
+        return {}
+    return fan_out
+
+
+def _validate_harness_fan_out(h: dict[str, Any]) -> None:
+    """Validate the claude-rotate fan-out keys (rig-cli#368): ``settings_paths`` + ``discover_config_dirs``.
+
+    ``settings_paths`` lists EXTRA user-scope ``settings.json`` files the claude-code write reaches
+    (each must be a ``.json`` path); ``discover_config_dirs`` (bool, default true) toggles the
+    automatic ``~/.claude-accounts/account-*`` discovery. Fail closed on any other shape.
+    """
+    paths = h.get("settings_paths")
+    if paths is not None:
+        if not isinstance(paths, list) or not all(isinstance(p, str) and p for p in paths):
+            raise ConfigError(
+                f"harness.settings_paths must be a list of non-empty strings, got {paths!r}",
+                schema_path="harness.settings_paths",
+            )
+        for p in paths:
+            if not p.endswith(".json"):
+                raise ConfigError(
+                    f"harness.settings_paths entries must end in .json (claude-code settings files), got {p!r}",
+                    schema_path="harness.settings_paths",
+                )
+    discover = h.get("discover_config_dirs")
+    if discover is not None and not isinstance(discover, bool):
+        raise ConfigError(
+            f"harness.discover_config_dirs must be a bool, got {discover!r}",
+            schema_path="harness.discover_config_dirs",
+        )
+
+
 def _validate_harness(h: dict[str, Any]) -> None:
     """Validate the ``harness`` block — the agent harness's skill + auto/permission provisioning.
 
@@ -1006,6 +1144,7 @@ def _validate_harness(h: dict[str, Any]) -> None:
             f"harness.auto_mode must be a bool, got {auto_mode!r}",
             schema_path="harness.auto_mode",
         )
+    _validate_harness_fan_out(h)
     # self_merge gates a security-sensitive global carve-out; plan.py coerces it via bool(...),
     # so a non-bool like the string "false" would read truthy and ENABLE what the user meant to
     # disable. Fail closed, mirroring auto_mode.
@@ -2010,6 +2149,29 @@ def _validate_project_tools(pt: dict[str, Any]) -> None:
             _check_bool(sverklo, key, f"project_tools.sverklo.{key}")
 
 
+def _validate_ecosystem_readme(er: dict[str, Any]) -> None:
+    """Validate the rig-managed README ``## Ecosystem`` block (rig-cli#308).
+
+    Default-off (opt-in): an absent or empty block is valid and provisions nothing. ``target``
+    (default ``README.md``) must be a relative path that stays inside the repo — the SAME
+    containment guard (:func:`linter_path_escapes_repo`) the ``linters.items`` block uses for
+    its own repo-relative writes.
+    """
+    if not isinstance(er, dict):
+        raise ConfigError("ecosystem_readme must be a mapping", schema_path="ecosystem_readme")
+    if not er:
+        return
+    _reject_unknown_keys(er, "ecosystem_readme")
+    _check_bool(er, "enabled", "ecosystem_readme.enabled")
+    _check_str(er, "target", "ecosystem_readme.target")
+    target = er.get("target")
+    if isinstance(target, str) and target and linter_path_escapes_repo(target):
+        raise ConfigError(
+            f"ecosystem_readme.target must be a relative path inside the repo, got {target!r}",
+            schema_path="ecosystem_readme.target",
+        )
+
+
 def _validate_env(e: dict[str, Any]) -> None:
     """Validate the ``env`` block — rig-managed shell environment variables (GLOBAL, machine-wide).
 
@@ -2185,6 +2347,23 @@ def _validate_spotlight(s: dict[str, Any]) -> None:
             f"spotlight.max_depth must be a positive int, got {max_depth!r}",
             schema_path="spotlight.max_depth",
         )
+
+
+def _validate_bun(s: dict[str, Any]) -> None:
+    """Validate the ``bun`` block — GLOBAL bunfig isolated linker + globalStore splice.
+
+    Default **OFF** (opt-in). An absent/empty block is a no-op. Fail-closed on a non-mapping
+    block, a non-bool ``enabled``, and an unknown key.
+    """
+    if not isinstance(s, dict):
+        raise ConfigError("bun must be a mapping", schema_path="bun")
+    if not s:
+        return
+    _reject_unknown_keys(s, "bun")
+    enabled = s.get("enabled")
+    if enabled is not None and not isinstance(enabled, bool):
+        raise ConfigError(f"bun.enabled must be a bool, got {enabled!r}", schema_path="bun.enabled")
+
 
 
 # The ruleset knobs that are plain booleans (typo + type guard). Listed once so the
@@ -2369,24 +2548,32 @@ _TMUX_TOP_KEYS = {
     "continuum",
     "moshi",
     "cc_restore",
+    "omp_restore",
+    "codex_restore",
     "anti_sprawl",
     "boot",
     "login_shell",
     "autosave",
     "pane_titles",
     "focus_events",
+    "clipboard",
+    "copy_mode",
 }
 _TMUX_SUBKEYS = {
     "resurrect": {"processes", "capture_pane_contents"},
     "continuum": {"restore", "boot", "save_interval"},
     "moshi": {"enabled"},
     "cc_restore": {"enabled"},
+    "omp_restore": {"enabled"},
+    "codex_restore": {"enabled"},
     "anti_sprawl": {"enabled", "session"},
     "boot": {"enabled", "label"},
     "login_shell": {"enabled", "shell"},
     "autosave": {"enabled", "label", "stale_after"},
     "pane_titles": {"enabled", "position", "format", "clear_status_right"},
     "focus_events": {"enabled"},
+    "clipboard": {"enabled", "command"},
+    "copy_mode": {"mode_keys"},
 }
 
 
@@ -2472,18 +2659,64 @@ def _validate_tmux(t: dict[str, Any]) -> None:
     for sub in (
         "moshi",
         "cc_restore",
+        "omp_restore",
+        "codex_restore",
         "anti_sprawl",
         "boot",
         "login_shell",
         "autosave",
         "pane_titles",
         "focus_events",
+        "clipboard",
     ):
         block = t.get(sub, {})
         if isinstance(block, dict):
             value = block.get("enabled")
             if value is not None and not isinstance(value, bool):
                 raise ConfigError(f"tmux.{sub}.enabled must be a bool, got {value!r}")
+    clipboard = t.get("clipboard", {})
+    if isinstance(clipboard, dict):
+        # Same double-quoted-tmux-value injection hazard as `pane_titles.format` (the command is
+        # interpolated into `copy-pipe-and-cancel "<command>"`) -- reuse the SAME check
+        # (`_clipboard_command_is_safe` delegates to `_pane_titles_format_is_safe`) rather than
+        # re-deriving the character class here.
+        from .tmux import _clipboard_command_is_safe
+
+        command = clipboard.get("command")
+        if command is not None:
+            if not isinstance(command, str):
+                raise ConfigError(f"tmux.clipboard.command must be a string, got {command!r}")
+            if command and not _clipboard_command_is_safe(command):
+                raise ConfigError(
+                    r"""tmux.clipboard.command must not contain '"', '\', '$', '#(' (a """
+                    "shell-exec token), or a non-printable character other than a plain tab "
+                    "(they can corrupt, inject into, or execute code from the generated tmux "
+                    f"config), got {command!r}",
+                    fix=(
+                        "drop the offending character/sequence, or leave `command` unset to use "
+                        "the platform-detected clipboard command"
+                    ),
+                    schema_path="tmux.clipboard.command",
+                )
+    copy_mode = t.get("copy_mode", {})
+    if isinstance(copy_mode, dict):
+        # "vi" (default) emits `setw -g mode-keys vi`, making copy-mode-vi (and its v/y bindings,
+        # including the clipboard bindings above) the LIVE table -- tmux's own default is
+        # `emacs`, under which copy-mode-vi never activates. Same enum-clamp pattern as
+        # `pane_titles.position`. Independent of `tmux.clipboard` — see `tmux.py`'s module-level
+        # comment on `DEFAULT_MODE_KEYS` for why this is its own knob.
+        from .tmux import VALID_MODE_KEYS
+
+        mode_keys = copy_mode.get("mode_keys")
+        if mode_keys is not None and (
+            not isinstance(mode_keys, str) or mode_keys not in VALID_MODE_KEYS
+        ):
+            raise ConfigError(
+                f"tmux.copy_mode.mode_keys must be one of "
+                f"{sorted(VALID_MODE_KEYS)}, got {mode_keys!r}",
+                fix=f"use one of: {', '.join(sorted(VALID_MODE_KEYS))}",
+                schema_path="tmux.copy_mode.mode_keys",
+            )
     pane_titles = t.get("pane_titles", {})
     if isinstance(pane_titles, dict):
         # Import here (not at module top) only to sidestep import-order churn in this large
@@ -2653,6 +2886,45 @@ def _validate_tg_ctl(t: dict[str, Any]) -> None:
             raise ConfigError(
                 f"tg_ctl.{strkey} must be a string, got {value!r}",
                 schema_path=f"tg_ctl.{strkey}",
+            )
+
+
+# The keys the tcc_watch block accepts. Listed once so the validator rejects a typo (fail-closed,
+# consistent with every other block).
+_TCC_WATCH_KEYS = {
+    "enabled",
+    "label",
+    "config_dir",
+    "python_bin",
+}
+
+
+def _validate_tcc_watch(t: dict[str, Any]) -> None:
+    """Validate the ``tcc_watch`` block — rig-managed TCC-dialog-watcher LaunchAgent (Phase 1
+    detection-only defense-in-depth behind the eval-tool deny-list, PR #488; see
+    :mod:`riglib.tcc_watch`'s module docstring for the full phased design).
+
+    This is a per-MACHINE concern (one watcher daemon per machine), so it belongs in the GLOBAL
+    layer (``~/.config/rig/config.yaml``), like ``tg_ctl``/``tmux``/``git_hooks`` — NOT a
+    committed repo ``rig.yaml``. Default **ON**: an EMPTY/absent block still provisions the
+    daemon (a present block with ``enabled`` not false opts in) — mirrors ``tg_ctl``. Fail-closed,
+    consistent with every other block, on: a non-mapping block, an unknown key (typo guard), a
+    non-bool ``enabled``, and a non-string ``label``/``config_dir``/``python_bin``.
+    """
+    if not isinstance(t, dict):
+        raise ConfigError("tcc_watch must be a mapping", schema_path="tcc_watch")
+    if not t:
+        return
+    _reject_unknown_keys(t, "tcc_watch")
+    value = t.get("enabled")
+    if value is not None and not isinstance(value, bool):
+        raise ConfigError(f"tcc_watch.enabled must be a bool, got {value!r}", schema_path="tcc_watch.enabled")
+    for strkey in ("label", "config_dir", "python_bin"):
+        value = t.get(strkey)
+        if value is not None and not isinstance(value, str):
+            raise ConfigError(
+                f"tcc_watch.{strkey} must be a string, got {value!r}",
+                schema_path=f"tcc_watch.{strkey}",
             )
 
 

@@ -72,6 +72,7 @@ def test_execpolicy_rule_lines_allow_then_deny():
     assert any('decision="forbidden"' in ln and '["gh", "pr", "merge"]' in ln for ln in lines)
     assert any('["sudo", "rm"]' in ln for ln in lines)
     assert any('["screencapture"]' in ln for ln in lines)
+    assert any('["osascript"]' in ln for ln in lines)
     # raw `git worktree add` is an unambiguous 3-token prefix (same class as gh pr merge);
     # worktrees go through `rig worktree create`. Not a bare `git` ban.
     assert any('["git", "worktree", "add"], decision="forbidden"' in ln for ln in lines)

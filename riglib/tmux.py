@@ -51,6 +51,7 @@ from __future__ import annotations
 import os
 import shlex
 import shutil
+import sys
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -61,15 +62,16 @@ from typing import Literal
 BLOCK_BEGIN = "# === rig-managed (tmux) BEGIN ==="
 BLOCK_END = "# === rig-managed (tmux) END ==="
 
-# The default resurrect process list. NOTE: ``claude`` is deliberately NOT here when cc_restore
-# is on — resurrect would restart the pane as a bare ``claude`` (a NEW default session) BEFORE
-# the cc-restore hook runs, and cc-restore (which only resumes a FRESH SHELL, never clobbering a
-# running claude) would then skip it, leaving the wrong session. So cc-restore owns the exact
-# ``claude --resume <id>`` and resurrect just brings the SHELL back. ``claude`` is added to this
-# list ONLY when cc_restore is OFF (the user opted out of exact-id resume → resurrect's own
-# best-effort bare-``claude`` restore is the documented fallback). The rest are common dev
-# processes; ``~`` prefixes tell resurrect to match a process whose name merely CONTAINS the
-# token (resurrect's tilde convention).
+# The default resurrect process list. NOTE: ``claude``/``omp``/``codex`` are deliberately NOT
+# here when their respective exact-id restore is on — resurrect would restart the pane as a
+# BARE process (a NEW/default session) BEFORE the *-restore hook runs, and *-restore (which
+# only resumes a FRESH SHELL, never clobbering a running instance) would then skip it, leaving
+# the wrong session. So *-restore owns the exact resume (``claude --resume <id>`` /
+# ``omp --resume <path>`` / ``codex resume <id>``) and resurrect just brings the SHELL back.
+# Each name is added to this list ONLY when its OWN restore is OFF (the user opted out of
+# exact-id resume for that harness → resurrect's own best-effort bare-process restore is the
+# documented fallback). The rest are common dev processes; ``~`` prefixes tell resurrect to
+# match a process whose name merely CONTAINS the token (resurrect's tilde convention).
 DEFAULT_RESURRECT_PROCESSES = ["ssh", "psql", "mysql", "sqlite3"]
 
 # continuum's default autosave cadence (minutes). 15 is continuum's own default; we make it
@@ -175,10 +177,111 @@ def _pane_titles_format_is_safe(fmt: str) -> bool:
         return False
     return all(c == "\t" or unicodedata.category(c) != "Cc" for c in fmt)
 
-# The two managed cc scripts' basenames (live in the generated dir).
+
+# ── copy-mode clipboard (2026-09-09, "выделение появляется но ничего не копируется") ───────
+# tmux's OWN built-in copy-mode-vi bindings for `Enter`/`MouseDragEnd1Pane` already run
+# `send-keys -X copy-pipe-and-cancel` — but with NO pipe command, which only fills tmux's OWN
+# internal paste buffer, never the system clipboard (unless the terminal supports OSC 52 AND
+# `set-clipboard` is on; Terminal.app on macOS supports neither). So a mouse-drag release, or the
+# documented `prefix [` -> `v` -> `Enter` keyboard flow, visibly selects/highlights and then copies
+# NOWHERE the user can paste from -- exactly the reported symptom. Piping the selection through an
+# explicit, resolved platform clipboard command is the reliable, terminal-independent fix.
+#
+# `Enter`/`MouseDragEnd1Pane` are mirrored into the plain `copy-mode` (emacs) table so the
+# mouse-drag-release flow works regardless of `mode-keys` -- see `tmux.copy_mode.mode_keys`
+# below for what actually makes `copy-mode-vi` (and therefore its `v`/`y` bindings) live.
+DEFAULT_CLIPBOARD_ENABLED = True
+
+
+# ── copy-mode key table (2026-09-02, Alex tg#325: "выделение появляется но ничего не
+# копируется" -- v/Space do nothing) ────────────────────────────────────────────────────────
+# tmux's OWN default `mode-keys` is `emacs`; a bare rig-managed setup never overrode it. Under
+# that table `Space` is bound to `page-down` (not `begin-selection`) and a bare `v` is UNBOUND,
+# so ANY vi-style copy-mode workflow (`prefix [` then `v`/`Space` to select, `y` to yank) is
+# silently dead -- independent of clipboard integration above: the clipboard's own `v`/`y`
+# bindings are `copy-mode-vi`-scoped and just as unreachable while `mode-keys` stays `emacs`.
+# This is the confirmed root cause of "the yellow highlight appears then just disappears" for
+# anyone who expects vi-style copy-mode hotkeys, whether or not they use rig's clipboard piping.
+# `mode_keys` is therefore its OWN independent, ALWAYS-rendered knob (same explicit-every-apply
+# contract as `focus_events` -- never omit-when-default), decoupled from clipboard settings:
+# "vi" (default) activates `copy-mode-vi` (making the clipboard `v`/`y` bindings above reachable
+# too); "emacs" keeps tmux's own default table live (the clipboard flow above still works via
+# its `copy-mode`-table mirror, just without vi's other motion keys).
+DEFAULT_MODE_KEYS = "vi"
+VALID_MODE_KEYS = {"vi", "emacs"}
+
+
+def _clipboard_command_is_safe(cmd: str) -> bool:
+    """True iff ``cmd`` is safe to interpolate into a tmux double-quoted option value.
+
+    A resolved/overridden clipboard command is interpolated into
+    ``send-keys -X copy-pipe-and-cancel "<cmd>"`` exactly like `pane_titles.format` is
+    interpolated into `pane-border-format "<fmt>"` -- same hazard class (breaking out of the
+    double-quoted value to corrupt or inject an extra tmux directive), so this reuses
+    :func:`_pane_titles_format_is_safe`'s exact char/substring blocklist rather than
+    re-deriving it (there is nothing clipboard-specific about the safety rule)."""
+    return _pane_titles_format_is_safe(cmd)
+
+
+def _detect_platform_clipboard_command() -> str:
+    """Auto-detect this host's clipboard-write command, or ``""`` if none is resolvable.
+
+    macOS -> ``pbcopy`` (ships with the OS; still probed via PATH for determinism/testability).
+    Linux -> prefer Wayland's ``wl-copy`` (ONLY when ``$WAYLAND_DISPLAY`` is set AND the binary is
+    on PATH -- a `wl-copy` binary present under a plain X11 session would hang waiting for a
+    Wayland compositor that isn't running), else X11 ``xclip``, else ``xsel``. Anything else
+    (including a Linux host with none of the three installed) -> ``""`` -- the caller must render
+    NO clipboard section rather than a binding that shells out to a missing command on every copy.
+    """
+    if sys.platform == "darwin":
+        return "pbcopy" if shutil.which("pbcopy") else ""
+    if sys.platform.startswith("linux"):
+        if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-copy"):
+            return "wl-copy"
+        if shutil.which("xclip"):
+            return "xclip -selection clipboard -in"
+        if shutil.which("xsel"):
+            return "xsel --clipboard --input"
+    return ""
+
+
+def _resolve_clipboard_command(clipboard: dict) -> str:
+    """The effective clipboard command: an explicit, SAFE ``command`` override wins verbatim;
+    otherwise the platform auto-detected command; otherwise ``""`` (no-op -- see
+    :func:`_detect_platform_clipboard_command`). Mirrors ``_resolve_pane_titles_format``'s
+    defense-in-depth rationale: `config.validate` rejects an unsafe override on a fresh
+    `rig apply`/`init`, but a replayed/stored `Action.options` or a direct `build_tmux` caller
+    bypasses `validate()` entirely, so this clamps again at resolve time."""
+    explicit = clipboard.get("command")
+    if isinstance(explicit, str) and explicit and _clipboard_command_is_safe(explicit):
+        return explicit
+    return _detect_platform_clipboard_command()
+
+
+def _resolve_mode_keys(copy_mode: dict) -> str:
+    """The effective ``mode_keys`` choice, DEFENSIVELY clamped to ``VALID_MODE_KEYS``.
+
+    Same defense-in-depth rationale as :func:`_resolve_pane_titles_position`: ``config.validate``
+    already rejects an invalid value for a fresh ``rig apply``/``init``, but a replayed/stored
+    ``Action.options`` or a direct ``build_tmux`` caller bypasses ``validate()`` entirely, so this
+    clamps again at resolve time rather than emitting a `set` tmux would reject."""
+    value = copy_mode.get("mode_keys")
+    if value is None:
+        return DEFAULT_MODE_KEYS
+    value = str(value)
+    return value if value in VALID_MODE_KEYS else DEFAULT_MODE_KEYS
+
+
+# The managed cc/omp/codex session-resume scripts' basenames (live in the generated dir).
 CC_SAVE_NAME = "cc-save.sh"
 CC_RESTORE_NAME = "cc-restore.sh"
 CC_MAP_NAME = "cc-sessions.map"
+OMP_SAVE_NAME = "omp-save.sh"
+OMP_RESTORE_NAME = "omp-restore.sh"
+OMP_MAP_NAME = "omp-sessions.map"
+CODEX_SAVE_NAME = "codex-save.sh"
+CODEX_RESTORE_NAME = "codex-restore.sh"
+CODEX_MAP_NAME = "codex-sessions.map"
 ATTACH_NAME = "tmux-attach.sh"
 RIG_CONF_NAME = "rig.tmux.conf"
 # The boot entrypoint the launchd agent runs. DEFECT 1: the agent must NOT run a bare
@@ -239,6 +342,8 @@ class TmuxPlan:
     save_interval: int
     moshi_enabled: bool
     cc_restore_enabled: bool
+    omp_restore_enabled: bool
+    codex_restore_enabled: bool
     anti_sprawl_enabled: bool
     anti_sprawl_session: str
     boot_enabled: bool
@@ -268,6 +373,17 @@ class TmuxPlan:
     # panes (needed by editors/tools that react to focus). A plain terminal-capability toggle,
     # independent of the resurrect/continuum/tpm ordering surface. Default-on (Alex, 2026-08-05).
     focus_events_enabled: bool
+    # ── copy-mode clipboard (2026-09-09) ────────────────────────────────────────────
+    # See the module-level comment above `_detect_platform_clipboard_command` for the full
+    # root-cause writeup. `clipboard_command` is the FULLY RESOLVED command (explicit override or
+    # platform-detected), baked here at plan time — same determinism contract as `tmux_bin`/
+    # `login_shell` (render must not re-probe PATH/env per invocation).
+    clipboard_enabled: bool
+    clipboard_command: str  # "" → no clipboard command could be resolved; render emits nothing
+    # tmux's copy-mode `mode-keys` table ("vi" | "emacs") — see the module-level comment above
+    # `DEFAULT_MODE_KEYS` for why this exists and is independent of the clipboard settings
+    # above. Rendered unconditionally (same explicit-every-apply contract as focus_events).
+    mode_keys: str
 
     # ── resolved artifact paths ──────────────────────────────────────────────────────
     @property
@@ -287,6 +403,30 @@ class TmuxPlan:
         return self.generated_dir / CC_MAP_NAME
 
     @property
+    def omp_save_path(self) -> Path:
+        return self.generated_dir / OMP_SAVE_NAME
+
+    @property
+    def omp_restore_path(self) -> Path:
+        return self.generated_dir / OMP_RESTORE_NAME
+
+    @property
+    def omp_map_path(self) -> Path:
+        return self.generated_dir / OMP_MAP_NAME
+
+    @property
+    def codex_save_path(self) -> Path:
+        return self.generated_dir / CODEX_SAVE_NAME
+
+    @property
+    def codex_restore_path(self) -> Path:
+        return self.generated_dir / CODEX_RESTORE_NAME
+
+    @property
+    def codex_map_path(self) -> Path:
+        return self.generated_dir / CODEX_MAP_NAME
+
+    @property
     def attach_path(self) -> Path:
         return self.generated_dir / ATTACH_NAME
 
@@ -296,13 +436,23 @@ class TmuxPlan:
 
     def managed_scripts(self) -> list[tuple[Path, str]]:
         """The (path, body) pairs apply writes and drift checks — ONE source so they can't
-        diverge: cc-save + cc-restore always, the attach-or-create entry when anti-sprawl is on,
-        the boot script when boot is on (the launchd agent's entrypoint — DEFECT 1).
+        diverge: cc-save + cc-restore always, omp-save/omp-restore + codex-save/codex-restore
+        when their own restore is enabled (unlike cc's unconditional pair — omp/codex are a
+        newer, explicitly opt-out-able surface, so their artifacts are absent on disk entirely
+        when the user turns them off, not just unwired from resurrect's hooks), the
+        attach-or-create entry when anti-sprawl is on, the boot script when boot is on (the
+        launchd agent's entrypoint — DEFECT 1).
         """
         scripts = [
             (self.cc_save_path, self.render_cc_save()),
             (self.cc_restore_path, self.render_cc_restore()),
         ]
+        if self.omp_restore_enabled:
+            scripts.append((self.omp_save_path, self.render_omp_save()))
+            scripts.append((self.omp_restore_path, self.render_omp_restore()))
+        if self.codex_restore_enabled:
+            scripts.append((self.codex_save_path, self.render_codex_save()))
+            scripts.append((self.codex_restore_path, self.render_codex_restore()))
         if self.anti_sprawl_enabled:
             scripts.append((self.attach_path, self.render_attach_script()))
         if self.boot_enabled:
@@ -384,21 +534,29 @@ class TmuxPlan:
           1. plugin DECLARATIONS (tpm + resurrect + continuum)
           2. resurrect/continuum OPTIONS (processes incl. claude, capture-pane, restore,
              save-interval, boot)
-          3. cc-restore resurrect HOOKS (post-save / post-restore → the managed scripts)
+          3. session-resume resurrect HOOKS (post-save / post-restore → the enabled
+             cc/omp/codex-save / cc/omp/codex-restore scripts)
           4. pane-titles (default-on) + the Moshi ``status-right`` tweak (opt-in) — BOTH BEFORE
              any plugin init, since continuum's own status-right autosave indicator (when it
              fires) appends onto whatever status-right already holds
-          5. resurrect ``run-shell`` init
-          6. continuum ``run-shell`` init  ← LAST, so nothing after it wipes its hook
-          7. tpm init (must be the very last line per tpm's own contract)
+          5. copy-mode clipboard bindings (default-on) — no ordering dependency on continuum;
+             placed here purely for section-grouping consistency with pane-titles/Moshi above
+          6. resurrect ``run-shell`` init
+          7. continuum ``run-shell`` init  ← LAST, so nothing after it wipes its hook
+          8. tpm init (must be the very last line per tpm's own contract)
         """
-        # cc-restore owns the exact `claude --resume <id>` (resurrect brings the shell back), so
-        # `claude` goes in @resurrect-processes ONLY when cc-restore is OFF (fallback to
-        # resurrect's own bare-claude restore). If the user EXPLICITLY listed `claude` in
-        # tmux.resurrect.processes, honor that (their choice), even with cc-restore on.
+        # *-restore owns the exact `<harness> --resume/resume <id>` (resurrect brings the shell
+        # back), so a harness's bare name goes in @resurrect-processes ONLY when ITS OWN restore
+        # is OFF (fallback to resurrect's own bare-process restore). If the user EXPLICITLY
+        # listed the name in tmux.resurrect.processes, honor that (their choice), even with the
+        # matching restore on.
         procs_list = list(self.resurrect_processes)
         if not self.cc_restore_enabled and "claude" not in procs_list:
             procs_list = ["claude", *procs_list]
+        if not self.omp_restore_enabled and "omp" not in procs_list:
+            procs_list = ["omp", *procs_list]
+        if not self.codex_restore_enabled and "codex" not in procs_list:
+            procs_list = ["codex", *procs_list]
         procs = " ".join(_resurrect_token(p) for p in procs_list)
         out: list[str] = [
             "# rig-managed tmux configuration — GENERATED from rig.yaml. Do not hand-edit;",
@@ -469,19 +627,33 @@ class TmuxPlan:
         # NO-OP for this reason (documented); rig's launchd agent is the single boot path.
         out.append("set -g @continuum-boot 'off'")
 
+        # resurrect's `@resurrect-hook-post-save-all` / `@resurrect-hook-post-restore-all` are
+        # each a SINGLE tmux option holding ONE shell command string (resurrect's own
+        # `execute_hook` does `eval "$hook"` — see scripts/helpers.sh in tmux-resurrect). So
+        # every ENABLED harness's save/restore script is CHAINED into that one value with `; `
+        # (not re-`set -g`, which would just overwrite the prior harness's hook) — `eval` runs a
+        # `;`-joined string as a sequence of commands, same as a shell script body. Each command
+        # is independently `shlex.quote`d (a generated_dir/HOME with a space would otherwise be
+        # split); when no harness is enabled the hooks are omitted entirely (unchanged from the
+        # claude-only behavior this generalizes).
+        resume_scripts = []
         if self.cc_restore_enabled:
-            # The hook VALUE is exec'd by resurrect as a SHELL command, so the script path needs
-            # SHELL quoting (shlex.quote) inside it — a generated_dir/HOME with a space would
-            # otherwise be split and the hook would never run. We then wrap that in a tmux
-            # double-quoted option value. `shlex.quote` of a space path yields '…/cc-save.sh'
-            # (single-quoted), safe inside the tmux "…" value.
-            save_cmd = shlex.quote(str(self.cc_save_path))
-            restore_cmd = shlex.quote(str(self.cc_restore_path))
+            resume_scripts.append(("Claude Code", self.cc_save_path, self.cc_restore_path))
+        if self.omp_restore_enabled:
+            resume_scripts.append(("omp", self.omp_save_path, self.omp_restore_path))
+        if self.codex_restore_enabled:
+            resume_scripts.append(("Codex", self.codex_save_path, self.codex_restore_path))
+        if resume_scripts:
+            save_cmd = "; ".join(shlex.quote(str(save)) for _, save, _restore in resume_scripts)
+            restore_cmd = "; ".join(shlex.quote(str(restore)) for _, _save, restore in resume_scripts)
+            names = " / ".join(name for name, _save, _restore in resume_scripts)
             out += [
                 "",
-                "# ── cc-restore: per-window Claude Code resume by exact session id ──────────",
-                "# resurrect fires these AFTER it saves / restores; the managed scripts record",
-                "# each claude pane's cwd→session-id map and relaunch `claude --resume <id>`.",
+                f"# ── session resume by exact id ({names}) ───────────────────────────────────",
+                "# resurrect fires these AFTER it saves / restores; each managed script records",
+                "# its harness's cwd→session map and relaunches the harness's exact resume",
+                "# command (`claude --resume <id>` / `omp --resume <path>` / `codex resume <id>`)",
+                "# into a FRESH shell pane only — never clobbering an already-running instance.",
                 f'set -g @resurrect-hook-post-save-all "{save_cmd}"',
                 f'set -g @resurrect-hook-post-restore-all "{restore_cmd}"',
             ]
@@ -520,6 +692,59 @@ class TmuxPlan:
                 "  set -g status-right ''",
                 "}",
             ]
+
+        out += [
+            "",
+            "# ── copy-mode key table (rig apply tmux.copy_mode) ──────────────────────────",
+            "# tmux's own default `mode-keys` is `emacs`, under which `Space` pages the view",
+            "# (not begin-selection) and a bare `v` is unbound, so a vi-style copy-mode",
+            "# workflow (`prefix [` then `v`/`Space` to select, `y` to yank) silently does",
+            "# nothing. Rendered unconditionally — independent of tmux.clipboard below — so vi",
+            "# navigation works even with clipboard integration off or unresolved on this host.",
+            f"setw -g mode-keys {self.mode_keys}",
+        ]
+
+        if self.clipboard_enabled and self.clipboard_command:
+            # Placed BEFORE continuum's run-shell init, same as pane-titles/Moshi above — no
+            # ordering dependency on continuum here, just consistent section placement.
+            cmd = self.clipboard_command
+            out += [
+                "",
+                "# ── copy-mode clipboard (rig apply tmux.clipboard) ──────────────────────────",
+                "# tmux's own copy-mode-vi Enter/MouseDragEnd1Pane already run copy-pipe-and-cancel",
+                "# with NO pipe command — that only fills tmux's OWN paste buffer, never the system",
+                "# clipboard (Terminal.app has no OSC-52 clipboard support at all). Piping through",
+                f"# the resolved '{cmd}' fixes both the keyboard (prefix [, v, Enter) and the",
+                "# mouse-drag-release flow. NOTE: `set -g mouse on` is a personal ~/.tmux.conf",
+                "# preference (not rig-managed) — it must ALSO be set for tmux to report a",
+                "# mouse-drag-release event at all; rig does not force it.",
+            ]
+            out += [
+                "bind-key -T copy-mode-vi v send-keys -X begin-selection",
+                f'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "{cmd}"',
+                f'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "{cmd}"',
+                f'bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{cmd}"',
+                # Mirrored into the plain `copy-mode` (emacs) table: whatever `mode-keys` ends up
+                # being (see the copy_mode section above), `Enter`/`MouseDragEnd1Pane` still fire
+                # the resolved clipboard command in the OTHER table too — the mouse-drag-release
+                # flow (and a bare `prefix [ ... Enter` with no vi-style selection) works either
+                # way, and a user who opts into `copy_mode.mode_keys: emacs` still gets these two
+                # rather than nothing.
+                f'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "{cmd}"',
+                f'bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{cmd}"',
+            ]
+            if self.mode_keys == "emacs":
+                # Opt-out case: `mode-keys` stays `emacs`, so `copy-mode-vi` never activates and
+                # `v`/`y` above are unreachable dead bindings. tmux's own emacs-table defaults
+                # leave both `v` and `y` UNBOUND (verified live: `tmux list-keys -T copy-mode` on
+                # a stock 3.5a server has no `v`/`y` entry — nothing here clobbers a real default),
+                # so mirror the SAME two keys into the plain `copy-mode` table: a user who
+                # explicitly keeps emacs navigation still gets the full `prefix [`, `v`, `y`/`Enter`
+                # keyboard flow, just without vi's other motion keys.
+                out += [
+                    "bind-key -T copy-mode v send-keys -X begin-selection",
+                    f'bind-key -T copy-mode y send-keys -X copy-pipe-and-cancel "{cmd}"',
+                ]
 
         out += [
             "",
@@ -749,6 +974,354 @@ while IFS=$'\\t' read -r addr cwd sid; do
   else
     # stale/missing id: resume the most-recent session in that cwd instead of crashing.
     tmux send-keys -t "$addr" "cd $qcwd && claude --continue" Enter
+  fi
+done < "$MAP_FILE"
+"""
+
+
+    # ── the omp-save / omp-restore managed scripts ────────────────────────────────────
+    def render_omp_save(self) -> str:
+        """omp-save: record each omp pane's cwd -> newest omp session FILE for that cwd.
+
+        Mirrors render_cc_save's process-tree walk (a pane's `omp` process is a DESCENDANT of
+        the pane's shell, not the shell itself — same reasoning as claude's DEFECT 2 fix). omp
+        installs as a single compiled binary (no Claude-style versioned-binary symlink quirk —
+        `which omp` resolves straight to a Mach-O/ELF executable, verified on this machine), so
+        the executable match is a plain basename/path-suffix check on argv[0]: `omp` or
+        `*/omp`. KNOWN COLLISION (accepted, documented): `oh-my-posh`'s CLI is ALSO named
+        `omp` — but it renders one prompt line and exits within milliseconds, so it is
+        vanishingly unlikely to still be running when this periodic resurrect save hook
+        snapshots the process table; a long-lived omp harness session is not confused with it
+        in practice.
+
+        Session store: omp keys `~/.omp/agent/sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl` (a
+        SIBLING `<cwd-slug>/<ISO-ts>_<uuid>/` dir holds nested Task/eval-child transcripts, so
+        a plain `*.jsonl` glob in the cwd-slug dir already excludes them). The slug is the cwd
+        RELATIVE TO $HOME with every `/` -> `-` (dots preserved) — VERIFIED against a real
+        on-disk session dir: cwd `$HOME/xp/review-cli/.worktrees/450-mimo-seat` ->
+        `-xp-review-cli-.worktrees-450-mimo-seat`. This differs from Claude Code's own
+        `~/.claude/projects/<enc>` encoding, which encodes the FULL absolute path and also
+        folds `.` into `-`. `PI_CODING_AGENT_DIR` (a full override) / `PI_CONFIG_DIR` (renames
+        the `.omp` dirname under `$HOME`) are honored, mirroring
+        `riglib.harness_skills.omp_agent_root()`'s exact precedence — a bare resurrect hook has
+        no live omp process env to inherit these from, so only an AMBIENT value (e.g. exported
+        in the user's shell profile) takes effect; the default is `$HOME/.omp/agent`.
+
+        The map records the resolved session FILE'S FULL PATH, not a bare id: `omp --help`
+        documents `-r, --resume=<value>` as "Resume a session (by ID prefix, path, or picker if
+        omitted)" — a path sidesteps any ambiguity over whether the accepted "id" includes the
+        session file's leading ISO-timestamp segment.
+        """
+        map_file = self.omp_map_path
+        return f"""#!/usr/bin/env bash
+# rig-managed: omp-save — GENERATED by rig from rig.yaml. Do not hand-edit.
+# Records, for every tmux pane whose process TREE contains an `omp` process, a map line:
+#   <session>:<window>.<pane><TAB><cwd><TAB><newest-session-file>
+# so omp-restore can relaunch `omp --resume <path>` in the right window after a reboot.
+# Session store: $AGENT_ROOT/sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl, where <cwd-slug> is the
+# cwd RELATIVE TO $HOME with every '/' -> '-' (dots preserved) — verified against a real
+# on-disk session dir, NOT Claude Code's full-absolute-path/dot-folding convention.
+set -euo pipefail
+
+MAP_FILE="{map_file}"
+
+_expand_home_path() {{
+  # absolute -> as-is; ~/... or bare '~' -> $HOME-anchored; otherwise -> $HOME/<value> (a bare
+  # PI_CONFIG_DIR dirname's documented contract). Mirrors
+  # riglib.harness_skills.omp_agent_root()'s override normalization.
+  case "$1" in
+    /*) printf '%s' "$1" ;;
+    "~") printf '%s' "$HOME" ;;
+    ~/*) printf '%s' "$HOME/${{1#\\~/}}" ;;
+    *) printf '%s/%s' "$HOME" "$1" ;;
+  esac
+}}
+
+resolve_agent_root() {{
+  # PI_CODING_AGENT_DIR is a FULL override (omp profiles re-point the whole agent dir);
+  # PI_CONFIG_DIR only renames the '.omp' dirname under $HOME. Only takes effect if set in the
+  # AMBIENT environment this hook runs under (no live omp process to inherit it from here).
+  if [ -n "${{PI_CODING_AGENT_DIR:-}}" ]; then
+    _expand_home_path "$PI_CODING_AGENT_DIR"
+  elif [ -n "${{PI_CONFIG_DIR:-}}" ]; then
+    printf '%s/agent' "$(_expand_home_path "$PI_CONFIG_DIR")"
+  else
+    printf '%s/.omp/agent' "$HOME"
+  fi
+}}
+AGENT_ROOT=$(resolve_agent_root)
+SESSIONS="$AGENT_ROOT/sessions"
+
+encode_cwd() {{
+  # cwd RELATIVE TO $HOME, every '/' -> '-'; a cwd outside $HOME falls back to encoding the
+  # full absolute path (best-effort — omp's own out-of-$HOME slug convention is unconfirmed).
+  local cwd="$1" rel
+  case "$cwd" in
+    "$HOME"/*) rel="${{cwd#"$HOME"}}" ;;
+    "$HOME") rel="" ;;
+    *) rel="$cwd" ;;
+  esac
+  printf '%s' "$rel" | tr '/' '-'
+}}
+
+newest_session_file() {{
+  # newest top-level *.jsonl (by mtime) directly under the cwd-slug dir. A nested Task/eval
+  # child transcript lives in a SIBLING <same-stem>/ directory, never matching this glob (see
+  # module docstring), so it can never be mistaken for the resumable top-level session.
+  local dir="$1" listing newest
+  [ -d "$dir" ] || return 1
+  listing=$(ls -t "$dir"/*.jsonl 2>/dev/null) || return 1
+  newest=${{listing%%$'\n'*}}
+  [ -n "$newest" ] || return 1
+  printf '%s' "$newest"
+}}
+
+# Snapshot the whole process table ONCE — see render_cc_save for why (consistency + cost).
+PS_SNAPSHOT=$(ps -eo pid=,ppid=,args= 2>/dev/null || true)
+
+pane_has_omp() {{
+  local root="$1"
+  local -a queue=("$root")
+  local pid ppid rest exe cur
+  while [ "${{#queue[@]}}" -gt 0 ]; do
+    cur="${{queue[0]}}"
+    queue=("${{queue[@]:1}}")
+    while read -r pid ppid rest; do
+      [ -n "$pid" ] || continue
+      if [ "$pid" = "$cur" ]; then
+        exe=${{rest%% *}}
+        case "$exe" in
+          omp|*/omp) return 0 ;;
+        esac
+      fi
+      if [ "$ppid" = "$cur" ]; then
+        queue+=("$pid")
+      fi
+    done <<< "$PS_SNAPSHOT"
+  done
+  return 1
+}}
+
+: > "$MAP_FILE"
+tmux list-panes -a -F '#{{session_name}}:#{{window_index}}.#{{pane_index}}\t#{{pane_pid}}\t#{{pane_current_path}}' \
+  | while IFS=$'\t' read -r addr pane_pid cwd; do
+      pane_has_omp "$pane_pid" || continue
+      enc=$(encode_cwd "$cwd")
+      sf=$(newest_session_file "$SESSIONS/$enc") || continue
+      printf '%s\t%s\t%s\n' "$addr" "$cwd" "$sf" >> "$MAP_FILE"
+    done
+"""
+
+    def render_omp_restore(self) -> str:
+        """omp-restore: after a reboot, resume each mapped window's omp session.
+
+        Same fresh-shell-only / never-clobber / shell-quoted-values contract as
+        render_cc_restore. A stale/missing session file falls back to `omp --continue`
+        (documented: "Continue previous session") so a reboot never leaves a dead pane.
+        """
+        map_file = self.omp_map_path
+        return f"""#!/usr/bin/env bash
+# rig-managed: omp-restore — GENERATED by rig from rig.yaml. Do not hand-edit.
+# After resurrect/continuum restores the windows, relaunch omp per mapped window by its EXACT
+# recorded session file (`omp --resume <path>`). Only into a FRESH shell pane — never on top of
+# a running omp. Stale/missing file -> fall back to `omp --continue`.
+set -euo pipefail
+
+MAP_FILE="{map_file}"
+[ -f "$MAP_FILE" ] || exit 0
+
+while IFS=$'\t' read -r addr cwd sf; do
+  [ -n "$addr" ] || continue
+  cur=$(tmux display-message -p -t "$addr" '#{{pane_current_command}}' 2>/dev/null || true)
+  [ -n "$cur" ] || continue
+  case "$cur" in
+    sh|bash|zsh|fish|dash|ksh|tcsh|-sh|-bash|-zsh) ;;
+    *) continue ;;
+  esac
+  qcwd=$(printf '%q' "$cwd")
+  qsf=$(printf '%q' "$sf")
+  if [ -f "$sf" ]; then
+    tmux send-keys -t "$addr" "cd $qcwd && omp --resume $qsf" Enter
+  else
+    tmux send-keys -t "$addr" "cd $qcwd && omp --continue" Enter
+  fi
+done < "$MAP_FILE"
+"""
+
+    # ── the codex-save / codex-restore managed scripts ────────────────────────────────
+    def render_codex_save(self) -> str:
+        """codex-save: record each codex pane's cwd -> newest codex rollout session for that cwd.
+
+        `codex` installs its native TUI as a wrapper (`node .../codex.js`) that `spawn()`s the
+        real per-platform binary (`.../vendor/<target-triple>/bin/codex`, basename exactly
+        `codex` — no version-string quirk) as an INHERITED-stdio child; the process-tree walk
+        (identical structure to render_cc_save) finds that descendant regardless of the
+        wrapper's own name.
+
+        UNLIKE claude/omp, codex's session store is NOT cwd-keyed on disk: rollout files live
+        under `$CODEX_HOME/sessions/<local-YYYY>/<local-MM>/<local-DD>/rollout-<local-ISO-ts>-
+        <uuid>.jsonl` (verified: the directory date is LOCAL time, while each file's OWN
+        internal `timestamp` field is UTC — do not confuse the two), and the cwd is recorded
+        only INSIDE each file's first line (a `{{"type":"session_meta","payload":{{"session_id":
+        "<uuid>","cwd":"<cwd>",...}}}}` record — verified against real on-disk sessions; the
+        `session_id` in that payload is exactly the trailing UUID segment of the filename). So
+        this script scans the last `LOOKBACK_DAYS` local-date directories (newest day and file
+        first), reading just the FIRST LINE of each candidate (cheap: no need to read the rest
+        of a rollout file, which can be tens of MB) until a `cwd` match is found — the first
+        match, since both days and files-within-a-day are visited newest-first, IS the newest
+        matching session. KNOWN LIMITATION (accepted, documented): a cwd whose most recent
+        codex session is OLDER than the lookback window is missed — unbounded scanning of a
+        multi-GB session store on every periodic resurrect save is not an acceptable tradeoff
+        for that rare case (mirrors this file's other documented "correctness where it counts,
+        bounded cost everywhere" limitations, e.g. cc-save's spaced-argv[0] miss).
+
+        `$CODEX_HOME` mirrors `riglib.harness_skills.codex_home()`'s contract EXACTLY: ambient
+        `CODEX_HOME` is deliberately ignored (a codex session may repoint it at a runtime/install
+        tree), `RIG_CODEX_HOME` is the only honored override, default `$HOME/.codex`.
+        """
+        map_file = self.codex_map_path
+        return f"""#!/usr/bin/env bash
+# rig-managed: codex-save — GENERATED by rig from rig.yaml. Do not hand-edit.
+# Records, for every tmux pane whose process TREE contains a `codex` process, a map line:
+#   <session>:<window>.<pane><TAB><cwd><TAB><session-id><TAB><rollout-file>
+# so codex-restore can relaunch `codex resume <session-id>` in the right window after a reboot.
+# codex's session store is NOT cwd-keyed on disk (unlike claude/omp): rollout files live under
+# $CODEX_HOME/sessions/<local-YYYY>/<local-MM>/<local-DD>/rollout-<local-ISO-ts>-<uuid>.jsonl,
+# and the cwd is recorded only in each file's FIRST line (a session_meta record). So this script
+# scans the last LOOKBACK_DAYS local-date directories, newest-first, reading just each
+# candidate's first line, until a cwd match is found (documented limitation: a cwd whose newest
+# codex session predates the lookback window is missed — unbounded scanning of a multi-GB
+# session store on every periodic save is not an acceptable tradeoff).
+set -euo pipefail
+
+MAP_FILE="{map_file}"
+LOOKBACK_DAYS=2
+
+resolve_codex_home() {{
+  # Mirrors riglib.harness_skills.codex_home(): ambient CODEX_HOME is deliberately IGNORED (a
+  # codex session may repoint it at a runtime/install tree); RIG_CODEX_HOME is the only
+  # override rig itself honors here.
+  if [ -n "${{RIG_CODEX_HOME:-}}" ]; then
+    case "$RIG_CODEX_HOME" in
+      /*) printf '%s' "$RIG_CODEX_HOME" ;;
+      ~/*) printf '%s' "$HOME/${{RIG_CODEX_HOME#\\~/}}" ;;
+      *) printf '%s/%s' "$HOME" "$RIG_CODEX_HOME" ;;
+    esac
+  else
+    printf '%s/.codex' "$HOME"
+  fi
+}}
+SESSIONS_ROOT="$(resolve_codex_home)/sessions"
+
+day_dir() {{
+  # local-time YYYY/MM/DD, $1 days before today. GNU `date -d` first, BSD/macOS `date -v`
+  # fallback — the form that fails on THIS platform must fail cleanly (macOS date has no `-d`
+  # in the GNU sense and errors immediately; GNU date is tried first so Linux never falls
+  # through). Same GNU-first pattern as render_autosave_script's mtime probe.
+  local n="$1"
+  date -d "-${{n}} days" +%Y/%m/%d 2>/dev/null || date -v-"${{n}}"d +%Y/%m/%d
+}}
+
+session_field() {{
+  # extract a top-level string field from a rollout file's FIRST line (the session_meta
+  # record). KNOWN LIMITATION: a value containing a literal '"' would break this sed match — a
+  # cwd/session-id containing an embedded double quote is pathological and not defended
+  # against, same tolerance as this file's other documented edge cases.
+  local file="$1" field="$2"
+  head -n1 "$file" 2>/dev/null | sed -n "s/.*\\"$field\\":\\"\\([^\\"]*\\)\\".*/\\1/p"
+}}
+
+newest_session_for_cwd() {{
+  # scan days newest-first, files-within-a-day newest-first; the FIRST cwd match found is the
+  # overall newest (both loops walk newest -> oldest, so no candidate never-yet-seen can be
+  # more recent than one already rejected).
+  local cwd="$1" n dir f candidate_cwd sid
+  for n in $(seq 0 "$LOOKBACK_DAYS"); do
+    dir="$SESSIONS_ROOT/$(day_dir "$n")"
+    [ -d "$dir" ] || continue
+    for f in $(ls -t "$dir"/*.jsonl 2>/dev/null); do
+      candidate_cwd=$(session_field "$f" cwd)
+      if [ "$candidate_cwd" = "$cwd" ]; then
+        sid=$(session_field "$f" session_id)
+        [ -n "$sid" ] || continue
+        printf '%s\t%s' "$sid" "$f"
+        return 0
+      fi
+    done
+  done
+  return 1
+}}
+
+# Snapshot the whole process table ONCE — see render_cc_save for why (consistency + cost).
+PS_SNAPSHOT=$(ps -eo pid=,ppid=,args= 2>/dev/null || true)
+
+pane_has_codex() {{
+  local root="$1"
+  local -a queue=("$root")
+  local pid ppid rest exe cur
+  while [ "${{#queue[@]}}" -gt 0 ]; do
+    cur="${{queue[0]}}"
+    queue=("${{queue[@]:1}}")
+    while read -r pid ppid rest; do
+      [ -n "$pid" ] || continue
+      if [ "$pid" = "$cur" ]; then
+        exe=${{rest%% *}}
+        case "$exe" in
+          codex|*/codex) return 0 ;;
+        esac
+      fi
+      if [ "$ppid" = "$cur" ]; then
+        queue+=("$pid")
+      fi
+    done <<< "$PS_SNAPSHOT"
+  done
+  return 1
+}}
+
+: > "$MAP_FILE"
+tmux list-panes -a -F '#{{session_name}}:#{{window_index}}.#{{pane_index}}\t#{{pane_pid}}\t#{{pane_current_path}}' \
+  | while IFS=$'\t' read -r addr pane_pid cwd; do
+      pane_has_codex "$pane_pid" || continue
+      hit=$(newest_session_for_cwd "$cwd") || continue
+      sid=${{hit%%$'\t'*}}
+      rf=${{hit#*$'\t'}}
+      printf '%s\t%s\t%s\t%s\n' "$addr" "$cwd" "$sid" "$rf" >> "$MAP_FILE"
+    done
+"""
+
+    def render_codex_restore(self) -> str:
+        """codex-restore: after a reboot, resume each mapped window's codex session.
+
+        Same fresh-shell-only / never-clobber / shell-quoted-values contract as
+        render_cc_restore. A stale/missing rollout file falls back to `codex resume --last`
+        (documented: "Continue the most recent session without showing the picker") so a
+        reboot never leaves a dead pane.
+        """
+        map_file = self.codex_map_path
+        return f"""#!/usr/bin/env bash
+# rig-managed: codex-restore — GENERATED by rig from rig.yaml. Do not hand-edit.
+# After resurrect/continuum restores the windows, relaunch codex per mapped window by its EXACT
+# recorded session id (`codex resume <id>`). Only into a FRESH shell pane — never on top of a
+# running codex. Stale/missing rollout file -> fall back to `codex resume --last`.
+set -euo pipefail
+
+MAP_FILE="{map_file}"
+[ -f "$MAP_FILE" ] || exit 0
+
+while IFS=$'\t' read -r addr cwd sid rf; do
+  [ -n "$addr" ] || continue
+  cur=$(tmux display-message -p -t "$addr" '#{{pane_current_command}}' 2>/dev/null || true)
+  [ -n "$cur" ] || continue
+  case "$cur" in
+    sh|bash|zsh|fish|dash|ksh|tcsh|-sh|-bash|-zsh) ;;
+    *) continue ;;
+  esac
+  qcwd=$(printf '%q' "$cwd")
+  qsid=$(printf '%q' "$sid")
+  if [ -n "$sid" ] && [ -f "$rf" ]; then
+    tmux send-keys -t "$addr" "cd $qcwd && codex resume $qsid" Enter
+  else
+    tmux send-keys -t "$addr" "cd $qcwd && codex resume --last" Enter
   fi
 done < "$MAP_FILE"
 """
@@ -1059,6 +1632,73 @@ def assess_autosave_freshness(
     return AutosaveHealth("ok", f"last run {age_min}m ago{result_note}")
 
 
+@dataclass(frozen=True)
+class PtyPressure:
+    """The verdict for macOS's SYSTEM-WIDE (not per-process, not launchd-rlimit) pty ceiling.
+
+    ``kern.tty.ptmx_max`` counts every live pseudo-terminal on the whole machine — every SSH
+    session, every terminal app tab, every tmux pane's shell, AND every zsh ``zpty``/``forkpty``
+    async worker (spaceship, zsh-async, powerlevel10k) — as ONE shared pool. It is NOT something a
+    LaunchAgent's ``SoftResourceLimits``/``NumberOfFiles`` can raise or lower — that controls
+    per-process ``RLIMIT_NOFILE``/``RLIMIT_NPROC``, an entirely different (and, on this machine,
+    already generous) ceiling; see the investigation note on :func:`assess_pty_pressure`. A tmux
+    server that never lets a pane die — rig's OWN anti-sprawl + continuum-restore + boot design
+    intentionally keeps sessions alive across every reboot — accumulates live zpty-held ptys pane
+    by pane over the server's entire lifetime, in a way a bare Terminal.app tab (which frees its
+    pty the instant the tab closes) never does. ``state`` is one of:
+
+    - ``"ok"`` — comfortably under the warn ratio.
+    - ``"high"`` — at/above the warn ratio; new pty allocations (zpty/forkpty — e.g. a prompt's
+      async worker) can start failing with ``can't open pseudo terminal: device not configured``
+      well before the literal ceiling, since every other process/user on the box competes for the
+      same pool.
+    - ``"unavailable"`` — off darwin (no ``kern.tty.ptmx_max``), or the count/sysctl read failed;
+      stays silent rather than risk a false positive or false negative.
+    """
+
+    state: Literal["ok", "high", "unavailable"]
+    detail: str
+
+
+# 70%: the same "catch the slow climb with headroom" philosophy as the autosave staleness
+# threshold (3x its interval) — `kern.tty.ptmx_max` is a HARD machine-wide ceiling shared by
+# every process on the box (other terminal apps, SSH sessions, VMs), so waiting for 100% before
+# warning would already be an outage for whoever allocates the NEXT pty.
+_PTY_WARN_RATIO = 0.7
+
+
+def assess_pty_pressure(pty_count: int | None, ptmx_max: int | None) -> PtyPressure:
+    """Pure verdict from already-collected counts — the I/O (``sysctl kern.tty.ptmx_max``,
+    counting live ``/dev/ttys*`` devices) is the caller's, so this stays hermetically testable
+    like :func:`assess_autosave_freshness`.
+
+    Investigation note (the zpty/spaceship "device not configured" + "async_worker_eval: no such
+    async worker" report this exists to diagnose): on this machine ``ulimit -n`` inside a
+    rig-managed tmux pane reads 1048576 and ``kern.maxfilesperproc`` is 92160 — NEITHER
+    launchd-constrained nor anywhere near exhausted, refuting the "launchd gives the boot/autosave
+    agent's process tree a stingy rlimit" hypothesis. The real, confirmed-scarce resource is
+    ``kern.tty.ptmx_max`` (511 on this machine) — a single machine-wide count, not a per-process
+    rlimit a plist's ``SoftResourceLimits`` could touch. This is also a documented upstream
+    spaceship-prompt failure mode (spaceship-prompt/spaceship-prompt#1207, #1507), independent of
+    rig — rig cannot fix zsh/spaceship's own zpty leak, only surface the shared resource climbing.
+    """
+    if pty_count is None or ptmx_max is None or ptmx_max <= 0:
+        return PtyPressure(
+            "unavailable",
+            "pty accounting unavailable (non-darwin, or the sysctl/device count could not be read)",
+        )
+    ratio = pty_count / ptmx_max
+    if ratio >= _PTY_WARN_RATIO:
+        return PtyPressure(
+            "high",
+            f"{pty_count}/{ptmx_max} live ptys ({ratio:.0%}) — approaching the machine-wide "
+            "kern.tty.ptmx_max ceiling; new pty allocations (zpty/forkpty, e.g. a shell prompt's "
+            "async worker) can start failing with 'device not configured' before it is fully "
+            "exhausted",
+        )
+    return PtyPressure("ok", f"{pty_count}/{ptmx_max} live ptys ({ratio:.0%})")
+
+
 def _resurrect_token(name: str) -> str:
     """Quote a resurrect process token if it contains whitespace; keep tilde matches as-is.
 
@@ -1138,12 +1778,16 @@ def build_tmux(
     continuum: dict | None = None,
     moshi: dict | None = None,
     cc_restore: dict | None = None,
+    omp_restore: dict | None = None,
+    codex_restore: dict | None = None,
     anti_sprawl: dict | None = None,
     boot: dict | None = None,
     login_shell: dict | None = None,
     autosave: dict | None = None,
     pane_titles: dict | None = None,
     focus_events: dict | None = None,
+    clipboard: dict | None = None,
+    copy_mode: dict | None = None,
 ) -> TmuxPlan:
     """Resolve the desired :class:`TmuxPlan` from the (already-validated) tmux config block.
 
@@ -1151,18 +1795,24 @@ def build_tmux(
     HOME-relative ``conf_path`` / ``generated_dir`` are expanded against it. Every nested
     knob defaults to the safe, root-cause-fixing value; an empty block yields the full default
     config (claude in resurrect, capture-pane on, continuum restore+boot, Moshi off, cc-restore
-    on, anti-sprawl on, boot on, login-shell default-command on, focus-events on).
+    on, omp-restore on, codex-restore on, anti-sprawl on, boot on, login-shell default-command
+    on, focus-events on, copy-mode key table vi, copy-mode clipboard on with the platform-detected
+    command).
     """
     resurrect = resurrect or {}
     continuum = continuum or {}
     moshi = moshi or {}
     cc_restore = cc_restore or {}
+    omp_restore = omp_restore or {}
+    codex_restore = codex_restore or {}
     anti_sprawl = anti_sprawl or {}
     boot = boot or {}
     login_shell = login_shell or {}
     focus_events = focus_events or {}
     autosave = autosave or {}
     pane_titles = pane_titles or {}
+    clipboard = clipboard or {}
+    copy_mode = copy_mode or {}
 
     def _expand(p: str | Path) -> Path:
         s = str(p)
@@ -1197,6 +1847,8 @@ def build_tmux(
         save_interval=int(_knob(continuum, "save_interval", DEFAULT_SAVE_INTERVAL)),
         moshi_enabled=bool(_knob(moshi, "enabled", False)),
         cc_restore_enabled=bool(_knob(cc_restore, "enabled", True)),
+        omp_restore_enabled=bool(_knob(omp_restore, "enabled", True)),
+        codex_restore_enabled=bool(_knob(codex_restore, "enabled", True)),
         anti_sprawl_enabled=bool(_knob(anti_sprawl, "enabled", True)),
         anti_sprawl_session=str(_knob(anti_sprawl, "session", DEFAULT_SESSION)),
         boot_enabled=bool(_knob(boot, "enabled", True)),
@@ -1215,6 +1867,9 @@ def build_tmux(
         pane_titles_format=_resolve_pane_titles_format(pane_titles),
         pane_titles_clear_status_right=bool(_knob(pane_titles, "clear_status_right", True)),
         focus_events_enabled=bool(_knob(focus_events, "enabled", True)),
+        clipboard_enabled=bool(_knob(clipboard, "enabled", DEFAULT_CLIPBOARD_ENABLED)),
+        clipboard_command=_resolve_clipboard_command(clipboard),
+        mode_keys=_resolve_mode_keys(copy_mode),
     )
 
 

@@ -22,12 +22,33 @@ _SHIP_AUDIT_NAME = "ship-audit.jsonl"
 _AGENT_TOOLS_DIR = Path(".config") / "agent-tools"
 
 # Data-driven broken-gate classifiers. Keep the patterns here, not sprinkled in parsers.
+#
+# ship-review-quorum, ship-external-review, and require-review-before-commit all gate on the
+# same review-cli/CI infrastructure: a hatch reason citing provider exhaustion, a rate/usage
+# limit, or a board outage means "the gate's infrastructure is broken", not "I was lazy" —
+# regardless of which of the three literal hook names happened to fire (rig-cli hatch-classifier
+# undercount fix: real overrides.log fixtures showed "weekly-limit", "quota-exhausted", "out of
+# credits", "board degraded", "0 of 3", and "billing-blocked" phrasing the old pattern missed).
+_QUORUM_HOOKS = frozenset(
+    {"ship-review-quorum", "ship-external-review", "require-review-before-commit"}
+)
 _QUORUM_BROKEN = re.compile(
-    r"distinct_models|2 of 3|0/3|quota|weekly limit|rate.?limit|one model",
+    r"distinct_models|2 of 3|0/3|0 of 3|quota|weekly[ -]?limit|rate.?limit|one model"
+    r"|exhaust(?:ed|ion)|out of credits|usage[ -]?limit"
+    r"|board (?:is |fully )?(?:degraded|exhausted|unusable|outage|down)"
+    r"|billing-blocked|provider-exhausted",
     re.IGNORECASE,
 )
 _THIN_BROKEN = re.compile(
     r"subagent|dispatched worker|leaf worker|I am .*sub",
+    re.IGNORECASE,
+)
+# Hook-agnostic: the dispatch/agent-classification bridge itself is broken (a real subagent
+# misclassified as the orchestrator, or the reviewer-dispatch service down), independent of
+# which specific hook happened to fire.
+_DISPATCH_BROKEN = re.compile(
+    r"dispatcher unavailable|dispatch service (?:is |was )?unavailable|returned no thread"
+    r"|misclassified as orchestrator|did not inject agent_id|fork tools are absent",
     re.IGNORECASE,
 )
 _GATE_WRONG = re.compile(
@@ -74,11 +95,13 @@ def classify_hatch(
     """Return ``broken-gate`` or ``lazy`` for one hatch event."""
     reason_blob = f"{reason}\n{detail}"
     command_blob = f"{reason}\n{command}"
-    if hook == "ship-review-quorum" and (
+    if hook in _QUORUM_HOOKS and (
         _models_is_zero(models) or _QUORUM_BROKEN.search(reason_blob)
     ):
         return "broken-gate"
     if hook == "orchestrator-stays-thin" and _THIN_BROKEN.search(command_blob):
+        return "broken-gate"
+    if _DISPATCH_BROKEN.search(reason_blob) or _DISPATCH_BROKEN.search(command_blob):
         return "broken-gate"
     if _GATE_WRONG.search(reason_blob):
         return "broken-gate"

@@ -203,6 +203,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Writes a repo-local project-tool carrier file, or runs a one-shot tool operation "
         "(e.g. a code-index register/reindex) — check the action's detail for which.",
     ),
+    "apply_ecosystem_readme": _tag(
+        "apply_ecosystem_readme", "edits_file", AUDIENCE_HUMAN,
+        "Writes/updates a managed 'Ecosystem' section in the repo's README from the canonical "
+        "tool registry, or creates the README if it does not exist yet.",
+    ),
     "provision_github_ruleset": _tag(
         "provision_github_ruleset", "remote_github_change", AUDIENCE_HUMAN,
         "Creates/updates a branch-protection ruleset on the GitHub repo via the API — a remote "
@@ -247,6 +252,10 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Drops Spotlight-exclude sentinels under dependency/build dirs and may install a launchd "
         "re-sweep agent — a macOS Finder/Spotlight setting, not agent-facing.",
     ),
+    "provision_bunfig": _tag(
+        "provision_bunfig", "edits_file", AUDIENCE_HUMAN,
+        "Splices linker=isolated and globalStore=true into ~/.bunfig.toml.",
+    ),
     "provision_tools": _tag(
         "provision_tools", "installs_system_tool", AUDIENCE_HUMAN,
         "Runs a personal CLI tool's own install.sh (e.g. tg/review/dev) — installs a real binary "
@@ -256,6 +265,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "provision_tg_ctl", "starts_reloads_service", AUDIENCE_HUMAN,
         "Installs + (re)loads the tg-ctl inbound Telegram daemon's launchd LaunchAgent — a "
         "live machine-wide service, not scoped to one repo.",
+    ),
+    "provision_tcc_watch": _tag(
+        "provision_tcc_watch", "starts_reloads_service", AUDIENCE_HUMAN,
+        "Installs + (re)loads the tcc-watch TCC-dialog-watcher daemon's launchd LaunchAgent "
+        "(Phase 1 detection-only) — a live machine-wide service, not scoped to one repo.",
     ),
 }
 

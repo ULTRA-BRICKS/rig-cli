@@ -43,9 +43,12 @@ def test_area_registry_covers_every_roadmap_area():
     by_key = {a.key: a for a in AREAS}
     expected_global = {
         "skills", "agent_hooks", "git_hooks", "gitignore", "mcp", "harness", "permissions",
-        "mode", "tmux", "models", "tg_ctl", "tools", "ship_env",
+        "mode", "tmux", "models", "tg_ctl", "tools", "ship_env", "bun",
     }
-    expected_repo = {"ci", "ship", "ship_delegator", "agents_md", "github", "linters", "project_tools"}
+    expected_repo = {
+        "ci", "ship", "ship_delegator", "agents_md", "github", "linters", "project_tools",
+        "ecosystem_readme",
+    }
     assert expected_global <= set(by_key)
     assert expected_repo <= set(by_key)
     for k in expected_global:

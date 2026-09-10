@@ -31,6 +31,7 @@ import contextlib
 import json
 import math
 import shlex
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -223,7 +224,9 @@ def build_parser() -> argparse.ArgumentParser:
             "\n"
             "  precedence (doctor): `rig doctor` exits 7 (repo corrupt) ahead of any other class —\n"
             "  a broken .git (e.g. core.bare=true on a working checkout) makes every git-backed\n"
-            "  check unreliable, so it is fixed first.\n"
+            "  check unreliable, so it is fixed first. With deps + targets clean, a claude config\n"
+            "  dir (CLAUDE_CONFIG_DIR / ~/.claude-accounts/account-*) that lacks the rig-managed\n"
+            "  hooks ~/.claude/settings.json carries exits 3 (drift) — those sessions run no guard.\n"
             "  precedence (status): when `rig status` finds BOTH a missing target and config↔disk\n"
             "  drift, it prints both but exits 5 (missing-target outranks drift — the dead\n"
             "  reference fails at runtime, so it's the more urgent class).\n"
@@ -932,6 +935,7 @@ _CATEGORY_LABELS = {
     "gitignore": "gitignore",
     "tools": "tools",
     "tg_ctl": "tg-ctl",
+    "tcc_watch": "tcc-watch",
 }
 
 
@@ -1928,6 +1932,7 @@ def _apply_commit_command(args: argparse.Namespace) -> str:
 _LIVE_ACTIVATION_KINDS = frozenset({
     "provision_tmux",
     "provision_tg_ctl",
+    "provision_tcc_watch",
     "provision_schedule",
     "provision_spotlight",
     "provision_project_tool",
@@ -2207,6 +2212,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     _print_schedule_status(effective_plan, report)
     _print_tg_ctl_status(effective_plan, report)
     _print_tmux_autosave_status(effective_plan)
+    _print_tmux_pty_pressure_status(effective_plan)
     _print_harness_mode_status(effective_plan, report)
     if env.is_git_repo:
         _print_stale_worktree_status(env.repo_root)
@@ -2686,6 +2692,69 @@ def _print_tmux_autosave_status(plan) -> None:
     print(f"\n  tmux autosave agent: {state}  " + _dim(f"('{tplan.autosave_label}')"))
 
 
+def _live_pty_count() -> int | None:
+    """Count currently allocated pty slave devices (`/dev/ttys*`) — each is one live zpty/forkpty
+    consumer against the machine-wide `kern.tty.ptmx_max` ceiling (NOT per-process). None on any
+    read failure — pressure reporting stays silent rather than risk a false reading.
+    """
+    try:
+        return sum(1 for _ in Path("/dev").glob("ttys*"))
+    except OSError:
+        return None
+
+
+def _ptmx_max() -> int | None:
+    """Read macOS's system-wide pty ceiling via `sysctl kern.tty.ptmx_max`. None off darwin (the
+    sysctl doesn't exist there) or on any failure — pressure reporting stays silent, never a false
+    positive/negative from a misread.
+    """
+    try:
+        proc = subprocess.run(
+            ["sysctl", "-n", "kern.tty.ptmx_max"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        return int(proc.stdout.strip())
+    except ValueError:
+        return None
+
+
+def _print_tmux_pty_pressure_status(plan) -> None:
+    """Report pressure against macOS's system-wide pty ceiling (`kern.tty.ptmx_max`) — an
+    OUTSIDE-of-rig KERNEL limit, not a launchd resource limit rig's plists control, but one rig's
+    own anti-sprawl + continuum-restore + boot design (panes that never die across reboots) makes
+    a long-lived tmux server more likely to climb toward than a bare Terminal.app tab.
+
+    Advisory only — like the autosave freshness line, this does NOT affect the status exit code —
+    and stays silent off darwin / when tmux isn't managed / when the read fails, so it never nags
+    a repo or OS where it doesn't apply.
+    """
+    from riglib.drift import _on_darwin
+    from riglib.tmux import assess_pty_pressure
+
+    if not _on_darwin():
+        return
+    tmux_actions = [a for a in plan.actions if a.kind == "provision_tmux"]
+    if not tmux_actions:
+        return
+    verdict = assess_pty_pressure(_live_pty_count(), _ptmx_max())
+    if verdict.state == "unavailable":
+        return  # nothing actionable to report
+    elif verdict.state == "high":
+        state = _warn(f"HIGH ({verdict.detail})")
+    elif verdict.state == "ok":
+        state = _ok(verdict.detail)
+    else:
+        raise AssertionError(f"unhandled pty pressure state: {verdict.state!r}")
+    print(f"\n  tmux pty pressure: {state}")
+
+
 def _print_dep_statuses(report) -> None:
     """Print the per-dependency present/absent lines + the install hint for each absent one."""
     for st in report.statuses:
@@ -2744,9 +2813,79 @@ def _handle_core_bare(do_fix: bool) -> bool:
     return unfixed
 
 
+def _doctor_repo_root() -> Path:
+    """The enclosing repo root so a ``rig doctor`` run from a SUBDIR still reads the repo's
+    ``rig.yaml`` layer: the nearest ancestor carrying a ``.git`` (a directory for a primary
+    checkout, a FILE for a linked worktree). No git subprocess — stdlib only, and the cwd itself
+    outside any repo."""
+    cwd = Path.cwd()
+    for candidate in (cwd, *cwd.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return cwd
+
+
+_CONFIG_DIR_ROLE_TEXT = {
+    "default": "default (no CLAUDE_CONFIG_DIR)",
+    "env": "CLAUDE_CONFIG_DIR (this shell)",
+    "account": "claude-rotate account",
+    "configured": "harness.settings_paths",
+    "unmanaged-account": "claude-rotate account, discover_config_dirs: false",
+}
+
+
+def _print_config_dir_row(row) -> None:
+    role = _CONFIG_DIR_ROLE_TEXT.get(row.role, row.role)
+    if not row.exists:
+        print(f"    {_warn('✗')} {row.settings}  {_dim('[' + role + '] — no settings.json')}")
+    elif row.malformed:
+        print(f"    {_err('✗')} {row.settings}  {_dim('[' + role + '] — malformed JSON')}")
+    else:
+        state = (
+            f"{row.hook_events} hook events, {row.bridge_hooks} rig bridge hooks, "
+            f"{row.allow_entries} allow entries, defaultMode={row.default_mode or '-'}"
+        )
+        mark = _ok("✔") if row.bridge_hooks else _warn("✗")
+        print(f"    {mark} {row.settings}  {_dim('[' + role + '] ' + state)}")
+
+
+def _print_claude_config_dirs() -> list:
+    """Print the settings.json each claude config dir on this machine loads + its managed-key counts.
+
+    Honors the effective ``harness.settings_paths`` / ``discover_config_dirs`` (leniently loaded —
+    doctor never fails on a broken config elsewhere). Returns the gaps (a dir a live ``claude``
+    could load that lacks the hook bridge ``~/.claude/settings.json`` carries) so ``cmd_doctor``
+    folds them into its exit code; each gap names a fix that actually converges THAT dir.
+    Prints nothing when only the default dir exists.
+    """
+    from .claude_config_dirs import (
+        CONFIG_DIR_ENV,
+        config_dir_gaps,
+        doctor_config_dirs,
+        resolve_settings_paths,
+    )
+    from .config import load_harness_fan_out
+
+    repo_root = _doctor_repo_root()
+    # the SAME resolver the plan uses: a relative settings_paths entry is anchored at the repo
+    # root, so doctor from a subdirectory inspects the file apply actually wrote
+    harness = resolve_settings_paths(load_harness_fan_out(repo_root), repo_root)
+    rows = doctor_config_dirs(harness=harness)
+    gaps = config_dir_gaps(rows)
+    if len(rows) < 2 and not gaps:
+        return []
+    print(_bold(f"\n  ▸ claude config dirs — what an interactive `claude` loads ({CONFIG_DIR_ENV}):"))
+    for row in rows:
+        _print_config_dir_row(row)
+    for gap in gaps:
+        print(f"      {_err('✗')} {gap.what}")
+        print(f"        {_ok('fix:')} {gap.fix}")
+    return gaps
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     from . import errors
-    from .doctor import bootstrap, diagnose
+    from .doctor import diagnose
 
     report = diagnose()
     print(_bold(f"rig doctor — {report.os.pretty}") + _dim(f"  (pkg manager: {report.os.package_manager or 'none detected'})"))
@@ -2782,6 +2921,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             print(f"    {_err('✗')} {f.what}")
             print(f"      {_ok('fix:')} {f.fix}")
 
+    # claude config dirs: which settings.json an interactive `claude` on THIS machine actually
+    # loads (CLAUDE_CONFIG_DIR / claude-rotate account dirs) and whether the rig-managed hooks
+    # are there — the rig-cli#368 class, invisible to `rig status` before the fan-out.
+    config_dir_gaps = _print_claude_config_dirs()
+
     missing_req = report.missing_required
     only_deps_clean = not missing_req and not (args.optional and report.missing_optional)
     # an explicitly opted-into probe that FAILED must never end in the clean-bill success
@@ -2803,6 +2947,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     if failed_probes and not missing_req:
         print(_err("\n  an activation probe above FAILED — the claimed enforcement channel does not work"))
         return errors.EXIT_PROBE_FAILED
+    if only_deps_clean and not dead_targets and config_dir_gaps:
+        print(_err("\n  a claude config dir above lacks the rig hook bridge — those sessions run no guard (see fix: lines)"))
+        return errors.EXIT_DRIFT
     if only_deps_clean and not dead_targets:
         print(_ok("\n  all required dependencies present"))
         return 0
@@ -2819,8 +2966,17 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         # not a hard "required tool absent", so it stays the generic non-zero.
         return errors.EXIT_MISSING_DEP if missing_req else 1
 
+    return _doctor_bootstrap(report, include_optional=args.optional)
+
+
+def _doctor_bootstrap(report, *, include_optional: bool) -> int:
+    """The ``rig doctor --yes`` install leg: bootstrap the missing deps and map the outcome to the
+    documented exit-code contract (a REQUIRED dep still absent is the 127 class)."""
+    from . import errors
+    from .doctor import bootstrap
+
     print(_bold("\n  installing missing dependencies..."))
-    results = bootstrap(report, assume_yes=True, include_optional=args.optional)
+    results = bootstrap(report, assume_yes=True, include_optional=include_optional)
     failed = [name for name, rc in results if rc not in (0,)]
     fallback_by_name = {st.dep.name: st.pep668_fallback for st in report.statuses if st.pep668_fallback}
     for name, rc in results:

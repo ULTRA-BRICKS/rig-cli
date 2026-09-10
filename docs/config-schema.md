@@ -87,6 +87,7 @@ github: { ... }               # repo settings: ruleset/merge/ghas/actions via gh
 tmux: { ... }                 # rig-managed tmux config (generate + migrate ~/.tmux.conf), opt-in
 gitignore: { ... }            # rig-managed block in the GLOBAL git excludesfile (ignores **/.claude/worktrees/ + the Spotlight sentinel in EVERY repo), default ON
 tg_ctl: { ... }               # tg-ctl inbound daemon as a macOS boot LaunchAgent, default ON (macOS-only)
+tcc_watch: { ... }            # TCC dialog-watcher daemon (Phase 1 detection-only), a macOS boot LaunchAgent, default ON (macOS-only)
 ```
 
 If `agent_tools_source` is omitted, rig resolves it from `$RIG_AGENT_TOOLS_SOURCE`, then
@@ -573,6 +574,8 @@ harness:
   self_merge: true             # auto-mode: let the agent self-merge its OWN PRs via gh ship (permissions.allow ship rules + autoMode.allow carve-out)
   # mode: bypassPermissions    # optional: pin the exact mode value (overrides the auto_mode map)
   # settings_path: .claude/settings.json   # where to write (repo-local default; committed)
+  # settings_paths: [~/other/settings.json] # EXTRA user-scope files the claude-code write also reaches
+  # discover_config_dirs: true # also write every ~/.claude-accounts/account-*/settings.json (claude-rotate)
   hook_bridge:                 # wire the agents-hooks/v1 → harness dispatcher (default ON)
     enabled: true              # set false to skip wiring the dispatcher into harness config
     # python: python3          # optional: the interpreter the dispatcher runs under
@@ -590,6 +593,8 @@ harness:
 | `self_merge` | bool | `true` | auto-mode self-merge unblock. `true` adds the ship allow rules (`Bash(gh ship:*)`, `Bash(*/pr-ship.sh:*)`, `Bash(*/ship.sh:*)`) to `permissions.allow` so the auto-mode Bash gate stops vetoing `gh ship`, AND appends a `$defaults`-preserving carve-out to `autoMode.allow` clearing the Merge-Without-Review + Self-Approval soft blocks for the agent's OWN PRs. Effective only under auto-mode; inert otherwise. The `Bash(gh pr merge:*)` deny and every other classifier rule — notably the anti-exfil hard rule — stay (`gh ship` is still the only merge path) |
 | `mode` | str | — | pin the exact permission value (e.g. `acceptEdits`), overriding the `auto_mode` mapping |
 | `settings_path` | path | `.claude/settings.json` for Claude auto/mode writes; `~/.codex/config.toml` (or `$RIG_CODEX_HOME/config.toml`) for the Codex hook bridge; `.opencode/plugins/zz-agent-tools-hook-bridge.js` for the opencode hook bridge; `~/.omp/agent/extensions/zz-agent-tools-hook-bridge.ts` (or `$PI_CODING_AGENT_DIR`/`$PI_CONFIG_DIR`-relative) for the omp hook bridge | the settings/config file/plugin/extension to converge. If overridden, point it at the harness's native format (JSON for Claude, TOML for Codex, JS plugin for opencode, TS extension for omp). A suffixed path is treated as the file; a suffixless path is treated as a directory containing the native settings/plugin/extension filename |
+| `settings_paths` | list | `[]` | EXTRA claude-code user-scope `settings.json` files the auto-mode, permissions and hook-bridge writes ALSO reach (each a `.json` path). Honored only when the primary target is `~/.claude/settings.json` — a repo-local (project-scope) file is read by every session regardless of `CLAUDE_CONFIG_DIR`, so it is never fanned out |
+| `discover_config_dirs` | bool | `true` | auto-discover every `~/.claude-accounts/account-*/` directory (the `claude-rotate` multi-account launcher's per-account `CLAUDE_CONFIG_DIR`s) and treat each one's `settings.json` as a managed target alongside `~/.claude/settings.json` — same managed keys, same idempotent additive merge + backup-on-conflict, and `rig status` names WHICH file drifts (`harness/claude-code@account-2: …`). Claude Code reads ONLY `$CLAUDE_CONFIG_DIR/settings.json` when that variable is set, so without the fan-out no rig-provisioned hook runs in those sessions while status stays green (rig-cli#368). `rig doctor` lists every config dir a live `claude` could load (`~/.claude`, the shell's `CLAUDE_CONFIG_DIR`, every managed target) and exits 3 when one lacks the hook bridge `~/.claude/settings.json` carries — each gap names the fix that converges THAT dir (`rig apply commit` for a managed target; a `settings_paths` entry for an ad-hoc `CLAUDE_CONFIG_DIR`; re-enabling discovery for an opted-out account dir). Doctor reads these two keys leniently (a config broken elsewhere still yields them). Discovery never creates a directory; a `settings.json` missing inside an existing dir is created |
 | `hook_bridge.enabled` | bool | `true` | wire the harness bridge dispatcher so installed agent-hooks actually fire (`cc_hook_bridge` for Claude, `codex_hook_bridge` for Codex, `opencode_hook_bridge` for opencode, `omp_hook_bridge` for omp) |
 | `hook_bridge.python` | str | `python3` | the Python interpreter the dispatcher command runs under. For `kind: omp` there is no shell command to inline it into — a custom value instead forces the wrapper module (see below) and sets `OMP_HOOK_BRIDGE_PYTHON`, which `extension.ts` reads before falling back to a bare `python3` |
 | `web_search.enabled` | bool | `true` | when omp is a configured harness kind, merge `providers.webSearchExclude` into `~/.omp/agent/config.yml` (or the `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` override). `false` skips the write |
@@ -677,8 +682,15 @@ agent-hooks are inert. So when a supported harness block is present (and `agent_
 enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
 
 - `kind: claude-code` writes `cc_hook_bridge` into `settings.json`: `PreToolUse` matchers
-  `Bash`, `Edit|Write|MultiEdit|NotebookEdit`, `Agent|Task`, `Skill`, `Monitor`, and
-  `EnterWorktree`; `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`; and `Stop`.
+  `Bash`, `Edit|Write|MultiEdit|NotebookEdit`, `Agent|Task`, `Skill`, `Monitor`,
+  `EnterWorktree`, and `Workflow`; `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`;
+  and `Stop`. The `Workflow` matcher is what makes the agent-tools `workflow-danger-gate`
+  (`pre-workflow`) hook actually fire. rig does not itself provision a bare `Workflow`
+  `permissions.allow` entry (that stays an operator/config-layer choice); but when one is
+  configured so ultracode is never prompted on spawn, this matcher is the enforcement half —
+  it denies a script whose executable JS runs a raw `gh pr merge`, `git reset --hard`, a
+  force-push, `sudo rm`, `--no-verify`, `git clean -f`, or `screencapture`, while leaving
+  comments and ultracode's own `agent(...)` dispatch untouched.
   The `Monitor` matcher is the rig half of the **subagent Monitor ban**
   ([rig-cli#463](https://github.com/alex-mextner/rig-cli/issues/463)): Claude Code only
   fires `PreToolUse` for tools with an explicit matcher, so without this entry the
@@ -871,7 +883,9 @@ flag-first, mid AND end-anchored positions; `--force-with-lease` is NOT matched 
 boundary excludes it), `Bash(git commit --no-verify:*)` (flag-first only: the flag-anywhere form
 cannot be pattern-matched without false-positiving on commit messages that merely mention the
 flag — the `block-no-verify` agent-hook remains the authoritative argv-level guard),
-`Bash(sudo rm:*)`, `Bash(screencapture:*)` (screenshots go through Playwright/CDP), and five
+`Bash(sudo rm:*)`, `Bash(screencapture:*)` (screenshots go through Playwright/CDP),
+`Bash(osascript:*)` (AppleScript/System Events from bash trigger unapprovable macOS TCC "access
+data from other apps" prompts — same class as screencapture), and five
 `Bash(rg --pre...)` forms (rig-cli#187: `rg --pre` runs an arbitrary preprocessor command
 underneath the read-only `Bash(rg:*)` search grant — flag-first, later position, and both the
 space/`=` value shapes; a documented fidelity gap in the later-position forms can false-positive
@@ -897,7 +911,7 @@ opencode/codex/omp). Ask (prompt, don't block): `Bash(pkill:*)`,
 the `permission.bash` object (values `"deny"`/`"ask"`), hand-written in opencode's glob dialect
 (`*` = zero-or-more chars, `?` = one char, **last matching key wins**). Deny: `"gh pr merge*"`,
 `"git push*--force*"`, `"git push -f*"`, `"git commit --no-verify*"`, `"sudo rm*"`,
-`"screencapture*"`, `"git worktree add*"`, `"rg*--pre *"` + `"rg*--pre=*"` + `"rg*--pre"` (value-shaped / end-anchored,
+`"screencapture*"`, `"osascript*"`, `"git worktree add*"`, `"rg*--pre *"` + `"rg*--pre=*"` + `"rg*--pre"` (value-shaped / end-anchored,
 so they don't also deny the legitimate `--pretty` flag — a single substring-only `"rg*--pre*"`
 entry was rejected for exactly that regression). Ask: `"pkill*"`, `"killall*"`, `"git reset*--hard*"`.
 rig emits these AFTER
@@ -915,8 +929,8 @@ claude-shaped rule written as an opencode glob key would never match). The tool-
 marker-delimited managed block of Starlark `prefix_rule(...)` lines into
 `~/.codex/rules/rig-managed.rules` (codex auto-scans `~/.codex/rules/*.rules` at startup — no
 `config.toml` reference needed). The resolved tool set becomes `decision="allow"` prefix rules; a
-MINIMAL coarse deny (`gh pr merge`, `git worktree add`, `sudo rm`, `screencapture`, and — rig-cli#187 — the flag-first
-2-token `rg --pre`) becomes `decision="forbidden"`. **Fidelity gap:** `prefix_rule` matches a
+MINIMAL coarse deny (`gh pr merge`, `git worktree add`, `sudo rm`, `screencapture`, `osascript`,
+and — rig-cli#187 — the flag-first 2-token `rg --pre`) becomes `decision="forbidden"`. **Fidelity gap:** `prefix_rule` matches a
 leading-token prefix, so a coarse `["git","push"]` forbidden would over-block ALL pushes — the
 coarse deny is therefore kept to unambiguous full-command (or unambiguous flag-first) bans only;
 every LATER-position flag-guard (force-push, `--no-verify` anywhere, `rg --pre` in a non-leading
@@ -1459,6 +1473,51 @@ apply-only maintenance and has no cheap drift read-back.
 
 ---
 
+## `ecosystem_readme`
+
+Writes/updates a marker-delimited `## Ecosystem` section in this repo's README from ONE
+canonical, in-code tool registry (`riglib/ecosystem_readme.py`), instead of every sibling repo
+hand-copying and letting the list silently drift (rig-cli#308). This is a **repo** block, default
+**OFF** (opt-in) — a fresh `rig apply` never rewrites a repo's README unprompted. Enable it via
+`rig setup` (which shows/edits it like every other reconciled area) or `rig config set
+ecosystem_readme.enabled true`.
+
+```yaml
+ecosystem_readme:
+  enabled: true
+  target: README.md  # repo-relative; defaults to README.md
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | provision the README Ecosystem block (opt-in) |
+| `target` | string | `README.md` | repo-relative README path to reconcile |
+
+**How it reconciles.** The block is delimited by `<!-- rig:ecosystem-block -->` /
+`<!-- /rig:ecosystem-block -->` HTML comments (invisible in a rendered Markdown viewer) and
+spliced in using the SAME marker-offset machinery the codex execpolicy `.rules` block uses: a
+target missing the markers gets the block APPENDED (creating the README if it does not exist
+yet); a target whose managed block differs from the canonical rendering gets it REWRITTEN
+in place; a target already matching is a byte-identical no-op. Everything OUTSIDE the markers —
+the rest of your README — is preserved verbatim. An unbalanced or misordered marker pair is a
+hard error rig refuses to guess at (fix it by hand, then re-apply). A rewrite honors
+`defaults.on_conflict` like every other managed block: `backup` (default) keeps a timestamped
+copy before rewriting; `skip` leaves a stale block untouched (drift stays visible in `rig
+status`) but still performs the additive append when no managed block exists yet.
+
+**Migrating an existing hand-copied `## Ecosystem` section.** If the target already has a bare
+`## Ecosystem` heading with no rig markers — the primary case this feature exists for — `rig
+apply` refuses to append a second, misplaced heading rather than guess: wrap the existing section
+in `<!-- rig:ecosystem-block -->` / `<!-- /rig:ecosystem-block -->` by hand (or delete it) first,
+then re-apply.
+
+**Drift.** `rig status` flags the block as missing when the target file (or a managed block
+inside it) is absent, and modified when the on-disk block differs from the canonical rendering
+(including an unbalanced/misordered marker pair or an unmarked pre-existing `## Ecosystem`
+heading, both of which need a hand fix).
+
+---
+
 ## `github`
 
 Provisions a **GitHub repository branch ruleset** — the modern replacement for branch
@@ -1740,6 +1799,10 @@ tmux:
     enabled: false              # opt-in Moshi (iOS client) status-line tweaks — see below
   cc_restore:
     enabled: true               # per-window Claude Code resume by exact session id
+  omp_restore:
+    enabled: true               # per-window omp (oh-my-pi) resume by exact session file
+  codex_restore:
+    enabled: true               # per-window Codex CLI resume by exact session id
   anti_sprawl:
     enabled: true               # install an attach-or-create entry (one canonical session)
     session: main               # the canonical session name
@@ -1765,6 +1828,18 @@ tmux:
                                   # events to programs running inside panes (some editors/
                                   # tools need this). A plain terminal-capability toggle, no
                                   # interaction with the resurrect/continuum/tpm ordering.
+  clipboard:
+    enabled: true                # copy-mode clipboard: pipe a copy-mode selection (keyboard
+                                  # `prefix [`, `v`, `Enter`/`y`, or a mouse-drag release)
+                                  # through a resolved system-clipboard command
+    command: ""                  # "" → auto-detect (macOS pbcopy; Linux wl-copy/xclip/xsel);
+                                  # a non-empty override is used verbatim (shell-quoted safety
+                                  # checked, same class as pane_titles.format)
+  copy_mode:
+    mode_keys: vi                 # "vi" (default) emits `setw -g mode-keys vi`, independent of
+                                  # `clipboard` above (tmux's own default is emacs, under which
+                                  # `Space` pages instead of selecting and `v` is unbound);
+                                  # "emacs" keeps tmux's own default table live
 ```
 
 | Key | Type | Default | Meaning |
@@ -1772,14 +1847,16 @@ tmux:
 | `enabled` | bool | — (opt-in) | provision the rig-managed tmux config (`false`/absent → leave tmux alone) |
 | `apply` | enum | `import` | apply mechanism: `import` (preferred) or `block` (managed-block fallback) |
 | `conf_path` | path | `~/.tmux.conf` | the user's tmux config rig migrates and wires |
-| `generated_dir` | path | `~/.config/rig/tmux` | where rig writes `rig.tmux.conf` + cc-save/cc-restore/tmux-attach scripts |
-| `resurrect.processes` | list[str] | `[ssh, psql, mysql, sqlite3]` | `@resurrect-processes`. `claude` is **omitted by default while cc_restore is on** (cc-restore owns the exact resume); rig adds it only when cc_restore is off (fallback). List it explicitly to force it. |
+| `generated_dir` | path | `~/.config/rig/tmux` | where rig writes `rig.tmux.conf` + cc-save/cc-restore/omp-save/omp-restore/codex-save/codex-restore/tmux-attach scripts |
+| `resurrect.processes` | list[str] | `[ssh, psql, mysql, sqlite3]` | `@resurrect-processes`. `claude`/`omp`/`codex` are each **omitted by default while their own `*_restore` is on** (the matching `*-restore` script owns the exact resume); rig adds a name back only when that harness's restore is off (fallback). List it explicitly to force it. |
 | `resurrect.capture_pane_contents` | bool | `true` | `@resurrect-capture-pane-contents on` |
 | `continuum.restore` | bool | `true` | `@continuum-restore on` |
 | `continuum.save_interval` | int ≥ 1 | `15` | `@continuum-save-interval` (minutes) |
 | `continuum.boot` | bool | `true` | **no-op** — rig always emits `@continuum-boot 'off'` (its own launchd agent owns boot; see `boot.enabled`). Kept for forward-compat. |
 | `moshi.enabled` | bool | `false` | opt-in Moshi status-line tweaks, emitted **before** continuum init |
 | `cc_restore.enabled` | bool | `true` | wire cc-save/cc-restore via resurrect post-save/post-restore hooks |
+| `omp_restore.enabled` | bool | `true` | wire omp-save/omp-restore via resurrect post-save/post-restore hooks |
+| `codex_restore.enabled` | bool | `true` | wire codex-save/codex-restore via resurrect post-save/post-restore hooks |
 | `anti_sprawl.enabled` | bool | `true` | install the attach-or-create entry script |
 | `anti_sprawl.session` | str | `main` | the one canonical session name |
 | `boot.enabled` | bool | `true` | write a launchd agent (macOS) that runs the boot script after a reboot, and `launchctl load -w` it on apply |
@@ -1794,6 +1871,9 @@ tmux:
 | `login_shell.enabled` | bool | `true` | set a **login-shell** `default-command` so restored panes source `~/.zprofile`/PATH (resurrect otherwise restores a non-login shell with a broken env) |
 | `login_shell.shell` | str | `""` | login shell path. `""` resolves the user's `$SHELL` at apply (falling back to `/bin/zsh` then `/bin/sh`); a non-empty override **must be an absolute path** to the shell binary (a relative name or a command-with-args is rejected, so it can't silently produce a broken `default-command`) and is used verbatim. The path is **baked at generation** — NOT a tmux `${SHELL}` reference, because tmux rejects `${VAR:-default}` and would abort the whole config |
 | `focus_events.enabled` | bool | `true` | `set -g focus-events` on/off — tmux reports terminal focus in/out events to programs running inside panes (needed by editors/tools that react to focus). A plain capability toggle: it carries none of the resurrect/continuum/tpm ordering constraints below (it's placed first in the generated file purely for readability, not because position is load-bearing here). Like every other modeled boolean, `false` emits an explicit `set -g focus-events off` rather than omitting the line. |
+| `clipboard.enabled` | bool | `true` | provision the copy-mode clipboard key bindings: `v` (begin-selection), `y`/`Enter`/`MouseDragEnd1Pane` (copy-pipe-and-cancel through the resolved clipboard command) in the `copy-mode-vi` table, plus `Enter`/`MouseDragEnd1Pane` mirrored into the plain `copy-mode` (emacs) table too. See `copy_mode.mode_keys` below for which table is actually LIVE (an independent knob). `false` emits none of them. When no clipboard command can be resolved on this platform (no `pbcopy`/`wl-copy`/`xclip`/`xsel` on PATH and no `command` override), rig emits NO clipboard section at all — never a binding that shells out to a missing command — and surfaces a note in the `rig apply`/`rig status` detail line instead. |
+| `clipboard.command` | str | `""` | explicit clipboard-write command override. `""` (default) auto-detects: macOS → `pbcopy`; Linux → `wl-copy` (only when `$WAYLAND_DISPLAY` is set AND the binary is on PATH), else `xclip -selection clipboard -in`, else `xsel --clipboard --input`, else unresolved (see `clipboard.enabled` above). A non-empty override is used verbatim and must **not** contain `"`, `\`, `$`, `#(` (a shell-exec token), or a non-printable character other than a plain tab — the same injection-safety class as `pane_titles.format` (both interpolate into a tmux double-quoted option value); rejected at validate time (and in the published JSON schema), and defensively substituted back to the platform-detected command if an unsafe value ever reaches the renderer some other way. |
+| `copy_mode.mode_keys` | enum | `vi` | `setw -g mode-keys` — the copy-mode key table. tmux's OWN default is `emacs`, under which `Space` is bound to `page-down` (not `begin-selection`) and a bare `v` is unbound — so a vim-style copy-mode workflow (`prefix [` then `v`/`Space` to select, `y` to yank) silently does nothing. Rendered **unconditionally**, independent of the `clipboard` block above (Alex tg#325: disabling/losing clipboard integration must not also lose plain vi-style copy-mode navigation). An invalid stored value is defensively clamped back to `vi` at render time, same pattern as `pane_titles.position`. |
 
 **Apply mechanism — import-preferred, managed-block fallback.**
 
@@ -1851,7 +1931,7 @@ boot plist, the import line / managed block) — never on the user's hand-writte
 **The root-cause ordering guarantee.** tmux-continuum's autosave timer lives in `status-right`.
 A hand-written conf that ran `set -g status-right ''` (a Moshi tweak) **after**
 `run-shell …/continuum.tmux` silently wiped continuum's hook → autosave died → a reboot restored
-a weeks-stale session. rig's generator pins the order: plugin options → cc-restore hooks →
+a weeks-stale session. rig's generator pins the order: plugin options → session-resume hooks (cc/omp/codex) →
 **pane_titles (default-on) + the Moshi tweak (opt-in), BOTH BEFORE continuum init** → resurrect
 init → **continuum init LAST** → tpm init last-of-all. So neither tweak can ever wipe continuum's
 hook. `pane_titles.clear_status_right` (default-on when `pane_titles.enabled` is also on) also
@@ -1904,20 +1984,57 @@ scripts and wires them via `@resurrect-hook-post-save-all` / `@resurrect-hook-po
   falls back to `claude --continue` (most-recent session in that cwd) so a reboot is never left
   with a dead pane.
 
-**Why `claude` is NOT in the default `@resurrect-processes`.** When `cc_restore` is on, cc-restore
-owns the resume, so rig **deliberately leaves `claude` OUT** of `@resurrect-processes`: if it were
-in the list, tmux-resurrect would restart the pane as a *bare* `claude` (a new/default session)
-**before** the cc-restore hook runs, and cc-restore — which only ever resumes a *fresh shell* —
-would then skip that pane, leaving the wrong session. So resurrect brings the **shell** back and
-cc-restore does the exact `claude --resume <id>`. (With `cc_restore: { enabled: false }`, `claude`
-*is* added to `@resurrect-processes` as the best-effort fallback. You can also list `claude`
-explicitly in `resurrect.processes` to force it in.)
+**Why `claude`/`omp`/`codex` are NOT in the default `@resurrect-processes`.** When a harness's
+own `*_restore` is on, its `*-restore` script owns the resume, so rig **deliberately leaves that
+harness's name OUT** of `@resurrect-processes`: if it were in the list, tmux-resurrect would
+restart the pane as a *bare* process (a new/default session) **before** the `*-restore` hook
+runs, and `*-restore` — which only ever resumes a *fresh shell* — would then skip that pane,
+leaving the wrong session. So resurrect brings the **shell** back and `*-restore` does the exact
+resume. (With e.g. `cc_restore: { enabled: false }`, `claude` *is* added to
+`@resurrect-processes` as the best-effort fallback — independently for each of `omp_restore` /
+`codex_restore`. You can also list a name explicitly in `resurrect.processes` to force it in.)
 
-**Known limitation — per-cwd, not strictly per-pane.** Claude Code does not expose its session id
-per tmux pane, so cc-save records the **newest** session id for each pane's **cwd**. Two `claude`
-panes in the **same** directory therefore map to the same session id and cc-restore resumes both
-into it. Per-window exact resume holds when each claude pane is in a **distinct** cwd (the common
-case).
+**Known limitation — per-cwd, not strictly per-pane.** None of the three harnesses expose their
+session id per tmux pane, so each `*-save` script records the **newest** matching session for
+each pane's **cwd**. Two panes of the **same** harness in the **same** directory therefore map to
+the same session and `*-restore` resumes both into it. Per-window exact resume holds when each
+pane is in a **distinct** cwd (the common case).
+
+**omp-restore / codex-restore — the same exact-id resume, generalized to omp and Codex CLI.**
+rig installs the same `*-save.sh` / `*-restore.sh` pair for **omp** (this harness, oh-my-pi) and
+**Codex CLI**, wired through the SAME `@resurrect-hook-post-save-all` /
+`@resurrect-hook-post-restore-all` hooks as cc-restore. Since each of those is a single tmux
+option holding one shell command, every **enabled** harness's script is **chained** into that one
+hook value (`'cc-save.sh'; 'omp-save.sh'; 'codex-save.sh'`, `eval`'d in sequence by resurrect) —
+turning a harness off simply removes its command from the chain, it never clobbers the others'.
+
+- **`omp-save.sh` / `omp-restore.sh`** — same process-tree-walk detection as cc-save (omp's own
+  binary is a direct/descendant child of the pane's shell), matching argv[0] `omp` or `*/omp`
+  (omp installs as a single compiled binary, so — unlike claude — there is no versioned-symlink
+  quirk to also match). omp keys `~/.omp/agent/sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl`, where
+  `<cwd-slug>` is the cwd **relative to `$HOME`** with every `/` replaced by `-` (dots preserved)
+  — a **different** encoding from Claude Code's full-absolute-path, dot-folding
+  `~/.claude/projects/<enc>` convention. `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` are honored if
+  set in the ambient environment the resurrect hook runs under, mirroring omp's own resolution.
+  The map records the **full session file path** (not a bare id) — `omp --resume` accepts "an ID
+  prefix, a path, or picker" per `omp --help`, and a path sidesteps any ambiguity over whether the
+  session's leading ISO-timestamp is part of its "id". After a reboot, `omp-restore.sh` runs
+  `omp --resume <path>` into a fresh shell pane; a stale/missing file falls back to
+  `omp --continue`.
+- **`codex-save.sh` / `codex-restore.sh`** — same process-tree-walk detection, matching argv[0]
+  `codex`/`*/codex` (the Codex CLI's `node` launcher `spawn()`s a native per-platform `codex`
+  binary as a child; the walk finds that descendant). Unlike claude/omp, Codex's session store is
+  **not cwd-keyed on disk**: rollout files live under
+  `~/.codex/sessions/<local-YYYY>/<local-MM>/<local-DD>/rollout-<local-ISO-ts>-<uuid>.jsonl`, and
+  the cwd is recorded only inside each file's first `session_meta` JSON line. So codex-save scans
+  the last **2 days** of local-date directories (newest day/file first) reading just each
+  candidate's first line until a cwd match is found — **known limitation:** a cwd whose most
+  recent Codex session predates that 2-day window is missed (unbounded scanning of a
+  multi-gigabyte session store on every periodic save is not an acceptable tradeoff). `RIG_CODEX_HOME`
+  overrides the session-store root (ambient `CODEX_HOME` is deliberately ignored, mirroring rig's
+  own Codex config-root resolution); default `~/.codex`. After a reboot, `codex-restore.sh` runs
+  `codex resume <session-id>` into a fresh shell pane; a stale/missing rollout file falls back to
+  `codex resume --last`.
 
 **anti-sprawl — one canonical session.** A Moshi/iTerm reconnect that ran a bare `tmux` spawned
 a **duplicate** session. rig installs `tmux-attach.sh` (attach `<session>` if it exists, else
@@ -2116,6 +2233,72 @@ duplicated — **and** when `core.excludesfile` is unset and rig would set it. `
 reconciles. Shown in the **global** section of status (not the repo section).
 
 ---
+
+## `bun`
+
+Turns on bun's [global virtual store](https://bun.sh/docs/pm/global-store) for this
+machine. The store is a **no-op under the hoisted linker**, so `rig apply` writes
+**both** keys:
+
+```toml
+[install]
+linker = "isolated"
+globalStore = true
+```
+
+Packages then live once under `~/.bun/install/cache/links/`, and each project's
+`node_modules` is a few megabytes of symlinks. A warm
+`rm -rf node_modules && bun install` is symlink-only (~7× faster on bun's fixture).
+
+This is **GLOBAL, opt-in** — `~/.config/rig/config.yaml`, **default OFF**. Isolated
+linking can surface phantom deps in previously-hoisted projects, so the flag stays
+off until you set `bun.enabled: true`.
+
+Requires a bun that implements `install.globalStore` (1.4+; check `bun --version`).
+
+**uv** already uses a global cache (`~/.cache/uv`). macOS default link-mode is
+clone (APFS CoW; `nlink=1` so `du` still looks like copies).
+`link-mode = hardlink` in `~/.config/uv/uv.toml` shares inodes. rig does **not**
+provision `uv.toml`.
+
+```yaml
+bun:
+  enabled: true                 # splice isolated linker + globalStore into ~/.bunfig.toml (default OFF)
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | splice a managed `[install] linker = "isolated"` + `globalStore = true` block into the global bunfig |
+
+**What apply splices** (markers included; everything outside the markers is left
+byte-for-byte):
+
+```toml
+# >>> rig-managed bun (do not edit) >>>
+# bun install: isolated linker + globalStore — packages live once under ~/.bun/install/cache/links/.
+# Replace via `rig config set bun.enabled true --global --commit` (off: `rig config set bun.enabled false --global --commit`).
+[install]
+linker = "isolated"
+globalStore = true
+# <<< rig-managed bun (do not edit) <<<
+```
+
+Path: `$HOME/.bunfig.toml`, or `$XDG_CONFIG_HOME/.bunfig.toml` when that env is set.
+A project `bunfig.toml` still overrides the same keys.
+
+**Hand-written bunfig.** If the file already has extra user keys **and** both
+required values (`linker = "isolated"` and `globalStore = true`), apply leaves it
+(no markers added). If it has no `[install]` table, apply **appends** the block.
+If it already has `[install]` without those keys, that is a **conflict** (a second
+`[install]` header is invalid TOML): add the keys by hand. Unbalanced markers are
+also a conflict. Apply never writes on conflict.
+
+**Drift / verify.** Missing or stale managed block → apply splices. Conflict stays.
+Verify checks both `[install]` keys.
+
+---
+
+
 
 ## `spotlight`
 
@@ -2335,6 +2518,60 @@ launchctl bootstrap (sandboxed run))`. To exercise the live path on purpose, run
 
 ---
 
+## `tcc_watch`
+
+rig provisions the **tcc-watch dialog-watcher daemon** — Phase 1 (detection-only) of a
+defense-in-depth follow-up behind the eval-tool's TCC deny-list (`riglib/permissions.py`, PR
+#488) — as a **macOS boot LaunchAgent**, exactly like `tg_ctl`. The daemon tails macOS's own
+`log stream --predicate 'subsystem == "com.apple.TCC"'` (Apple's own sanctioned mechanism for
+observing TCC activity — no private API, no `TCC.db` access) and durably appends every
+permission-request-shaped event it observes to `<config_dir>/events.jsonl`. It does **not**
+touch the live system dialog, read/write `TCC.db`, attribute the event to an agent, or send any
+notification yet — those are Phases 2-4 of the phased ticket (rig-cli, see
+`riglib/tcc_watch.py`'s module docstring), explicitly deferred pending their own design review.
+**Default ON** (an absent or empty `tcc_watch:` block still provisions it, mirroring `tg_ctl`).
+This is a **per-MACHINE** concern (one watcher daemon per machine), so the block belongs in the
+**GLOBAL** layer (`~/.config/rig/config.yaml`) — never a committed repo `rig.yaml`.
+**macOS-only** (launchd); off darwin it is a no-op.
+
+```yaml
+tcc_watch:
+  enabled: true                          # provision the tcc-watch LaunchAgent (default true; false = off)
+  # everything below is auto-discovered per-machine — override only if non-standard:
+  label: ai.hyperide.tcc-watch           # launchd Label / plist filename stem (advanced)
+  config_dir: ~/.config/rig/tcc-watch    # watcher config + events.jsonl + launchd logs
+  python_bin: /usr/bin/python3           # the python3 binary (default: `which python3` → system fallback)
+```
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `enabled` | bool | `true` | `false` = don't touch tcc-watch at all — rig emits no action |
+| `label` | str | `ai.hyperide.tcc-watch` | launchd Label / plist filename stem |
+| `config_dir` | str | `~/.config/rig/tcc-watch` | where the watcher script, `events.jsonl`, and the launchd out/err logs live |
+| `python_bin` | str | discovered | the python3 binary; default `which python3`, else the first of `/usr/bin/python3`, `/opt/homebrew/bin/python3`, `/usr/local/bin/python3` |
+
+**What rig writes.** `~/Library/LaunchAgents/ai.hyperide.tcc-watch.plist` — a `RunAtLoad` +
+`KeepAlive` agent that runs `python3 <config_dir>/watch.py <config_dir>/events.jsonl` — plus the
+watcher script itself, copied byte-for-byte from `riglib/tcc_watch_daemon.py` (the SAME module
+the unit suite exercises directly), so the deployed daemon and the tested detection logic can
+never drift apart.
+
+**(Re)load mechanism.** Like `tg_ctl`, rig **(re)loads** the agent via `launchctl
+bootout`/`bootstrap` in the per-user `gui/<uid>` domain, so a clean `rig init` starts the daemon
+without a reboot, and a changed plist/script is picked up on the next `apply`.
+
+**Dry-run seam.** `RIG_TCC_WATCH_DRY_RUN=1` writes the managed plist + watcher script into the
+configured (HOME-isolated) path but skips the live `launchctl bootstrap`/`bootout` mutation — so
+tests/smoke never touch the real launchd domain. Also engages automatically under a sandboxed
+HOME (rig-cli#116), same as every other launchd-backed daemon this repo provisions.
+
+**Testing without a live TCC dialog.** `riglib/tcc_watch_daemon.py`'s detection logic
+(`parse_tcc_log_line`) is a pure function over one `log stream --style ndjson` text line; its
+`run()` loop accepts an injectable `stream_factory` and a `max_reconnects` bound. The unit suite
+replays canned/sample log lines — it never needs (or triggers) a real macOS permission prompt.
+
+---
+
 ## `task`
 
 **task-cli's per-repo ticket-tracker routing** (CTO decision #4136.4: hyperide → Linear/HYP,
@@ -2415,9 +2652,9 @@ there is one emitter and the schema is never maintained in parallel (see "The JS
 **Which file a change is written to.** Each option is routed to its **owning layer**:
 
 - **REPO** options (`skills`, `agent_hooks`, `git_hooks`, `ci`, `mcp`, `harness`, `scripts`,
-  `dev`, `models`, `github`, `agents_md`, `linters`, `project_tools`) are written to the repo's `./rig.yaml` — the
-  values the default scaffold commits.
-- **GLOBAL-only** options (`gitignore`, `tg_ctl`, `tmux`, `mode`) are machine-wide blocks the
+  `dev`, `models`, `github`, `agents_md`, `linters`, `project_tools`, `ecosystem_readme`) are
+  written to the repo's `./rig.yaml` — the values the default scaffold commits.
+- **GLOBAL-only** options (`gitignore`, `tg_ctl`, `tcc_watch`, `tmux`, `mode`) are machine-wide blocks the
   scaffold never writes into a committed repo file; the wizard writes them to
   `~/.config/rig/config.yaml` only — it never lands a global-only block in a committed repo
   `rig.yaml`.
@@ -2484,8 +2721,8 @@ rig config set harness.auto_mode false --no-apply        # write only, print the
 strict**: an unknown FIXED key in *any* block — `defaults`, `skills`, `agent_hooks`, `git_hooks`
 (+ `dispatcher`), `ci`, `mcp`, `harness` (+ `hook_bridge` / `web_search`), `permissions`, `models` (+ `schedule`),
 `agents_md`, `scripts`, `dev` (+ `server` / `e2e`), `github` (+ `ruleset` / `merge` / `ghas` / `actions` / `browser`), `tmux` (+ every
-sub-block), `gitignore`, `tg_ctl`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`) — is
-rejected with the schema path of the offender, not silently ignored. (The open maps are
+sub-block), `gitignore`, `tg_ctl`, `tcc_watch`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`),
+`ecosystem_readme` — is rejected with the schema path of the offender, not silently ignored. (The open maps are
 top-level `scripts:`, the catalog-keyed `items:` / `fragments:` maps, plus `dev.e2e.jobs:` — see
 "Strict by default" above.) Bad-value rejections
 include: unsupported `version`, invalid `on_conflict` / ci `tier` / agent-hook `on_error`, an

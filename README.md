@@ -185,6 +185,11 @@ source), Codex (`~/.codex/sessions/.../rollout-*.jsonl`, or
 (`~/.local/share/opencode/storage/`). The supported-harness list is data-driven: each
 parser self-registers, and a harness whose logs aren't on the machine is reported as
 "not found" rather than failing. Adding a harness is one file in `riglib/stats/sources/`.
+Parsed session files are cached per-source under `~/.cache/rig/stats/<harness>.json`,
+keyed by each file's `(mtime, size)`: a closed session (the overwhelming majority) is never
+re-parsed once cached, so a repeat `rig stats show` only pays for genuinely new/changed
+session activity — the cache is purely an optimization and is transparent to every filter
+(`--repo`/`--harness`/`--since`); delete the directory any time to force a full rescan.
 
 **Outputs:** `json` is the canonical shape every other renderer draws from; `tui` (default)
 is a rich table-and-bar-chart report that degrades to plain text if `rich` isn't installed;
@@ -448,18 +453,25 @@ of agent skills/hooks. `rig` is the only one of these whose unit of work is a re
 agent-facing guardrails — and the only one that surfaces hand-added orphans instead of
 clobbering them.
 
+<!-- rig:ecosystem-block -->
+
 ## Ecosystem
 
-Part of the [HyperIDE.ai](https://hyperide.ai) agent toolchain:
+Part of the [HyperIDE.ai](https://hyperide.ai) agent toolchain. Sibling tools that already solve adjacent problems — check before building your own:
 
-- **[tg-cli](https://github.com/alex-mextner/tg-cli)** — simple Telegram CLI to send messages, photos & files, and a two-way agent bridge (reports, Q→buttons, voice/rich)
-- **[review-cli](https://github.com/alex-mextner/review-cli)** — multi-model read-only code review from one command: diff review, cited quorum, brainstorm, visual review, and interactive spec-review tooling. Read-only, CLI-first, harness-agnostic.
-- **[agent-tools](https://github.com/alex-mextner/agent-tools)** — the shared catalog `rig` applies: portable agent skills, agent-hooks, the global git-hook dispatcher, CI gates, and MCP servers
+- **[rig-cli](https://github.com/alex-mextner/rig-cli)** — sets up a repo (and a dev machine) from a committed rig.yaml: skills, agent-hooks, git-hook dispatcher, CI gates, MCP, and the agent harness's auto/permission mode
+- **[tg-cli](https://github.com/alex-mextner/tg-cli)** — simple Telegram CLI to send messages, photos & files, and a two-way agent bridge (reports, Q -> buttons, voice/rich)
+- **[review-cli](https://github.com/alex-mextner/review-cli)** — multi-model read-only code review from one command: diff review, cited quorum, brainstorm, visual review, and interactive spec-review tooling
+- **[agent-tools](https://github.com/alex-mextner/agent-tools)** — the shared catalog rig applies: portable agent skills, agent-hooks, the global git-hook dispatcher, CI gates, and MCP servers
 - **[draw-cli](https://github.com/alex-mextner/draw-cli)** — text-to-image via Hugging Face
 - **[3d-cli](https://github.com/alex-mextner/3d-cli)** — scriptable CLI for the full 3D FDM lifecycle: modeling, mesh repair, slicing, and print monitoring
 - **[task-cli](https://github.com/alex-mextner/task-cli)** — enforced ticket-system CLI for agents (GitHub Issues / Linear): acceptance criteria, motivation, and user-impact gates before work starts
-- **[dev-cli](https://github.com/alex-mextner/dev-cli)** — project-scoped dev/e2e process runner (start/list/stop dev servers and e2e jobs); rig validates the `scripts:` / `dev:` config shape and provisions `dev:*` / `Bash(dev:*)` as the harness permission surface, without granting raw process/git/package-manager tools. Like the other ecosystem CLIs listed here, the `dev` binary itself is provisioned via the global `tools:` block (see the config, next paragraph), not by this validation step.
-- **[hyperide.ai](https://hyperide.ai)** — Figma replacement inside VS Code. Edit React components directly through AST/LSP without AI hallucinations, token waste, or context-window limits. Works for indie vibe-coding and for enterprise teams with split design/dev roles.
+- **[dev-cli](https://github.com/alex-mextner/dev-cli)** — project-scoped dev/e2e process runner: start/list/stop dev servers and e2e jobs
+- **[hyperide.ai](https://hyperide.ai)** — Figma replacement inside VS Code — edit React components directly through AST/LSP without AI hallucinations, token waste, or context-window limits
+
+_This section is kept in sync by `rig apply` from a canonical registry — edit it in [rig-cli](https://github.com/alex-mextner/rig-cli)'s `riglib/ecosystem_readme.py`, not here; a hand-edit here does not survive the next apply that reconciles this block._
+
+<!-- /rig:ecosystem-block -->
 
 Each CLI registers a skill into your agent harnesses (`<tool> install-skill`) so agents know it exists — see Install.
 

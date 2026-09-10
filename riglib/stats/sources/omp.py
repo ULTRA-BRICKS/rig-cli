@@ -40,6 +40,7 @@ from pathlib import Path
 
 from ..model import ToolInvocation
 from ..taxonomy import categorize
+from ._cache import SessionFileCache
 from ._shellutil import detail_of, extract_command
 from .base import LogSource, parse_iso, register
 from ...paths import expand_user_path
@@ -79,6 +80,9 @@ class OmpSource(LogSource):
             proj_dirs = sorted(root.iterdir())
         except OSError:
             return  # root exists but isn't a readable dir — degrade, don't abort the source
+        # cache holds the FULL unfiltered per-file parse (see _cache.py) so it serves any
+        # --repo query; only unchanged (mtime+size) files hit the cache.
+        cache = SessionFileCache(self.home, self.name)
         for proj_dir in proj_dirs:
             if not proj_dir.is_dir():
                 continue
@@ -88,7 +92,14 @@ class OmpSource(LogSource):
             except OSError:
                 continue  # one unreadable project dir must not abort the whole source
             for session_file in session_files:
-                yield from self._iter_session(session_file, decoded, repos_norm, root)
+                invocations = cache.get(session_file)
+                if invocations is None:
+                    invocations = list(self._iter_session(session_file, decoded, None, root))
+                    cache.put(session_file, invocations)
+                for inv in invocations:
+                    if repos_norm is None or inv.repo.rstrip("/") in repos_norm:
+                        yield inv
+        cache.flush()
 
     def _iter_session(
         self, session_file: Path, decoded_dir: str, repos_norm: frozenset[str] | None, root: Path

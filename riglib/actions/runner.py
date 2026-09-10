@@ -70,6 +70,7 @@ from ..github_ruleset import (
 from ..logging import log_event
 from ..paths import expand_user_path
 from ..plan import Action, InstallPlan
+from .. import ecosystem_readme
 from .. import project_tools
 from . import fsutil
 
@@ -1573,7 +1574,7 @@ def _splice_managed_block(
     begins = _find_marker_lines(content, begin_marker)
     ends = _find_marker_lines(content, end_marker)
     if len(begins) != len(ends) or (ends and not begins):
-        return "", "conflict", "unbalanced rig-managed execpolicy markers — reconcile by hand, then re-run"
+        return "", "conflict", "unbalanced rig-managed markers — reconcile by hand, then re-run"
     if not begins:
         body = content.rstrip("\n")
         sep = "\n\n" if body else ""
@@ -1584,7 +1585,7 @@ def _splice_managed_block(
     pending = -1
     for start, line_end, kind in markers:
         if kind != expect:
-            return "", "conflict", "misordered/nested rig-managed execpolicy markers — reconcile by hand, then re-run"
+            return "", "conflict", "misordered/nested rig-managed markers — reconcile by hand, then re-run"
         if kind == "begin":
             pending = start
             expect = "end"
@@ -1604,6 +1605,101 @@ def _splice_managed_block(
         cursor = r_end
     out.append(content[cursor:])
     return "".join(out), "update", ""
+
+
+# ── README ecosystem-block provisioning (rig-cli#308) ──────────────────────────────────────────
+# Writes/updates a marker-delimited "## Ecosystem" section into a target repo's README.md from the
+# ONE canonical registry in riglib.ecosystem_readme. Reuses the SAME `_splice_managed_block` offset
+# machinery the execpolicy / global-excludes / ship-delegator managed blocks use, so a re-apply
+# with an unchanged registry is a byte-identical no-op and any content a user put OUTSIDE the
+# markers (their own README prose) survives verbatim.
+ECOSYSTEM_README_BEGIN_MARKER = ecosystem_readme.ECOSYSTEM_README_BEGIN_MARKER
+ECOSYSTEM_README_END_MARKER = ecosystem_readme.ECOSYSTEM_README_END_MARKER
+
+
+def ecosystem_readme_file(action: Action) -> Path:
+    """The README a ``apply_ecosystem_readme`` action targets (shared by apply + drift)."""
+    return action.target
+
+
+def ecosystem_readme_block_text(action: Action) -> str:
+    """The exact marker-delimited block rig owns for this action (no trailing newline).
+
+    Single source of truth shared by the install handler and drift, so both agree byte-for-byte.
+    Content is entirely registry-driven (no per-repo variation), unlike execpolicy's per-kind
+    tool set.
+    """
+    return ecosystem_readme.render_ecosystem_block()
+
+
+def _do_apply_ecosystem_readme(action: Action, on_conflict: str) -> ActionResult:
+    """Reconcile rig's managed Ecosystem block into the target README.md — idempotent, additive.
+
+    Mirrors ``_do_provision_execpolicy`` exactly: append the block to a README that lacks it
+    (creating the file/dirs), collapse any duplicated managed regions to ONE correct block in
+    place, or no-op a correct single block. Every line OUTSIDE the markers is preserved verbatim.
+    An unbalanced/misordered marker pair is a hard error rig refuses to guess at, as is a target
+    that already has a BARE (unmarked) ``## Ecosystem`` heading — the primary migration case —
+    rather than silently appending a duplicate, misplaced section (see
+    :func:`riglib.ecosystem_readme.has_unmarked_ecosystem_heading`). ``on_conflict=backup`` keeps
+    a timestamped copy before a rewrite; ``skip`` leaves a drifted block untouched.
+    """
+    desired = ecosystem_readme_block_text(action)
+    path = ecosystem_readme_file(action)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not path.exists():
+        # newline="" (matching the read below): a fresh file's content is entirely OUR OWN LF text,
+        # but writing without it would still hit Path.write_text's default OS-newline translation
+        # on Windows for no benefit here — keep the write side symmetric with the read side always.
+        path.write_text(desired + "\n", encoding="utf-8", newline="")
+        return ActionResult(action, "created", f"ecosystem_readme/{action.item}: wrote {path}")
+    try:
+        with path.open(encoding="utf-8", newline="") as fh:
+            content = fh.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        # unlike execpolicy's own rig-generated .rules file, a README target is a pre-existing,
+        # arbitrary user-authored file — non-UTF-8 bytes are a real, reachable case here, not a
+        # rig-generated: report it as an actionable error instead of letting it crash apply.
+        return ActionResult(action, "error", f"ecosystem_readme/{action.item}: cannot read {path}: {exc}")
+
+    new_content, state, detail = _splice_managed_block(
+        content, desired, ECOSYSTEM_README_BEGIN_MARKER, ECOSYSTEM_README_END_MARKER
+    )
+    if state == "conflict":
+        return ActionResult(action, "error", f"ecosystem_readme/{action.item}: {detail}")
+    if state == "create" and ecosystem_readme.has_unmarked_ecosystem_heading(content):
+        # The primary migration case (rig-cli#308's own stated motivation): a target repo already
+        # hand-copies an unmarked '## Ecosystem' section. Blindly appending here would leave that
+        # stale section untouched (still drifting) AND bolt on a second, misplaced heading -- refuse
+        # instead, same "refuse to guess" stance as an unbalanced marker pair.
+        return ActionResult(
+            action, "error",
+            f"ecosystem_readme/{action.item}: {path} already has an unmarked '## Ecosystem' section "
+            f"-- wrap it in {ECOSYSTEM_README_BEGIN_MARKER} / {ECOSYSTEM_README_END_MARKER} by hand "
+            "(or remove it) before enabling this, so apply never appends a duplicate section",
+        )
+    if state == "ok":
+        return ActionResult(action, "skipped", f"ecosystem_readme/{action.item}: already current in {path}")
+    backup_note = ""
+    if state == "update":
+        if on_conflict == "skip":
+            return ActionResult(
+                action, "skipped",
+                f"ecosystem_readme/{action.item}: {path} block differs but on_conflict=skip — left unchanged (drift NOT reconciled)",
+            )
+        if _should_backup(on_conflict):
+            bak = fsutil.backup_path(path)
+            shutil.copy2(str(path), str(bak))
+            backup_note = f" (backed up prior → {bak})"
+    # newline="" mirrors the read: unlike execpolicy's rig-generated .rules file, this splice can
+    # carry a PRE-EXISTING CRLF README's content verbatim in the preserved (outside-markers) text —
+    # a plain write_text() would apply Path.write_text's default OS-newline translation on top of
+    # already-literal \r\n bytes, corrupting them to \r\r\n on Windows.
+    path.write_text(new_content, encoding="utf-8", newline="")
+    status = "backed_up" if backup_note else "updated"
+    verb = "appended block to" if state == "create" else "reconciled block in"
+    return ActionResult(action, status, f"ecosystem_readme/{action.item}: {verb} {path}{backup_note}")
 
 
 # ── omp guard extension provisioning (~/.omp/agent/extensions/rig-permissions-guard.ts) ──────
@@ -2271,7 +2367,20 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
     notification, so the subagent must use Bash ``run_in_background`` for one ordinary
     command or a foreground heartbeat loop for anything else), and ``EnterWorktree`` for
     switching into a worktree (the agent-tools
-    ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created).
+    ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created), and
+    ``Workflow`` for a dynamic multi-agent script (ultracode). rig does NOT provision a bare
+    ``Workflow`` permissions.allow entry itself (that stays an operator/config-layer choice,
+    same as any other allow rule) — but WHEN an operator allow-lists it so ultracode is never
+    prompted on spawn, that allow must not be a blanket pass for the script's contents: this
+    matcher is what makes the agent-tools ``workflow-danger-gate`` (the ``pre-workflow`` point)
+    actually run, denying a script whose executable JS contains a raw ``gh pr merge``,
+    ``git reset --hard``, a force-push, ``sudo rm``, ``--no-verify``, ``git clean -f``, or
+    ``screencapture`` while leaving comments and ultracode's own ``agent(...)`` dispatch
+    untouched. Without this row registered, ``point_for_event`` maps Workflow to
+    ``pre-workflow`` in agent-tools but Claude Code never calls the bridge for it, so the gate
+    never fires regardless of the permissions.allow state — the same "mapped but not wired" gap
+    ``pre-skill``/``pre-worktree-enter`` were in before their matcher was added (see the
+    safety-property paragraph below).
     Codex uses the hook matchers exposed by its TOML contract here: ``Bash`` and
     ``apply_patch`` (no ``pre-agent``/``pre-skill``/``pre-monitor``/``pre-worktree-enter``
     mapping yet — same gap, tracked upstream in agent-tools; Codex has no Monitor-equivalent
@@ -2340,6 +2449,7 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
             ("Skill", cmd("PreToolUse")),
             ("Monitor", cmd("PreToolUse")),
             ("EnterWorktree", cmd("PreToolUse")),
+            ("Workflow", cmd("PreToolUse")),
         ],
         "PostToolUse": [
             ("Edit|Write|MultiEdit|NotebookEdit", cmd("PostToolUse")),
@@ -4075,12 +4185,16 @@ def tmux_plan_from_action(action: Action):
         continuum=dict(opts.get("continuum", {}) or {}),
         moshi=dict(opts.get("moshi", {}) or {}),
         cc_restore=dict(opts.get("cc_restore", {}) or {}),
+        omp_restore=dict(opts.get("omp_restore", {}) or {}),
+        codex_restore=dict(opts.get("codex_restore", {}) or {}),
         anti_sprawl=dict(opts.get("anti_sprawl", {}) or {}),
         boot=dict(opts.get("boot", {}) or {}),
         login_shell=dict(opts.get("login_shell", {}) or {}),
         autosave=dict(opts.get("autosave", {}) or {}),
         pane_titles=dict(opts.get("pane_titles", {}) or {}),
         focus_events=dict(opts.get("focus_events", {}) or {}),
+        clipboard=dict(opts.get("clipboard", {}) or {}),
+        copy_mode=dict(opts.get("copy_mode", {}) or {}),
     )
 
 
@@ -4137,6 +4251,19 @@ def _do_provision_tmux(action: Action, on_conflict: str) -> ActionResult:
     # conflict-skipped managed scripts (left as the user's under on_conflict=skip) — surfaced in
     # the result detail but NOT counted as a change (nothing was written): unresolved drift.
     skipped_conflicts: list[str] = []
+
+    # tmux.clipboard is on but no clipboard command could be resolved on this platform (no
+    # pbcopy/wl-copy/xclip/xsel on PATH, and no explicit override) — render_rig_conf already
+    # emits NO clipboard bindings in that case (never a binding that shells out to a missing
+    # command). Recorded into `skipped_conflicts` (not `details`) so it stays VISIBLE even on a
+    # fully-idempotent "already current" re-apply — `details` is discarded on that path below,
+    # but `skipped_conflicts` is folded into the message either way (this is the established
+    # "surface every apply, changed or not" slot, same as an unresolved conflict-skip).
+    if plan.clipboard_enabled and not plan.clipboard_command:
+        skipped_conflicts.append(
+            "clipboard: no clipboard command found on this platform (install pbcopy/wl-copy/"
+            "xclip/xsel, or set tmux.clipboard.command) — copy-mode clipboard bindings skipped"
+        )
 
     # 1) the generated rig.tmux.conf (wholesale, idempotent on identical bytes).
     # `rig_conf_conflicted` records a DIFFERING generated config left untouched under skip: it may
@@ -5076,6 +5203,170 @@ def _do_provision_tg_ctl(action: Action, on_conflict: str) -> ActionResult:
                             f"tg_ctl/boot: launchd agent '{plan.boot_label}' already installed and loaded")
     status = "backed_up" if headline_backup else "created"
     return ActionResult(action, status, f"tg_ctl/boot: {'; '.join(details)}", headline_backup)
+
+
+# ── tcc-watch dialog-watcher LaunchAgent provisioning (macOS) ───────────────────────
+def _tcc_watch_dry_run() -> bool:
+    """Honor RIG_TCC_WATCH_DRY_RUN — write the managed plist + watcher script but make NO
+    live/destructive change. Mirrors :func:`_tg_ctl_dry_run`: under dry-run the managed
+    artifacts still land under the (HOME-isolated) path, but the gui-domain (re)load is skipped.
+    ALSO true automatically under a sandboxed HOME (:func:`_home_is_sandboxed`, rig-cli#116).
+    """
+    return _env_flag("RIG_TCC_WATCH_DRY_RUN") or _home_is_sandboxed()
+
+
+def tcc_watch_plan_from_action(action: Action):
+    """Rebuild the pure :class:`~riglib.tcc_watch.TccWatchPlan` an action describes.
+
+    Shared by the install handler (and, in a follow-up, drift detection) so both agree on the
+    exact desired plist/script from the action's options. ``Path.home()`` is the resolved HOME
+    at apply time (a test monkeypatches it to a tmp HOME). Lazy import keeps the actions package
+    import-light.
+    """
+    from ..tcc_watch import DEFAULT_LABEL, build_tcc_watch
+
+    opts = action.options
+    return build_tcc_watch(
+        home=Path.home(),
+        label=str(opts.get("label") or DEFAULT_LABEL),
+        config_dir=opts.get("config_dir") or "~/.config/rig/tcc-watch",
+        python_bin=opts.get("python_bin") or None,
+    )
+
+
+def _do_provision_tcc_watch(action: Action, on_conflict: str) -> ActionResult:
+    """Provision the tcc-watch dialog-watcher daemon as a macOS LaunchAgent (idempotent).
+
+    Phase 1 (detection-only) of the defense-in-depth design behind the eval-tool TCC deny-list
+    (PR #488) — see :mod:`riglib.tcc_watch`'s module docstring. Mirrors
+    :func:`_do_provision_tg_ctl`'s shape (render -> backup-differing -> write -> (re)load), minus
+    the stale-predecessor teardown (tcc-watch has no predecessor to replace) and minus any
+    Codex-hook fold-in (tcc-watch is not a Codex Stop-hook source):
+
+      - render ``~/Library/LaunchAgents/ai.hyperide.tcc-watch.plist``;
+      - copy the watcher script (``riglib/tcc_watch_daemon.py``, byte-for-byte) to
+        ``<config_dir>/watch.py`` so the installed daemon runs the SAME code the unit suite
+        exercises directly;
+      - back up any existing DIFFERING plist/script (on_conflict=backup) before rewrite;
+      - ensure the config dir exists so launchd can open the logs and the daemon can append events;
+      - (re)load via ``launchctl bootout``/``bootstrap`` in the per-user gui domain.
+
+    macOS-only (launchd). Off darwin it is a ``skipped`` no-op (no Linux equivalent yet).
+    A re-apply that finds both artifacts byte-identical AND the agent loaded is a ``skipped``
+    no-op. ``RIG_TCC_WATCH_DRY_RUN`` writes the artifacts but skips every live launchd mutation.
+    """
+    plan = tcc_watch_plan_from_action(action)
+
+    if sys.platform != "darwin":
+        return ActionResult(
+            action, "skipped",
+            "tcc_watch/watch: skipped (launchd is macOS-only; no Linux equivalent yet)",
+        )
+
+    details: list[str] = []
+    changed = False
+    headline_backup: Path | None = None
+    dry = _tcc_watch_dry_run()
+
+    # 1) ensure the config dir exists so launchd can open StandardOut/ErrorPath and the daemon
+    # can append to events.jsonl.
+    plan.config_dir.mkdir(parents=True, exist_ok=True)
+
+    # 2) write the watcher script (idempotent on identical bytes; honors on_conflict).
+    desired_script = plan.render_watcher_script()
+    script_already = plan.watcher_script_path.is_file()
+    current_script = plan.watcher_script_path.read_text(encoding="utf-8") if script_already else ""
+    if not (script_already and current_script == desired_script):
+        script_out = fsutil.write_file(plan.watcher_script_path, desired_script, on_conflict)
+        if script_out.status == "error":
+            return ActionResult(action, "error", f"tcc_watch/watch: {script_out.detail}", script_out.backup)
+        if script_out.backup:
+            headline_backup = headline_backup or script_out.backup
+            details.append(f"backed up prior watcher script → {script_out.backup.name}")
+        if script_out.status != "skipped":
+            changed = True
+            details.append(f"wrote {plan.watcher_script_path.name}")
+        plan.watcher_script_path.chmod(0o755)
+
+    # 3) write the plist (idempotent on identical bytes; honors on_conflict for a differing one).
+    plan.plist_path.parent.mkdir(parents=True, exist_ok=True)
+    desired_plist = plan.render_plist()
+    plist_already = plan.plist_path.is_file()
+    current_plist = plan.plist_path.read_text(encoding="utf-8") if plist_already else ""
+
+    # The install-if-missing no-op: both artifacts present AND byte-identical → nothing left to
+    # do. Under dry-run / a sandboxed HOME (rig-cli#116) this is the WHOLE no-op — never probe
+    # the real launchd domain, and say so (mirrors tg_ctl's no-op path).
+    if plist_already and current_plist == desired_plist and not changed:
+        if dry:
+            return ActionResult(
+                action, "skipped",
+                f"tcc_watch/watch: plist {plan.plist_path} already current "
+                f"({_live_skip_reason('RIG_TCC_WATCH_DRY_RUN', 'launchctl loaded-probe')})",
+            )
+        if _launchctl_gui_loaded(plan.label):
+            return ActionResult(
+                action, "skipped",
+                f"tcc_watch/watch: launchd agent '{plan.label}' already installed and loaded",
+            )
+
+    plist_out = fsutil.write_file(plan.plist_path, desired_plist, on_conflict)
+    if plist_out.status == "error":
+        return ActionResult(action, "error", f"tcc_watch/watch: {plist_out.detail}", plist_out.backup)
+    if plist_out.backup:
+        headline_backup = headline_backup or plist_out.backup
+        details.append(f"backed up prior plist → {plist_out.backup.name}")
+    # Conflict-skip: the existing plist DIFFERS but on_conflict=skip said don't write it. The
+    # desired agent never hit disk, so we must NOT (re)load the stale plist and must NOT report a
+    # change — surface the unresolved drift instead (mirrors the tg_ctl conflict-skip path).
+    if plist_out.status == "skipped" and plist_already and current_plist != desired_plist:
+        if changed:  # the watcher script still changed — report it, plus the plist skip.
+            details.append(
+                f"{plan.plist_path.name} differs but on_conflict=skip — left unchanged "
+                f"(drift NOT reconciled; re-run with on_conflict=backup/overwrite)"
+            )
+            return ActionResult(action, "backed_up" if headline_backup else "created",
+                                f"tcc_watch/watch: {'; '.join(details)}", headline_backup)
+        return ActionResult(
+            action, "skipped",
+            f"tcc_watch/watch: launchd plist {plan.plist_path} differs but on_conflict=skip — "
+            f"left unchanged (drift NOT reconciled; re-run with on_conflict=backup/overwrite)",
+        )
+    if plist_out.status != "skipped":
+        changed = True
+        details.append(f"wrote {plan.plist_path.name}")
+
+    if dry:
+        return ActionResult(
+            action,
+            "backed_up" if headline_backup else ("created" if changed else "skipped"),
+            f"tcc_watch/watch: {'; '.join(details) or 'artifacts already current'} "
+            f"({_live_skip_reason('RIG_TCC_WATCH_DRY_RUN', 'launchctl bootstrap')})",
+            headline_backup,
+        )
+
+    # 4) (re)load via the per-user gui domain so a changed plist is picked up without a reboot.
+    needs_load = changed or not _launchctl_gui_loaded(plan.label)
+    if needs_load:
+        _launchctl_bootout(str(plan.plist_path))
+        rc = _launchctl_bootstrap(str(plan.plist_path))
+        if rc != 0:
+            return ActionResult(
+                action, "error",
+                f"tcc_watch/watch: wrote artifacts but `launchctl bootstrap` failed (rc={rc})",
+                headline_backup,
+            )
+        if not changed:  # artifacts byte-identical but the agent wasn't loaded → loading IS the change.
+            changed = True
+            details.append(f"loaded launchd agent '{plan.label}'")
+        else:
+            details.append(f"(re)loaded launchd agent '{plan.label}'")
+
+    if not changed:
+        return ActionResult(action, "skipped",
+                            f"tcc_watch/watch: launchd agent '{plan.label}' already installed and loaded")
+    status = "backed_up" if headline_backup else "created"
+    return ActionResult(action, status, f"tcc_watch/watch: {'; '.join(details)}", headline_backup)
 
 
 # ── AGENTS.md / CLAUDE.md canonical + symlink ─────────────────────────────────────
@@ -8002,6 +8293,52 @@ def _do_provision_linter_bundle(action: Action, on_conflict: str) -> ActionResul
     out = apply_bundle(action.source, action.target, str(action.options.get("source_rel") or ""), str(action.options.get("target_rel") or ""), on_conflict)
     return ActionResult(action, out.status, out.detail, out.backup)
 
+
+def _do_provision_bunfig(action: Action, on_conflict: str) -> ActionResult:
+    """Splice the bun isolated-linker + globalStore managed block into ``~/.bunfig.toml``.
+
+    Additive ``create`` (append to an existing bunfig without a managed block) bypasses
+    :func:`fsutil.write_file`'s skip-on-exists rule so ``on_conflict=skip`` still appends
+    the block; skip only blocks rewriting a stale managed block (``update``). ``ok`` is a
+    no-op. ``conflict`` (unbalanced markers) is left untouched even when
+    ``on_conflict=backup``.
+    """
+    from .. import bunfig
+
+    target = action.target
+    result = bunfig.resolve(target)
+    if result.state == "ok":
+        return ActionResult(action, "skipped", f"already current: {target}")
+    if result.state == "conflict":
+        return ActionResult(action, "skipped", f"conflict: {result.detail}")
+    if result.state == "update" and on_conflict == "skip":
+        return ActionResult(
+            action,
+            "skipped",
+            f"stale managed block (on_conflict=skip), left untouched: {target}",
+        )
+    if result.state == "create":
+        existed = target.exists()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        backup = None
+        if existed and on_conflict == "backup":
+            backup = fsutil.backup_path(target)
+            shutil.move(str(target), str(backup))
+        target.write_text(result.new_content, encoding="utf-8")
+        if backup is not None:
+            return ActionResult(
+                action,
+                "backed_up",
+                f"backed up prior → {backup}; appended block to {target}",
+                backup=backup,
+            )
+        status = "updated" if existed else "created"
+        verb = "appended block to" if existed else "created"
+        return ActionResult(action, status, f"{verb} {target}")
+    out = fsutil.write_file(target, result.new_content, on_conflict)
+    return ActionResult(action, out.status, out.detail, out.backup)
+
+
 _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "record_mode": _do_record_mode,
     "copy_skill": _do_copy_skill,
@@ -8030,6 +8367,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_linter_config": _do_provision_linter_config,
     "provision_linter_bundle": _do_provision_linter_bundle,
     "provision_project_tool": _do_provision_project_tool,
+    "apply_ecosystem_readme": _do_apply_ecosystem_readme,
     "provision_github_ruleset": _do_provision_github_ruleset,
     "provision_github_merge": _do_provision_github_merge,
     "provision_github_ghas": _do_provision_github_ghas,
@@ -8041,4 +8379,6 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_spotlight": _do_provision_spotlight,
     "provision_tools": _do_provision_tools,
     "provision_tg_ctl": _do_provision_tg_ctl,
+    "provision_tcc_watch": _do_provision_tcc_watch,
+    "provision_bunfig": _do_provision_bunfig,
 }

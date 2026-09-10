@@ -245,6 +245,11 @@ class GuardRule:
     flags: tuple[str, ...] = ()
     value_prefixes: tuple[str, ...] = ()
     flags_with_value: tuple[str, ...] = ()  # subset of `flags` that ALSO matches `flag=value`
+    # "bash" (default): tokens/flags match the bash-tool's argv, same as every existing rule.
+    # ("eval",): the rule is a `code_pattern` match against the eval-tool's cell SOURCE TEXT
+    # instead of bash argv — a wholly different tool_call surface (see omp_guard.py's
+    # tool_call handler). No rule may be scoped to anything else.
+    scope: tuple[str, ...] = ("bash",)
 
     def __post_init__(self) -> None:
         # shape invariants — the generated TS matcher assumes them, and a silent mis-match
@@ -274,8 +279,22 @@ class GuardRule:
                     f"guard rule {self.id!r}: flag_value_prefix needs 1 token + flags + "
                     "value_prefixes (no flags_with_value — that's a subcommand_flags concept)"
                 )
+        elif self.matcher == "code_pattern":
+            if len(self.tokens) != 1 or self.flags or self.value_prefixes or self.flags_with_value:
+                raise ValueError(
+                    f"guard rule {self.id!r}: code_pattern needs exactly one token (the needle) "
+                    "and nothing else"
+                )
         else:
             raise ValueError(f"guard rule {self.id!r}: unknown matcher {self.matcher!r}")
+        if self.matcher == "code_pattern":
+            if self.scope != ("eval",):
+                raise ValueError(
+                    f"guard rule {self.id!r}: code_pattern rules must scope to ('eval',) — "
+                    "they match source text, not bash argv"
+                )
+        elif self.scope != ("bash",):
+            raise ValueError(f"guard rule {self.id!r}: only code_pattern rules may scope outside ('bash',)")
 
 
 OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
@@ -301,6 +320,15 @@ OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
     # Spaces and trips macOS Screen Recording grants (the documented hard rule)
     GuardRule("screencapture", "screenshots go through Playwright/CDP, not screencapture",
               "argv_prefix", ("screencapture",)),
+    # AppleScript/System Events sent from bash triggers an unapprovable macOS TCC "bash would
+    # like to access data from other apps" prompt (root-caused via a personal
+    # ~/.files/bin/vscmd script sending VS Code keystrokes through `tell application "System
+    # Events"`). No legitimate agent flow in this ecosystem invokes osascript directly from a
+    # bash tool call — native UI automation goes through the `computer` eval helpers (AX tree +
+    # native input), which never touch Apple Events, and app-specific remote control should use
+    # that app's own CLI/IPC (e.g. VS Code's `code --command`) instead of simulated keystrokes.
+    GuardRule("osascript", "AppleScript/System Events from bash trigger unapprovable TCC prompts — use computer.* (AX/native input) or an app's own CLI instead",
+              "argv_prefix", ("osascript",)),
     # rig-cli#187: `rg --pre` runs an arbitrary preprocessor command — argv matching catches it
     # in ANY position with no false positive on `--pretty` (a DIFFERENT exact token), the gap
     # the claude-code/opencode glob belts can only approximate. `--pre-glob` is deliberately
@@ -316,6 +344,71 @@ OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
     # raw `git worktree add` is banned — worktrees go through `rig worktree create`
     GuardRule("git-worktree-add", "raw git worktree add is banned — use `rig worktree create`",
               "argv_prefix", ("git", "worktree", "add")),
+    # the eval tool's `computer` prelude runs on a Bun child process with full child_process
+    # access — an agent hitting the sandboxed bash/read tools' "Operation not permitted" on a
+    # TCC-protected folder (Downloads/Documents/Photos) can route around it by spawning
+    # `osascript` from INSIDE eval code (`require("child_process").execSync("osascript …")`,
+    # `Bun.spawn(["osascript", …])`), driving Finder/System Events directly — the same class of
+    # unapprovable TCC "control Finder" prompt as the bash-level osascript rule, just reached
+    # through the eval tool's fast-path instead (the guard's tool_call handler only inspected
+    # the "bash" tool's argv before this rule, so a bash-level deny alone never saw it — traced
+    # live to a conloca-landing session spawning osascript from inside `computer.run` to read
+    # ~/Downloads/figma-exports). No legitimate eval cell in this ecosystem needs to shell out
+    # to osascript — UI automation goes through the `computer` helpers (window/ax/press, AX
+    # tree + native input), never raw AppleScript.
+    GuardRule("eval-osascript-spawn",
+              "raw AppleScript automation from eval bypasses the sandbox and repeatedly "
+              "triggers unapprovable TCC prompts — use the `computer` helpers "
+              "(window/ax/press), not a spawned osascript",
+              "code_pattern", ("osascript",), scope=("eval",)),
+    # `automator` (/usr/bin/automator) runs a .workflow document from the command line — the
+    # SAME AppleEvent/Automation TCC surface as osascript, just a different front door (Alex's
+    # follow-up on rig-cli#488: "why only osascript, aren't there other paths into TCC?"). A
+    # workflow can drive System Events/Finder/other apps exactly like an AppleScript can, and
+    # `execSync("automator x.workflow")` / `Bun.spawn(["automator", …])` from eval bypasses the
+    # sandbox the same way the pre-#488 osascript gap did. No legitimate eval cell in this
+    # ecosystem needs to shell out to automator — UI automation goes through the `computer`
+    # helpers, and app-specific control uses that app's own CLI/IPC.
+    GuardRule("eval-automator-spawn",
+              "Automator workflow automation from eval bypasses the sandbox and repeatedly "
+              "triggers unapprovable TCC prompts — use the `computer` helpers "
+              "(window/ax/press), not a spawned automator",
+              "code_pattern", ("automator",), scope=("eval",)),
+    # `screencapture` already has a bash-level argv_prefix deny (this file, "screencapture") —
+    # but that rule only inspects the "bash" tool's argv, the same gap eval-osascript-spawn
+    # closed for osascript. `execSync("screencapture …")` / `Bun.spawn(["screencapture", …])`
+    # from eval reaches the Bun child process directly and trips the same unapprovable Screen
+    # Recording TCC prompt the bash-level rule exists to prevent — the eval fast-path was never
+    # covered. Screenshots go through Playwright/CDP, not a spawned screencapture.
+    GuardRule("eval-screencapture-spawn",
+              "screenshots from eval bypass the sandbox and repeatedly trigger unapprovable "
+              "Screen Recording TCC prompts — use Playwright/CDP or the `computer` helpers, "
+              "not a spawned screencapture",
+              "code_pattern", ("screencapture",), scope=("eval",)),
+    # direct shell reads of the Contacts (AddressBook) data directory — a SQLite store gated by
+    # its own TCC "Contacts" permission, the same protected-user-data class as the
+    # Downloads-folder incident that motivated eval-osascript-spawn. A raw `fs.readFileSync`
+    # inside the eval Bun process already fails with "Operation not permitted" (no Full Disk
+    # Access grant on that process), but shelling out via `execSync('cp -r "~/Library/Application
+    # Support/AddressBook" …')` / `Bun.spawn(["cp", "-r", "~/Library/Application Support/AddressBook",
+    # …])` launders the read through whatever TCC grants the spawned binary itself holds. No
+    # legitimate eval cell needs to read this directory directly.
+    GuardRule("eval-addressbook-read",
+              "reading the Contacts (AddressBook) data directory from eval bypasses the "
+              "sandbox and accesses TCC-protected contact data directly — this data is not "
+              "available to the eval tool",
+              "code_pattern", ("~/Library/Application Support/AddressBook",), scope=("eval",)),
+    # same class as eval-addressbook-read, for the Calendars store (TCC "Calendars" permission).
+    GuardRule("eval-calendars-read",
+              "reading the Calendars data directory from eval bypasses the sandbox and "
+              "accesses TCC-protected calendar data directly — this data is not available to "
+              "the eval tool",
+              "code_pattern", ("~/Library/Calendars",), scope=("eval",)),
+    # same class as eval-addressbook-read, for the Photos library (TCC "Photos" permission).
+    GuardRule("eval-photos-library-read",
+              "reading the Photos library from eval bypasses the sandbox and accesses "
+              "TCC-protected photo data directly — this data is not available to the eval tool",
+              "code_pattern", ("~/Pictures/Photos Library.photoslibrary",), scope=("eval",)),
 )
 
 # ask = sometimes-legit: confirm with the operator when a UI exists; BLOCK headless (a prompt
@@ -466,6 +559,11 @@ CLAUDE_CODE_DENY_RULES: tuple[str, ...] = (
     # screenshots go through Playwright/CDP; `screencapture` black-frames windows on other
     # Spaces and trips macOS Screen Recording grants (the documented hard rule)
     "Bash(screencapture:*)",
+    # AppleScript/System Events sent from bash triggers an unapprovable macOS TCC "bash would
+    # like to access data from other apps" prompt — same class as screencapture above. No
+    # legitimate agent flow invokes osascript directly from bash; native UI automation goes
+    # through the harness's own AX/native-input helpers instead.
+    "Bash(osascript:*)",
     # `rg --pre <CMD>` / `--pre=<CMD>` runs CMD as an arbitrary preprocessor on every matched
     # file — the default `Bash(rg:*)` allow grant is meant for read-only search, not arbitrary
     # subprocess execution (rig-cli#187). rg's arg parser allows flags in any position (unlike
@@ -545,6 +643,9 @@ OPENCODE_DENY_RULES: tuple[str, ...] = (
     "git commit --no-verify*",
     "sudo rm*",
     "screencapture*",
+    # AppleScript/System Events sent from bash triggers an unapprovable macOS TCC prompt — same
+    # class as screencapture above.
+    "osascript*",
     # raw `git worktree add` is banned — worktrees go through `rig worktree create`
     "git worktree add*",
     # rig-cli#187: `rg --pre` runs an arbitrary preprocessor command. A single `rg*--pre*` entry
@@ -707,6 +808,7 @@ CODEX_DENY_RULES: tuple[tuple[str, ...], ...] = (
     ("git", "worktree", "add"),
     ("sudo", "rm"),
     ("screencapture",),
+    ("osascript",),
     ("rg", "--pre"),
 )
 

@@ -22,12 +22,20 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .catalog import Catalog, Item, rule_provider_carrier
+from .claude_config_dirs import (
+    SETTINGS_FILENAME,
+    SettingsTarget,
+    fan_out_item,
+    fan_out_settings,
+    resolve_settings_paths,
+)
 from .config import (
     GITIGNORE_DEFAULT_ENTRIES,
     GITIGNORE_DEFAULT_EXCLUDESFILE,
     LoadedConfig,
     OMP_HOOK_BRIDGE_EXTENSION_NAME,
     OPENCODE_HOOK_BRIDGE_PLUGIN_NAME,
+    linter_path_escapes_repo,
 )
 from .github_actions import GITHUB_ACTIONS_DEFAULTS
 from .github_browser import UI_ONLY_TOGGLES
@@ -55,6 +63,7 @@ from .harness_mode import (
 )
 from .paths import expand_user_path as _expand_user_path
 from .provenance import KNOWN_CATEGORIES, known_names_from_config
+from . import ecosystem_readme
 from . import project_tools
 
 
@@ -130,7 +139,7 @@ def _agent_hooks_target_for_kind(kind: str) -> str | None:
 class Action:
     """A single planned install step. ``kind`` selects the runner in ``actions/``."""
 
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
+    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
     category: str
     item: str
     source: Path  # carrier path in the agent-tools checkout
@@ -910,6 +919,9 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     # ── project_tools (Haft / Serena / Sverklo repo integrations) ─────────────────
     _build_project_tools(config, plan)
 
+    # ── ecosystem_readme (README "## Ecosystem" block, rig-cli#308) ───────────────
+    _build_ecosystem_readme(config, plan)
+
     # ── github (repository settings via gh api + agent-browser) ───────────────────
     # ORDER MATTERS — actions run in this build order (runner.run_plan iterates plan.actions
     # in sequence, no sort). Enable GitHub Actions BEFORE GHAS: CodeQL default-setup
@@ -934,11 +946,17 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     # ── spotlight (macOS: keep Spotlight from indexing dependency/build dirs) ───────
     _build_spotlight(config, plan)
 
+    # ── bun (isolated linker + global virtual store in ~/.bunfig.toml) ────────────
+    _build_bun(config, plan)
+
     # ── tools (the personal CLI ecosystem: tg/review/task/draw/…) ──────────────────
     _build_tools(config, plan)
 
     # ── tg_ctl (rig-managed tg-ctl inbound daemon LaunchAgent) ─────────────────────
     _build_tg_ctl(config, plan)
+
+    # ── tcc_watch (rig-managed TCC dialog-watcher daemon LaunchAgent, Phase 1 detection) ──
+    _build_tcc_watch(config, plan)
 
     return plan
 
@@ -1153,21 +1171,45 @@ def _build_harness_claude_code(config: LoadedConfig, plan: InstallPlan, h: dict[
         settings_path = spec.settings_path()
     else:
         settings_path = _HARNESS_SETTINGS[kind]
-    plan.actions.append(
-        Action(
-            kind="apply_harness",
-            category="harness",
-            item=kind,
-            source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
-            target=_expand(str(settings_path), config.repo_root),
-            options={
-                "kind": kind,
-                "auto_mode": auto_mode,
-                "mode_value": str(mode_value),
-                "self_merge": self_merge,
-            },
+    # One action PER settings file a live `claude` on this machine may load: the user-scope
+    # write fans out to every claude-rotate config dir (rig-cli#368) — see claude_config_dirs.
+    for target in _claude_settings_targets(config, kind, _expand(str(settings_path), config.repo_root)):
+        plan.actions.append(
+            Action(
+                kind="apply_harness",
+                category="harness",
+                item=fan_out_item(kind, target),
+                source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
+                target=target.path,
+                options={
+                    "kind": kind,
+                    "auto_mode": auto_mode,
+                    "mode_value": str(mode_value),
+                    "self_merge": self_merge,
+                },
+            )
         )
-    )
+
+
+def _claude_settings_targets(config: LoadedConfig, kind: str, primary: Path) -> list[SettingsTarget]:
+    """The settings files a claude-code user-scope write must reach (primary + account dirs).
+
+    Every other harness kind (and any non-user-scope claude-code target) resolves to the
+    primary alone — the fan-out registry (:mod:`riglib.claude_config_dirs`) decides.
+    """
+    if kind != "claude-code":
+        return [SettingsTarget(primary, None)]
+    if not primary.suffix:
+        # the documented directory form (`settings_path: ~/.claude`) — the writers append the
+        # native filename at write time; resolve it HERE too, so the user-scope check sees the
+        # same file the writer converges instead of silently skipping the fan-out
+        primary = primary / SETTINGS_FILENAME
+    h = config.data.get("harness")
+    # explicit extra files go through the SAME resolver as settings_path (``$VAR`` + ``~`` +
+    # repo-root relative) — shared with `rig doctor`, so a relative entry never reaches a
+    # writer (or the doctor inventory) as a cwd-dependent path
+    harness = resolve_settings_paths(h if isinstance(h, dict) else {}, config.repo_root)
+    return fan_out_settings(primary, harness)
 
 
 def _build_permissions(config: LoadedConfig, plan: InstallPlan) -> None:
@@ -1270,22 +1312,26 @@ def _build_permissions(config: LoadedConfig, plan: InstallPlan) -> None:
         # An explicit settings_path wins only for the single targeted harness case above; otherwise
         # each harness uses its own documented per-machine settings file.
         settings_path = p.get("settings_path") or spec.settings_path
-        plan.actions.append(
-            Action(
-                kind="provision_permissions",
-                category="permissions",
-                item=kind,
-                source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
-                target=_expand(str(settings_path), config.repo_root),
-                options={
-                    "kind": kind,
-                    "tools": tools,
-                    "allow_rules": allow_rules,
-                    "deny_rules": deny_rules,
-                    "ask_rules": ask_rules,
-                },
+        primary = _expand(str(settings_path), config.repo_root)
+        options = {
+            "kind": kind,
+            "tools": tools,
+            "allow_rules": allow_rules,
+            "deny_rules": deny_rules,
+            "ask_rules": ask_rules,
+        }
+        # one action per settings file a live `claude` may load (claude-rotate dirs, rig-cli#368)
+        for target in _claude_settings_targets(config, kind, primary):
+            plan.actions.append(
+                Action(
+                    kind="provision_permissions",
+                    category="permissions",
+                    item=fan_out_item(kind, target),
+                    source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
+                    target=target.path,
+                    options=dict(options),
+                )
             )
-        )
 
 
 def _build_execpolicy(config: LoadedConfig, plan: InstallPlan) -> None:
@@ -1843,16 +1889,25 @@ def _build_hook_bridge_for_kind(
         extra_stop_hooks = _codex_extra_stop_hooks(config)
         if extra_stop_hooks:
             options["extra_stop_hooks"] = extra_stop_hooks
-    plan.actions.append(
-        Action(
-            kind="register_hook_bridge",
-            category="harness",
-            item="hook-bridge",
-            source=catalog.source,
-            target=_expand(str(settings_path), config.repo_root),
-            options=options,
-        )
+    # the claude-code JSON bridge fans out to every claude-rotate config dir (rig-cli#368);
+    # every other format/kind resolves to its single primary file
+    primary = _expand(str(settings_path), config.repo_root)
+    targets = (
+        _claude_settings_targets(config, kind, primary)
+        if bridge_format == "json"
+        else [SettingsTarget(primary, None)]
     )
+    for target in targets:
+        plan.actions.append(
+            Action(
+                kind="register_hook_bridge",
+                category="harness",
+                item=fan_out_item("hook-bridge", target),
+                source=catalog.source,
+                target=target.path,
+                options=dict(options),
+            )
+        )
 
 
 def _codex_extra_stop_hooks(config: LoadedConfig) -> list[str]:
@@ -2671,12 +2726,16 @@ def _build_tmux(config: LoadedConfig, plan: InstallPlan) -> None:
                 "continuum": dict(t.get("continuum", {}) or {}),
                 "moshi": dict(t.get("moshi", {}) or {}),
                 "cc_restore": dict(t.get("cc_restore", {}) or {}),
+                "omp_restore": dict(t.get("omp_restore", {}) or {}),
+                "codex_restore": dict(t.get("codex_restore", {}) or {}),
                 "anti_sprawl": dict(t.get("anti_sprawl", {}) or {}),
                 "boot": dict(t.get("boot", {}) or {}),
                 "login_shell": login_shell,
                 "autosave": autosave,
                 "pane_titles": dict(t.get("pane_titles", {}) or {}),
                 "focus_events": dict(t.get("focus_events", {}) or {}),
+                "clipboard": dict(t.get("clipboard", {}) or {}),
+                "copy_mode": dict(t.get("copy_mode", {}) or {}),
             },
         )
         )
@@ -2781,6 +2840,33 @@ def _build_spotlight(config: LoadedConfig, plan: InstallPlan) -> None:
     )
 
 
+def _build_bun(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the global bunfig isolated-linker + globalStore splice.
+
+    Default **OFF** (opt-in): an absent, empty, or ``enabled: false`` block emits NO action.
+    GLOBAL-only. Writes both ``linker = "isolated"`` and ``globalStore = true`` because
+    bun's global store is a no-op under the hoisted linker.
+    """
+    from . import bunfig
+
+    block = config.data.get("bun")
+    if block is None or not isinstance(block, dict):
+        return
+    if not block.get("enabled"):
+        return
+    target = bunfig.bunfig_path()
+    plan.actions.append(
+        Action(
+            kind="provision_bunfig",
+            category="bun",
+            item="bunfig",
+            source=config.repo_root,
+            target=target,
+        )
+    )
+
+
+
 def _build_project_tools(config: LoadedConfig, plan: InstallPlan) -> None:
     """Plan repo-local integrations for Haft, Serena, and Sverklo.
 
@@ -2798,6 +2884,56 @@ def _build_project_tools(config: LoadedConfig, plan: InstallPlan) -> None:
                 options=entry.to_options(),
             )
         )
+
+
+def _build_ecosystem_readme(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed README ``## Ecosystem`` block (rig-cli#308), if opted in.
+
+    Default **OFF** (opt-in, like ``tools:``/``project_tools`` in spirit): an ABSENT, empty, or
+    ``enabled: false`` ``ecosystem_readme:`` block emits NO action, so a clean ``rig apply`` never
+    rewrites a repo's README unprompted. A repo opts in via ``rig setup`` (the schema.py registry)
+    or ``rig config set ecosystem_readme.enabled true``. Emits ONE ``apply_ecosystem_readme``
+    action; the runner splices the SAME registry-rendered block (:mod:`riglib.ecosystem_readme`)
+    into every target repo, so a re-apply with an unchanged registry is a no-op everywhere.
+    """
+    er = config.data.get("ecosystem_readme")
+    if not isinstance(er, dict) or not er.get("enabled"):
+        # rig never auto-deletes: a block left over from a PRIOR enabled apply still sits in the
+        # target file, and its own in-block notice still claims it is "kept in sync by rig apply"
+        # — false the moment the feature is off. Note it ONLY when there is evidence a block was
+        # actually written (no noise on a repo that never opted in), mirroring the leftover-note
+        # pattern _build_guard_policy uses for a disabled permissions posture.
+        er_dict = er if isinstance(er, dict) else {}
+        target_rel = str(er_dict.get("target") or "README.md")
+        target = config.repo_root / target_rel
+        try:
+            orphaned = target.is_file() and ecosystem_readme.has_managed_block(
+                target.read_text(encoding="utf-8")
+            )
+        except (OSError, UnicodeDecodeError):
+            orphaned = False
+        if orphaned:
+            plan.notes.append(
+                f"ecosystem_readme: disabled — a rig-managed Ecosystem block stays in {target_rel} "
+                "(rig never auto-deletes) but will no longer be kept in sync; re-enable it or "
+                "remove the block by hand"
+            )
+        return
+
+    target_rel = str(er.get("target") or "README.md")
+    if linter_path_escapes_repo(target_rel):
+        raise PlanError(f"ecosystem_readme.target must stay inside the repo: {target_rel!r}")
+
+    plan.actions.append(
+        Action(
+            kind="apply_ecosystem_readme",
+            category="ecosystem_readme",
+            item="readme",
+            source=config.repo_root,  # no carrier in agent-tools; the registry is in-code
+            target=config.repo_root / target_rel,
+            options={"target": target_rel},
+        )
+    )
 
 
 def _build_tools(config: LoadedConfig, plan: InstallPlan) -> None:
@@ -2871,6 +3007,44 @@ def _build_tg_ctl(config: LoadedConfig, plan: InstallPlan) -> None:
                 "bun_path": t.get("bun_path"),
                 "tg_ctl_path": t.get("tg_ctl_path"),
                 "config_dir": t.get("config_dir"),
+            },
+        )
+    )
+
+
+def _build_tcc_watch(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed tcc-watch dialog-watcher LaunchAgent, unless ``enabled: false``.
+
+    Phase 1 (detection-only) of the defense-in-depth design behind the eval-tool TCC deny-list
+    (PR #488) — see :mod:`riglib.tcc_watch`'s module docstring for the full phased design and
+    :mod:`riglib.tcc_watch_daemon` for what the daemon actually does.
+
+    Default **ON** (like ``tg_ctl``): an ABSENT or empty ``tcc_watch:`` block still provisions
+    the daemon, so `rig init` on a clean macOS machine sets it up with no config at all. Only
+    `enabled: false` opts out. Per-MACHINE concern (one watcher daemon per machine), so the block
+    belongs in the GLOBAL layer (``~/.config/rig/config.yaml``) — but it cascades into the
+    merged config the same way every other GLOBAL-only block does.
+    """
+    from .tcc_watch import DEFAULT_LABEL
+
+    # An ABSENT key (None) defaults to provisioning (default-on). A PRESENT block (validate() has
+    # already guaranteed it is a mapping) opts in unless `enabled: false`.
+    t = config.data.get("tcc_watch") or {}
+    if t.get("enabled") is False:
+        return
+
+    plan.actions.append(
+        Action(
+            kind="provision_tcc_watch",
+            category="tcc_watch",
+            item="watch",
+            source=config.repo_root,  # no carrier; rig generates the plist + copies the watcher script
+            # target is the launchd LABEL (not a filesystem path), like provision_tg_ctl.
+            target=Path(t.get("label") or DEFAULT_LABEL),
+            options={
+                "label": t.get("label"),
+                "config_dir": t.get("config_dir"),
+                "python_bin": t.get("python_bin"),
             },
         )
     )

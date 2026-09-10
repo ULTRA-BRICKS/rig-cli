@@ -75,7 +75,14 @@ def test_guard_registry_covers_the_baseline_intents():
     assert "git-commit-no-verify" in deny_ids
     assert "sudo-rm" in deny_ids
     assert "screencapture" in deny_ids
+    assert "osascript" in deny_ids
     assert "git-worktree-add" in deny_ids
+    assert "eval-osascript-spawn" in deny_ids
+    assert "eval-automator-spawn" in deny_ids
+    assert "eval-screencapture-spawn" in deny_ids
+    assert "eval-addressbook-read" in deny_ids
+    assert "eval-calendars-read" in deny_ids
+    assert "eval-photos-library-read" in deny_ids
     # the ask baseline
     assert "pkill" in ask_ids
     assert "killall" in ask_ids
@@ -677,6 +684,8 @@ const cases: Case[] = [
   ["deny sudo rm", { toolName: "bash", input: { command: "sudo rm -rf /" } }, noUI, "sudo-rm"],
   ["sudo cat ok", { toolName: "bash", input: { command: "sudo cat /etc/hosts" } }, noUI, "allow"],
   ["deny screencapture", { toolName: "bash", input: { command: "screencapture /tmp/x.png" } }, noUI, "screencapture"],
+  ["deny osascript", { toolName: "bash", input: { command: "osascript -e 'tell application \"System Events\" to keystroke \"x\"'" } }, noUI, "osascript"],
+  ["deny osascript activate", { toolName: "bash", input: { command: "osascript -e 'tell application \"Visual Studio Code\" to activate'" } }, noUI, "osascript"],
   ["ask pkill headless blocks", { toolName: "bash", input: { command: "pkill -f worker" } }, noUI, "ask pkill"],
   ["ask killall confirm-yes allows", { toolName: "bash", input: { command: "killall worker" } }, uiYes, "allow"],
   ["ask killall confirm-no blocks", { toolName: "bash", input: { command: "killall worker" } }, uiNo, "killall"],
@@ -747,6 +756,26 @@ const cases: Case[] = [
   // and still caught HERE (because --pre itself is also on argv) — the true blind spot is a
   // config file supplying --pre with NO flag on the command line at all, not this shape.
   ["RIPGREP_CONFIG_PATH inline with --pre still denied (env-assignment stripped, but --pre itself is on argv)", { toolName: "bash", input: { command: "RIPGREP_CONFIG_PATH=/tmp/cfg rg --pre cat pattern" } }, noUI, "rg-pre"],
+  ["deny eval osascript via execSync", { toolName: "eval", input: { code: 'const { execSync } = require("child_process"); execSync("osascript -e something");' } }, noUI, "eval-osascript-spawn"],
+  ["deny eval osascript via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["osascript", "-e", "x"]);' } }, noUI, "eval-osascript-spawn"],
+  ["eval computer.ax helpers ok (the sanctioned path)", { toolName: "eval", input: { code: 'const win = await computer.window({app:"Finder"}); await win.ax();' } }, noUI, "allow"],
+  ["eval bare mention in comment ok (no quoted invocation)", { toolName: "eval", input: { code: '// avoid osascript, use computer instead\nconst y = 1;' } }, noUI, "allow"],
+  ["eval missing code field ok", { toolName: "eval", input: {} }, noUI, "allow"],
+  ["eval osascript ask-confirm-no still blocks", { toolName: "eval", input: { code: 'execSync("osascript -e x");' } }, uiNo, "eval-osascript-spawn"],
+  ["deny eval automator via execSync", { toolName: "eval", input: { code: 'execSync("automator my.workflow");' } }, noUI, "eval-automator-spawn"],
+  ["deny eval automator via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["automator", "my.workflow"]);' } }, noUI, "eval-automator-spawn"],
+  ["eval automator bare mention in comment ok", { toolName: "eval", input: { code: '// avoid automator, use computer instead\nconst y = 1;' } }, noUI, "allow"],
+  ["deny eval screencapture via execSync", { toolName: "eval", input: { code: 'execSync("screencapture /tmp/x.png");' } }, noUI, "eval-screencapture-spawn"],
+  ["deny eval screencapture via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["screencapture", "/tmp/x.png"]);' } }, noUI, "eval-screencapture-spawn"],
+  ["eval screencapture bare mention in comment ok", { toolName: "eval", input: { code: '// screenshots go through Playwright, never screencapture\nconst y = 1;' } }, noUI, "allow"],
+  ["deny eval addressbook dir read via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["cp", "-r", "~/Library/Application Support/AddressBook", "/tmp/exfil"]);' } }, noUI, "eval-addressbook-read"],
+  ["deny eval addressbook dir read via quoted execSync arg", { toolName: "eval", input: { code: 'execSync(\'cp -r "~/Library/Application Support/AddressBook" /tmp/exfil\');' } }, noUI, "eval-addressbook-read"],
+  ["eval unrelated Library path ok (different subpath)", { toolName: "eval", input: { code: 'const p = "~/Library/Preferences/foo.plist";' } }, noUI, "allow"],
+  ["deny eval calendars dir read via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["cp", "-r", "~/Library/Calendars", "/tmp/exfil"]);' } }, noUI, "eval-calendars-read"],
+  ["deny eval calendars dir read via quoted execSync arg", { toolName: "eval", input: { code: 'execSync(\'rsync -a "~/Library/Calendars" /tmp/exfil\');' } }, noUI, "eval-calendars-read"],
+  ["deny eval photos library read via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["cp", "-r", "~/Pictures/Photos Library.photoslibrary", "/tmp/exfil"]);' } }, noUI, "eval-photos-library-read"],
+  ["deny eval photos library read via quoted execSync arg", { toolName: "eval", input: { code: 'execSync(\'ditto "~/Pictures/Photos Library.photoslibrary" /tmp/exfil\');' } }, noUI, "eval-photos-library-read"],
+  ["eval computer helpers still ok alongside new rules", { toolName: "eval", input: { code: 'const win = await computer.window({app:"Photos"}); await win.ax();' } }, noUI, "allow"],
 ];
 let failures = 0;
 for (const [name, event, ctx, expect] of cases) {
@@ -1065,13 +1094,22 @@ def test_guard_rules_cover_the_same_intents_as_the_glob_belts():
         "git-commit-no-verify": "--no-verify",
         "sudo-rm": "sudo rm",
         "screencapture": "screencapture",
+        "osascript": "osascript",
         "rg-pre": "--pre",
         "git-worktree-add": "git worktree add",
     }
     ask_intents = {"pkill": "pkill", "killall": "killall", "git-reset-hard": "--hard"}
     # belt intents are the shared subset; argv-precision EXTRAS the glob dialects cannot
     # express are listed explicitly (adding one still requires touching this map).
-    guard_extras = {"git-config-injection"}
+    guard_extras = {
+        "git-config-injection",
+        "eval-osascript-spawn",
+        "eval-automator-spawn",
+        "eval-screencapture-spawn",
+        "eval-addressbook-read",
+        "eval-calendars-read",
+        "eval-photos-library-read",
+    }
     assert {r.id for r in OMP_GUARD_DENY_RULES} == set(deny_intents) | guard_extras
     assert {r.id for r in OMP_GUARD_ASK_RULES} == set(ask_intents)
     for marker in (*deny_intents.values(), *ask_intents.values()):

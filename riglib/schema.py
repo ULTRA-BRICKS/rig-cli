@@ -63,7 +63,7 @@ _HARNESS_KIND_CHOICES: tuple[str, ...] = tuple(
 # ``mode`` (machine-wide agent policy).
 # Routing a GLOBAL-only value into a committed repo rig.yaml is the footgun this map prevents.
 # A category absent here defaults to REPO (the conservative "it lives in the committed file").
-_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "tg_ctl", "tmux", "mode"}
+_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tmux", "mode"}
 
 
 def writable_layer_for_category(category: str) -> str:
@@ -362,7 +362,7 @@ AREAS: tuple[Area, ...] = (
                  "Provision the per-harness permissions layer: the command allowlist (tg/review/draw/"
                  "3d/rig/task/dev + read-only rg/jq/gitleaks pre-allowed, no per-call prompts) plus "
                  "the deny/ask rule baselines (claude-code AND opencode; raw PR-merge, force-push, sudo "
-                 "rm, screencapture, rg --pre, git worktree add, EnterWorktree denied; pkill/killall/git reset --hard prompt). codex gets a "
+                 "rm, screencapture, osascript, rg --pre, git worktree add, EnterWorktree denied; pkill/killall/git reset --hard prompt). codex gets a "
                  "safe-command allow + coarse deny via its execpolicy .rules block. Additive — merges "
                  "into the existing lists, never clobbers or removes the user's own entries. Off = "
                  "leave it alone. The target settings file is per-machine; repo-local config is "
@@ -488,6 +488,16 @@ AREAS: tuple[Area, ...] = (
         ),
     ),
     Area(
+        "bun", "bun install isolated linker + global store",
+        "Splice [install] linker=isolated and globalStore=true into ~/.bunfig.toml.",
+        (
+            _opt("bun.enabled", KIND_BOOL, False,
+                 "Splice a managed [install] linker = \"isolated\" + globalStore = true "
+                 "block into the global bunfig. Opt-in (default OFF). GLOBAL-only — never "
+                 "written to a repo rig.yaml."),
+        ),
+    ),
+    Area(
         "tg_ctl", "tg-ctl inbound daemon", "The Telegram control daemon auto-started as a per-machine boot LaunchAgent (macOS).",
         (
             _opt("tg_ctl.enabled", KIND_BOOL, True,
@@ -501,6 +511,17 @@ AREAS: tuple[Area, ...] = (
                  "(tg-cli#308). Only applies to a codex hook bridge (harness.kind: codex, or codex "
                  "listed in harness.kinds). Off = leave tg-ctl to manage its own hooks.json "
                  "independently."),
+        ),
+    ),
+    Area(
+        "tcc_watch", "TCC dialog-watcher daemon (macOS)",
+        "Phase 1 (detection-only) defense-in-depth behind the eval-tool TCC deny-list (PR #488): "
+        "tails `log stream`'s com.apple.TCC subsystem and durably logs every permission-prompt-"
+        "shaped event, as a machine-wide boot LaunchAgent.",
+        (
+            _opt("tcc_watch.enabled", KIND_BOOL, True,
+                 "Provision the tcc-watch detection daemon. GLOBAL-only (one per machine) — "
+                 "never written to a repo rig.yaml. macOS-only (launchd)."),
         ),
     ),
     Area(
@@ -531,6 +552,19 @@ AREAS: tuple[Area, ...] = (
                  "Register this repo in the global Sverklo registry during apply (idempotent)."),
             _opt("project_tools.sverklo.reindex", KIND_BOOL, False,
                  "Run `sverklo reindex` during apply. Off by default because indexing can be slow."),
+        ),
+    ),
+    Area(
+        "ecosystem_readme", "README ecosystem block",
+        "A marker-delimited '## Ecosystem' section in this repo's README, reconciled from one "
+        "canonical tool registry instead of hand-copied and left to drift (rig-cli#308).",
+        (
+            _opt("ecosystem_readme.enabled", KIND_BOOL, False,
+                 "Provision the README Ecosystem block (opt-in). `rig apply` inserts a marked "
+                 "section listing the sibling CLI ecosystem, or updates it in place if it "
+                 "already exists but is stale; content outside the markers is never touched."),
+            _opt("ecosystem_readme.target", KIND_STR, "README.md",
+                 "Repo-relative README path to reconcile."),
         ),
     ),
 )
@@ -584,7 +618,7 @@ def set_path(data: dict[str, Any], dotted: str, value: Any) -> None:
 # when the block is missing/empty, or requires `enabled` to be truthy), NOT as enabled-by-default:
 # `_build_harness`/`_build_models` bail on a missing block, and the git-hooks dispatcher only runs
 # when `dispatcher.enabled` is truthy. The other default-ON categories (skills, agent_hooks, ci,
-# mcp, agents_md, github, gitignore, tg_ctl) gate on `enabled is False`, so an absent block IS
+# mcp, agents_md, github, gitignore, tg_ctl, tcc_watch) gate on `enabled is False`, so an absent block IS
 # active for them and the registry default is the correct live value. Keeping this in lockstep
 # with plan.py is what stops `rig setup`/`config get` from claiming auto-mode, the schedule, or the
 # dispatcher are on when `rig apply` would skip them. (tmux defaults OFF, so it needs no entry.)

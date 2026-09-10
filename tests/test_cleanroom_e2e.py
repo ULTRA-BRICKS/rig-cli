@@ -527,6 +527,7 @@ _CHECK_SETTINGS = textwrap.dedent(
                 ("PreToolUse", "Skill"),
                 ("PreToolUse", "Monitor"),
                 ("PreToolUse", "EnterWorktree"),
+                ("PreToolUse", "Workflow"),
                 ("PostToolUse", "Edit|Write|MultiEdit|NotebookEdit"),
                 ("Stop", None),
             ]

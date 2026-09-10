@@ -33,8 +33,8 @@ def test_registry_covers_every_status_area():
     expected = {
         "stack",
         "skills", "agent_hooks", "git_hooks", "ci", "mcp", "harness", "permissions",
-        "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "tg_ctl",
-        "linters", "project_tools",
+        "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "bun", "tg_ctl",
+        "tcc_watch", "linters", "project_tools", "ecosystem_readme",
     }
     assert cats == expected
 
@@ -42,7 +42,7 @@ def test_registry_covers_every_status_area():
 def test_global_only_categories_route_to_global_not_repo():
     # the footgun guard: a machine-wide, never-scaffolded block must NOT be writable into a
     # committed repo rig.yaml. These are documented global-only.
-    for cat in ("gitignore", "tg_ctl", "tmux", "mode"):
+    for cat in ("gitignore", "spotlight", "bun", "tg_ctl", "tmux", "mode"):
         assert schema.writable_layer_for_category(cat) == schema.GLOBAL
     # harness/models/git_hooks are status-grouped GLOBAL but the scaffold writes them into the
     # committed repo rig.yaml, so an EDIT of their value belongs in the repo file.
@@ -354,7 +354,9 @@ def test_writable_layer_agrees_with_the_scaffold():
     # repo) and linters (config files declared per-repo — there is no sensible default item to seed).
     # stack: a REPO-writable preset that is only scaffolded when init detected/confirmed a stack;
     # a bare default_state() (undetected repo) legitimately omits it → soft-require warning.
-    _repo_unscaffolded_ok = {"agents_md", "linters", "permissions", "stack"}
+    # ecosystem_readme: opt-in (default OFF, like `tools:`) — a clean scaffold must never rewrite a
+    # repo's README unprompted, so it is deliberately absent from default_state() until a user opts in.
+    _repo_unscaffolded_ok = {"agents_md", "linters", "permissions", "stack", "ecosystem_readme"}
     for area in schema.AREAS:
         if schema.writable_layer_for_category(area.category) == schema.REPO:
             assert area.category in scaffolded or area.category in _repo_unscaffolded_ok, area.category

@@ -454,6 +454,20 @@ _HARNESS_BLOCK = Block(
             "string",
             "override the per-harness settings/config/plugin path; absent means rig uses the harness-specific default",
         ),
+        "settings_paths": Leaf(
+            "array",
+            "EXTRA claude-code user-scope settings.json files the auto-mode/permissions/hook-bridge "
+            "writes also reach (each a .json path); only honored when the primary target is "
+            "~/.claude/settings.json",
+            items_type="string",
+        ),
+        "discover_config_dirs": Leaf(
+            "boolean",
+            "auto-discover every ~/.claude-accounts/account-*/ (claude-rotate) config dir and treat its "
+            "settings.json as a managed target alongside ~/.claude/settings.json — a `claude` started "
+            "with CLAUDE_CONFIG_DIR reads ONLY that dir's settings, so without this no rig hook runs there",
+            default=True,
+        ),
     },
     nested={
         "hook_bridge": Block(
@@ -853,6 +867,8 @@ _TMUX_BLOCK = Block(
         ),
         "moshi": Block(doc="opt-in Moshi status-line tweaks.", leaves={"enabled": Leaf("boolean", "enable Moshi tweaks", default=False)}),
         "cc_restore": Block(doc="per-window Claude Code resume by session id.", leaves={"enabled": Leaf("boolean", "wire cc-save/cc-restore", default=True)}),
+        "omp_restore": Block(doc="per-window omp (oh-my-pi) resume by session file.", leaves={"enabled": Leaf("boolean", "wire omp-save/omp-restore", default=True)}),
+        "codex_restore": Block(doc="per-window Codex CLI resume by session id.", leaves={"enabled": Leaf("boolean", "wire codex-save/codex-restore", default=True)}),
         "anti_sprawl": Block(
             doc="one canonical session (attach-or-create).",
             leaves={"enabled": Leaf("boolean", "install the attach-or-create entry", default=True), "session": Leaf("string", "the canonical session name", default="main")},
@@ -892,6 +908,27 @@ _TMUX_BLOCK = Block(
         "focus_events": Block(
             doc="report terminal focus in/out events to programs running inside panes (tmux's `focus-events` option) — needed by editors/tools that react to focus.",
             leaves={"enabled": Leaf("boolean", "tmux's focus-events option (set -g focus-events on/off)", default=True)},
+        ),
+        "clipboard": Block(
+            doc="copy-mode clipboard integration: pipe a copy-mode selection (keyboard `prefix [`, `v`, `Enter`/`y`, or a mouse-drag release) through a resolved system-clipboard command, since tmux's own built-in copy-pipe-and-cancel bindings run with no pipe command by default (tmux paste buffer only, not the system clipboard). See `copy_mode.mode_keys` for the (independent) copy-mode key table.",
+            leaves={
+                "enabled": Leaf("boolean", "provision the copy-mode clipboard key bindings", default=True),
+                "command": Leaf(
+                    "string",
+                    "explicit clipboard-write command override ('' → auto-detect: macOS pbcopy; "
+                    "Linux wl-copy/xclip/xsel); must not contain '\"', '\\\\', '$', '#(' (a "
+                    "shell-exec token), or a non-printable character other than a plain tab",
+                    default="",
+                    not_pattern=TMUX_PANE_TITLES_FORMAT_UNSAFE_PATTERN,
+                ),
+            },
+        ),
+        "copy_mode": Block(
+            doc="the copy-mode key table (tmux's `mode-keys` option). tmux's own default is `emacs`, "
+            "under which `Space` pages the view (not begin-selection) and a bare `v` is unbound, so a "
+            "vim-style copy-mode workflow (`prefix [` then `v`/`Space` to select) silently does "
+            "nothing. Rendered unconditionally, independent of `clipboard` settings.",
+            leaves={"mode_keys": Leaf("string", "tmux's mode-keys option (setw -g mode-keys)", enum=("vi", "emacs"), default="vi")},
         ),
     },
 )
@@ -940,6 +977,14 @@ _SPOTLIGHT_BLOCK = Block(
         "max_depth": Leaf("integer", "walk-depth cap below each root", default=8, minimum=1),
     },
 )
+
+_BUN_BLOCK = Block(
+    doc="GLOBAL bunfig: splice [install] linker=isolated and globalStore=true.",
+    leaves={
+        "enabled": Leaf("boolean", "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in)", default=False),
+    },
+)
+
 
 _SHIP_DELEGATOR_BLOCK = Block(
     doc="a per-repo .claude/scripts/pr-ship.sh delegator so `gh ship` works in this repo (ignored in .git/info/exclude).",
@@ -1009,6 +1054,19 @@ _LINTERS_BLOCK = Block(
     ),
     open_map_item=_LINTERS_ITEM_BLOCK,
     open_map_item_required=("tool", "path"),
+)
+
+_ECOSYSTEM_README_BLOCK = Block(
+    doc=(
+        "writes/updates a marker-delimited '## Ecosystem' section in a target repo's README from "
+        "one canonical, in-code tool registry (riglib.ecosystem_readme), so the hand-copied "
+        "sibling-tool list every repo carries stops silently drifting (rig-cli#308). Default OFF "
+        "(opt-in) — enable it, then `rig apply` inserts the section (or updates a stale one)."
+    ),
+    leaves={
+        "enabled": Leaf("boolean", "provision the README Ecosystem block (opt-in)", default=False),
+        "target": Leaf("string", "repo-relative README path to reconcile", default="README.md"),
+    },
 )
 
 _PROJECT_TOOLS_BLOCK = Block(
@@ -1195,6 +1253,18 @@ _TG_CTL_BLOCK = Block(
     },
 )
 
+_TCC_WATCH_BLOCK = Block(
+    doc="the TCC dialog-watcher daemon (Phase 1: detection-only), a per-machine boot LaunchAgent "
+    "(macOS) that tails `log stream`'s com.apple.TCC subsystem and logs every permission-prompt-"
+    "shaped event — defense-in-depth behind the eval-tool TCC deny-list (PR #488).",
+    leaves={
+        "enabled": Leaf("boolean", "provision the tcc-watch LaunchAgent", default=True),
+        "label": Leaf("string", "launchd Label / plist filename stem", default="ai.hyperide.tcc-watch"),
+        "config_dir": Leaf("string", "watcher config + events.jsonl + launchd logs dir", default="~/.config/rig/tcc-watch"),
+        "python_bin": Leaf("string", "the python3 binary the daemon runs under"),
+    },
+)
+
 
 # The top-level shape: the scalar top keys + every block, in the order config.py validates them.
 _TOP_LEAVES: dict[str, Leaf] = {
@@ -1235,11 +1305,14 @@ BLOCKS: dict[str, Block] = {
     "env": _ENV_BLOCK,
     "gitignore": _GITIGNORE_BLOCK,
     "spotlight": _SPOTLIGHT_BLOCK,
+    "bun": _BUN_BLOCK,
     "tools": _TOOLS_BLOCK,
     "tg_ctl": _TG_CTL_BLOCK,
+    "tcc_watch": _TCC_WATCH_BLOCK,
     "ship_delegator": _SHIP_DELEGATOR_BLOCK,
     "linters": _LINTERS_BLOCK,
     "project_tools": _PROJECT_TOOLS_BLOCK,
+    "ecosystem_readme": _ECOSYSTEM_README_BLOCK,
     "task": _TASK_BLOCK,
 }
 
