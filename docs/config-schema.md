@@ -878,7 +878,9 @@ flag-first, mid AND end-anchored positions; `--force-with-lease` is NOT matched 
 boundary excludes it), `Bash(git commit --no-verify:*)` (flag-first only: the flag-anywhere form
 cannot be pattern-matched without false-positiving on commit messages that merely mention the
 flag — the `block-no-verify` agent-hook remains the authoritative argv-level guard),
-`Bash(sudo rm:*)`, `Bash(screencapture:*)` (screenshots go through Playwright/CDP), and five
+`Bash(sudo rm:*)`, `Bash(screencapture:*)` (screenshots go through Playwright/CDP),
+`Bash(osascript:*)` (AppleScript/System Events from bash trigger unapprovable macOS TCC "access
+data from other apps" prompts — same class as screencapture), and five
 `Bash(rg --pre...)` forms (rig-cli#187: `rg --pre` runs an arbitrary preprocessor command
 underneath the read-only `Bash(rg:*)` search grant — flag-first, later position, and both the
 space/`=` value shapes; a documented fidelity gap in the later-position forms can false-positive
@@ -904,7 +906,7 @@ opencode/codex/omp). Ask (prompt, don't block): `Bash(pkill:*)`,
 the `permission.bash` object (values `"deny"`/`"ask"`), hand-written in opencode's glob dialect
 (`*` = zero-or-more chars, `?` = one char, **last matching key wins**). Deny: `"gh pr merge*"`,
 `"git push*--force*"`, `"git push -f*"`, `"git commit --no-verify*"`, `"sudo rm*"`,
-`"screencapture*"`, `"git worktree add*"`, `"rg*--pre *"` + `"rg*--pre=*"` + `"rg*--pre"` (value-shaped / end-anchored,
+`"screencapture*"`, `"osascript*"`, `"git worktree add*"`, `"rg*--pre *"` + `"rg*--pre=*"` + `"rg*--pre"` (value-shaped / end-anchored,
 so they don't also deny the legitimate `--pretty` flag — a single substring-only `"rg*--pre*"`
 entry was rejected for exactly that regression). Ask: `"pkill*"`, `"killall*"`, `"git reset*--hard*"`.
 rig emits these AFTER
@@ -922,8 +924,8 @@ claude-shaped rule written as an opencode glob key would never match). The tool-
 marker-delimited managed block of Starlark `prefix_rule(...)` lines into
 `~/.codex/rules/rig-managed.rules` (codex auto-scans `~/.codex/rules/*.rules` at startup — no
 `config.toml` reference needed). The resolved tool set becomes `decision="allow"` prefix rules; a
-MINIMAL coarse deny (`gh pr merge`, `git worktree add`, `sudo rm`, `screencapture`, and — rig-cli#187 — the flag-first
-2-token `rg --pre`) becomes `decision="forbidden"`. **Fidelity gap:** `prefix_rule` matches a
+MINIMAL coarse deny (`gh pr merge`, `git worktree add`, `sudo rm`, `screencapture`, `osascript`,
+and — rig-cli#187 — the flag-first 2-token `rg --pre`) becomes `decision="forbidden"`. **Fidelity gap:** `prefix_rule` matches a
 leading-token prefix, so a coarse `["git","push"]` forbidden would over-block ALL pushes — the
 coarse deny is therefore kept to unambiguous full-command (or unambiguous flag-first) bans only;
 every LATER-position flag-guard (force-push, `--no-verify` anywhere, `rg --pre` in a non-leading
