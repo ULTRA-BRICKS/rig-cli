@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Run the read-only compiler with origin-scoped HTTP credentials.
 
-GitHub artifact downloads redirect to signed blob-storage URLs. urllib's default
-redirect handler retains Authorization, which both leaks scope and makes Azure
-reject the request. Drop credentials whenever the origin changes.
+Artifact redirects use signed storage URLs. Authorization must never be forwarded
+from api.github.com to another origin. Build, substantive finalization and HTML
+rendering are separate stages; none of them writes to the issue tracker.
 """
 from __future__ import annotations
+import pathlib
 import runpy
 import urllib.parse
 import urllib.request
@@ -20,17 +21,15 @@ class OriginScopedRedirect(urllib.request.HTTPRedirectHandler):
         if new.scheme != 'https':
             raise ValueError('Refusing non-HTTPS artifact redirect')
         if (old.scheme, old.hostname, old.port) != (new.scheme, new.hostname, new.port):
-            for key in tuple(redirected.headers):
-                if key.lower() in ('authorization', 'cookie', 'proxy-authorization'):
-                    redirected.remove_header(key)
-            for key in tuple(redirected.unredirected_hdrs):
-                if key.lower() in ('authorization', 'cookie', 'proxy-authorization'):
-                    redirected.remove_header(key)
+            for mapping in (redirected.headers, redirected.unredirected_hdrs):
+                for key in tuple(mapping):
+                    if key.lower() in ('authorization', 'cookie', 'proxy-authorization'):
+                        redirected.remove_header(key)
         return redirected
 
 def self_test():
     handler = OriginScopedRedirect()
-    req = urllib.request.Request('https://api.github.com/example', headers={'Authorization':'Bearer test-only', 'Accept':'application/json'})
+    req = urllib.request.Request('https://api.github.com/example', headers={'Authorization':'Bearer test-only','Accept':'application/json'})
     other = handler.redirect_request(req,None,302,'Found',{},'https://example.blob.core.windows.net/signed')
     assert not any(k.lower()=='authorization' for k in other.headers)
     same = handler.redirect_request(req,None,302,'Found',{},'https://api.github.com/another')
@@ -45,4 +44,6 @@ def self_test():
 if __name__ == '__main__':
     self_test()
     urllib.request.install_opener(urllib.request.build_opener(OriginScopedRedirect()))
-    runpy.run_path('tools/grooming/build.py', run_name='__main__')
+    runpy.run_path('tools/grooming/build.py',run_name='__main__')
+    if pathlib.Path('tools/grooming/finalize.py').exists():
+        runpy.run_path('tools/grooming/finalize.py',run_name='__main__')
