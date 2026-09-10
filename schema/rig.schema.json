@@ -1568,6 +1568,32 @@
       },
       "additionalProperties": false
     },
+    "tcc_watch": {
+      "type": "object",
+      "description": "the TCC dialog-watcher daemon (Phase 1: detection-only), a per-machine boot LaunchAgent (macOS) that tails `log stream`'s com.apple.TCC subsystem and logs every permission-prompt-shaped event — defense-in-depth behind the eval-tool TCC deny-list (PR #488).",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "provision the tcc-watch LaunchAgent",
+          "default": true
+        },
+        "label": {
+          "type": "string",
+          "description": "launchd Label / plist filename stem",
+          "default": "ai.hyperide.tcc-watch"
+        },
+        "config_dir": {
+          "type": "string",
+          "description": "watcher config + events.jsonl + launchd logs dir",
+          "default": "~/.config/rig/tcc-watch"
+        },
+        "python_bin": {
+          "type": "string",
+          "description": "the python3 binary the daemon runs under"
+        }
+      },
+      "additionalProperties": false
+    },
     "ship_delegator": {
       "type": "object",
       "description": "a per-repo .claude/scripts/pr-ship.sh delegator so `gh ship` works in this repo (ignored in .git/info/exclude).",
