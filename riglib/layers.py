@@ -59,6 +59,7 @@ _CATEGORY_LAYER = {
     "ecosystem_readme": REPO,
     "agents_md": REPO,
     "github": REPO,
+    "task": REPO,
 }
 
 

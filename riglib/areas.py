@@ -100,6 +100,7 @@ AREAS: tuple[Area, ...] = (
     Area("linters", "linter / formatter config files", REPO, ("linters",)),
     Area("project_tools", "project tools (Haft / Serena / Sverklo)", REPO, ("project_tools",)),
     Area("ecosystem_readme", "README ecosystem block", REPO, ("ecosystem_readme",)),
+    Area("task", "task-cli code prefix (.ship-config SHIP_TASK_CODE_PREFIX)", REPO, ("task",)),
     Area("agents_md", "AGENTS.md / CLAUDE.md symlinks", REPO, ("agents_md",)),
     Area("github", "repo settings (branch protection / GHAS / merge / actions, gh api + agent-browser)", REPO, ("github",)),
 )
