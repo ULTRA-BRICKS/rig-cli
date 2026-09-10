@@ -2677,6 +2677,7 @@ def _build_tmux(config: LoadedConfig, plan: InstallPlan) -> None:
                 "autosave": autosave,
                 "pane_titles": dict(t.get("pane_titles", {}) or {}),
                 "focus_events": dict(t.get("focus_events", {}) or {}),
+                "clipboard": dict(t.get("clipboard", {}) or {}),
             },
         )
         )

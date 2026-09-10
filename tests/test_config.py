@@ -163,6 +163,7 @@ def test_validate_rejects_non_mapping_project_dev_blocks(key):
         ({"version": 1, "github": {"ruleset": {"nam": "x"}}}, "github.ruleset.nam", "unknown github.ruleset key"),
         ({"version": 1, "tmux": {"continuum": {"save_intervall": 5}}}, "tmux.continuum.save_intervall", "unknown tmux.continuum key"),
         ({"version": 1, "tmux": {"boot": {"labl": "x"}}}, "tmux.boot.labl", "unknown tmux.boot key"),
+        ({"version": 1, "tmux": {"clipboard": {"comand": "pbcopy"}}}, "tmux.clipboard.comand", "unknown tmux.clipboard key"),
         ({"version": 1, "permissions": {"tols": []}}, "permissions.tols", "unknown permissions key"),
         ({"version": 1, "gitignore": {"entres": []}}, "gitignore.entres", "unknown gitignore key"),
         ({"version": 1, "tg_ctl": {"labl": "x"}}, "tg_ctl.labl", "unknown tg_ctl key"),
@@ -189,6 +190,28 @@ def test_validate_rejects_bad_value_with_schema_path():
     with pytest.raises(config.ConfigError) as ei2:
         config.validate({"version": 1, "defaults": {"on_conflict": "nuke"}})
     assert ei2.value.schema_path == "defaults.on_conflict"
+
+
+def test_validate_rejects_unsafe_tmux_clipboard_command_at_boundary():
+    """The schema-boundary counterpart to riglib/tmux.py's render-time clamp
+    (`_resolve_clipboard_command`): an unsafe `tmux.clipboard.command` override must be REJECTED
+    here (config.validate), not silently swallowed downstream — the clamp in tmux.py is
+    defense-in-depth for a replayed/stored plan that bypasses validate(), not the primary guard.
+    Same char class as `pane_titles.format` (both interpolate into a tmux double-quoted value)."""
+    with pytest.raises(config.ConfigError) as ei:
+        config.validate({"version": 1, "tmux": {"clipboard": {"command": 'pbcopy"; set -g x y'}}})
+    assert ei.value.schema_path == "tmux.clipboard.command"
+    assert "must not contain" in ei.value.what
+
+
+def test_validate_accepts_safe_tmux_clipboard_command():
+    config.validate({"version": 1, "tmux": {"clipboard": {"enabled": True, "command": "pbcopy"}}})
+
+
+def test_validate_rejects_non_string_tmux_clipboard_command():
+    with pytest.raises(config.ConfigError) as ei:
+        config.validate({"version": 1, "tmux": {"clipboard": {"command": 5}}})
+    assert "tmux.clipboard.command must be a string" in ei.value.what
 
 
 def test_render_config_error_is_three_part_with_pointer():

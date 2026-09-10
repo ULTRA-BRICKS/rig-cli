@@ -893,6 +893,29 @@ _TMUX_BLOCK = Block(
             doc="report terminal focus in/out events to programs running inside panes (tmux's `focus-events` option) — needed by editors/tools that react to focus.",
             leaves={"enabled": Leaf("boolean", "tmux's focus-events option (set -g focus-events on/off)", default=True)},
         ),
+        "clipboard": Block(
+            doc="copy-mode clipboard integration: pipe a copy-mode selection (keyboard `prefix [`, `v`, `Enter`/`y`, or a mouse-drag release) through a resolved system-clipboard command, since tmux's own built-in copy-pipe-and-cancel bindings run with no pipe command by default (tmux paste buffer only, not the system clipboard).",
+            leaves={
+                "enabled": Leaf("boolean", "provision the copy-mode clipboard key bindings", default=True),
+                "command": Leaf(
+                    "string",
+                    "explicit clipboard-write command override ('' → auto-detect: macOS pbcopy; "
+                    "Linux wl-copy/xclip/xsel); must not contain '\"', '\\\\', '$', '#(' (a "
+                    "shell-exec token), or a non-printable character other than a plain tab",
+                    default="",
+                    not_pattern=TMUX_PANE_TITLES_FORMAT_UNSAFE_PATTERN,
+                ),
+                "mode_keys": Leaf(
+                    "string",
+                    "tmux `mode-keys` override so the copy-mode-vi `v`/`y` bindings above are "
+                    "actually reachable: 'vi' (default) emits `set -g mode-keys vi`, making "
+                    "copy-mode-vi the LIVE key table; 'emacs' skips that override (tmux's own "
+                    "default), keeping copy-mode (emacs) live and mirroring v/y into it instead",
+                    enum=("vi", "emacs"),
+                    default="vi",
+                ),
+            },
+        ),
     },
 )
 
