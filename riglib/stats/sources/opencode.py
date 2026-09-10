@@ -23,6 +23,7 @@ from pathlib import Path
 
 from ..model import ToolInvocation
 from ..taxonomy import categorize
+from ._cache import SessionFileCache
 from ._shellutil import detail_of, is_shell_tool
 from .base import LogSource, parse_epoch, register
 
@@ -52,13 +53,24 @@ class OpencodeSource(LogSource):
         part_root = storage / "part"
         if not part_root.exists():
             return
+        # cache holds the FULL unfiltered per-file parse (see _cache.py) so it serves any
+        # --repo query; only unchanged (mtime+size) files hit the cache. Each part file is
+        # itself already the unit of work (one tool call per file), so the cache stores a
+        # 0-or-1-element list per file.
+        cache = SessionFileCache(self.home, self.name)
         for msg_dir in sorted(part_root.iterdir()):
             if not msg_dir.is_dir():
                 continue
             for part_file in sorted(msg_dir.glob("*.json")):
-                inv = self._invocation(part_file, session_dir, repos)
-                if inv is not None:
-                    yield inv
+                invocations = cache.get(part_file)
+                if invocations is None:
+                    inv = self._invocation(part_file, session_dir, None)
+                    invocations = [inv] if inv is not None else []
+                    cache.put(part_file, invocations)
+                for inv in invocations:
+                    if repos is None or inv.repo in repos:
+                        yield inv
+        cache.flush()
 
     def _index_sessions(self, storage: Path) -> dict[str, str]:
         """sessionID → directory, read once from storage/session/*/*.json."""
