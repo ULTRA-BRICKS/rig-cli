@@ -1,0 +1,138 @@
+{
+  "repository": "alex-mextner/draw-cli",
+  "plan_ref": "94a1825f2f9e611031dd6b74eb1de2d8b3130c56",
+  "plan_sha256": "3bed9257a5a598a82936fd686f263f117a64fe30f1597d110a06121921ff53cf",
+  "started_at": "2026-09-10T13:35:35.096841+00:00",
+  "mode": "apply",
+  "events": [
+    {
+      "number": 24,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24"
+    },
+    {
+      "number": 5,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e653528694a166951d97c552843b013d0ed354185fb0695ef7398587ea3a433d",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/5"
+    },
+    {
+      "number": 7,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8f2bacc53b0d10c50b630854f09230d0066a9e006282e2993b913bc921336a5d",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/7"
+    },
+    {
+      "number": 10,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5f9dbce10902072385bab936ca4599f6f3ac719b9d6e9c414571accbcb1e202b",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/10"
+    },
+    {
+      "number": 11,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "98046f8cbfa7c4e749d98e12e6e14b5febdbc46fb61a3c949bae4f2ba3c6c9f9",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/11"
+    },
+    {
+      "number": 13,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "3731d75f19a18296b7ea76fd48fcebcb82850c7013af7f26c39cdf2f4ed1719e",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/13"
+    },
+    {
+      "number": 15,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "51fca984b389378e08964a15f852a741a9cda20187abc20ac5d2a365a3c7ba3e",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/15"
+    },
+    {
+      "number": 17,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1a5bb79cda9f56e9bd9aa7984140fd7305a4538d098e5644a00bc50e5c546561",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/17"
+    },
+    {
+      "number": 21,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2bbef37b230506f20e5c14cca86594198957ac92d7da0fc6d2c8ad2f8ef62cd4",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/21"
+    },
+    {
+      "number": 22,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d53a7d661f962636a7f2007ab4b074914e1ac5090d9f8126a227cee889e2b9d7",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/22"
+    },
+    {
+      "number": 23,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "0ca1cd4ea8ad65e2e6e0b6c0ffc0439cef44cf03a61b7157a9338694c4f62ef9",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/23"
+    }
+  ],
+  "parents": {
+    "5": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "verified_parent": "https://github.com/alex-mextner/draw-cli/issues/24"
+    },
+    "7": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "verified_parent": "https://github.com/alex-mextner/draw-cli/issues/24"
+    },
+    "10": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "verified_parent": "https://github.com/alex-mextner/draw-cli/issues/24"
+    },
+    "11": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "verified_parent": "https://github.com/alex-mextner/draw-cli/issues/24"
+    },
+    "13": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "verified_parent": "https://github.com/alex-mextner/draw-cli/issues/24"
+    },
+    "15": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "verified_parent": "https://github.com/alex-mextner/draw-cli/issues/24"
+    },
+    "17": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "verified_parent": "https://github.com/alex-mextner/draw-cli/issues/24"
+    },
+    "21": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "verified_parent": "https://github.com/alex-mextner/draw-cli/issues/24"
+    },
+    "22": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "verified_parent": "https://github.com/alex-mextner/draw-cli/issues/24"
+    },
+    "23": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "verified_parent": "https://github.com/alex-mextner/draw-cli/issues/24"
+    }
+  },
+  "newly_discovered": [],
+  "counts": {
+    "parent-created": 1,
+    "body-updated-readback-verified": 10
+  },
+  "api_reads": 14,
+  "api_writes": 26,
+  "root": "https://github.com/alex-mextner/draw-cli/issues/24",
+  "finished_at": "2026-09-10T13:36:29.164402+00:00",
+  "planned_issues": 10,
+  "processed_bodies": 10,
+  "native_parents_verified": 10
+}

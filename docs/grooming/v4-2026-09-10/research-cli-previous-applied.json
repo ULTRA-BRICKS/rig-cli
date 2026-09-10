@@ -1,0 +1,149 @@
+{
+  "repository": "alex-mextner/research-cli",
+  "plan_ref": "94a1825f2f9e611031dd6b74eb1de2d8b3130c56",
+  "plan_sha256": "c132153522cf43ac6618cdad08523be3c39f1d6fb0c437669fbab764470c9fea",
+  "started_at": "2026-09-10T13:36:09.910859+00:00",
+  "mode": "apply",
+  "events": [
+    {
+      "number": 19,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    {
+      "number": 1,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "92761554c1216bc88655e82c98c5c1d92adac949b7b280c6f709d9cb012ae6a4",
+      "url": "https://github.com/alex-mextner/research-cli/issues/1"
+    },
+    {
+      "number": 2,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "53112313951a4ff25bda475f2005e59e5dc3a7a23a2592162934bae77b1669b1",
+      "url": "https://github.com/alex-mextner/research-cli/issues/2"
+    },
+    {
+      "number": 3,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9024743ca41a8975d2b26179bd5c32e14d9bedce329c7a64fa748f688cf182e4",
+      "url": "https://github.com/alex-mextner/research-cli/issues/3"
+    },
+    {
+      "number": 4,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9e3406f58b79018bfdb60c984dc0a59eba1cd0755bbec90d61b219bd4073b854",
+      "url": "https://github.com/alex-mextner/research-cli/issues/4"
+    },
+    {
+      "number": 6,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f1d583fd18a7b616b9b2926137bd5202e7dc7165ba905513f02ae937c81de70e",
+      "url": "https://github.com/alex-mextner/research-cli/issues/6"
+    },
+    {
+      "number": 9,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b21bad8b81897f52030d6a613290e374f7f860492093d75420d706f92bb2a5e4",
+      "url": "https://github.com/alex-mextner/research-cli/issues/9"
+    },
+    {
+      "number": 11,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "be9ca9f610185f0adb86f0aad67e6689b206c9f4d82d7457cffb1f35f7d3f78d",
+      "url": "https://github.com/alex-mextner/research-cli/issues/11"
+    },
+    {
+      "number": 12,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f7b8179e69bf50fa7d305bb4542fee9149c2b17576ae0d0d487dcff4574c14e8",
+      "url": "https://github.com/alex-mextner/research-cli/issues/12"
+    },
+    {
+      "number": 14,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a2dea8713fd8742b9629e2e8aaf4fe6365bec116630a5016522f2daffa07ed11",
+      "url": "https://github.com/alex-mextner/research-cli/issues/14"
+    },
+    {
+      "number": 16,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "846e91b3000592e3c2c9765986d59fc82454308d3bf3ff9b8e9e567dce7f8838",
+      "url": "https://github.com/alex-mextner/research-cli/issues/16"
+    },
+    {
+      "number": 18,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "731e5a3c9b97b17c20b7a573cab88ca91de227ab1f0435c3c04b497df8bbaef4",
+      "url": "https://github.com/alex-mextner/research-cli/issues/18"
+    }
+  ],
+  "parents": {
+    "1": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    "2": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    "3": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    "4": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    "6": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    "9": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    "11": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    "12": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    "14": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    "16": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    },
+    "18": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/research-cli/issues/19",
+      "verified_parent": "https://github.com/alex-mextner/research-cli/issues/19"
+    }
+  },
+  "newly_discovered": [],
+  "counts": {
+    "parent-created": 1,
+    "body-updated-readback-verified": 11
+  },
+  "api_reads": 15,
+  "api_writes": 28,
+  "root": "https://github.com/alex-mextner/research-cli/issues/19",
+  "finished_at": "2026-09-10T13:37:09.973917+00:00",
+  "planned_issues": 11,
+  "processed_bodies": 11,
+  "native_parents_verified": 11
+}

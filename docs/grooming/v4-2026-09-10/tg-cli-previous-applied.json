@@ -1,0 +1,2479 @@
+{
+  "repository": "alex-mextner/tg-cli",
+  "plan_ref": "94a1825f2f9e611031dd6b74eb1de2d8b3130c56",
+  "plan_sha256": "5941fe927289ccc67990ee2f31ae31e75964e28cd7253dd81b23027cff773374",
+  "started_at": "2026-09-10T13:34:30.612451+00:00",
+  "mode": "apply",
+  "events": [
+    {
+      "number": 382,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/382"
+    },
+    {
+      "number": 383,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    {
+      "number": 384,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    {
+      "number": 385,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    {
+      "number": 386,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/386"
+    },
+    {
+      "number": 387,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/387"
+    },
+    {
+      "number": 388,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    {
+      "number": 389,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/389"
+    },
+    {
+      "number": 390,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    {
+      "number": 391,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/391"
+    },
+    {
+      "number": 392,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/392"
+    },
+    {
+      "number": 393,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/393"
+    },
+    {
+      "number": 394,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/394"
+    },
+    {
+      "number": 395,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/395"
+    },
+    {
+      "number": 396,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/396"
+    },
+    {
+      "number": 397,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/397"
+    },
+    {
+      "number": 26,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "abcc718e676d4a4801dcfb1e4a12c09c18d0403b2ba4e66e841e3854f7275e7b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/26"
+    },
+    {
+      "number": 27,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fd5e58c479cdf60b1119f64c46d2a974f40ae48b800d89d0df756622cab47bca",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/27"
+    },
+    {
+      "number": 28,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "70556b4475e5600e4a37d65755ad7b7a1a830ec9c3d7f7d3babf10b1a9e25b14",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/28"
+    },
+    {
+      "number": 29,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "29d063fdec17e9c875d7dce181795bf92fc486ce9ad08f254e66fefed6b5365f",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/29"
+    },
+    {
+      "number": 30,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ff5a7b4a8244025b72e778ca5f7728bba076e0fb44ecde7e1fe515b8acff4a72",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/30"
+    },
+    {
+      "number": 31,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "486d8c43612fc4b888120dc87d437658498bfb8ed43fccf4a2cfb78515d9315b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/31"
+    },
+    {
+      "number": 32,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "72f53c1ad8b8947ff2405f40223979e0f848b16b271c9b6446f13fb97ef5abb5",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/32"
+    },
+    {
+      "number": 52,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a12d742095cc15c8f986ee5f5655a966017a22d7fecbab6b6bbc737fb118b084",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/52"
+    },
+    {
+      "number": 53,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "390a49cbec20e6e6be2d6fba37e250c1a303965f86084eb0ac931117817b0051",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/53"
+    },
+    {
+      "number": 56,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1637663d9feafd65df76baa81e51918285cdff845365af44859eae1175f27644",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/56"
+    },
+    {
+      "number": 57,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4529ac59effdc5fd2ea42bb282350ac1895c011222d229a0246dd3bddc68fa62",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/57"
+    },
+    {
+      "number": 58,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "84b6ad6dd38c5caf0652b3fd23e8a0cf004689862ec31563f2bc593e6748e568",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/58"
+    },
+    {
+      "number": 59,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "85674d12ec18e8f3e6bf26e12ec138076238397aea908854ab98bca7a2cef6fd",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/59"
+    },
+    {
+      "number": 63,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "cc0b236cc44d1902b0f71186d14ed6cb2e2ecccc2e8147b2c66a1abd74f06a23",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/63"
+    },
+    {
+      "number": 65,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "af918f726d2621e3856baf20d8c1afd6508f5e1d73fd2276f20be70acf100166",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/65"
+    },
+    {
+      "number": 67,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "11034eed816ce910f3fc863d51ad6c9a3c0fd342f8057b21a803c1f4d508f8e6",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/67"
+    },
+    {
+      "number": 68,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a8e353251f299c312a1eedf29d9ae0691ee26d8c97969a20e89493a3e6807705",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/68"
+    },
+    {
+      "number": 70,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b1ac67e6d120ffdd757fe93c60fb69d9640c01573e09bd92cede3fa01298ea9e",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/70"
+    },
+    {
+      "number": 72,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "44c88de45a6120d911e85b8fbd590ebda910241bee39bc07502de9a5f86c844d",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/72"
+    },
+    {
+      "number": 74,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1c011c8b415e067c1e00c8214d278f40aa28528d892588b5cdc3a15ace9c209e",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/74"
+    },
+    {
+      "number": 75,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a2da68f71eb43d9fc430db1b0f67f9eb322c504ba7b1d9231c9289631da5ad26",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/75"
+    },
+    {
+      "number": 78,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4f9091ff4d03bf11adb474285b2056402fb7deac2529237135abb6c5d594aed8",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/78"
+    },
+    {
+      "number": 80,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "46d14644388262c4b09798255535438693807b70ed6f873ab1a26f0982e28f72",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/80"
+    },
+    {
+      "number": 82,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b4c1c72beae4d556e460bc8c352a87dcd2c046359aa54ad97c0d7b46bbc79f55",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/82"
+    },
+    {
+      "number": 84,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e708475678eeb554596fd026251f8dfabe212a20df26ec8be30c8f9ad0ba5d9a",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/84"
+    },
+    {
+      "number": 86,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ff97daf69251af1a24568c46a46fe19a36bc3652e2956515739b0b9ef2562559",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/86"
+    },
+    {
+      "number": 88,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "08f9f3597199208205d9bc33c3da49e5848e24257f1c6a8cfbfb479264681224",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/88"
+    },
+    {
+      "number": 93,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "65ab370102eb1670f45708f1608cb7e46e13b300034fc049854e5bdab2d82b05",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/93"
+    },
+    {
+      "number": 95,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2ceefd4b4a52d9964a08c6e04babe46e8a753dca3ceffe32d02516f604ff659f",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/95"
+    },
+    {
+      "number": 97,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "81e7fbef2a638aef5c377dbe3abfcd02874686d68f7ee569a647f10666f8b06d",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/97"
+    },
+    {
+      "number": 99,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4fde07b072ea445c4329ce859db43d6de363061909d56c1208cadc6479fc6789",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/99"
+    },
+    {
+      "number": 100,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "62aa1bbdec00ba247456781565fcfaaa0ce07ca60393a7a62b62fa5aeaca3ec9",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/100"
+    },
+    {
+      "number": 102,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5320a31fb727be01f49e870ff5b9148acd5847a405403da0d2a2dee5d9e5585c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/102"
+    },
+    {
+      "number": 103,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "612b53dc7d36483cfb272809d0878db5f4b3e56dca33cc152897beb49cacd425",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/103"
+    },
+    {
+      "number": 104,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "298050ed36398c6f699bca74278179cb75ad594e0fe652b77327a80f4f51fad0",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/104"
+    },
+    {
+      "number": 106,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "45e27ff823f0bac98c7a7b027b4f36c162fe3efecac9f74e51222e43cfc3660b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/106"
+    },
+    {
+      "number": 113,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "01e5701b95ab903ab495c775c41117ec0e9fa4a4cc296a1ad748901edeb2e43f",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/113"
+    },
+    {
+      "number": 114,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4eae010297943c071ceb2f33b00505c7322a47fd7deb60b1ea7532928463c196",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/114"
+    },
+    {
+      "number": 115,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5ba4b06a1e79b9d44709c5edc2d6f40e1a6ed1f7a93a6f0a70aec4e50e2b4943",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/115"
+    },
+    {
+      "number": 116,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bb98fa10e813f0d4b1b4a10826bc658e81a3f43a582754b1718a5e766d0c7aaf",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/116"
+    },
+    {
+      "number": 117,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7a10b840e7ab48bac953c87610a9ff7a5a49a184cb82c7493a49ca25d7539a5c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/117"
+    },
+    {
+      "number": 118,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "98a9015006871f7b2ba1371d0cccbb69052a78b638a5f3c9e21d904e3a20fa54",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/118"
+    },
+    {
+      "number": 121,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6c6283e5b3e3beacfedf249826f28dbc827eaa31534657d4e61dad962dc1317f",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/121"
+    },
+    {
+      "number": 123,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fb1e26cd384c75d0314f6c6eb37a1cbd7999291011fbe1d80c0d5e9b59ca503a",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/123"
+    },
+    {
+      "number": 124,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4588af8400b6d7f23b1ff98353cdb2ede9c55e401d8b711059c65b8ef7274b14",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/124"
+    },
+    {
+      "number": 126,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b779c7360352846708955e8cb4e8da06c0234caa0170743d44d2e97b8f529bcf",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/126"
+    },
+    {
+      "number": 127,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "564fe0d089c44e7f31db365b06ea2b7f0b4d22eb07f303c38210a3cf9803be16",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/127"
+    },
+    {
+      "number": 128,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2bf8e53c1ccd21e2b7b528897736b1897308ffec8c85db73acf4d0a3c1147011",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/128"
+    },
+    {
+      "number": 130,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "547be351f64c23e25b984bbbae1a75893fdc92b544ddce8ee85e518b218023b3",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/130"
+    },
+    {
+      "number": 132,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9af5767e4c397b4a3a0214bdea38b3074a7a35d8564e36e299ec0b16f514523b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/132"
+    },
+    {
+      "number": 134,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "03df20ed7a2cf8b1ace14ae00943a21adc8cfba11a9870812e3144058c636435",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/134"
+    },
+    {
+      "number": 136,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f55c843de268773abeda85fd326136c39adae7c6512f3f79f664ca770e8f0da9",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/136"
+    },
+    {
+      "number": 138,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4c31910c7fbdbc5e9be282057ae39ee452aee23cf7993a612218eaef68efface",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/138"
+    },
+    {
+      "number": 140,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e3ce41c17bc502f2fdaeb0be22ed20974e9db7d3df88ca2ee0d1d254c4e71251",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/140"
+    },
+    {
+      "number": 142,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "16e084dc4e57d4dbab5fbec376df4275d49b444fe54de7fd64c0fd8ec93b1a69",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/142"
+    },
+    {
+      "number": 143,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "23066e862714df0a387f778bfb2fb90d84ddcde74eaf4b0ea6ec7c58d63d9c5a",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/143"
+    },
+    {
+      "number": 149,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "16fe70166e1d9d9ce2ab003112dcc1190de7e5190634b863d5eb83850cc3d69b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/149"
+    },
+    {
+      "number": 150,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fbfec591fe8a321d7e7d1c2a6effb35b34f1498100c3fd13c49275db404aa283",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/150"
+    },
+    {
+      "number": 151,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d6091df40a659f826dc07407dcf203f48fcc29dc87af938161ff83e19f93d62f",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/151"
+    },
+    {
+      "number": 152,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e2c8e44bd3ef76496f713bfef9013b4050db1686a58fb6eaa76da84e9323127a",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/152"
+    },
+    {
+      "number": 154,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "51c4142d387de5bdffff3c6cd17430925b04b24989ebaed5e7b1cd3ea8ac3e29",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/154"
+    },
+    {
+      "number": 159,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f7ce7050b2cadeac0b25ced73ea27ee7a6b628f8ac5546bab69f5bc4f6e6b711",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/159"
+    },
+    {
+      "number": 160,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "999f873d2cb3ed7bff6b7d15dc1113e2192747379db8ea17dd15b93d875156d2",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/160"
+    },
+    {
+      "number": 161,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "cd646f89ad070313f9fdf2e5fee27775755d75cc40aca008fa334fb11dfe8aa6",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/161"
+    },
+    {
+      "number": 163,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "298776ef2479ee13097d0808f86065967516328a4b4a45e80c8e5dd9eb6298ed",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/163"
+    },
+    {
+      "number": 164,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8de0b03937961c09684ae525b44485699110e79972b6b09a93843300d926e05c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/164"
+    },
+    {
+      "number": 167,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9ee75e6139ff013ca531305254c1ae68e680fd3eac795ca42bece8686e84b085",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/167"
+    },
+    {
+      "number": 168,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9e9eaef1c4a6c89f833f1797865a21adeeeadb081113e7f02465a3440143d769",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/168"
+    },
+    {
+      "number": 171,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c26cd7f5fd2d8545e4e9a0c4404ee564d3c6d46a8f4a34d5a39cc4ffecbb8c2b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/171"
+    },
+    {
+      "number": 172,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c57b53c4e87d6abca3ed311bd19eb2f1aaf9057e1ce2285c1aaacacad6755cf1",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/172"
+    },
+    {
+      "number": 173,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1d39993177f53c0af5f35556ec203aacbee4499b8807997f42ab6c373dcd1e6c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/173"
+    },
+    {
+      "number": 176,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c4a8a024d53d4880533b3cb8e7058cb8fcf049d9bb306be222438b58629396f8",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/176"
+    },
+    {
+      "number": 178,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "cbd39ee34dcecce7bf8cb37cf8f876916766b21e99d49fac7678f6df3df76e20",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/178"
+    },
+    {
+      "number": 181,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "040387ef876f7b427f4eae48ba516e83e6ec266cec79c5af28a61fdaa9743e78",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/181"
+    },
+    {
+      "number": 182,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "05a910ff9f5a978372021d13ebeed40149b84a482189d512e6b06bd83d9a76b2",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/182"
+    },
+    {
+      "number": 183,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9a23573fd1bc178c5778adee26be274b01cfd9e559a1824398da6261016c116c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/183"
+    },
+    {
+      "number": 185,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "dc5f1eddfc446844361ac9bce4aca46ade7c4805dd0e1df5098760aeb43fb80c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/185"
+    },
+    {
+      "number": 186,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d799bffb015fe506ff8ad79a82b4f4a81fbc342f234ef4d9e2c0d695efdb484c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/186"
+    },
+    {
+      "number": 188,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "90283e285f7de7b1f28f9e327b072482d3bbff31ae5e4f8ed0bb62b129eef51c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/188"
+    },
+    {
+      "number": 190,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a6d81dbd61cfc9babe56f916e44c41777ca651cb2f103f09a741b8ce72c37b71",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/190"
+    },
+    {
+      "number": 191,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "df94b43438a83d1dc99c2009dd5016b9556ffedf5db05427370528037ff7615a",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/191"
+    },
+    {
+      "number": 194,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b8cf28bfcbcdeb8cd0d62281c7dc63cf606dd9448ce4c44607c5a4ef938398f2",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/194"
+    },
+    {
+      "number": 197,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a781b972fb5b2c7cab97cd361dffa6a1c5335b906bfd7e4a94bcd9cb2be4a487",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/197"
+    },
+    {
+      "number": 201,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f9eb1d292f2c4eceddb73a053e43659ba749b4bc8d3f4c13813e129f349a920f",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/201"
+    },
+    {
+      "number": 203,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7e7ce64fa765db051ece1cdc733b5c60f09e26ce6591adf4cd866b192ab0bac0",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/203"
+    },
+    {
+      "number": 205,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "92b0d343a75b411179b9f56ad2c7b73944708130d6afc2fa5f3d66c58b8e4707",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/205"
+    },
+    {
+      "number": 207,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "abbcddf1ec29dcaae62416dac3f1497d38a76c5cc48c54339936c9ed04e84968",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/207"
+    },
+    {
+      "number": 208,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "864a71ec65c0d1f529105e44a2ac6481867f1837c95426ff2a9b0709e85a8cc1",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/208"
+    },
+    {
+      "number": 209,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b6fb4185e0188bdf18cb78721de5e9f971fe23d1126a5754f5ae91edbc3bf5d7",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/209"
+    },
+    {
+      "number": 210,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f5fa38578098a9cc3b4f5321cee9ae38ba760c77e89dc2dfc17d42a9f4276f1b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/210"
+    },
+    {
+      "number": 211,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1a8f2a31cf6e6419689ed4b15b1d1b5249fc140d1852f513e53d95f0e0e1592c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/211"
+    },
+    {
+      "number": 212,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9121c2183bc82351e1106608cf25b094a7acb868fe39b5f7405e809d2a4a6b28",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/212"
+    },
+    {
+      "number": 213,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "29e01075db0ed333853e5678e85c44f6454f27501092931dab9f0a6186efb5b4",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/213"
+    },
+    {
+      "number": 214,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7e561ae6bd16f2fbbda95492664c3b4fbdabd6a4941b71051adf0b48e9eb50ae",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/214"
+    },
+    {
+      "number": 215,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "995ae4e3cd70ae3b72e87a93209f8ceeef7dc158bdee9f0cd8053c9fb1f321bf",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/215"
+    },
+    {
+      "number": 216,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "174329bf145d3be4745ec8ee71bf94e8e6632c00cdcecd459ff2fbc5a0d7f089",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/216"
+    },
+    {
+      "number": 217,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8c2db5d8c74487269bbf86fbbe2a4f98c7894d665748c94a202e14b14103eff2",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/217"
+    },
+    {
+      "number": 218,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "62fa12b3cfab7c093f81fa3245d4f268533901909799b712eea0f45ef19d1bd9",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/218"
+    },
+    {
+      "number": 219,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b1cb0ece5ac326e85bdd96f5646f1d0ab5f51150bc725d161d1d14bba05d7386",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/219"
+    },
+    {
+      "number": 220,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "cec183ba44b0e5906a4a296e7f7efa02dd87bda0de1a033781b9fb29ba6a1755",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/220"
+    },
+    {
+      "number": 221,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "db060364bd50f68155848b9dd742b2991f9fae7820978351ab4dd8db3d1e8042",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/221"
+    },
+    {
+      "number": 222,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "dc94b9ef6ca7f64ed7cde749c4bc8a8605c073a57385150de72ab155cbc293e2",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/222"
+    },
+    {
+      "number": 223,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "aa00e9a58cd6e4dcf731eaaa87985a5998700b4a8dc04489c5f8931cbfa17e1b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/223"
+    },
+    {
+      "number": 224,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "493446e9e19fd59073584c766458c4a1cf6f2c8f2e301a560c960f461873ef9d",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/224"
+    },
+    {
+      "number": 225,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9fd1d8b093222e2ce2f2847afcb1d9fe7979d154b50bd5fe7f390b758108cf03",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/225"
+    },
+    {
+      "number": 226,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c4de2b3f9e35ef6c7018a958cc63a5a75b6f93c60b5fed9046fb7a8dd3e0e4ba",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/226"
+    },
+    {
+      "number": 227,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7d7bd2b2ef50eabb82c887685d63b78dcc30e72b570234390d3413c975f07d09",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/227"
+    },
+    {
+      "number": 228,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e90b2159423c5cd6c66b14d9cd12ed3e7bb6c6c9c463622e1d140d3d7063def2",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/228"
+    },
+    {
+      "number": 230,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "618113f8ba9ecd49e9d15edf741c0d1d2f8106eb69619ac01e1efa63ee37fcce",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/230"
+    },
+    {
+      "number": 231,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b9a92a076d57873cbf1221729f8e02babb6263fa71771154a7d6625dd5322219",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/231"
+    },
+    {
+      "number": 233,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9444d9c818e8b7dff17b6321cfbc951dedb7a74679faefebea3c2643c3e69037",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/233"
+    },
+    {
+      "number": 235,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fb1827d99de6a3071316cc88d5026f0f6be9f60329ac4f15c1a63f01eeee5677",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/235"
+    },
+    {
+      "number": 236,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5dc7e1a980790a8b04e3705daf1071d09f89755c33e16ce3baca77c955c84214",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/236"
+    },
+    {
+      "number": 237,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "00dd790cb4eb71a3fa7591eea5991b59eb4d7cc3d44b41410bed416187d7cc8b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/237"
+    },
+    {
+      "number": 238,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "03fb31e7b20b447d1ae8558ce895b29f65a082673955bb870c9ff76ba85a675d",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/238"
+    },
+    {
+      "number": 239,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d0d4722675c7182bcfd940f3a8ae2662dc9af5f7bd460d958eb2c6bdf9ae0fe4",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/239"
+    },
+    {
+      "number": 240,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "96c99059e2dc086b97c6f6ceab44455fa61fcd74bca448bd24049947c4332ec7",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/240"
+    },
+    {
+      "number": 242,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b71f08ad6af5f783d7fbe14c3bd47c7581a7e27f62b40ba2e9bc04e6f11134a2",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/242"
+    },
+    {
+      "number": 243,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "18dc73baafe2220bc6885c8e4570ea26e04abf4c906f8cd21835f6c3c16442dc",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/243"
+    },
+    {
+      "number": 244,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "326b3fc1d92c549fe938fb7b7f2e236898a8139d980ffb1f2a18bb70cd2fe4da",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/244"
+    },
+    {
+      "number": 246,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bde456b103feb1a7cdec50bd2b0744ae6e0b2e1af844f92eaa84304dacd291cb",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/246"
+    },
+    {
+      "number": 248,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2cbd9edc22ffd306ea2ead507a31e005fb5a83beacb00c55dc994f60f01630d6",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/248"
+    },
+    {
+      "number": 249,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "18515073ba59d6b35cf2ea2b529e89780e3d4553e83ebb24fd2516d4fefe8f72",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/249"
+    },
+    {
+      "number": 250,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d482c69e630aafcddc2db985ccef88121fe1cb924e56eafe12feaf0600f34af9",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/250"
+    },
+    {
+      "number": 251,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e157ac12ee00a8599f4001ffc184ea2d1861763b7e62826f4c659df7f3a7c3d5",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/251"
+    },
+    {
+      "number": 252,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6f3c75a47b31a268dcf698361257d51a2f753fd2324a257336b30f1f2f946b17",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/252"
+    },
+    {
+      "number": 253,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b8ffada502684148a6e976887a5e51ac7b93ee3485a00614256b80fbabc13f52",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/253"
+    },
+    {
+      "number": 254,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a0b6b2e5cf109da85c0189b04830091ec348f63f55ca20d399f5552efd17bcaa",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/254"
+    },
+    {
+      "number": 255,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "54a96bb25cd17e17c8e6bf7da7dff5136ca2a3f885d94515afed040e0905e542",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/255"
+    },
+    {
+      "number": 256,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bd3ef090438d81ef8ae7221ae03b5bcdf75dad8f8d06e48df49d0463f5bf7a14",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/256"
+    },
+    {
+      "number": 257,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "07208c6e96f7b23cb73c2608dcef5c8b8c712937a2d003f75979972bf166c21f",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/257"
+    },
+    {
+      "number": 258,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f85ded787c06f88f90790f5450608cd47a973f4a64bc4a57478ecb7cdf370d21",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/258"
+    },
+    {
+      "number": 259,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "092aecb4316a58c2b380d31320bcdcd16332c7bbc454d536d71d257138d7cdc0",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/259"
+    },
+    {
+      "number": 260,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "95bb16c0b1b598b108ba38f510d01396f49bb5d577186da135cdf3d9d56e0e1f",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/260"
+    },
+    {
+      "number": 261,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "64b9f71fffa4849cc3a5d0ebd19c9e8cd530a8808f31044abd95018c03cd78b1",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/261"
+    },
+    {
+      "number": 263,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bd4844ce3d289713eaeaa9309c935ad6289a2f6905570bde14408e27961ccaaf",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/263"
+    },
+    {
+      "number": 264,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b7474819046556f8f33f9e0c227b2beb9a7ac4ae595683eea97ec6e42a213a97",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/264"
+    },
+    {
+      "number": 265,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1de34127fb5581de23320b03a2d52073a2e4c9ff34e45b6e6daa09e9a43b8849",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/265"
+    },
+    {
+      "number": 267,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ea968f3b4412831a8f78846d86bdf9dff4877c432f6f4025d79a21b93551aef6",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/267"
+    },
+    {
+      "number": 268,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4787b107ad0358ced25fd3dc497931d079c5c7dd2a7183333fcec88818725f6b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/268"
+    },
+    {
+      "number": 270,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f63ece987096c313bf29004d0e6a8e2cb6450ce04e08f0d99dc4acb1ba9e9df4",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/270"
+    },
+    {
+      "number": 271,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "670fd6f8bd8fc500060b76d1f41bef2cd63fe31365a8f7ed0840064175b021be",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/271"
+    },
+    {
+      "number": 272,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "64046fec083cde0034e7f10d73316a77c495364dcb0e8f300b4bb1920b1c73ec",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/272"
+    },
+    {
+      "number": 273,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "3a3591240d65db775d40a7f6e4495a03f3a6572b2227b83b35a2fc231f26e55d",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/273"
+    },
+    {
+      "number": 274,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "0f4bc288251029758539d6434aee63f4f39e1f79916f2fd3c86409c0b575d2bc",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/274"
+    },
+    {
+      "number": 275,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "cba4a244d68f20a3b3f60d78954b1b40ccf7cdebe28711a367db89614a480d43",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/275"
+    },
+    {
+      "number": 277,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "af8a94e02562e10b889a6a0da629aaf8ce9dda7f3c16f1a9575166c0e7b9bad3",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/277"
+    },
+    {
+      "number": 279,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "753246bd723a86da759c4394d3a2eb57cecec06ad7b86ea43d20cf3b4e90ea92",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/279"
+    },
+    {
+      "number": 280,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "13d3b31f9f79095695e079162e7c4650dbbeec30b0fccc47c5e5afc8a2205e28",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/280"
+    },
+    {
+      "number": 281,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f43ee54c088521ee9edec0b9da84ae1e360ab31651620bd776e937f45c3a8ffe",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/281"
+    },
+    {
+      "number": 282,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "30f192a962fef3f421c7488ac7e3f7f95a891ff110e21ef6467504ecbe3ad7a1",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/282"
+    },
+    {
+      "number": 283,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e60b28e3d416886b6b277971d3da56e7bbf1a237ede561d787929141c4659ca3",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/283"
+    },
+    {
+      "number": 284,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7d1eb5bfa22e38f3bf64f1a71dec18947bed5d6c062ce139e66b4f2cc5ad5d18",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/284"
+    },
+    {
+      "number": 287,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ecb3630f0769006ae59ca434cb9b4f2841ae0f359dca891ca9e13015c7c21fe7",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/287"
+    },
+    {
+      "number": 288,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "83b81f19a517a04b28bf6f3b52412052776512c61982e493ae9da23e26348012",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/288"
+    },
+    {
+      "number": 289,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "cbe900a0fd133015022aa4baf0d029d0873040e832c8c29e632a011faf1f8437",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/289"
+    },
+    {
+      "number": 290,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "88c49f4dc137586af8cb99ba4a5c8329bdb933ae10e6cbe4e192ba56187420a0",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/290"
+    },
+    {
+      "number": 291,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "75ba0b65707c0e2bf264d6e1fe0163e60aa22f9aa72377fbe22d9b24575e6f86",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/291"
+    },
+    {
+      "number": 293,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c0fafd4c7c00b65b6d990591fa92bf58472d0a9741ec0a7c9aa6d2f5f0383b91",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/293"
+    },
+    {
+      "number": 294,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ea4511bc4f121260d0f69b3e3705fc2835cf26419a261683b2ac1af1b3df1b55",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/294"
+    },
+    {
+      "number": 295,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "96d709aa2d49673ee4bf6d5f71ab806cc9e4b22a34a7328c645b842dae3336c7",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/295"
+    },
+    {
+      "number": 296,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5c2adafe5d47e2f800b6756dd7ec12d275046a570ef6b31750178a5e5717357b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/296"
+    },
+    {
+      "number": 297,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7e63f3b7020539d9fb1f75d805fa0afbd94065a7a913faf70861561063a779a3",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/297"
+    },
+    {
+      "number": 298,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f3245b11aaf7a99fc4ddf4a08038b7ba25c0b3a79bcf6c0a1bbc89d5ae3eb2cf",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/298"
+    },
+    {
+      "number": 299,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b57da24b8ad337806d8f531e8c0fd8ff4f7b9cfd13ee979c46bde52bd037a28a",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/299"
+    },
+    {
+      "number": 300,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e53496373a5caffb27bfcd50802ae9b2c4338d7c4490220f6e1166585004e1d7",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/300"
+    },
+    {
+      "number": 301,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a05b429c938f1a93143205b939192be887ed77015f2492b268aa4265b28f0776",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/301"
+    },
+    {
+      "number": 302,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8da19f07ab824e0d40725ec1ea1d5f7f2ae32a7f0d6902d1983e611728957204",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/302"
+    },
+    {
+      "number": 303,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1c6624e6945edd90fab1e750707a01d71b5ee570bac5dc7450d1f9a5ca15947a",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/303"
+    },
+    {
+      "number": 304,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7082cdbe270e5912d59b6789942233c6f6204b1b852f0c032f8a854cc67bc055",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/304"
+    },
+    {
+      "number": 306,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bfbce217204181ef2d9caed56dbfff4555f1a87fabc260e3e0f961cbff8bc661",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/306"
+    },
+    {
+      "number": 307,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4303aaba2877da282846067e865228337a701ed2beeb8f5303a0f3a22e4317cd",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/307"
+    },
+    {
+      "number": 308,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "95f7626b42966d7103697c70ae8afacf18713c2a1139350fc3d6df69b2c87d0c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/308"
+    },
+    {
+      "number": 309,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d11bd04a8baf58306cfb6ba1ece1856237fb4a4b7129df910ab7005754803529",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/309"
+    },
+    {
+      "number": 310,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f9c55b7cc12d745a52a0b35c03ea6bf62562f8939070e110afb3d91a0c748880",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/310"
+    },
+    {
+      "number": 311,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "159ac51c867fb0f1276ff78ebf0b8867ab7c8a5215df8bd3c1f3439ffa7feb99",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/311"
+    },
+    {
+      "number": 312,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "3d70d2c0ef0b453cbd5014b96427b16204a52ed3c89bac166a7ca05d5cd687d7",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/312"
+    },
+    {
+      "number": 314,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2162b3c905f04d37a00482145801fec1bad842a1149b3bd675c93100f4b458de",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/314"
+    },
+    {
+      "number": 316,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "75a6bad738af7adbbe125f81c4fd3f91b87e9ae40c6258bac99e919ee0b6d0b1",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/316"
+    },
+    {
+      "number": 317,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5281d86100d2283c9a1200af2220adb2d885c37a6bf5117baaae18f8e88a75af",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/317"
+    },
+    {
+      "number": 318,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4f4905ec1fb7bf9ead4fc052b2104409bf3f027232f68d6c030bca90ec6fe75d",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/318"
+    },
+    {
+      "number": 319,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "45262d2b7aec9b7f0a5e46c85de9d8f4dbf595605f4e2b82d10396fd6542f66d",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/319"
+    },
+    {
+      "number": 323,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b069e5dfa2eaae9f95ac8bc5277ea972cf32c7c5183c1551bf4d6c85f4bcf231",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/323"
+    },
+    {
+      "number": 326,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ec0e963aa0cd84c11891c911abaebd5e3022cf6f65854821c0c5eedc901034df",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/326"
+    },
+    {
+      "number": 327,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ce54493033fc60f41c9eadb24881bc3f0e0ee8fbf9bab74ab69e8ca053d5c45b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/327"
+    },
+    {
+      "number": 329,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "acd6d2002ea0c0992f1b2f991aee6386c1ab4f89524bbfa47eb50d2c51f9444b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/329"
+    },
+    {
+      "number": 331,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "00318845a2caea97bcf6349df94963b7cae56c332f86f5a09afbc0559b5e72a9",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/331"
+    },
+    {
+      "number": 332,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "08c4e6a6160a9358cb2df9f6f553047872b62377a2860f72dadd7be7f42aac0c",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/332"
+    },
+    {
+      "number": 333,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "35499282bd47d64dabe030f49fa945ec022e52e84cbb4f850a5d66f7bfb49228",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/333"
+    },
+    {
+      "number": 334,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "02e3d8606dbca285fb2dbe1bf573eeaced6b47ee23b19cdbdf1bc7b44b6a49e4",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/334"
+    },
+    {
+      "number": 336,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bd28a82ab577dde8e2fb3a97a6e2e8d929fa45a563fad10788bae999480d0850",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/336"
+    },
+    {
+      "number": 337,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b06350e26aec1e94698589f6bfe87ac9b28ddae12cd79e96a7eeb80f1af7ad7a",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/337"
+    },
+    {
+      "number": 339,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5cdeca582a30bcb261254e4f62c048b98a5804e2995a4f7329cc2d456e0038c8",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/339"
+    },
+    {
+      "number": 341,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "40e57f12eedd241c1c8e821b73cb3be5d490a223520bdb8a488dc6efea29cddb",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/341"
+    },
+    {
+      "number": 342,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "714f5e15f85c5d8b3a0883d86b0ec9e1b667b410087b648ae462dca14d0408e7",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/342"
+    },
+    {
+      "number": 343,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "65ec18a578a823ea3f8eeda8f3d0c3412bb5117193b79ef73d1a84420e2e7135",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/343"
+    },
+    {
+      "number": 344,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "91f855f7dc5feb681e7382d3036e76daa65ae10471838586e43d4a183eb858ca",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/344"
+    },
+    {
+      "number": 347,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "58c1d38ece55c32f4c75dec77eb9b002d5c402ae9b619f4cc2dc12700a40071b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/347"
+    },
+    {
+      "number": 349,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6620b083d15a1f7569deabd56e80345d343c2f77774e3bf84734a6292c41ed07",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/349"
+    },
+    {
+      "number": 353,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6329c2279c848042febfc0b9ddc698012889061106a889171fdbcba36281f13b",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/353"
+    },
+    {
+      "number": 354,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ceda36b885d370ea79db56280f944dfa2aa930812c2edf0dccce3aabf3ee766d",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/354"
+    },
+    {
+      "number": 355,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7e194a35d708e509cc2b8545cbd285beaca86ebbe73a1c620ff40db400247db1",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/355"
+    },
+    {
+      "number": 356,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a182c542e8acb25f5c7396f772d0f742aaec6fceaaf0b0b26c294be0c0463965",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/356"
+    },
+    {
+      "number": 357,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "0efe846e557013b0cd3c6564f926adf1cef51ba940d90d0b50644c7a3d9b45cf",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/357"
+    },
+    {
+      "number": 358,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2ab12fa7f7e9172f6b866923782ab640cc56f7b4b61573b447126a7626538ad9",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/358"
+    },
+    {
+      "number": 360,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "3bbb148897fa830ebe28524a3fe0074c33cb14837373186a5f530a93515f4e19",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/360"
+    },
+    {
+      "number": 363,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c961ce22c78e9bc816367d23c59936688557a6af287bc1f342d1fa9d33ed6e53",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/363"
+    },
+    {
+      "number": 367,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5cf75968f982e723d866b6b3897852947a9f81a92f5518d3cd1180fe2f4fecfb",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/367"
+    },
+    {
+      "number": 369,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c467219700bc806f7d82a11fa465b6b257f7c9d81be89e9f453028d81cbe84e5",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/369"
+    },
+    {
+      "number": 372,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "22027b693b77faa37972586d1633a56d198cbdc383bca9f728d17ef149a7694d",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/372"
+    },
+    {
+      "number": 373,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e217ec7852fce1bbd3c086c7f60e437dc82fae03ed2199190e77ecd5f525d091",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/373"
+    },
+    {
+      "number": 374,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "21f3c1143497eb3e0e3f06112edac6f4398c197bcc481510b4a10120c7b8ef6a",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/374"
+    },
+    {
+      "number": 375,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d6a871f19a1bd1f6de8edd3dd5fcae7938977a910574c0bd483a8c7a4711a8c1",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/375"
+    },
+    {
+      "number": 377,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1cb55726a358048b50f67364dcf932a2f1005dc75b8b8e28745ee61c94d2014a",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/377"
+    },
+    {
+      "number": 379,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "23150d9b95528f6bdcbc903ed68e2290b446e247295dd1768ac2793936154b57",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/379"
+    },
+    {
+      "number": 380,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d774f3ae66f5dd2e014b4e6b34c03fc3b406ed0cf8453aaaacda49d92575d3df",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380"
+    }
+  ],
+  "parents": {
+    "26": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "27": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "28": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "29": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "30": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "31": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "32": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "52": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "53": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "56": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "57": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "58": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "59": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/386",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/386"
+    },
+    "63": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "65": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "67": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "68": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/387",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/387"
+    },
+    "70": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "72": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "74": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "75": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "78": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "80": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "82": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/389",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/389"
+    },
+    "84": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "86": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/386",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/386"
+    },
+    "88": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "93": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "95": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "97": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "99": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "100": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "102": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "103": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "104": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "106": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "113": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "114": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "115": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "116": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "117": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/391",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/391"
+    },
+    "118": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "121": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "123": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/392",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/392"
+    },
+    "124": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "126": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "127": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/393",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/393"
+    },
+    "128": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "130": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/392",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/392"
+    },
+    "132": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "134": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "136": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "138": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "140": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "142": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "143": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "149": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "150": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "151": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/389",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/389"
+    },
+    "152": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "154": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "159": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/394",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/394"
+    },
+    "160": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "161": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "163": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "164": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "167": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "168": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "171": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "172": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "173": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "176": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "178": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "181": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "182": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "183": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "185": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "186": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "188": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "190": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "191": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "194": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "197": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "201": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "203": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "205": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "207": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/389",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/389"
+    },
+    "208": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "209": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "210": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "211": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "212": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "213": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "214": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/391",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/391"
+    },
+    "215": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "216": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "217": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "218": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "219": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "220": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "221": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "222": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "223": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "224": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "225": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "226": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "227": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "228": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "230": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "231": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "233": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "235": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "236": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "237": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "238": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "239": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "240": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "242": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "243": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "244": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "246": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "248": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "249": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "250": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/395",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/395"
+    },
+    "251": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "252": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "253": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "254": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "255": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "256": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "257": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "258": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "259": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "260": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/387",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/387"
+    },
+    "261": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "263": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "264": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "265": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "267": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "268": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "270": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "271": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/392",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/392"
+    },
+    "272": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/392",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/392"
+    },
+    "273": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/392",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/392"
+    },
+    "274": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "275": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "277": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "279": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "280": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "281": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/392",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/392"
+    },
+    "282": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/395",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/395"
+    },
+    "283": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "284": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "287": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "288": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/391",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/391"
+    },
+    "289": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/395",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/395"
+    },
+    "290": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "291": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/395",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/395"
+    },
+    "293": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "294": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "295": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "296": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "297": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "298": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "299": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "300": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "301": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "302": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "303": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "304": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "306": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "307": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/390",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/390"
+    },
+    "308": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/394",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/394"
+    },
+    "309": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "310": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/395",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/395"
+    },
+    "311": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "312": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/395",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/395"
+    },
+    "314": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "316": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "317": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "318": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/395",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/395"
+    },
+    "319": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "323": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "326": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/385",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/385"
+    },
+    "327": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "329": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/396",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/396"
+    },
+    "331": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/396",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/396"
+    },
+    "332": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "333": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "334": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "336": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "337": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/391",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/391"
+    },
+    "339": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "341": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "342": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/386",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/386"
+    },
+    "343": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "344": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/380"
+    },
+    "347": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/395",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/395"
+    },
+    "349": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "353": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/384",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/384"
+    },
+    "354": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/380"
+    },
+    "355": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "356": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/380"
+    },
+    "357": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/380"
+    },
+    "358": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "360": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/380"
+    },
+    "363": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/388",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/388"
+    },
+    "367": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/397",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/397"
+    },
+    "369": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/392",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/392"
+    },
+    "372": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/383",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/383"
+    },
+    "373": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/380"
+    },
+    "374": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/380"
+    },
+    "375": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/380"
+    },
+    "377": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/380"
+    },
+    "379": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/380",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/380"
+    },
+    "380": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/tg-cli/issues/382",
+      "verified_parent": "https://github.com/alex-mextner/tg-cli/issues/382"
+    }
+  },
+  "newly_discovered": [],
+  "counts": {
+    "parent-created": 16,
+    "body-updated-readback-verified": 216
+  },
+  "api_reads": 232,
+  "api_writes": 468,
+  "root": "https://github.com/alex-mextner/tg-cli/issues/382",
+  "finished_at": "2026-09-10T13:51:09.264257+00:00",
+  "planned_issues": 216,
+  "processed_bodies": 216,
+  "native_parents_verified": 216
+}

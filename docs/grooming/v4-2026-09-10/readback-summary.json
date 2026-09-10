@@ -1,0 +1,205 @@
+{
+  "checked_at": "2026-09-10T14:04:04.763237+00:00",
+  "repositories": [
+    {
+      "repo": "rig-cli",
+      "root": "https://github.com/alex-mextner/rig-cli/issues/522",
+      "counts": {
+        "parent-created": 16,
+        "body-updated-readback-verified": 336,
+        "concurrent-change-skipped": 2,
+        "consolidated-with-preserved-evidence": 1
+      },
+      "processed_bodies": 336,
+      "planned_issues": 338,
+      "native_parents_verified": 336,
+      "finished_at": "2026-09-10T14:00:53.605382+00:00",
+      "unresolved": [
+        {
+          "number": 416,
+          "result": "concurrent-change-skipped",
+          "current_updated_at": "2026-09-10T12:37:12Z",
+          "current_body_sha256": "f44b4bd2d77bb174c0080375737eb1877d29e8f8fb12b9db478e2d6e65176ca2"
+        },
+        {
+          "number": 480,
+          "result": "concurrent-change-skipped",
+          "current_updated_at": "2026-09-10T13:43:30Z",
+          "current_body_sha256": "0bdb8ae65c45ab9f02c3b94b03dafaae09041d7c9fe7613e35ef04f34b445773"
+        }
+      ],
+      "current_issues": 355,
+      "groomed_marker_count": 336,
+      "recovery_parents": 16
+    },
+    {
+      "repo": "agent-tools",
+      "journal_error": "HTTP Error 404: Not Found",
+      "current_issues": 427,
+      "groomed_marker_count": 404,
+      "recovery_parents": 16
+    },
+    {
+      "repo": "review-cli",
+      "root": "https://github.com/alex-mextner/review-cli/issues/498",
+      "counts": {
+        "parent-created": 16,
+        "body-updated-readback-verified": 330,
+        "concurrent-change-skipped": 1
+      },
+      "processed_bodies": 330,
+      "planned_issues": 331,
+      "native_parents_verified": 330,
+      "finished_at": "2026-09-10T13:59:25.796382+00:00",
+      "unresolved": [
+        {
+          "number": 484,
+          "result": "concurrent-change-skipped",
+          "current_updated_at": "2026-09-10T12:20:44Z",
+          "current_body_sha256": "c9260df15e1a370bd5683206ca23b91cf0ab0c45b4cf195748c09f2e72915075"
+        }
+      ],
+      "current_issues": 347,
+      "groomed_marker_count": 329,
+      "recovery_parents": 16
+    },
+    {
+      "repo": "task-cli",
+      "root": "https://github.com/alex-mextner/task-cli/issues/185",
+      "counts": {
+        "parent-created": 10,
+        "body-updated-readback-verified": 125,
+        "consolidated-with-preserved-evidence": 3
+      },
+      "processed_bodies": 125,
+      "planned_issues": 125,
+      "native_parents_verified": 125,
+      "finished_at": "2026-09-10T13:45:49.544793+00:00",
+      "unresolved": [],
+      "current_issues": 135,
+      "groomed_marker_count": 125,
+      "recovery_parents": 10
+    },
+    {
+      "repo": "tg-cli",
+      "root": "https://github.com/alex-mextner/tg-cli/issues/382",
+      "counts": {
+        "parent-created": 16,
+        "body-updated-readback-verified": 216
+      },
+      "processed_bodies": 216,
+      "planned_issues": 216,
+      "native_parents_verified": 216,
+      "finished_at": "2026-09-10T13:51:09.264257+00:00",
+      "unresolved": [],
+      "current_issues": 232,
+      "groomed_marker_count": 216,
+      "recovery_parents": 16
+    },
+    {
+      "repo": "qa-cli",
+      "root": "https://github.com/alex-mextner/qa-cli/issues/13",
+      "counts": {
+        "parent-created": 1,
+        "body-updated-readback-verified": 7
+      },
+      "processed_bodies": 7,
+      "planned_issues": 7,
+      "native_parents_verified": 7,
+      "finished_at": "2026-09-10T13:30:47.829221+00:00",
+      "unresolved": [],
+      "current_issues": 8,
+      "groomed_marker_count": 7,
+      "recovery_parents": 1
+    },
+    {
+      "repo": "draw-cli",
+      "root": "https://github.com/alex-mextner/draw-cli/issues/24",
+      "counts": {
+        "parent-created": 1,
+        "body-updated-readback-verified": 10
+      },
+      "processed_bodies": 10,
+      "planned_issues": 10,
+      "native_parents_verified": 10,
+      "finished_at": "2026-09-10T13:36:29.164402+00:00",
+      "unresolved": [],
+      "current_issues": 11,
+      "groomed_marker_count": 10,
+      "recovery_parents": 1
+    },
+    {
+      "repo": "stt-cli",
+      "root": "https://github.com/alex-mextner/stt-cli/issues/42",
+      "counts": {
+        "parent-created": 1,
+        "body-updated-readback-verified": 32
+      },
+      "processed_bodies": 32,
+      "planned_issues": 32,
+      "native_parents_verified": 32,
+      "finished_at": "2026-09-10T13:38:30.951313+00:00",
+      "unresolved": [],
+      "current_issues": 33,
+      "groomed_marker_count": 32,
+      "recovery_parents": 1
+    },
+    {
+      "repo": "research-cli",
+      "root": "https://github.com/alex-mextner/research-cli/issues/19",
+      "counts": {
+        "parent-created": 1,
+        "body-updated-readback-verified": 11
+      },
+      "processed_bodies": 11,
+      "planned_issues": 11,
+      "native_parents_verified": 11,
+      "finished_at": "2026-09-10T13:37:09.973917+00:00",
+      "unresolved": [],
+      "current_issues": 12,
+      "groomed_marker_count": 11,
+      "recovery_parents": 1
+    },
+    {
+      "repo": "dev-cli",
+      "root": "https://github.com/alex-mextner/dev-cli/issues/30",
+      "counts": {
+        "parent-created": 1,
+        "body-updated-readback-verified": 20
+      },
+      "processed_bodies": 20,
+      "planned_issues": 20,
+      "native_parents_verified": 20,
+      "finished_at": "2026-09-10T13:37:58.730974+00:00",
+      "unresolved": [],
+      "current_issues": 21,
+      "groomed_marker_count": 20,
+      "recovery_parents": 1
+    },
+    {
+      "repo": "pm-cli",
+      "root": "https://github.com/alex-mextner/pm-cli/issues/29",
+      "counts": {
+        "parent-created": 1,
+        "body-updated-readback-verified": 19
+      },
+      "processed_bodies": 19,
+      "planned_issues": 19,
+      "native_parents_verified": 19,
+      "finished_at": "2026-09-10T13:38:06.418090+00:00",
+      "unresolved": [],
+      "current_issues": 20,
+      "groomed_marker_count": 19,
+      "recovery_parents": 1
+    }
+  ],
+  "mutations": 0,
+  "previous_groomed_marker_total": 1509,
+  "original_spec": {
+    "url": "https://spec-dev.hyperide.ai/spec/2026-07-01-agent-ecosystem-retrospective/api/spec",
+    "title": "2026-07-01-agent-ecosystem-retrospective.md",
+    "sha256": "f67e59ebf34e5ac9ba69b9a268fbb489dcd5dd4f5d8aec030925a2b742e0dd2e",
+    "html_bytes": 234236,
+    "headings": 95
+  }
+}
