@@ -51,6 +51,7 @@ from __future__ import annotations
 import os
 import shlex
 import shutil
+import sys
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -176,6 +177,96 @@ def _pane_titles_format_is_safe(fmt: str) -> bool:
         return False
     return all(c == "\t" or unicodedata.category(c) != "Cc" for c in fmt)
 
+
+# ── copy-mode clipboard (2026-09-09, "выделение появляется но ничего не копируется") ───────
+# tmux's OWN built-in copy-mode-vi bindings for `Enter`/`MouseDragEnd1Pane` already run
+# `send-keys -X copy-pipe-and-cancel` — but with NO pipe command, which only fills tmux's OWN
+# internal paste buffer, never the system clipboard (unless the terminal supports OSC 52 AND
+# `set-clipboard` is on; Terminal.app on macOS supports neither). So a mouse-drag release, or the
+# documented `prefix [` -> `v` -> `Enter` keyboard flow, visibly selects/highlights and then copies
+# NOWHERE the user can paste from -- exactly the reported symptom. Piping the selection through an
+# explicit, resolved platform clipboard command is the reliable, terminal-independent fix.
+#
+# ALSO LOAD-BEARING (2026-09-09, follow-up): tmux's own default `mode-keys` is `emacs` (a bare
+# rig-managed setup never set it), so the `copy-mode-vi` key table is NEVER the active one on a
+# fresh install -- `v` (begin-selection) and `y` (yank) are vi-only keys bound ONLY in
+# `copy-mode-vi`, so under the real default they are simply dead: pressing `v` does nothing, and
+# the following `Enter` then copy-pipe-and-cancels an EMPTY/stale selection. That is the literal
+# `prefix [` -> `v` -> `Enter` repro still failing even with the bindings above in place.
+# `Enter`/`MouseDragEnd1Pane` are mirrored into the plain `copy-mode` (emacs) table so the
+# mouse-drag-release flow works regardless of `mode-keys`. The actual fix: default
+# `tmux.clipboard.mode_keys` to `"vi"`, which emits `set -g mode-keys vi` so `copy-mode-vi`
+# becomes the live table and `v`/`y` are genuinely reachable via their documented vi bindings.
+# `mode_keys: "emacs"` opts a user back out (keeps emacs navigation as the live table) — in that
+# case `v`/`y` are ALSO mirrored into the plain `copy-mode` table (verified live: tmux's own
+# emacs-table defaults leave both unbound, so this clobbers nothing) so the clipboard flow still
+# works, just without vi's other motion keys.
+DEFAULT_CLIPBOARD_ENABLED = True
+DEFAULT_CLIPBOARD_MODE_KEYS = "vi"
+VALID_CLIPBOARD_MODE_KEYS = {"vi", "emacs"}
+
+
+def _clipboard_command_is_safe(cmd: str) -> bool:
+    """True iff ``cmd`` is safe to interpolate into a tmux double-quoted option value.
+
+    A resolved/overridden clipboard command is interpolated into
+    ``send-keys -X copy-pipe-and-cancel "<cmd>"`` exactly like `pane_titles.format` is
+    interpolated into `pane-border-format "<fmt>"` -- same hazard class (breaking out of the
+    double-quoted value to corrupt or inject an extra tmux directive), so this reuses
+    :func:`_pane_titles_format_is_safe`'s exact char/substring blocklist rather than
+    re-deriving it (there is nothing clipboard-specific about the safety rule)."""
+    return _pane_titles_format_is_safe(cmd)
+
+
+def _detect_platform_clipboard_command() -> str:
+    """Auto-detect this host's clipboard-write command, or ``""`` if none is resolvable.
+
+    macOS -> ``pbcopy`` (ships with the OS; still probed via PATH for determinism/testability).
+    Linux -> prefer Wayland's ``wl-copy`` (ONLY when ``$WAYLAND_DISPLAY`` is set AND the binary is
+    on PATH -- a `wl-copy` binary present under a plain X11 session would hang waiting for a
+    Wayland compositor that isn't running), else X11 ``xclip``, else ``xsel``. Anything else
+    (including a Linux host with none of the three installed) -> ``""`` -- the caller must render
+    NO clipboard section rather than a binding that shells out to a missing command on every copy.
+    """
+    if sys.platform == "darwin":
+        return "pbcopy" if shutil.which("pbcopy") else ""
+    if sys.platform.startswith("linux"):
+        if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-copy"):
+            return "wl-copy"
+        if shutil.which("xclip"):
+            return "xclip -selection clipboard -in"
+        if shutil.which("xsel"):
+            return "xsel --clipboard --input"
+    return ""
+
+
+def _resolve_clipboard_command(clipboard: dict) -> str:
+    """The effective clipboard command: an explicit, SAFE ``command`` override wins verbatim;
+    otherwise the platform auto-detected command; otherwise ``""`` (no-op -- see
+    :func:`_detect_platform_clipboard_command`). Mirrors ``_resolve_pane_titles_format``'s
+    defense-in-depth rationale: `config.validate` rejects an unsafe override on a fresh
+    `rig apply`/`init`, but a replayed/stored `Action.options` or a direct `build_tmux` caller
+    bypasses `validate()` entirely, so this clamps again at resolve time."""
+    explicit = clipboard.get("command")
+    if isinstance(explicit, str) and explicit and _clipboard_command_is_safe(explicit):
+        return explicit
+    return _detect_platform_clipboard_command()
+
+
+def _resolve_clipboard_mode_keys(clipboard: dict) -> str:
+    """The effective ``mode_keys`` choice, DEFENSIVELY clamped to ``VALID_CLIPBOARD_MODE_KEYS``.
+
+    Same defense-in-depth rationale as :func:`_resolve_pane_titles_position`: ``config.validate``
+    already rejects an invalid value for a fresh ``rig apply``/``init``, but a replayed/stored
+    ``Action.options`` or a direct ``build_tmux`` caller bypasses ``validate()`` entirely, so this
+    clamps again at resolve time rather than emitting a `set` tmux would reject."""
+    value = clipboard.get("mode_keys")
+    if value is None:
+        return DEFAULT_CLIPBOARD_MODE_KEYS
+    value = str(value)
+    return value if value in VALID_CLIPBOARD_MODE_KEYS else DEFAULT_CLIPBOARD_MODE_KEYS
+
+
 # The managed cc/omp/codex session-resume scripts' basenames (live in the generated dir).
 CC_SAVE_NAME = "cc-save.sh"
 CC_RESTORE_NAME = "cc-restore.sh"
@@ -277,6 +368,17 @@ class TmuxPlan:
     # panes (needed by editors/tools that react to focus). A plain terminal-capability toggle,
     # independent of the resurrect/continuum/tpm ordering surface. Default-on (Alex, 2026-08-05).
     focus_events_enabled: bool
+    # ── copy-mode clipboard (2026-09-09) ────────────────────────────────────────────
+    # See the module-level comment above `_detect_platform_clipboard_command` for the full
+    # root-cause writeup. `clipboard_command` is the FULLY RESOLVED command (explicit override or
+    # platform-detected), baked here at plan time — same determinism contract as `tmux_bin`/
+    # `login_shell` (render must not re-probe PATH/env per invocation).
+    clipboard_enabled: bool
+    clipboard_command: str  # "" → no clipboard command could be resolved; render emits nothing
+    # "vi" (default) emits `set -g mode-keys vi` so copy-mode-vi (v/y) is the LIVE table -- see
+    # the module-level comment above for why this is load-bearing, not cosmetic. "emacs" keeps
+    # tmux's own default and skips the override (opt-out; v/y stay unreachable by design).
+    clipboard_mode_keys: str
 
     # ── resolved artifact paths ──────────────────────────────────────────────────────
     @property
@@ -432,9 +534,11 @@ class TmuxPlan:
           4. pane-titles (default-on) + the Moshi ``status-right`` tweak (opt-in) — BOTH BEFORE
              any plugin init, since continuum's own status-right autosave indicator (when it
              fires) appends onto whatever status-right already holds
-          5. resurrect ``run-shell`` init
-          6. continuum ``run-shell`` init  ← LAST, so nothing after it wipes its hook
-          7. tpm init (must be the very last line per tpm's own contract)
+          5. copy-mode clipboard bindings (default-on) — no ordering dependency on continuum;
+             placed here purely for section-grouping consistency with pane-titles/Moshi above
+          6. resurrect ``run-shell`` init
+          7. continuum ``run-shell`` init  ← LAST, so nothing after it wipes its hook
+          8. tpm init (must be the very last line per tpm's own contract)
         """
         # *-restore owns the exact `<harness> --resume/resume <id>` (resurrect brings the shell
         # back), so a harness's bare name goes in @resurrect-processes ONLY when ITS OWN restore
@@ -583,6 +687,56 @@ class TmuxPlan:
                 "  set -g status-right ''",
                 "}",
             ]
+
+        if self.clipboard_enabled and self.clipboard_command:
+            # Placed BEFORE continuum's run-shell init, same as pane-titles/Moshi above — no
+            # ordering dependency on continuum here, just consistent section placement.
+            cmd = self.clipboard_command
+            out += [
+                "",
+                "# ── copy-mode clipboard (rig apply tmux.clipboard) ──────────────────────────",
+                "# tmux's own copy-mode-vi Enter/MouseDragEnd1Pane already run copy-pipe-and-cancel",
+                "# with NO pipe command — that only fills tmux's OWN paste buffer, never the system",
+                "# clipboard (Terminal.app has no OSC-52 clipboard support at all). Piping through",
+                f"# the resolved '{cmd}' fixes both the keyboard (prefix [, v, Enter) and the",
+                "# mouse-drag-release flow. NOTE: `set -g mouse on` is a personal ~/.tmux.conf",
+                "# preference (not rig-managed) — it must ALSO be set for tmux to report a",
+                "# mouse-drag-release event at all; rig does not force it.",
+            ]
+            if self.clipboard_mode_keys == "vi":
+                out += [
+                    "# `mode-keys` MUST be `vi` for the `v`/`y` bindings below to be reachable at",
+                    "# all: tmux's own default is `emacs`, under which `copy-mode-vi` is simply the",
+                    "# INACTIVE key table — `v` does nothing and `Enter` then copies an empty/stale",
+                    "# selection. This `set` must come BEFORE the bind-key lines below (tmux.clipboard.",
+                    "# mode_keys: emacs opts out and skips this line, trading away v/y for that).",
+                    "set -g mode-keys vi",
+                ]
+            out += [
+                "bind-key -T copy-mode-vi v send-keys -X begin-selection",
+                f'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "{cmd}"',
+                f'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "{cmd}"',
+                f'bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{cmd}"',
+                # Mirrored into the plain `copy-mode` (emacs) table: whatever `mode-keys` ends up
+                # being (see above), `Enter`/`MouseDragEnd1Pane` still fire the resolved clipboard
+                # command in the OTHER table too — the mouse-drag-release flow (and a bare
+                # `prefix [ ... Enter` with no vi-style selection) works either way, and a user who
+                # opts back into `mode_keys: emacs` still gets these two rather than nothing.
+                f'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "{cmd}"',
+                f'bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{cmd}"',
+            ]
+            if self.clipboard_mode_keys == "emacs":
+                # Opt-out case: `mode-keys` stays `emacs`, so `copy-mode-vi` never activates and
+                # `v`/`y` above are unreachable dead bindings. tmux's own emacs-table defaults
+                # leave both `v` and `y` UNBOUND (verified live: `tmux list-keys -T copy-mode` on
+                # a stock 3.5a server has no `v`/`y` entry — nothing here clobbers a real default),
+                # so mirror the SAME two keys into the plain `copy-mode` table: a user who
+                # explicitly keeps emacs navigation still gets the full `prefix [`, `v`, `y`/`Enter`
+                # keyboard flow, just without vi's other motion keys.
+                out += [
+                    "bind-key -T copy-mode v send-keys -X begin-selection",
+                    f'bind-key -T copy-mode y send-keys -X copy-pipe-and-cancel "{cmd}"',
+                ]
 
         out += [
             "",
@@ -1470,6 +1624,73 @@ def assess_autosave_freshness(
     return AutosaveHealth("ok", f"last run {age_min}m ago{result_note}")
 
 
+@dataclass(frozen=True)
+class PtyPressure:
+    """The verdict for macOS's SYSTEM-WIDE (not per-process, not launchd-rlimit) pty ceiling.
+
+    ``kern.tty.ptmx_max`` counts every live pseudo-terminal on the whole machine — every SSH
+    session, every terminal app tab, every tmux pane's shell, AND every zsh ``zpty``/``forkpty``
+    async worker (spaceship, zsh-async, powerlevel10k) — as ONE shared pool. It is NOT something a
+    LaunchAgent's ``SoftResourceLimits``/``NumberOfFiles`` can raise or lower — that controls
+    per-process ``RLIMIT_NOFILE``/``RLIMIT_NPROC``, an entirely different (and, on this machine,
+    already generous) ceiling; see the investigation note on :func:`assess_pty_pressure`. A tmux
+    server that never lets a pane die — rig's OWN anti-sprawl + continuum-restore + boot design
+    intentionally keeps sessions alive across every reboot — accumulates live zpty-held ptys pane
+    by pane over the server's entire lifetime, in a way a bare Terminal.app tab (which frees its
+    pty the instant the tab closes) never does. ``state`` is one of:
+
+    - ``"ok"`` — comfortably under the warn ratio.
+    - ``"high"`` — at/above the warn ratio; new pty allocations (zpty/forkpty — e.g. a prompt's
+      async worker) can start failing with ``can't open pseudo terminal: device not configured``
+      well before the literal ceiling, since every other process/user on the box competes for the
+      same pool.
+    - ``"unavailable"`` — off darwin (no ``kern.tty.ptmx_max``), or the count/sysctl read failed;
+      stays silent rather than risk a false positive or false negative.
+    """
+
+    state: Literal["ok", "high", "unavailable"]
+    detail: str
+
+
+# 70%: the same "catch the slow climb with headroom" philosophy as the autosave staleness
+# threshold (3x its interval) — `kern.tty.ptmx_max` is a HARD machine-wide ceiling shared by
+# every process on the box (other terminal apps, SSH sessions, VMs), so waiting for 100% before
+# warning would already be an outage for whoever allocates the NEXT pty.
+_PTY_WARN_RATIO = 0.7
+
+
+def assess_pty_pressure(pty_count: int | None, ptmx_max: int | None) -> PtyPressure:
+    """Pure verdict from already-collected counts — the I/O (``sysctl kern.tty.ptmx_max``,
+    counting live ``/dev/ttys*`` devices) is the caller's, so this stays hermetically testable
+    like :func:`assess_autosave_freshness`.
+
+    Investigation note (the zpty/spaceship "device not configured" + "async_worker_eval: no such
+    async worker" report this exists to diagnose): on this machine ``ulimit -n`` inside a
+    rig-managed tmux pane reads 1048576 and ``kern.maxfilesperproc`` is 92160 — NEITHER
+    launchd-constrained nor anywhere near exhausted, refuting the "launchd gives the boot/autosave
+    agent's process tree a stingy rlimit" hypothesis. The real, confirmed-scarce resource is
+    ``kern.tty.ptmx_max`` (511 on this machine) — a single machine-wide count, not a per-process
+    rlimit a plist's ``SoftResourceLimits`` could touch. This is also a documented upstream
+    spaceship-prompt failure mode (spaceship-prompt/spaceship-prompt#1207, #1507), independent of
+    rig — rig cannot fix zsh/spaceship's own zpty leak, only surface the shared resource climbing.
+    """
+    if pty_count is None or ptmx_max is None or ptmx_max <= 0:
+        return PtyPressure(
+            "unavailable",
+            "pty accounting unavailable (non-darwin, or the sysctl/device count could not be read)",
+        )
+    ratio = pty_count / ptmx_max
+    if ratio >= _PTY_WARN_RATIO:
+        return PtyPressure(
+            "high",
+            f"{pty_count}/{ptmx_max} live ptys ({ratio:.0%}) — approaching the machine-wide "
+            "kern.tty.ptmx_max ceiling; new pty allocations (zpty/forkpty, e.g. a shell prompt's "
+            "async worker) can start failing with 'device not configured' before it is fully "
+            "exhausted",
+        )
+    return PtyPressure("ok", f"{pty_count}/{ptmx_max} live ptys ({ratio:.0%})")
+
+
 def _resurrect_token(name: str) -> str:
     """Quote a resurrect process token if it contains whitespace; keep tilde matches as-is.
 
@@ -1557,6 +1778,7 @@ def build_tmux(
     autosave: dict | None = None,
     pane_titles: dict | None = None,
     focus_events: dict | None = None,
+    clipboard: dict | None = None,
 ) -> TmuxPlan:
     """Resolve the desired :class:`TmuxPlan` from the (already-validated) tmux config block.
 
@@ -1565,7 +1787,7 @@ def build_tmux(
     knob defaults to the safe, root-cause-fixing value; an empty block yields the full default
     config (claude in resurrect, capture-pane on, continuum restore+boot, Moshi off, cc-restore
     on, omp-restore on, codex-restore on, anti-sprawl on, boot on, login-shell default-command
-    on, focus-events on).
+    on, focus-events on, copy-mode clipboard on with the platform-detected command).
     """
     resurrect = resurrect or {}
     continuum = continuum or {}
@@ -1579,6 +1801,7 @@ def build_tmux(
     focus_events = focus_events or {}
     autosave = autosave or {}
     pane_titles = pane_titles or {}
+    clipboard = clipboard or {}
 
     def _expand(p: str | Path) -> Path:
         s = str(p)
@@ -1633,6 +1856,9 @@ def build_tmux(
         pane_titles_format=_resolve_pane_titles_format(pane_titles),
         pane_titles_clear_status_right=bool(_knob(pane_titles, "clear_status_right", True)),
         focus_events_enabled=bool(_knob(focus_events, "enabled", True)),
+        clipboard_enabled=bool(_knob(clipboard, "enabled", DEFAULT_CLIPBOARD_ENABLED)),
+        clipboard_command=_resolve_clipboard_command(clipboard),
+        clipboard_mode_keys=_resolve_clipboard_mode_keys(clipboard),
     )
 
 

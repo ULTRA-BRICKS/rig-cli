@@ -677,8 +677,15 @@ agent-hooks are inert. So when a supported harness block is present (and `agent_
 enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
 
 - `kind: claude-code` writes `cc_hook_bridge` into `settings.json`: `PreToolUse` matchers
-  `Bash`, `Edit|Write|MultiEdit|NotebookEdit`, `Agent|Task`, `Skill`, `Monitor`, and
-  `EnterWorktree`; `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`; and `Stop`.
+  `Bash`, `Edit|Write|MultiEdit|NotebookEdit`, `Agent|Task`, `Skill`, `Monitor`,
+  `EnterWorktree`, and `Workflow`; `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`;
+  and `Stop`. The `Workflow` matcher is what makes the agent-tools `workflow-danger-gate`
+  (`pre-workflow`) hook actually fire. rig does not itself provision a bare `Workflow`
+  `permissions.allow` entry (that stays an operator/config-layer choice); but when one is
+  configured so ultracode is never prompted on spawn, this matcher is the enforcement half —
+  it denies a script whose executable JS runs a raw `gh pr merge`, `git reset --hard`, a
+  force-push, `sudo rm`, `--no-verify`, `git clean -f`, or `screencapture`, while leaving
+  comments and ultracode's own `agent(...)` dispatch untouched.
   The `Monitor` matcher is the rig half of the **subagent Monitor ban**
   ([rig-cli#463](https://github.com/alex-mextner/rig-cli/issues/463)): Claude Code only
   fires `PreToolUse` for tools with an explicit matcher, so without this entry the
@@ -1769,6 +1776,17 @@ tmux:
                                   # events to programs running inside panes (some editors/
                                   # tools need this). A plain terminal-capability toggle, no
                                   # interaction with the resurrect/continuum/tpm ordering.
+  clipboard:
+    enabled: true                # copy-mode clipboard: pipe a copy-mode selection (keyboard
+                                  # `prefix [`, `v`, `Enter`/`y`, or a mouse-drag release)
+                                  # through a resolved system-clipboard command
+    command: ""                  # "" → auto-detect (macOS pbcopy; Linux wl-copy/xclip/xsel);
+                                  # a non-empty override is used verbatim (shell-quoted safety
+                                  # checked, same class as pane_titles.format)
+    mode_keys: vi                # "vi" (default) emits `set -g mode-keys vi` so the v/y
+                                  # bindings above are actually reachable (tmux's own default is
+                                  # emacs, under which copy-mode-vi is the INACTIVE table);
+                                  # "emacs" opts out and mirrors v/y into copy-mode instead
 ```
 
 | Key | Type | Default | Meaning |
@@ -1800,6 +1818,9 @@ tmux:
 | `login_shell.enabled` | bool | `true` | set a **login-shell** `default-command` so restored panes source `~/.zprofile`/PATH (resurrect otherwise restores a non-login shell with a broken env) |
 | `login_shell.shell` | str | `""` | login shell path. `""` resolves the user's `$SHELL` at apply (falling back to `/bin/zsh` then `/bin/sh`); a non-empty override **must be an absolute path** to the shell binary (a relative name or a command-with-args is rejected, so it can't silently produce a broken `default-command`) and is used verbatim. The path is **baked at generation** — NOT a tmux `${SHELL}` reference, because tmux rejects `${VAR:-default}` and would abort the whole config |
 | `focus_events.enabled` | bool | `true` | `set -g focus-events` on/off — tmux reports terminal focus in/out events to programs running inside panes (needed by editors/tools that react to focus). A plain capability toggle: it carries none of the resurrect/continuum/tpm ordering constraints below (it's placed first in the generated file purely for readability, not because position is load-bearing here). Like every other modeled boolean, `false` emits an explicit `set -g focus-events off` rather than omitting the line. |
+| `clipboard.enabled` | bool | `true` | provision the copy-mode clipboard key bindings: `v` (begin-selection), `y`/`Enter`/`MouseDragEnd1Pane` (copy-pipe-and-cancel through the resolved clipboard command) in the `copy-mode-vi` table, plus `Enter`/`MouseDragEnd1Pane` mirrored into the plain `copy-mode` (emacs) table too. See `clipboard.mode_keys` below for which table is actually LIVE. `false` emits none of them. When no clipboard command can be resolved on this platform (no `pbcopy`/`wl-copy`/`xclip`/`xsel` on PATH and no `command` override), rig emits NO clipboard section at all — never a binding that shells out to a missing command — and surfaces a note in the `rig apply`/`rig status` detail line instead. |
+| `clipboard.command` | str | `""` | explicit clipboard-write command override. `""` (default) auto-detects: macOS → `pbcopy`; Linux → `wl-copy` (only when `$WAYLAND_DISPLAY` is set AND the binary is on PATH), else `xclip -selection clipboard -in`, else `xsel --clipboard --input`, else unresolved (see `clipboard.enabled` above). A non-empty override is used verbatim and must **not** contain `"`, `\`, `$`, `#(` (a shell-exec token), or a non-printable character other than a plain tab — the same injection-safety class as `pane_titles.format` (both interpolate into a tmux double-quoted option value); rejected at validate time (and in the published JSON schema), and defensively substituted back to the platform-detected command if an unsafe value ever reaches the renderer some other way. |
+| `clipboard.mode_keys` | enum | `vi` | tmux's `mode-keys` override, so the `copy-mode-vi` `v`/`y` bindings above are actually reachable. `vi` (default) emits `set -g mode-keys vi` **before** the bind-key lines, making `copy-mode-vi` the LIVE key table. `emacs` skips that override (keeping tmux's own default live) and instead mirrors `v`/`y` into the plain `copy-mode` table, so the clipboard flow still works without vi's other motion keys. An invalid stored value is defensively clamped back to `vi` at render time, same pattern as `pane_titles.position`. |
 
 **Apply mechanism — import-preferred, managed-block fallback.**
 

@@ -936,6 +936,174 @@ def test_render_pane_titles_empty_format_renders_empty_pane_border_format():
     assert 'pane-border-format ""' in conf
 
 
+# ── copy-mode clipboard rendering ────────────────────────────────────────────────────────
+def test_render_clipboard_default_on_darwin_emits_pbcopy_bindings(monkeypatch):
+    """Default (no `tmux.clipboard` block): on macOS with pbcopy on PATH, the four documented
+    bindings (v begin-selection, y/Enter/MouseDragEnd1Pane copy-pipe-and-cancel via copy-mode-vi)
+    plus the copy-mode (emacs) mirror for Enter/MouseDragEnd1Pane are all emitted with pbcopy,
+    AND `mode_keys` defaults to "vi" — `set -g mode-keys vi` is emitted BEFORE the bind-key
+    lines, so copy-mode-vi is the LIVE table and v/y are actually reachable."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    plan = _plan()
+    assert plan.clipboard_mode_keys == "vi"
+    conf = plan.render_rig_conf()
+    assert "set -g mode-keys vi" in conf
+    assert "bind-key -T copy-mode-vi v send-keys -X begin-selection" in conf
+    assert 'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    assert 'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    assert 'bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    # mirrored into the plain (emacs) copy-mode table too — see the module-level comment on why.
+    assert 'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    assert 'bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    # `mode-keys` MUST precede the copy-mode-vi bind-key lines (tmux applies key-table
+    # activation top-down; a `set` after the binds would still work, but the generator commits
+    # to emitting it first — assert the actual order, not just presence).
+    lines = conf.splitlines()
+    mode_keys_idx = next(i for i, ln in enumerate(lines) if ln == "set -g mode-keys vi")
+    first_bind_idx = next(i for i, ln in enumerate(lines) if "bind-key -T copy-mode-vi v" in ln)
+    assert mode_keys_idx < first_bind_idx
+
+
+def test_render_clipboard_mode_keys_emacs_omits_set_and_mirrors_v_y(monkeypatch):
+    """`mode_keys: emacs` (opt-out): no `set -g mode-keys vi` override (tmux's own emacs
+    default stays live), and `v`/`y` are instead mirrored into the plain `copy-mode` (emacs)
+    table so the clipboard flow still works without vi's other motion keys."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    plan = tmux.build_tmux(repo_home=Path("/home/u"), clipboard={"mode_keys": "emacs"})
+    assert plan.clipboard_mode_keys == "emacs"
+    conf = plan.render_rig_conf()
+    assert "set -g mode-keys vi" not in conf
+    assert "mode-keys" not in conf
+    # v/y still bound in copy-mode-vi (harmless — just unreachable while mode-keys is emacs)...
+    assert "bind-key -T copy-mode-vi v send-keys -X begin-selection" in conf
+    # ...AND mirrored into the plain copy-mode (emacs) table, which IS reachable.
+    assert "bind-key -T copy-mode v send-keys -X begin-selection" in conf
+    assert 'bind-key -T copy-mode y send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+
+
+def test_render_clipboard_mode_keys_vi_does_not_mirror_v_y_into_copy_mode(monkeypatch):
+    """The opposite of the emacs case: under the default `mode_keys: vi`, `v`/`y` are NOT
+    duplicated into the plain `copy-mode` table (only Enter/MouseDragEnd1Pane are, for the
+    unconditional mouse-drag-release flow) — copy-mode-vi is already the live table."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    conf = _plan().render_rig_conf()
+    assert "bind-key -T copy-mode v send-keys" not in conf
+    assert "bind-key -T copy-mode y send-keys" not in conf
+
+
+def test_build_tmux_clamps_invalid_mode_keys_instead_of_rendering_garbage():
+    """Same defense-in-depth contract as `pane_titles.position`: `build_tmux` (reached directly,
+    or via `tmux_plan_from_action` replaying stored `Action.options`) bypasses
+    `config.validate` entirely. An invalid `mode_keys` must clamp back to the default "vi"
+    rather than being rendered/trusted verbatim."""
+    plan = tmux.build_tmux(repo_home=Path("/home/u"), clipboard={"mode_keys": "sideways"})
+    assert plan.clipboard_mode_keys == "vi"
+    conf = plan.render_rig_conf()
+    assert "sideways" not in conf
+
+
+def test_render_clipboard_disabled_omits_all_bindings(monkeypatch):
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    conf = tmux.build_tmux(
+        repo_home=Path("/home/u"), clipboard={"enabled": False}
+    ).render_rig_conf()
+    assert "copy-mode-vi" not in conf
+    assert "copy-pipe-and-cancel" not in conf
+
+
+def test_render_clipboard_no_resolvable_command_omits_section(monkeypatch):
+    """No pbcopy/wl-copy/xclip/xsel found and no explicit override: the plan resolves an empty
+    clipboard_command and render emits NO clipboard section at all — never a binding that shells
+    out to a missing command."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: None)
+    plan = tmux.build_tmux(repo_home=Path("/home/u"))
+    assert plan.clipboard_command == ""
+    conf = plan.render_rig_conf()
+    assert "copy-mode-vi" not in conf
+    assert "copy-pipe-and-cancel" not in conf
+
+
+def test_render_clipboard_explicit_command_used_verbatim(monkeypatch):
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: None)
+    conf = tmux.build_tmux(
+        repo_home=Path("/home/u"), clipboard={"command": "my-custom-clip"}
+    ).render_rig_conf()
+    assert 'copy-pipe-and-cancel "my-custom-clip"' in conf
+
+
+def test_render_clipboard_unsafe_explicit_command_falls_back_to_detected(monkeypatch):
+    """An unsafe override (defense-in-depth: `config.validate` should already have rejected it,
+    but a replayed/stored plan can bypass validate()) is dropped, falling back to the
+    platform-detected command rather than interpolating unsafe text into the generated conf."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    plan = tmux.build_tmux(
+        repo_home=Path("/home/u"), clipboard={"command": 'evil"; set -g status-left BAD'}
+    )
+    assert plan.clipboard_command == "pbcopy"
+    conf = plan.render_rig_conf()
+    assert "evil" not in conf
+    assert 'copy-pipe-and-cancel "pbcopy"' in conf
+
+
+def test_render_clipboard_linux_prefers_wayland_over_x11(monkeypatch):
+    monkeypatch.setattr(tmux.sys, "platform", "linux")
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    monkeypatch.setattr(
+        tmux.shutil, "which",
+        lambda name: "/usr/bin/" + name if name in ("wl-copy", "xclip", "xsel") else None,
+    )
+    conf = _plan().render_rig_conf()
+    assert 'copy-pipe-and-cancel "wl-copy"' in conf
+
+
+def test_render_clipboard_linux_x11_prefers_xclip_over_xsel(monkeypatch):
+    monkeypatch.setattr(tmux.sys, "platform", "linux")
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setattr(
+        tmux.shutil, "which",
+        lambda name: "/usr/bin/" + name if name in ("xclip", "xsel") else None,
+    )
+    conf = _plan().render_rig_conf()
+    assert 'copy-pipe-and-cancel "xclip -selection clipboard -in"' in conf
+
+
+def test_render_clipboard_linux_falls_back_to_xsel(monkeypatch):
+    monkeypatch.setattr(tmux.sys, "platform", "linux")
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/xsel" if name == "xsel" else None)
+    conf = _plan().render_rig_conf()
+    assert 'copy-pipe-and-cancel "xsel --clipboard --input"' in conf
+
+
+def test_render_clipboard_linux_wayland_binary_absent_under_x11_skips_wayland(monkeypatch):
+    """`$WAYLAND_DISPLAY` alone is not enough — `wl-copy` must actually be on PATH, or a Wayland
+    var left over from a different session must not select a missing binary."""
+    monkeypatch.setattr(tmux.sys, "platform", "linux")
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/xclip" if name == "xclip" else None)
+    conf = _plan().render_rig_conf()
+    assert 'copy-pipe-and-cancel "xclip -selection clipboard -in"' in conf
+
+
+def test_render_clipboard_before_plugin_init(monkeypatch):
+    """Same section-placement convention as pane-titles/Moshi: the clipboard bindings land
+    BEFORE the resurrect/continuum run-shell init lines."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    conf = _plan().render_rig_conf()
+    lines = conf.splitlines()
+    clip_idx = next(i for i, ln in enumerate(lines) if "copy-mode-vi v" in ln)
+    plugin_init_idx = next(i for i, ln in enumerate(lines) if "resurrect/resurrect.tmux" in ln)
+    assert clip_idx < plugin_init_idx
+
+
 def test_tmux_plan_from_action_on_pre_upgrade_action_defaults_to_new_pane_titles_behavior():
     """A DRIFT-CHECK REPLAY: `tmux_plan_from_action` on `Action.options` persisted by a version
     of rig that pre-dates this feature (no `pane_titles` key at all) now renders pane titles ON
@@ -1686,6 +1854,100 @@ def test_autosave_freshness_disabled_when_saver_off():
     p = tmux.build_tmux(repo_home=Path("/home/u"), autosave={"enabled": False})
     h = tmux.assess_autosave_freshness(p, now_epoch=1000.0, health_mtime=None)
     assert h.state == "disabled"
+
+
+# ── pty pressure (macOS kern.tty.ptmx_max ceiling, the zpty/spaceship-crash observability) ──────
+def test_pty_pressure_ok_comfortably_under_ratio():
+    v = tmux.assess_pty_pressure(100, 511)
+    assert v.state == "ok"
+
+
+def test_pty_pressure_high_at_or_above_ratio():
+    v = tmux.assess_pty_pressure(400, 511)
+    assert v.state == "high"
+
+
+def test_pty_pressure_boundary_exactly_at_warn_ratio_is_high():
+    """358/511 == 0.700587... >= 70% — the >= boundary must read `high`, not `ok`."""
+    v = tmux.assess_pty_pressure(358, 511)
+    assert v.state == "high"
+
+
+def test_pty_pressure_unavailable_when_pty_count_missing():
+    v = tmux.assess_pty_pressure(None, 511)
+    assert v.state == "unavailable"
+
+
+def test_pty_pressure_unavailable_when_ptmx_max_missing():
+    v = tmux.assess_pty_pressure(100, None)
+    assert v.state == "unavailable"
+
+
+def test_pty_pressure_unavailable_when_ptmx_max_zero():
+    """A zero ceiling must never divide-by-zero — treated as unreadable, not a 100%+ ratio."""
+    v = tmux.assess_pty_pressure(100, 0)
+    assert v.state == "unavailable"
+
+
+def test_pty_pressure_detail_contains_raw_counts():
+    v = tmux.assess_pty_pressure(100, 511)
+    assert "100" in v.detail
+    assert "511" in v.detail
+
+
+def _tmux_pty_pressure_status_line(
+    monkeypatch, *, pty_count=100, ptmx_max=511, on_darwin=True, has_tmux_action=True
+):
+    """Render the `rig status` pty-pressure line for a one-action tmux plan (or a plan with no
+    tmux action at all, to prove silence). The counts are a kernel sysctl reading and a live
+    `/dev/ttys*` scan, not an on-disk fixture like the autosave health file, so the I/O seams
+    (`cli._live_pty_count`/`cli._ptmx_max`) and the platform gate (`riglib.drift._on_darwin`) are
+    mocked directly rather than faked via `tmp_path`."""
+    from riglib import cli
+    from riglib.plan import Action, InstallPlan
+
+    monkeypatch.setattr(cli, "_live_pty_count", lambda: pty_count)
+    monkeypatch.setattr(cli, "_ptmx_max", lambda: ptmx_max)
+    monkeypatch.setattr("riglib.drift._on_darwin", lambda: on_darwin)
+    actions = []
+    if has_tmux_action:
+        actions.append(
+            Action(kind="provision_tmux", category="tmux", item="config",
+                   source=Path("/x"), target=Path("/x/.tmux.conf"), options={})
+        )
+    plan = InstallPlan(actions=actions)
+    captured: list[str] = []
+    monkeypatch.setattr("builtins.print", lambda *a, **k: captured.append(" ".join(str(x) for x in a)))
+    cli._print_tmux_pty_pressure_status(plan)
+    return "\n".join(captured)
+
+
+def test_status_pty_pressure_line_ok(monkeypatch):
+    line = _tmux_pty_pressure_status_line(monkeypatch, pty_count=40, ptmx_max=511)
+    assert "tmux pty pressure" in line and "40/511" in line
+    assert "HIGH" not in line
+
+
+def test_status_pty_pressure_line_high(monkeypatch):
+    line = _tmux_pty_pressure_status_line(monkeypatch, pty_count=400, ptmx_max=511)
+    assert "HIGH" in line
+
+
+def test_status_pty_pressure_silent_when_unavailable(monkeypatch):
+    """An unreadable count (e.g. non-darwin or a failed sysctl call) prints nothing — no noise
+    for a machine/repo where the reading can't be trusted."""
+    line = _tmux_pty_pressure_status_line(monkeypatch, pty_count=None, ptmx_max=511)
+    assert line == ""
+
+
+def test_status_pty_pressure_silent_when_no_tmux_action(monkeypatch):
+    line = _tmux_pty_pressure_status_line(monkeypatch, has_tmux_action=False)
+    assert line == ""
+
+
+def test_status_pty_pressure_silent_off_darwin(monkeypatch):
+    line = _tmux_pty_pressure_status_line(monkeypatch, on_darwin=False)
+    assert line == ""
 
 
 def _tmux_autosave_status_line(monkeypatch, tmp_path, *, autosave=None, health=None, age_min=0, installed=True):
@@ -2493,6 +2755,50 @@ def test_plan_to_render_round_trip_carries_focus_events_disabled(fake_agent_tool
     conf = tmux_plan_from_action(a).render_rig_conf()
     assert "set -g focus-events off" in conf
     assert "set -g focus-events on" not in conf
+
+
+def test_plan_carries_clipboard_block(fake_agent_tools, tmp_path):
+    plan = _build(
+        {"tmux": {"enabled": True, "clipboard": {"command": "my-clip"}}}, tmp_path, fake_agent_tools
+    )
+    a = [a for a in plan.actions if a.kind == "provision_tmux"][0]
+    assert a.options["clipboard"] == {"command": "my-clip"}
+
+
+def test_plan_defaults_clipboard_to_empty_dict_when_absent(fake_agent_tools, tmp_path):
+    plan = _build({"tmux": {"enabled": True}}, tmp_path, fake_agent_tools)
+    a = [a for a in plan.actions if a.kind == "provision_tmux"][0]
+    assert a.options["clipboard"] == {}
+
+
+def test_plan_to_render_round_trip_carries_clipboard_disabled(fake_agent_tools, tmp_path, monkeypatch):
+    """rig.yaml -> plan action -> runner's tmux_plan_from_action -> render, end to end — the same
+    FULL pass-through chain the focus-events round-trip test above exercises, for `clipboard`."""
+    from riglib.actions.runner import tmux_plan_from_action
+
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    plan = _build(
+        {"tmux": {"enabled": True, "clipboard": {"enabled": False}}}, tmp_path, fake_agent_tools
+    )
+    a = next(act for act in plan.actions if act.kind == "provision_tmux")
+    conf = tmux_plan_from_action(a).render_rig_conf()
+    assert "copy-pipe-and-cancel" not in conf
+
+
+def test_plan_to_render_round_trip_carries_clipboard_command_override(
+    fake_agent_tools, tmp_path, monkeypatch
+):
+    from riglib.actions.runner import tmux_plan_from_action
+
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: None)
+    plan = _build(
+        {"tmux": {"enabled": True, "clipboard": {"command": "my-clip"}}}, tmp_path, fake_agent_tools
+    )
+    a = next(act for act in plan.actions if act.kind == "provision_tmux")
+    conf = tmux_plan_from_action(a).render_rig_conf()
+    assert 'copy-pipe-and-cancel "my-clip"' in conf
 
 
 def test_plan_disables_autosave_off_darwin(fake_agent_tools, tmp_path, monkeypatch):

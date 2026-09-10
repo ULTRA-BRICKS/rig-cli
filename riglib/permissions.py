@@ -245,6 +245,11 @@ class GuardRule:
     flags: tuple[str, ...] = ()
     value_prefixes: tuple[str, ...] = ()
     flags_with_value: tuple[str, ...] = ()  # subset of `flags` that ALSO matches `flag=value`
+    # "bash" (default): tokens/flags match the bash-tool's argv, same as every existing rule.
+    # ("eval",): the rule is a `code_pattern` match against the eval-tool's cell SOURCE TEXT
+    # instead of bash argv — a wholly different tool_call surface (see omp_guard.py's
+    # tool_call handler). No rule may be scoped to anything else.
+    scope: tuple[str, ...] = ("bash",)
 
     def __post_init__(self) -> None:
         # shape invariants — the generated TS matcher assumes them, and a silent mis-match
@@ -274,8 +279,22 @@ class GuardRule:
                     f"guard rule {self.id!r}: flag_value_prefix needs 1 token + flags + "
                     "value_prefixes (no flags_with_value — that's a subcommand_flags concept)"
                 )
+        elif self.matcher == "code_pattern":
+            if len(self.tokens) != 1 or self.flags or self.value_prefixes or self.flags_with_value:
+                raise ValueError(
+                    f"guard rule {self.id!r}: code_pattern needs exactly one token (the needle) "
+                    "and nothing else"
+                )
         else:
             raise ValueError(f"guard rule {self.id!r}: unknown matcher {self.matcher!r}")
+        if self.matcher == "code_pattern":
+            if self.scope != ("eval",):
+                raise ValueError(
+                    f"guard rule {self.id!r}: code_pattern rules must scope to ('eval',) — "
+                    "they match source text, not bash argv"
+                )
+        elif self.scope != ("bash",):
+            raise ValueError(f"guard rule {self.id!r}: only code_pattern rules may scope outside ('bash',)")
 
 
 OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
@@ -316,6 +335,23 @@ OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
     # raw `git worktree add` is banned — worktrees go through `rig worktree create`
     GuardRule("git-worktree-add", "raw git worktree add is banned — use `rig worktree create`",
               "argv_prefix", ("git", "worktree", "add")),
+    # the eval tool's `computer` prelude runs on a Bun child process with full child_process
+    # access — an agent hitting the sandboxed bash/read tools' "Operation not permitted" on a
+    # TCC-protected folder (Downloads/Documents/Photos) can route around it by spawning
+    # `osascript` from INSIDE eval code (`require("child_process").execSync("osascript …")`,
+    # `Bun.spawn(["osascript", …])`), driving Finder/System Events directly — the same class of
+    # unapprovable TCC "control Finder" prompt as the bash-level osascript rule, just reached
+    # through the eval tool's fast-path instead (the guard's tool_call handler only inspected
+    # the "bash" tool's argv before this rule, so a bash-level deny alone never saw it — traced
+    # live to a conloca-landing session spawning osascript from inside `computer.run` to read
+    # ~/Downloads/figma-exports). No legitimate eval cell in this ecosystem needs to shell out
+    # to osascript — UI automation goes through the `computer` helpers (window/ax/press, AX
+    # tree + native input), never raw AppleScript.
+    GuardRule("eval-osascript-spawn",
+              "raw AppleScript automation from eval bypasses the sandbox and repeatedly "
+              "triggers unapprovable TCC prompts — use the `computer` helpers "
+              "(window/ax/press), not a spawned osascript",
+              "code_pattern", ("osascript",), scope=("eval",)),
 )
 
 # ask = sometimes-legit: confirm with the operator when a UI exists; BLOCK headless (a prompt

@@ -2271,7 +2271,20 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
     notification, so the subagent must use Bash ``run_in_background`` for one ordinary
     command or a foreground heartbeat loop for anything else), and ``EnterWorktree`` for
     switching into a worktree (the agent-tools
-    ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created).
+    ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created), and
+    ``Workflow`` for a dynamic multi-agent script (ultracode). rig does NOT provision a bare
+    ``Workflow`` permissions.allow entry itself (that stays an operator/config-layer choice,
+    same as any other allow rule) — but WHEN an operator allow-lists it so ultracode is never
+    prompted on spawn, that allow must not be a blanket pass for the script's contents: this
+    matcher is what makes the agent-tools ``workflow-danger-gate`` (the ``pre-workflow`` point)
+    actually run, denying a script whose executable JS contains a raw ``gh pr merge``,
+    ``git reset --hard``, a force-push, ``sudo rm``, ``--no-verify``, ``git clean -f``, or
+    ``screencapture`` while leaving comments and ultracode's own ``agent(...)`` dispatch
+    untouched. Without this row registered, ``point_for_event`` maps Workflow to
+    ``pre-workflow`` in agent-tools but Claude Code never calls the bridge for it, so the gate
+    never fires regardless of the permissions.allow state — the same "mapped but not wired" gap
+    ``pre-skill``/``pre-worktree-enter`` were in before their matcher was added (see the
+    safety-property paragraph below).
     Codex uses the hook matchers exposed by its TOML contract here: ``Bash`` and
     ``apply_patch`` (no ``pre-agent``/``pre-skill``/``pre-monitor``/``pre-worktree-enter``
     mapping yet — same gap, tracked upstream in agent-tools; Codex has no Monitor-equivalent
@@ -2340,6 +2353,7 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
             ("Skill", cmd("PreToolUse")),
             ("Monitor", cmd("PreToolUse")),
             ("EnterWorktree", cmd("PreToolUse")),
+            ("Workflow", cmd("PreToolUse")),
         ],
         "PostToolUse": [
             ("Edit|Write|MultiEdit|NotebookEdit", cmd("PostToolUse")),
@@ -4083,6 +4097,7 @@ def tmux_plan_from_action(action: Action):
         autosave=dict(opts.get("autosave", {}) or {}),
         pane_titles=dict(opts.get("pane_titles", {}) or {}),
         focus_events=dict(opts.get("focus_events", {}) or {}),
+        clipboard=dict(opts.get("clipboard", {}) or {}),
     )
 
 
@@ -4139,6 +4154,19 @@ def _do_provision_tmux(action: Action, on_conflict: str) -> ActionResult:
     # conflict-skipped managed scripts (left as the user's under on_conflict=skip) — surfaced in
     # the result detail but NOT counted as a change (nothing was written): unresolved drift.
     skipped_conflicts: list[str] = []
+
+    # tmux.clipboard is on but no clipboard command could be resolved on this platform (no
+    # pbcopy/wl-copy/xclip/xsel on PATH, and no explicit override) — render_rig_conf already
+    # emits NO clipboard bindings in that case (never a binding that shells out to a missing
+    # command). Recorded into `skipped_conflicts` (not `details`) so it stays VISIBLE even on a
+    # fully-idempotent "already current" re-apply — `details` is discarded on that path below,
+    # but `skipped_conflicts` is folded into the message either way (this is the established
+    # "surface every apply, changed or not" slot, same as an unresolved conflict-skip).
+    if plan.clipboard_enabled and not plan.clipboard_command:
+        skipped_conflicts.append(
+            "clipboard: no clipboard command found on this platform (install pbcopy/wl-copy/"
+            "xclip/xsel, or set tmux.clipboard.command) — copy-mode clipboard bindings skipped"
+        )
 
     # 1) the generated rig.tmux.conf (wholesale, idempotent on identical bytes).
     # `rig_conf_conflicted` records a DIFFERING generated config left untouched under skip: it may
