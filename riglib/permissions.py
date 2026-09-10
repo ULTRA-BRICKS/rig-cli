@@ -361,6 +361,54 @@ OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
               "triggers unapprovable TCC prompts — use the `computer` helpers "
               "(window/ax/press), not a spawned osascript",
               "code_pattern", ("osascript",), scope=("eval",)),
+    # `automator` (/usr/bin/automator) runs a .workflow document from the command line — the
+    # SAME AppleEvent/Automation TCC surface as osascript, just a different front door (Alex's
+    # follow-up on rig-cli#488: "why only osascript, aren't there other paths into TCC?"). A
+    # workflow can drive System Events/Finder/other apps exactly like an AppleScript can, and
+    # `execSync("automator x.workflow")` / `Bun.spawn(["automator", …])` from eval bypasses the
+    # sandbox the same way the pre-#488 osascript gap did. No legitimate eval cell in this
+    # ecosystem needs to shell out to automator — UI automation goes through the `computer`
+    # helpers, and app-specific control uses that app's own CLI/IPC.
+    GuardRule("eval-automator-spawn",
+              "Automator workflow automation from eval bypasses the sandbox and repeatedly "
+              "triggers unapprovable TCC prompts — use the `computer` helpers "
+              "(window/ax/press), not a spawned automator",
+              "code_pattern", ("automator",), scope=("eval",)),
+    # `screencapture` already has a bash-level argv_prefix deny (this file, "screencapture") —
+    # but that rule only inspects the "bash" tool's argv, the same gap eval-osascript-spawn
+    # closed for osascript. `execSync("screencapture …")` / `Bun.spawn(["screencapture", …])`
+    # from eval reaches the Bun child process directly and trips the same unapprovable Screen
+    # Recording TCC prompt the bash-level rule exists to prevent — the eval fast-path was never
+    # covered. Screenshots go through Playwright/CDP, not a spawned screencapture.
+    GuardRule("eval-screencapture-spawn",
+              "screenshots from eval bypass the sandbox and repeatedly trigger unapprovable "
+              "Screen Recording TCC prompts — use Playwright/CDP or the `computer` helpers, "
+              "not a spawned screencapture",
+              "code_pattern", ("screencapture",), scope=("eval",)),
+    # direct shell reads of the Contacts (AddressBook) data directory — a SQLite store gated by
+    # its own TCC "Contacts" permission, the same protected-user-data class as the
+    # Downloads-folder incident that motivated eval-osascript-spawn. A raw `fs.readFileSync`
+    # inside the eval Bun process already fails with "Operation not permitted" (no Full Disk
+    # Access grant on that process), but shelling out via `execSync('cp -r "~/Library/Application
+    # Support/AddressBook" …')` / `Bun.spawn(["cp", "-r", "~/Library/Application Support/AddressBook",
+    # …])` launders the read through whatever TCC grants the spawned binary itself holds. No
+    # legitimate eval cell needs to read this directory directly.
+    GuardRule("eval-addressbook-read",
+              "reading the Contacts (AddressBook) data directory from eval bypasses the "
+              "sandbox and accesses TCC-protected contact data directly — this data is not "
+              "available to the eval tool",
+              "code_pattern", ("~/Library/Application Support/AddressBook",), scope=("eval",)),
+    # same class as eval-addressbook-read, for the Calendars store (TCC "Calendars" permission).
+    GuardRule("eval-calendars-read",
+              "reading the Calendars data directory from eval bypasses the sandbox and "
+              "accesses TCC-protected calendar data directly — this data is not available to "
+              "the eval tool",
+              "code_pattern", ("~/Library/Calendars",), scope=("eval",)),
+    # same class as eval-addressbook-read, for the Photos library (TCC "Photos" permission).
+    GuardRule("eval-photos-library-read",
+              "reading the Photos library from eval bypasses the sandbox and accesses "
+              "TCC-protected photo data directly — this data is not available to the eval tool",
+              "code_pattern", ("~/Pictures/Photos Library.photoslibrary",), scope=("eval",)),
 )
 
 # ask = sometimes-legit: confirm with the operator when a UI exists; BLOCK headless (a prompt

@@ -78,6 +78,11 @@ def test_guard_registry_covers_the_baseline_intents():
     assert "osascript" in deny_ids
     assert "git-worktree-add" in deny_ids
     assert "eval-osascript-spawn" in deny_ids
+    assert "eval-automator-spawn" in deny_ids
+    assert "eval-screencapture-spawn" in deny_ids
+    assert "eval-addressbook-read" in deny_ids
+    assert "eval-calendars-read" in deny_ids
+    assert "eval-photos-library-read" in deny_ids
     # the ask baseline
     assert "pkill" in ask_ids
     assert "killall" in ask_ids
@@ -757,6 +762,20 @@ const cases: Case[] = [
   ["eval bare mention in comment ok (no quoted invocation)", { toolName: "eval", input: { code: '// avoid osascript, use computer instead\nconst y = 1;' } }, noUI, "allow"],
   ["eval missing code field ok", { toolName: "eval", input: {} }, noUI, "allow"],
   ["eval osascript ask-confirm-no still blocks", { toolName: "eval", input: { code: 'execSync("osascript -e x");' } }, uiNo, "eval-osascript-spawn"],
+  ["deny eval automator via execSync", { toolName: "eval", input: { code: 'execSync("automator my.workflow");' } }, noUI, "eval-automator-spawn"],
+  ["deny eval automator via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["automator", "my.workflow"]);' } }, noUI, "eval-automator-spawn"],
+  ["eval automator bare mention in comment ok", { toolName: "eval", input: { code: '// avoid automator, use computer instead\nconst y = 1;' } }, noUI, "allow"],
+  ["deny eval screencapture via execSync", { toolName: "eval", input: { code: 'execSync("screencapture /tmp/x.png");' } }, noUI, "eval-screencapture-spawn"],
+  ["deny eval screencapture via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["screencapture", "/tmp/x.png"]);' } }, noUI, "eval-screencapture-spawn"],
+  ["eval screencapture bare mention in comment ok", { toolName: "eval", input: { code: '// screenshots go through Playwright, never screencapture\nconst y = 1;' } }, noUI, "allow"],
+  ["deny eval addressbook dir read via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["cp", "-r", "~/Library/Application Support/AddressBook", "/tmp/exfil"]);' } }, noUI, "eval-addressbook-read"],
+  ["deny eval addressbook dir read via quoted execSync arg", { toolName: "eval", input: { code: 'execSync(\'cp -r "~/Library/Application Support/AddressBook" /tmp/exfil\');' } }, noUI, "eval-addressbook-read"],
+  ["eval unrelated Library path ok (different subpath)", { toolName: "eval", input: { code: 'const p = "~/Library/Preferences/foo.plist";' } }, noUI, "allow"],
+  ["deny eval calendars dir read via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["cp", "-r", "~/Library/Calendars", "/tmp/exfil"]);' } }, noUI, "eval-calendars-read"],
+  ["deny eval calendars dir read via quoted execSync arg", { toolName: "eval", input: { code: 'execSync(\'rsync -a "~/Library/Calendars" /tmp/exfil\');' } }, noUI, "eval-calendars-read"],
+  ["deny eval photos library read via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["cp", "-r", "~/Pictures/Photos Library.photoslibrary", "/tmp/exfil"]);' } }, noUI, "eval-photos-library-read"],
+  ["deny eval photos library read via quoted execSync arg", { toolName: "eval", input: { code: 'execSync(\'ditto "~/Pictures/Photos Library.photoslibrary" /tmp/exfil\');' } }, noUI, "eval-photos-library-read"],
+  ["eval computer helpers still ok alongside new rules", { toolName: "eval", input: { code: 'const win = await computer.window({app:"Photos"}); await win.ax();' } }, noUI, "allow"],
 ];
 let failures = 0;
 for (const [name, event, ctx, expect] of cases) {
@@ -1082,7 +1101,15 @@ def test_guard_rules_cover_the_same_intents_as_the_glob_belts():
     ask_intents = {"pkill": "pkill", "killall": "killall", "git-reset-hard": "--hard"}
     # belt intents are the shared subset; argv-precision EXTRAS the glob dialects cannot
     # express are listed explicitly (adding one still requires touching this map).
-    guard_extras = {"git-config-injection", "eval-osascript-spawn"}
+    guard_extras = {
+        "git-config-injection",
+        "eval-osascript-spawn",
+        "eval-automator-spawn",
+        "eval-screencapture-spawn",
+        "eval-addressbook-read",
+        "eval-calendars-read",
+        "eval-photos-library-read",
+    }
     assert {r.id for r in OMP_GUARD_DENY_RULES} == set(deny_intents) | guard_extras
     assert {r.id for r in OMP_GUARD_ASK_RULES} == set(ask_intents)
     for marker in (*deny_intents.values(), *ask_intents.values()):
