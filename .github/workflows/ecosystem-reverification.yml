@@ -1,0 +1,92 @@
+name: Ecosystem reverification at audited revisions
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/ecosystem-reverification.yml]
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - {repo: rig-cli, sha: 97023cfd0c1ec4c8ba5c9e6a7666e26391ecc6ad}
+          - {repo: agent-tools, sha: 5bd4dca121baf3034f9800c70c58fae2f53c3f82}
+          - {repo: review-cli, sha: c3779b4a2592961f4dcc2d9a98da65ef0e954442}
+          - {repo: task-cli, sha: c663520e6335b90e16d0f16fc9df4efafc3db89a}
+          - {repo: tg-cli, sha: b640b65e7b30321ec8c14259896212f1fe78626f}
+          - {repo: qa-cli, sha: d92752a9d70fe7217c95f89d39fd8cfaf2a66b52}
+          - {repo: draw-cli, sha: 23a5caa17745be426bce1288bbef9a8ba4c90272}
+          - {repo: stt-cli, sha: e3573bf2fcb0d3ab1650c44a3614dd69d1927f78}
+          - {repo: research-cli, sha: b72836d235b104690b1f98376a6156363f50d85b}
+          - {repo: dev-cli, sha: b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0}
+          - {repo: pm-cli, sha: 386cefe05a7880b3080c2cba5b8a335f43e2838f}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: alex-mextner/${{ matrix.repo }}
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Prepare test-only dependencies without account credentials
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/audit-venv"
+          "$RUNNER_TEMP/audit-venv/bin/pip" install 'pytest>=8,<9' pyyaml pillow rich 'textual>=0.66' pytest-asyncio uv build
+          if test -f pyproject.toml; then "$RUNNER_TEMP/audit-venv/bin/pip" install -e .; fi
+          if test -f package.json; then bun install --ignore-scripts; fi
+      - name: Run complete declared tests and preserve real exit codes
+        env:
+          AUDIT_REPO: ${{ matrix.repo }}
+          AUDIT_SHA: ${{ matrix.sha }}
+        run: |
+          python3 - <<'PY'
+          import datetime,json,os,pathlib,signal,subprocess,time
+          out=pathlib.Path('audit-results');out.mkdir()
+          env=dict(os.environ)
+          for key in list(env):
+              if key.endswith(('TOKEN','API_KEY','SECRET')) or key.startswith(('RIG_HATCH_REQUEST_','SHIP_','REVIEW_TASK_','CLAUDE_','OPENAI_','ANTHROPIC_','TELEGRAM_')):
+                  env.pop(key,None)
+          home=pathlib.Path(os.environ['RUNNER_TEMP'])/'audit-home';home.mkdir()
+          env.update(HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),PYTHONNOUSERSITE='1',GIT_CONFIG_GLOBAL=str(home/'.gitconfig'),GIT_CONFIG_NOSYSTEM='1',CI='1')
+          env['PATH']=os.environ['RUNNER_TEMP']+'/audit-venv/bin:'+env['PATH']
+          python=os.environ['RUNNER_TEMP']+'/audit-venv/bin/python'
+          subprocess.run(['git','config','--global','user.name','Isolated test runner'],env=env,check=True)
+          subprocess.run(['git','config','--global','user.email','audit@example.invalid'],env=env,check=True)
+          commands=[['bun','test','./tests']] if os.environ['AUDIT_REPO']=='tg-cli' else [[python,'-m','pytest','-q','--junitxml='+str((out/'pytest.xml').resolve())]]
+          if os.environ['AUDIT_REPO']=='review-cli':commands.append([python,'tests/smoke.py'])
+          if os.environ['AUDIT_REPO'] in ('rig-cli','task-cli'):commands.append(['bash','tests/smoke.sh'])
+          summary={'repository':os.environ['AUDIT_REPO'],'source_sha':os.environ['AUDIT_SHA'],'platform':'ubuntu-latest / Python 3.12','started_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'live_credentials':False,'live_machine_acceptance':False,'commands':[]}
+          for index,cmd in enumerate(commands):
+              start=time.monotonic();log=out/f'command-{index+1}.log'
+              with log.open('wb') as stream:
+                  proc=subprocess.Popen(cmd,env=env,stdout=stream,stderr=subprocess.STDOUT,start_new_session=True)
+                  try:code=proc.wait(timeout=1200)
+                  except subprocess.TimeoutExpired:
+                      os.killpg(proc.pid,signal.SIGTERM)
+                      try:proc.wait(timeout=10)
+                      except subprocess.TimeoutExpired:os.killpg(proc.pid,signal.SIGKILL);proc.wait()
+                      code=124
+              record={'argv':cmd,'exit_code':code,'seconds':round(time.monotonic()-start,2),'log':log.name}
+              summary['commands'].append(record);print(json.dumps(record),flush=True)
+              print('\n'.join(log.read_text(errors='replace').splitlines()[-35:]),flush=True)
+          summary['passed']=all(r['exit_code']==0 for r in summary['commands'])
+          (out/'summary.json').write_text(json.dumps(summary,indent=2))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write('## '+summary['repository']+'\n\n```json\n'+json.dumps(summary,indent=2)+'\n```\n')
+          raise SystemExit(0 if summary['passed'] else 1)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: reverification-${{ matrix.repo }}
+          path: audit-results/
+          retention-days: 30
