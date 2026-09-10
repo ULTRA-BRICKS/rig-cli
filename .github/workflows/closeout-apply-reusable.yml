@@ -1,0 +1,70 @@
+name: Apply current reviewed closeout plan
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        required: true
+        type: string
+permissions:
+  contents: write
+  issues: write
+concurrency:
+  group: closeout-apply-${{ github.repository_id }}
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Validate immutable reviewed source
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          python3 - <<'PY'
+          import os,re
+          assert re.fullmatch('[0-9a-f]{40}',os.environ['SOURCE_REF'])
+          PY
+      - name: Checkout caller for its own receipt
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: caller
+      - name: Checkout immutable reviewed code and plan
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ultrabricks/rig-cli
+          ref: ${{ inputs.source_ref }}
+          path: reviewed
+          persist-credentials: false
+      - name: Apply body-only changes with preservation and independent read-back
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          python3 reviewed/tools/grooming/closeout_apply.py \
+            --source-root "$GITHUB_WORKSPACE/reviewed" \
+            --source-ref "$SOURCE_REF" \
+            --journal "$GITHUB_WORKSPACE/closeout-applied/receipt.json" \
+            --apply
+      - name: Preserve exact result even after a partial run
+        if: always()
+        working-directory: caller
+        run: |
+          if test -f "$GITHUB_WORKSPACE/closeout-applied/receipt.json"; then
+            mkdir -p docs/grooming/closeout-2026-09-11
+            cp "$GITHUB_WORKSPACE/closeout-applied/receipt.json" docs/grooming/closeout-2026-09-11/applied.json
+            git config user.name 'Rig closeout audit'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add docs/grooming/closeout-2026-09-11/applied.json
+            if ! git diff --cached --quiet; then
+              git commit -m 'docs(grooming): record actually applied closeout edits and conflicts'
+              git pull --rebase origin docs/full-grooming-2026-09-10
+              git push origin HEAD:docs/full-grooming-2026-09-10
+            fi
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: closeout-applied-${{ github.repository_id }}
+          path: closeout-applied/receipt.json
+          if-no-files-found: warn
+          retention-days: 30
