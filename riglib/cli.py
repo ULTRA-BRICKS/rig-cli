@@ -31,6 +31,7 @@ import contextlib
 import json
 import math
 import shlex
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -2207,6 +2208,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     _print_schedule_status(effective_plan, report)
     _print_tg_ctl_status(effective_plan, report)
     _print_tmux_autosave_status(effective_plan)
+    _print_tmux_pty_pressure_status(effective_plan)
     _print_harness_mode_status(effective_plan, report)
     if env.is_git_repo:
         _print_stale_worktree_status(env.repo_root)
@@ -2684,6 +2686,69 @@ def _print_tmux_autosave_status(plan) -> None:
     else:
         raise AssertionError(f"unhandled autosave freshness state: {verdict.state!r}")
     print(f"\n  tmux autosave agent: {state}  " + _dim(f"('{tplan.autosave_label}')"))
+
+
+def _live_pty_count() -> int | None:
+    """Count currently allocated pty slave devices (`/dev/ttys*`) — each is one live zpty/forkpty
+    consumer against the machine-wide `kern.tty.ptmx_max` ceiling (NOT per-process). None on any
+    read failure — pressure reporting stays silent rather than risk a false reading.
+    """
+    try:
+        return sum(1 for _ in Path("/dev").glob("ttys*"))
+    except OSError:
+        return None
+
+
+def _ptmx_max() -> int | None:
+    """Read macOS's system-wide pty ceiling via `sysctl kern.tty.ptmx_max`. None off darwin (the
+    sysctl doesn't exist there) or on any failure — pressure reporting stays silent, never a false
+    positive/negative from a misread.
+    """
+    try:
+        proc = subprocess.run(
+            ["sysctl", "-n", "kern.tty.ptmx_max"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        return int(proc.stdout.strip())
+    except ValueError:
+        return None
+
+
+def _print_tmux_pty_pressure_status(plan) -> None:
+    """Report pressure against macOS's system-wide pty ceiling (`kern.tty.ptmx_max`) — an
+    OUTSIDE-of-rig KERNEL limit, not a launchd resource limit rig's plists control, but one rig's
+    own anti-sprawl + continuum-restore + boot design (panes that never die across reboots) makes
+    a long-lived tmux server more likely to climb toward than a bare Terminal.app tab.
+
+    Advisory only — like the autosave freshness line, this does NOT affect the status exit code —
+    and stays silent off darwin / when tmux isn't managed / when the read fails, so it never nags
+    a repo or OS where it doesn't apply.
+    """
+    from riglib.drift import _on_darwin
+    from riglib.tmux import assess_pty_pressure
+
+    if not _on_darwin():
+        return
+    tmux_actions = [a for a in plan.actions if a.kind == "provision_tmux"]
+    if not tmux_actions:
+        return
+    verdict = assess_pty_pressure(_live_pty_count(), _ptmx_max())
+    if verdict.state == "unavailable":
+        return  # nothing actionable to report
+    elif verdict.state == "high":
+        state = _warn(f"HIGH ({verdict.detail})")
+    elif verdict.state == "ok":
+        state = _ok(verdict.detail)
+    else:
+        raise AssertionError(f"unhandled pty pressure state: {verdict.state!r}")
+    print(f"\n  tmux pty pressure: {state}")
 
 
 def _print_dep_statuses(report) -> None:
