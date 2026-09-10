@@ -2929,14 +2929,21 @@ def _validate_tcc_watch(t: dict[str, Any]) -> None:
 
 
 def _validate_task(t: dict[str, Any]) -> None:
-    """Validate the ``task`` block — task-cli's per-repo ticket-tracker routing.
+    """Validate the ``task`` block — task-cli's per-repo ticket-tracker routing, PLUS the
+    unrelated ``code_prefix`` leaf folded into the same top-level block (rig-cli#217).
 
-    task-cli reads this block DIRECTLY (``tasklib.config.rig_task_overlay``) at runtime — rig
-    itself never materializes anything from it (no file gets written; unlike most other blocks,
-    there is no `rig apply` step for `task`). This validator exists so a typo fails FAST, at `rig
-    status`/`rig apply` time, with rig's own schema-pointer error format, rather than only
-    surfacing later as task-cli's own (differently-formatted) `ConfigError` the next time
-    someone happens to run a `task` command in the repo.
+    task-cli reads the routing keys DIRECTLY (``tasklib.config.rig_task_overlay``) at runtime —
+    rig itself never materializes anything from them (no file gets written for those; unlike
+    most other blocks, there is no `rig apply` step for them). This validator exists so a typo
+    fails FAST, at `rig status`/`rig apply` time, with rig's own schema-pointer error format,
+    rather than only surfacing later as task-cli's own (differently-formatted) `ConfigError` the
+    next time someone happens to run a `task` command in the repo. ``code_prefix`` is different:
+    `rig apply` DOES materialize it, into `.ship-config`'s `SHIP_TASK_CODE_PREFIX` line (see
+    `plan.py`'s `_build_ship_task_prefix`). Its own value/character-class contract is re-checked
+    there at plan-build time rather than here, matching every other leaf whose full contract
+    also lives at plan-build time (see the `config_schema.py:870` comment on why `validate()`
+    checks structure, not every leaf's declared type) — so this function only needs to accept it
+    as a known key via `_reject_unknown_keys` below, not type-check it itself.
 
     Deliberately shallow on ``projects``/``enforce``/``classify``/``session``: those are
     task-cli's own nested shapes (with their own defaults/validation task-cli already applies)

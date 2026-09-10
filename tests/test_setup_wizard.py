@@ -34,7 +34,7 @@ def test_registry_covers_every_status_area():
         "stack",
         "skills", "agent_hooks", "git_hooks", "ci", "mcp", "harness", "permissions",
         "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "bun", "tg_ctl",
-        "tcc_watch", "linters", "project_tools", "ecosystem_readme",
+        "tcc_watch", "linters", "project_tools", "ecosystem_readme", "task",
     }
     assert cats == expected
 
@@ -356,7 +356,9 @@ def test_writable_layer_agrees_with_the_scaffold():
     # a bare default_state() (undetected repo) legitimately omits it → soft-require warning.
     # ecosystem_readme: opt-in (default OFF, like `tools:`) — a clean scaffold must never rewrite a
     # repo's README unprompted, so it is deliberately absent from default_state() until a user opts in.
-    _repo_unscaffolded_ok = {"agents_md", "linters", "permissions", "stack", "ecosystem_readme"}
+    # task: code_prefix has no sensible default (it is a repo-specific ticket-code prefix the
+    # operator must choose) — unset is the correct default, so there is nothing to scaffold.
+    _repo_unscaffolded_ok = {"agents_md", "linters", "permissions", "stack", "ecosystem_readme", "task"}
     for area in schema.AREAS:
         if schema.writable_layer_for_category(area.category) == schema.REPO:
             assert area.category in scaffolded or area.category in _repo_unscaffolded_ok, area.category
