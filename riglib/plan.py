@@ -1231,6 +1231,55 @@ def _build_harness_claude_code(config: LoadedConfig, plan: InstallPlan, h: dict[
 
 
 
+
+def _claude_settings_targets(config: LoadedConfig, kind: str, primary: Path) -> list[SettingsTarget]:
+    """The settings files a claude-code user-scope write must reach (primary + account dirs).
+
+    Every other harness kind (and any non-user-scope claude-code target) resolves to the
+    primary alone — the fan-out registry (:mod:`riglib.claude_config_dirs`) decides.
+    """
+    if kind != "claude-code":
+        return [SettingsTarget(primary, None)]
+    if not primary.suffix:
+        # the documented directory form (`settings_path: ~/.claude`) — the writers append the
+        # native filename at write time; resolve it HERE too, so the user-scope check sees the
+        # same file the writer converges instead of silently skipping the fan-out
+        primary = primary / SETTINGS_FILENAME
+    h = config.data.get("harness")
+    # explicit extra files go through the SAME resolver as settings_path (``$VAR`` + ``~`` +
+    # repo-root relative) — shared with `rig doctor`, so a relative entry never reaches a
+    # writer (or the doctor inventory) as a cwd-dependent path
+    harness = resolve_settings_paths(h if isinstance(h, dict) else {}, config.repo_root)
+    return fan_out_settings(primary, harness)
+
+def _resolved_permission_tools(p: dict) -> list[str]:
+    """The effective ``permissions`` tool list, folding ``allow_gh: false`` into ``disable``.
+
+    ``allow_gh`` is sugar over ``permissions.disable: [gh]`` (which already worked before ``gh``
+    joined the default set) — a single, discoverable opt-out for the one default addition that is
+    a raw git-hosting tool, without inventing a second delta mechanism alongside
+    ``tools``/``extra``/``disable``. Folds in :data:`riglib.permissions.DEFAULT_GIT_HOSTING_TOOLS`
+    (today just ``("gh",)``) rather than a hardcoded literal, so the two never drift; if that tuple
+    ever grows, ``allow_gh`` covers every member of it, not just ``gh`` — rename the flag if a
+    second member ever needs its OWN independent opt-out. Shared by both permissions call sites
+    (the allowlist builder and the codex execpolicy builder) so the two surfaces can never resolve
+    ``gh`` differently.
+    """
+    from .permissions import DEFAULT_GIT_HOSTING_TOOLS, resolve_tools
+
+    tools_cfg = p.get("tools")
+    disable = list(p.get("disable", []) or []) if isinstance(p.get("disable"), list) else []
+    if p.get("allow_gh") is False:
+        for tool in DEFAULT_GIT_HOSTING_TOOLS:
+            if tool not in disable:
+                disable.append(tool)
+    return resolve_tools(
+        list(tools_cfg) if isinstance(tools_cfg, list) else None,
+        list(p.get("extra", []) or []) if isinstance(p.get("extra"), list) else [],
+        disable,
+    )
+
+
 def _explicit_git_hosting_opt_out(p: dict) -> list[str]:
     """Git-hosting default tools (``gh``) the user EXPLICITLY, deliberately opted out of —
     ``allow_gh: false`` or naming the tool directly in ``permissions.disable`` — as opposed to a
