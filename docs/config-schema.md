@@ -578,6 +578,9 @@ harness:
   hook_bridge:                 # wire the agents-hooks/v1 → harness dispatcher (default ON)
     enabled: true              # set false to skip wiring the dispatcher into harness config
     # python: python3          # optional: the interpreter the dispatcher runs under
+  web_search:                  # omp providers.webSearchExclude (default ON when omp is configured)
+    enabled: true              # set false to skip writing the exclude list
+    # exclude: [perplexity]    # default; [] opts out. Additive — extras already on disk stay.
 ```
 
 | Key | Type | Default | Meaning |
@@ -593,6 +596,8 @@ harness:
 | `discover_config_dirs` | bool | `true` | auto-discover every `~/.claude-accounts/account-*/` directory (the `claude-rotate` multi-account launcher's per-account `CLAUDE_CONFIG_DIR`s) and treat each one's `settings.json` as a managed target alongside `~/.claude/settings.json` — same managed keys, same idempotent additive merge + backup-on-conflict, and `rig status` names WHICH file drifts (`harness/claude-code@account-2: …`). Claude Code reads ONLY `$CLAUDE_CONFIG_DIR/settings.json` when that variable is set, so without the fan-out no rig-provisioned hook runs in those sessions while status stays green (rig-cli#368). `rig doctor` lists every config dir a live `claude` could load (`~/.claude`, the shell's `CLAUDE_CONFIG_DIR`, every managed target) and exits 3 when one lacks the hook bridge `~/.claude/settings.json` carries — each gap names the fix that converges THAT dir (`rig apply commit` for a managed target; a `settings_paths` entry for an ad-hoc `CLAUDE_CONFIG_DIR`; re-enabling discovery for an opted-out account dir). Doctor reads these two keys leniently (a config broken elsewhere still yields them). Discovery never creates a directory; a `settings.json` missing inside an existing dir is created |
 | `hook_bridge.enabled` | bool | `true` | wire the harness bridge dispatcher so installed agent-hooks actually fire (`cc_hook_bridge` for Claude, `codex_hook_bridge` for Codex, `opencode_hook_bridge` for opencode, `omp_hook_bridge` for omp) |
 | `hook_bridge.python` | str | `python3` | the Python interpreter the dispatcher command runs under. For `kind: omp` there is no shell command to inline it into — a custom value instead forces the wrapper module (see below) and sets `OMP_HOOK_BRIDGE_PYTHON`, which `extension.ts` reads before falling back to a bare `python3` |
+| `web_search.enabled` | bool | `true` | when omp is a configured harness kind, merge `providers.webSearchExclude` into `~/.omp/agent/config.yml` (or the `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` override). `false` skips the write |
+| `web_search.exclude` | list[str] | `[perplexity]` | provider ids omp `web_search` must never use, even as fallbacks. Additive merge — names already on disk stay. An explicit empty list is the opt-out. Default excludes Perplexity because its anonymous/cookie path returns a Sign-up wall without an account (rig-cli#447) |
 
 **What gets written, per harness kind.** The auto intent is a pinned `mode:` the PRIMARY kind
 knows (auto: claude-code `auto` / `bypassPermissions` / `dontAsk`, codex `auto_review`, opencode
@@ -676,8 +681,23 @@ agent-hooks are inert. So when a supported harness block is present (and `agent_
 enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
 
 - `kind: claude-code` writes `cc_hook_bridge` into `settings.json`: `PreToolUse` matchers
-  `Bash`, `Edit|Write|MultiEdit|NotebookEdit`, `Agent|Task`, `Skill`, and `Monitor`;
-  `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`; and `Stop`.
+  `Bash`, `Edit|Write|MultiEdit|NotebookEdit`, `Agent|Task`, `Skill`, `Monitor`, and
+  `EnterWorktree`; `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`; and `Stop`.
+  The `Monitor` matcher is the rig half of the **subagent Monitor ban**
+  ([rig-cli#463](https://github.com/alex-mextner/rig-cli/issues/463)): Claude Code only
+  fires `PreToolUse` for tools with an explicit matcher, so without this entry the
+  agent-tools `subagent-no-monitor` hook never runs. A dispatched subagent must not
+  call Monitor. Monitor is a fire-and-forget background watch — you start it and get
+  notified per event later — and a subagent is **not** re-invoked by that notification
+  (only the **main loop** is), so calling Monitor and ending the turn wedges the
+  subagent forever with uncommitted work and no PR. The orchestrator's own Monitor
+  use (watching a backgrounded child) is unaffected. Replacements a blocked subagent
+  should use instead: (1) waiting on a single ordinary command it just started — set
+  Bash `run_in_background: true`; the harness auto-resumes the subagent when that
+  command exits, no Monitor needed; (2) waiting on anything else (a labeled long
+  process, a condition, several things at once) — block in the **foreground** with a
+  **heartbeat** loop that echoes at least every ~20s and keeps each Bash call under
+  ~540s. Never Monitor from a subagent.
 - `kind: codex` writes `codex_hook_bridge` into `~/.codex/config.toml` (or
   `$RIG_CODEX_HOME/config.toml`, or `settings_path`) as a managed `[hooks]` TOML block:
   `PreToolUse` matchers `Bash` and `apply_patch`, `PostToolUse` matcher `apply_patch`, and
@@ -705,7 +725,10 @@ enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
   `tool_call` (pre-execution) for `bash`/`edit`/`write`/`apply_patch`/`notebook`/`task`, and
   `tool_result` (post-execution, log-only) for the write tools — shelling into the Python
   dispatcher exactly like the opencode plugin does. A custom omp `settings_path` must end in
-  `.ts`.
+  `.ts`. The same apply also merges `task.agentIdleTtlMs: 0` into `~/.omp/agent/config.yml`
+  (additive; never clobbers a user-set positive TTL) so yielded helpers stay on the live
+  roster instead of parking off it after the product default of 420000 ms
+  ([rig-cli#445](https://github.com/alex-mextner/rig-cli/issues/445)).
 
 Claude and Codex bridge commands run `PYTHONPATH=<agent-tools>/lib python3 -m <bridge_module>
 <Event>` from the harness config; opencode and omp load their respective JS/TS module, which
@@ -729,16 +752,17 @@ block inert: `[features] hooks = false`, top-level `features.hooks = false`, and
 top-level `codex_hooks = false` are reported as drift and rewritten to `true` when `hook_bridge`
 is enabled.
 
-Codex `pre-agent`, `pre-skill`, and `pre-monitor` are not wired yet: rig may install
-`pre-agent`/`pre-skill`/`pre-monitor` descriptors into `~/.codex/hooks` (or
-`$RIG_CODEX_HOME/hooks`) alongside the rest of the selected catalog, but the Codex bridge
-currently dispatches only `pre-bash`, `pre-write`, `post-write`, and `stop` via the confirmed
-Codex hook events above — Codex has no `Skill`-equivalent tool dispatch mapped, and no
-`Monitor`-equivalent tool at all. opencode has `task` tool dispatch for `pre-agent` but no
-`Skill`- or `Monitor`-equivalent dispatch, and no stop-equivalent blocking hook is documented,
-so the opencode bridge does not dispatch `stop`; use Claude Code for workflows that require
-`pre-skill`, `pre-monitor`, or stop-time enforcement until opencode/Codex expose the matching
-contracts.
+Codex `pre-agent`, `pre-skill`, `pre-monitor`, and `pre-worktree-enter` are not wired yet: rig
+may install `pre-agent`/`pre-skill`/`pre-monitor`/`pre-worktree-enter` descriptors into
+`~/.codex/hooks` (or `$RIG_CODEX_HOME/hooks`) alongside the rest of the selected catalog, but
+the Codex bridge currently dispatches only `pre-bash`, `pre-write`, `post-write`, and `stop` via
+the confirmed Codex hook events above — Codex has no `Skill`-, `Monitor`-, or
+`EnterWorktree`-equivalent tool dispatch mapped either. opencode has `task` tool dispatch for
+`pre-agent` but no `Skill`-, `Monitor`-, or `EnterWorktree`-equivalent dispatch (`pre-skill`,
+`pre-monitor`, `pre-worktree-enter`), and no stop-equivalent blocking hook is documented, so the
+opencode bridge does not dispatch `stop`; use Claude Code for workflows that require
+`pre-skill`, `pre-monitor`, `pre-worktree-enter`, or stop-time enforcement until opencode/Codex
+expose the matching contracts.
 The managed TOML block has this shape, with full commands including the resolved
 `PYTHONPATH=<agent-tools>/lib`:
 
@@ -863,7 +887,13 @@ positive with no security value). UNLIKE `--no-verify`, this belt has no `block-
 argv-level hook backstopping it yet, so it stops accidental use, not a deliberate bypass —
 `rg '--pre' cmd` (quoted) or `rg --pre<TAB>cmd` (tab, not space) match none of these five
 patterns (a literal SPACE is required); a claude-code argv hook is a tracked follow-up, not yet
-built). Ask (prompt, don't block): `Bash(pkill:*)`,
+built). `Bash(git worktree add:*)` (raw worktree creation goes through `rig worktree create`;
+the child `git worktree add` inside `rig` is not a gated tool call; prefix-only — `git -C`
+/`--git-dir` forms do not match, and a mid-pattern would false-positive a commit message
+that mentions "worktree add"), and `EnterWorktree`
+(whole-tool deny on purpose: the tool can CREATE a worktree at a model-supplied path, which
+is the location-bypass `rig worktree create` exists to close — CC-only, no equivalent on
+opencode/codex/omp). Ask (prompt, don't block): `Bash(pkill:*)`,
 `Bash(killall:*)`, `Bash(git reset --hard:*)` + `Bash(git reset * --hard *)` +
 `Bash(git reset * --hard)`. The full annotated list lives in `riglib/permissions.py`.
 
@@ -871,7 +901,7 @@ built). Ask (prompt, don't block): `Bash(pkill:*)`,
 the `permission.bash` object (values `"deny"`/`"ask"`), hand-written in opencode's glob dialect
 (`*` = zero-or-more chars, `?` = one char, **last matching key wins**). Deny: `"gh pr merge*"`,
 `"git push*--force*"`, `"git push -f*"`, `"git commit --no-verify*"`, `"sudo rm*"`,
-`"screencapture*"`, `"rg*--pre *"` + `"rg*--pre=*"` + `"rg*--pre"` (value-shaped / end-anchored,
+`"screencapture*"`, `"git worktree add*"`, `"rg*--pre *"` + `"rg*--pre=*"` + `"rg*--pre"` (value-shaped / end-anchored,
 so they don't also deny the legitimate `--pretty` flag — a single substring-only `"rg*--pre*"`
 entry was rejected for exactly that regression). Ask: `"pkill*"`, `"killall*"`, `"git reset*--hard*"`.
 rig emits these AFTER
@@ -889,7 +919,7 @@ claude-shaped rule written as an opencode glob key would never match). The tool-
 marker-delimited managed block of Starlark `prefix_rule(...)` lines into
 `~/.codex/rules/rig-managed.rules` (codex auto-scans `~/.codex/rules/*.rules` at startup — no
 `config.toml` reference needed). The resolved tool set becomes `decision="allow"` prefix rules; a
-MINIMAL coarse deny (`gh pr merge`, `sudo rm`, `screencapture`, and — rig-cli#187 — the flag-first
+MINIMAL coarse deny (`gh pr merge`, `git worktree add`, `sudo rm`, `screencapture`, and — rig-cli#187 — the flag-first
 2-token `rg --pre`) becomes `decision="forbidden"`. **Fidelity gap:** `prefix_rule` matches a
 leading-token prefix, so a coarse `["git","push"]` forbidden would over-block ALL pushes — the
 coarse deny is therefore kept to unambiguous full-command (or unambiguous flag-first) bans only;
@@ -1134,6 +1164,13 @@ names so every harness reads the same instructions: **`AGENTS.md`** is the real 
 (Codex/most agents read it) and **`CLAUDE.md`** is a relative symlink to it (Claude Code
 reads it). Default **ON** — on `rig init` AND `rig apply`, rig converges the repo to this
 invariant; idempotent (a re-apply that finds it already correct is a no-op).
+
+When enabled, apply also splices two marker-delimited blocks into the canonical
+guide: an orchestrator block (`# >>> rig-managed orchestrator`) and an
+autonomous-mode block (`# >>> rig-managed autonomous-mode`, naming
+`Skill: autonomous-mode`). User body outside the markers is untouched;
+re-apply is a no-op; opt-out is `agents_md.enabled: false`. Class:
+marker-managed (see [managed-files.md](managed-files.md)).
 
 ```yaml
 agents_md:
@@ -1403,8 +1440,11 @@ project_tools:
 **Haft.** rig writes `.haft/project.yaml`, `.haft/workflow.md`, parseable placeholder spec
 carriers under `.haft/specs/`, and empty tool-owned state directories via `.gitkeep` files. It
 does not scan or delete tool-owned data such as `.haft/evidence` contents. When `codex_mcp` is
-enabled, rig merges a managed Haft MCP section into `.codex/config.toml`; unrelated Codex config is
-preserved, and an existing unmarked `[mcp_servers.haft]` table is replaced by the managed block.
+enabled, rig merges a managed Haft MCP section into `.codex/config.toml` with `cwd` and
+`HAFT_PROJECT_ROOT` set to the absolute repo path (a relative `"."` makes `haft serve`
+return `tools: null`, which Codex rejects as "Unexpected response type"); unrelated Codex
+config is preserved, and an existing unmarked `[mcp_servers.haft]` table is replaced by the
+managed block.
 
 **Serena.** rig writes `.serena/project.yml` plus `.serena/.gitignore` for Serena-local cache and
 machine-local overrides. `languages` is optional; when omitted, rig infers common language ids from
@@ -1449,6 +1489,8 @@ github:
     # required_status_checks: omit to auto-default to the merge-gating CI gates this repo
     # provisions (PR Checklist + review-threads); set a list to pin, or [] to require none.
     admin_bypass: true            # add the repo Admin role to bypass_actors
+    # require_extra_approval_for_unattributed_changes: omit — see the mode-gated paragraph below.
+    # Only set it explicitly to override rig's mode-gated default in either direction.
 ```
 
 | Key | Type | Default | Meaning |
@@ -1465,6 +1507,43 @@ github:
 | `require_signatures` | bool | `false` | emit the `required_signatures` rule |
 | `required_status_checks` | list[str] | *auto* | contexts for the `required_status_checks` rule. **When omitted**, rig defaults it (ROADMAP §5) to the merge-gating CI gates this repo actually provisions — `PR Checklist` and `review-threads` — so a PR can't merge until those are green, but ONLY for gates that are enabled and written (requiring an absent check would wedge every PR). An explicit list (including `[]` for "require none") wins verbatim. **An empty result emits no rule** (never a no-op rule) |
 | `admin_bypass` | bool | `true` | add the repo Admin role (`actor_id: 5`, `RepositoryRole`, `always`) to `bypass_actors` |
+| `require_extra_approval_for_unattributed_changes` | bool | *mode-gated, see below* | `require_extra_approval_for_unattributed_changes` on the `pull_request` rule — GitHub's own rule requiring one extra approval on a PR opened under an unattributed app identity (documented example: Copilot). **Has no unconditional default** — unlike every other knob above, rig only injects a default when the repo's effective `mode.name` is `autonomous`. Set explicitly to override the mode-gated default in either direction |
+
+**`require_extra_approval_for_unattributed_changes` — mode-gated, autonomous machines only.**
+GitHub's own PR rule of this name requires ONE MORE approval than `required_reviews` on a PR
+GitHub classifies as opened under an app identity not attributed to a person — GitHub's own docs
+name the Copilot coding agent as the documented trigger: *"When Copilot opens a pull request that
+isn't attributed to a person, the ruleset requires one more approval than the number you
+configured"* (docs.github.com, available-rules-for-rulesets). This was found **ON** (`true`)
+blocking `gh ship`'s merge on agent-tools' `rig-managed` ruleset and hand-patched to `false` via a
+raw `gh api ... -X PUT` on 2026-09-07 as an emergency stopgap — this feature makes that fix durable
+and reconcilable. **The exact causal mechanism was not independently confirmed**: agent-tools'
+recent merges are all attributed to a human GitHub login (`alex-mextner`), not an app/bot identity,
+which the documented Copilot-specific trigger would not gate on, and the repo's rule-suites
+evaluation log for the last 30 days shows zero failed pushes — so it is unclear from the evidence
+gathered here exactly why the rule fired for `gh ship`. The observed block and the working
+hand-patch are the facts this feature is built on; the mechanism claim above is GitHub's own
+documented behavior, not a verified explanation of the specific incident. rig now reconciles the
+knob declaratively: it defaults it to `false` (never required)
+**only** for a repo whose effective `mode.name` is `autonomous` (the machine-wide `mode:` block —
+see the `mode` section above; it cascades from `~/.config/rig/config.yaml`, since `mode` is a
+GLOBAL-only category rejected from a committed per-repo `rig.yaml`). **This makes the gating
+per-machine, not per-repo**: on a machine with `mode.name: autonomous` set, every rig-managed repo
+`rig apply` touches gets this knob managed. A repo that is NOT in autonomous mode (or applied from
+a non-autonomous machine) gets no injected default: the knob is absent from both the outgoing
+desired body and the drift comparison — it is simply **unmanaged**. An unrelated ruleset knob
+change still PUTs the full `pull_request` rule (GitHub's update API replaces the whole parameters
+object), which would otherwise silently reset an unmanaged knob to GitHub's own platform default —
+so at apply time rig re-reads the live value it already fetched for drift classification and
+carries it, UNCHANGED, into the outgoing PUT (`github_ruleset.carry_over_unattributed_approval`).
+This is NOT full optimistic concurrency: there is a narrow window between that read and the PUT
+where a concurrent hand edit in the GitHub UI could still be overwritten by the carried-over
+snapshot — the same read-then-write class of risk this module already carries for every other
+field it reconciles, not one this knob introduces new. To opt a single repo back in — e.g. to keep
+formal human approval required even on an autonomous machine — set
+`github.ruleset.require_extra_approval_for_unattributed_changes` explicitly in that repo's own
+`rig.yaml`; an explicit value always wins over the mode-gated default, in either direction and
+regardless of mode.
 
 **The footgun guard — rig never emits the `update` rule.** A hand-made ruleset with the
 `update` ("Restrict updates") rule and **zero bypass actors** locks out *every* merge: each
@@ -1946,6 +2025,29 @@ Idempotent: a re-apply that finds both the generated file and the import line al
 a `skipped` no-op. `rig status` flags drift on the generated file's content and the import line's
 presence — never on any other line in `rc_path` (that file is otherwise entirely the user's own).
 
+### `rig env set|list|del`
+
+The dedicated surface for `env.vars` — a thin wrapper over `rig config set --global env.vars.<KEY>`,
+not a second YAML-edit path. Always global. Values are stored as **strings** (no `true`/`12`
+coercion: `COLORTERM=true` must remain the string `true`).
+
+**Plaintext.** `~/.config/rig/config.yaml` and the generated `rig.env.sh` (sourced by every zsh)
+hold the values in the clear. `rig env list` masks them (`***` + last 4 characters; four stars
+if shorter). `--show` (and `--json --show`) prints the full value. Prefer `rig env set KEY` with
+the value on stdin so it never lands in shell history:
+
+```bash
+pbpaste | rig env set BRAVE_API_KEY
+rig env list
+rig env del BRAVE_API_KEY
+```
+
+`set`/`del` write + reconcile by default (`--preview` is dry-run; `--no-apply` writes the YAML
+only). Reconciliation loads only the global layer, so a repo `rig.yaml` `env:` block cannot
+override the value just written. `del` of a missing key is fail-closed. Deleting the last var
+leaves `env.vars: {}`.
+
+
 ---
 
 ## `gitignore`
@@ -2065,19 +2167,52 @@ re-crawls (a forced reindex would be the opposite of the goal).
 
 **The re-sweep agent.** `rig apply` writes `~/Library/LaunchAgents/<label>.plist` and
 `launchctl load`s it. The plist runs `rig spotlight-sweep` (the same sweep, headless) at login and
-daily. `RIG_SPOTLIGHT_DRY_RUN=1` writes the plist but skips the live `launchctl load` (used by
+daily, pinned to the interpreter that ran `rig apply`: with a checkout install (`install.sh`
+symlinks `~/.local/bin/rig` → `<checkout>/bin/rig`) the argv is `<python> <checkout>/bin/rig
+spotlight-sweep`; with a pip/pipx install it is `<python> -m riglib spotlight-sweep`. (The
+module form alone never worked for a checkout install — launchd runs from `/` with no
+`PYTHONPATH`, so every daily run died with `No module named riglib`; rig-cli#375.)
+`RIG_SPOTLIGHT_DRY_RUN=1` writes the plist but skips the live `launchctl load` (used by
 tests/CI); a HOME-overridden run skips it automatically (rig-cli#116, see the `models` dry-run
 note). `rig spotlight-sweep` is also runnable by hand to re-cover new dirs immediately.
 
-**Verification.** After `rig apply`/`rig init`, the post-apply **verify** framework confirms a
-sample of matched dirs carry the sentinel AND the launchd agent is loaded (see the verify note at
-the top of this doc's companion — every provisioner declares its own check).
+**Missed vs not-yet-swept (rig-cli#375).** A dependency dir with no sentinel is one of two very
+different things, and rig reports them differently. Every sweep records **which matched dirs it
+visited** (plus when it started) in `~/.cache/rig/spotlight-last-sweep.json`, and every read-back
+classifies an uncovered dir against that record:
 
-**Drift.** `rig status` reports Spotlight-exclude drift: a sample of matched dependency/build dirs
-lacking the sentinel (a new project appeared since the last sweep → `missing`), and — on macOS —
-the launchd re-sweep plist being absent, hand-modified, or not loaded. Remediation differs by
-surface: `rig spotlight-sweep` re-covers only the missing **sentinels** (it touches no launchd
-state); `rig apply` reconverges **both** — it re-sweeps AND rewrites/reloads the launchd plist. The
+- **stale** — the last sweep visited this dir and it still has no sentinel. The sweep genuinely
+  failed it (a permission error, or the sentinel was deleted afterwards). This is **drift**, and
+  it **fails** the post-apply verification.
+- **pending** — the last sweep never saw this dir, so it appeared afterwards. Every `pytest` run
+  mints a batch of `__pycache__` dirs; a machine that builds anything has some at any moment. This
+  is **not** drift — it is reported as an informational count beside "in sync", and the next sweep
+  covers it (off macOS, where rig installs no re-sweep agent, the note says to run `rig
+  spotlight-sweep` instead).
+
+If there is no usable record — never swept, unreadable or wrongly-typed file, or a record made
+for a different selector (other `roots`, `deny` or `max_depth`: a `.venv` newly added to `deny`
+is uncovered because nothing ever swept it, not because it appeared since) — every uncovered dir
+counts as stale. The record stores each visited dir's
+filesystem identity (device + inode), and that — not a file timestamp — decides: directory birth
+time only exists on macOS/BSD, and elsewhere `st_ctime` is bumped by deleting a file *out of* the
+directory, so a timestamp-based split would excuse the single case this feature most needs to
+catch — a hand-deleted sentinel (same inode, no sentinel → stale). Identity rather than the bare
+pathname because `rm -rf dist && mkdir dist` is how builds work: the new `dist` at the old path
+was never swept (new inode → pending), not failed by the sweep.
+
+**Verification.** After `rig apply`/`rig init`, the post-apply **verify** framework confirms that
+**every** matched dir carries the sentinel (not a sample) AND that the launchd agent is loaded.
+Only *stale* dirs fail it; *pending* ones are named in the evidence line. Full-set checking is
+free: the directory walk is the entire cost and it was already being paid — classifying each dir
+adds one `stat`.
+
+**Drift.** `rig status` reports Spotlight-exclude drift through the **same** coverage predicate the
+verify step uses, so the two can never contradict each other: *stale* dirs (→ `missing`, with the
+count) and — on macOS — the launchd re-sweep plist being absent, hand-modified, or not loaded.
+*Pending* dirs print as a dim note next to the area's state. Remediation differs by surface: `rig
+spotlight-sweep` re-covers only the missing **sentinels** (it touches no launchd state); `rig
+apply` reconverges **both** — it re-sweeps AND rewrites/reloads the launchd plist. The
 sentinel-coverage check runs cross-platform; the launchd surface is macOS-only (no plist is written
 elsewhere).
 
@@ -2351,7 +2486,7 @@ rig config set harness.auto_mode false --no-apply        # write only, print the
 
 `apply`/`status`/`init` validate before touching disk and **fail closed**. **Every block is
 strict**: an unknown FIXED key in *any* block — `defaults`, `skills`, `agent_hooks`, `git_hooks`
-(+ `dispatcher`), `ci`, `mcp`, `harness` (+ `hook_bridge`), `permissions`, `models` (+ `schedule`),
+(+ `dispatcher`), `ci`, `mcp`, `harness` (+ `hook_bridge` / `web_search`), `permissions`, `models` (+ `schedule`),
 `agents_md`, `scripts`, `dev` (+ `server` / `e2e`), `github` (+ `ruleset` / `merge` / `ghas` / `actions` / `browser`), `tmux` (+ every
 sub-block), `gitignore`, `tg_ctl`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`) — is
 rejected with the schema path of the offender, not silently ignored. (The open maps are
@@ -2360,6 +2495,7 @@ top-level `scripts:`, the catalog-keyed `items:` / `fragments:` maps, plus `dev.
 include: unsupported `version`, invalid `on_conflict` / ci `tier` / agent-hook `on_error`, an
 unknown or reserved `harness.kind`, a non-bool `harness.auto_mode`, a non-mapping
 `harness.hook_bridge` / non-bool `hook_bridge.enabled` / non-string `hook_bridge.python`, a
+non-mapping `harness.web_search` / non-bool `web_search.enabled` / non-list-of-nonempty-strings `web_search.exclude`, a
 non-bool `git_hooks.dispatcher` bool knob, a malformed/out-of-range `models.schedule.time`, a
 bad `scripts.<name>` entry (not a string or `{cmd: string}`), a
 bad `dev.server`/`dev.e2e` entry, a

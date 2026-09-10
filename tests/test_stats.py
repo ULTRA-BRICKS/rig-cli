@@ -22,7 +22,7 @@ from riglib.stats.command import _passes, collect, parse_date
 from riglib.stats.model import ToolInvocation
 from riglib.stats.render import json_out, tui, web
 from riglib.stats.sources.base import parse_epoch, parse_iso
-from riglib.stats.taxonomy import OUR_CLIS, categorize, detect_our_cli
+from riglib.stats.taxonomy import OUR_CLIS, REVIEW_CLIS, categorize, detect_our_cli
 from riglib.permissions import DEFAULT_ECOSYSTEM_TOOLS
 
 
@@ -124,7 +124,7 @@ def write_opencode_part_in_data_home(
 
 # ── taxonomy unit tests ──────────────────────────────────────────────────────────────────
 def test_our_clis_track_the_provisioned_ecosystem_surface():
-    assert set(DEFAULT_ECOSYSTEM_TOOLS) <= OUR_CLIS
+    assert set(DEFAULT_ECOSYSTEM_TOOLS) <= OUR_CLIS | REVIEW_CLIS
 
 
 def test_categorize_baseline_tools():
@@ -138,18 +138,18 @@ def test_categorize_baseline_tools():
 
 def test_categorize_our_clis_inside_bash():
     cat, label = categorize("Bash", command="review --staged -C /repo")
-    assert cat == "ours" and label == "review (cli)"
+    assert cat == "review-cycles" and label == "review (cli)"
     assert categorize("Bash", command="tg 'done'")[0] == "ours"
     cat, label = categorize("Bash", command="dev test")
     assert cat == "ours" and label == "dev (cli)"
     assert categorize("Bash", command="cd /x && rig apply")[1] == "rig (cli)"
-    # env-prefixed and piped commands still detect our CLI
-    assert categorize("Bash", command="FOO=1 review -C /r")[0] == "ours"
-    assert categorize("Bash", command="git diff | review")[0] == "ours"
+    # env-prefixed and piped commands still detect the review CLI
+    assert categorize("Bash", command="FOO=1 review -C /r")[0] == "review-cycles"
+    assert categorize("Bash", command="git diff | review")[0] == "review-cycles"
 
 
 def test_categorize_mcp_split():
-    assert categorize("mcp__review__review_diff")[0] == "ours"
+    assert categorize("mcp__review__review_diff")[0] == "review-cycles"
     assert categorize("mcp__serena__find_symbol")[0] == "external-advertised"
     assert categorize("mcp__playwright__browser_click")[0] == "external-advertised"
     assert categorize("mcp__unknownsrv__do")[0] == "other"
@@ -160,6 +160,41 @@ def test_categorize_skills():
     assert categorize("Skill", skill="superpowers:brainstorming")[0] == "external-advertised"
     assert categorize("Skill", skill="agent-browser")[0] == "external-advertised"
     assert categorize("Skill", skill="h-frame")[0] == "external-advertised"
+
+
+def test_categorize_review_is_review_cycles_not_ours():
+    """review CLI/MCP/skill are review-cycles; other ecosystem CLIs stay ours."""
+    cat, label = categorize("Bash", command="review --staged -C /repo")
+    assert cat == "review-cycles" and label == "review (cli)"
+    assert categorize("Bash", command="FOO=1 review -C /r")[0] == "review-cycles"
+    assert categorize("Bash", command="git diff | review")[0] == "review-cycles"
+    assert categorize("mcp__review__review_diff")[0] == "review-cycles"
+    assert categorize("Skill", skill="review")[0] == "review-cycles"
+    assert categorize("Bash", command="tg 'done'")[0] == "ours"
+    assert categorize("Bash", command="cd /x && rig apply")[0] == "ours"
+    assert categorize("Skill", skill="ai-review-before-commit")[0] == "ours"
+
+
+def test_review_cycles_json_adoption_ratio_and_plain_tui():
+    """Read + tg CLI + review CLI → baseline=1 ours=1 review-cycles=1; ratio 1/2 not 2/3."""
+    ts = datetime(2026, 6, 10, tzinfo=timezone.utc)
+
+    def inv(raw: str, **kw: str) -> ToolInvocation:
+        cat, label = categorize(raw, **kw)
+        return ToolInvocation(ts, "claude-code", "/r", "s", label, cat, raw)
+
+    agg = aggregate([
+        inv("Read"),
+        inv("Bash", command="tg done"),
+        inv("Bash", command="review --staged -C /repo"),
+    ])
+    d = json_out.to_dict(agg)
+    assert "review-cycles" in d["by_category"]
+    assert d["by_category"]["baseline"] == 1
+    assert d["by_category"]["ours"] == 1
+    assert d["by_category"]["review-cycles"] == 1
+    assert d["summary"]["adoption_ratio"] == 0.5
+    assert "review-cycles" in tui.render_plain(agg)
 
 
 def test_baseline_aliases_cross_harness():
@@ -270,7 +305,8 @@ def test_claude_code_parser_counts(tmp_path):
     assert "claude-code" in supported
     cats = aggregate(invs).by_category
     assert cats["baseline"] == 2  # Read + bare Bash(ls)
-    assert cats["ours"] == 2  # review-cli + shell-timeouts skill
+    assert cats["ours"] == 1  # shell-timeouts skill
+    assert cats["review-cycles"] == 1  # review-cli
     assert cats["external-advertised"] == 1  # serena mcp
     assert all(i.repo == "/Users/ultra/xp/demo" for i in invs)
 
@@ -288,7 +324,8 @@ def test_codex_parser_counts(tmp_path):
     assert supported == ["codex"]
     agg = aggregate(invs)
     assert agg.by_category["baseline"] == 1
-    assert agg.by_category["ours"] == 1
+    assert agg.by_category.get("ours", 0) == 0
+    assert agg.by_category["review-cycles"] == 1
     assert all(i.repo == "/Users/ultra/xp/proj" for i in invs)
     assert all(i.harness == "codex" for i in invs)
 
@@ -484,7 +521,8 @@ def test_opencode_parser_counts(tmp_path):
     assert supported == ["opencode"]
     agg = aggregate(invs)
     assert agg.by_category["baseline"] == 2  # read + bare bash(npm test)
-    assert agg.by_category["ours"] == 1  # bash review
+    assert agg.by_category.get("ours", 0) == 0
+    assert agg.by_category["review-cycles"] == 1  # bash review
     assert all(i.repo == "/Users/ultra/xp/oc" for i in invs)
     assert all(i.timestamp is not None for i in invs)  # epoch-ms parsed
 
@@ -525,7 +563,7 @@ def _sample_invocations() -> list[ToolInvocation]:
         return ToolInvocation(ts, harness, repo, "s", tool, cat, tool)
     return [
         inv(10, "claude-code", "/a", "Read", "baseline"),
-        inv(10, "claude-code", "/a", "review (cli)", "ours"),
+        inv(10, "claude-code", "/a", "review (cli)", "review-cycles"),
         inv(11, "claude-code", "/b", "Bash", "baseline"),
         inv(12, "codex", "/a", "tg (cli)", "ours"),
         # an undated row still counts toward totals but not the day series
@@ -538,32 +576,35 @@ def test_aggregate_breakdowns_and_buckets():
     assert agg.total == 5
     assert agg.undated == 1
     assert agg.by_category["baseline"] == 3
-    assert agg.by_category["ours"] == 2
+    assert agg.by_category["ours"] == 1
+    assert agg.by_category["review-cycles"] == 1
     # by repo
     assert agg.by_repo["/a"] == 3 and agg.by_repo["/b"] == 2
     # by harness
     assert agg.by_harness["claude-code"] == 3 and agg.by_harness["codex"] == 1
     # nested harness->category
-    assert agg.harness_category["claude-code"]["ours"] == 1
+    assert agg.harness_category["claude-code"]["review-cycles"] == 1
     # day buckets: 3 active days; undated excluded
     assert set(agg.by_day) == {"2026-06-10", "2026-06-11", "2026-06-12"}
     assert agg.by_day["2026-06-10"]["baseline"] == 1
-    assert agg.by_day["2026-06-10"]["ours"] == 1
+    assert agg.by_day["2026-06-10"]["review-cycles"] == 1
     # week buckets present
     assert agg.by_week
-    # adoption ratio = ours / (ours + baseline) = 2 / 5
-    assert abs(agg.adoption_ratio() - (2 / 5)) < 1e-9
+    # adoption ratio = ours / (ours + baseline) = 1 / 4 (review-cycles excluded)
+    assert abs(agg.adoption_ratio() - (1 / 4)) < 1e-9
 
 
 def test_period_comparison():
     agg = aggregate(_sample_invocations())
     split = datetime(2026, 6, 11, tzinfo=timezone.utc)
     cmp = compare_periods(agg, split)
-    # earlier (<11): day 10 → baseline1 ours1
-    assert cmp.earlier["baseline"] == 1 and cmp.earlier["ours"] == 1
+    # earlier (<11): day 10 → baseline1 review-cycles1
+    assert cmp.earlier["baseline"] == 1 and cmp.earlier.get("ours", 0) == 0
+    assert cmp.earlier["review-cycles"] == 1
     # later (>=11): day11 baseline1, day12 ours1
     assert cmp.later["baseline"] == 1 and cmp.later["ours"] == 1
-    assert cmp.adoption_delta() == 0.0  # 50% both sides
+    # earlier adoption 0/1=0; later 1/2=0.5
+    assert abs(cmp.adoption_delta() - 0.5) < 1e-9
 
 
 # ── JSON shape (the canonical contract) ──────────────────────────────────────────────────
@@ -574,11 +615,11 @@ def test_json_render_shape():
                       "harness_category", "repo_category", "category_tools", "trends"}
     assert d["summary"]["total"] == 5
     assert d["summary"]["undated"] == 1
-    assert d["by_category"] == {"baseline": 3, "ours": 2, "external-advertised": 0, "other": 0}
+    assert d["by_category"] == {"baseline": 3, "ours": 1, "review-cycles": 1, "external-advertised": 0, "other": 0}
     # by_tool is a sorted list of dicts with tool/count/category
     assert isinstance(d["by_tool"], list)
     assert all({"tool", "count", "category"} <= set(row) for row in d["by_tool"])
-    assert d["trends"]["by_day"]["2026-06-10"]["ours"] == 1
+    assert d["trends"]["by_day"]["2026-06-10"]["review-cycles"] == 1
     # round-trips as valid JSON
     json.loads(json_out.render(agg))
 
@@ -588,7 +629,7 @@ def test_json_includes_comparison_when_trend_given():
     cmp = compare_periods(agg, datetime(2026, 6, 11, tzinfo=timezone.utc))
     d = json_out.to_dict(agg, trend=cmp)
     assert "comparison" in d
-    assert d["comparison"]["adoption_delta"] == 0.0
+    assert d["comparison"]["adoption_delta"] == 0.5
 
 
 # ── renderers don't crash + degrade gracefully ───────────────────────────────────────────
@@ -636,18 +677,18 @@ def test_build_report_multi_harness_and_filters(tmp_path):
         [{"ts": "2026-06-20T09:00:00Z", "name": "exec_command", "cmd": "ls"}],
     )
     # no filter → both harnesses
-    agg, meta, trend = build_report(home=home)
+    agg, meta, trend, _ = build_report(home=home)
     assert set(meta["supported_harnesses"]) >= {"claude-code", "codex"}
     assert agg.by_harness["claude-code"] == 2 and agg.by_harness["codex"] == 1
 
     # --since cuts the codex row (it's after) but keeps... actually since filters before;
     # filter to only on/after 2026-06-15 → only the codex row survives.
     since = parse_date("2026-06-15")
-    agg2, meta2, _ = build_report(home=home, since=since)
+    agg2, meta2, _, _ = build_report(home=home, since=since)
     assert agg2.total == 1 and agg2.by_harness["codex"] == 1
 
     # --repo filter
-    agg3, _, _ = build_report(home=home, repos=["/Users/ultra/xp/demo"])
+    agg3, _, _, _ = build_report(home=home, repos=["/Users/ultra/xp/demo"])
     assert set(agg3.by_repo) == {"/Users/ultra/xp/demo"}
 
 
@@ -659,7 +700,8 @@ def test_baseline_category_filter():
         "mcp__serena__x", "external-advertised", "mcp__serena__x"))
     agg = aggregate([i for i in invs if i.category in {"baseline", "ours"}])
     assert agg.by_category.get("external-advertised", 0) == 0
-    assert agg.by_category["baseline"] == 3 and agg.by_category["ours"] == 2
+    assert agg.by_category.get("review-cycles", 0) == 0
+    assert agg.by_category["baseline"] == 3 and agg.by_category["ours"] == 1
 
 
 def test_supported_harness_list_is_data_driven(tmp_path):
@@ -955,7 +997,7 @@ def test_run_json_on_empty_machine_emits_valid_json(tmp_path, capsys):
     assert rc == 0
     d = json.loads(capsys.readouterr().out)  # must parse
     assert d["summary"]["total"] == 0
-    assert d["by_category"] == {"baseline": 0, "ours": 0, "external-advertised": 0, "other": 0}
+    assert d["by_category"] == {"baseline": 0, "ours": 0, "review-cycles": 0, "external-advertised": 0, "other": 0}
 
 
 def test_since_window_no_double_count_at_boundary(tmp_path):

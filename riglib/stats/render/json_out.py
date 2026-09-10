@@ -11,6 +11,7 @@ import json
 from datetime import datetime
 
 from ..aggregate import Aggregate, TrendComparison
+from ..hatches import HatchAggregate
 from ..model import CATEGORIES
 
 
@@ -19,6 +20,7 @@ def to_dict(
     *,
     meta: dict | None = None,
     trend: TrendComparison | None = None,
+    hatches: HatchAggregate | None = None,
 ) -> dict:
     def _iso(dt: datetime | None) -> str | None:
         return dt.isoformat() if dt else None
@@ -60,6 +62,7 @@ def to_dict(
             "later": {c: trend.later.get(c, 0) for c in CATEGORIES},
             "adoption_delta": round(trend.adoption_delta(), 4),
         }
+    out["hatches"] = (hatches or HatchAggregate()).to_dict()
     return out
 
 
@@ -71,5 +74,11 @@ def _counter_sorted(counter, tool_category: dict[str, str]) -> list[dict]:
     ]
 
 
-def render(agg: Aggregate, *, meta: dict | None = None, trend: TrendComparison | None = None) -> str:
-    return json.dumps(to_dict(agg, meta=meta, trend=trend), indent=2)
+def render(
+    agg: Aggregate,
+    *,
+    meta: dict | None = None,
+    trend: TrendComparison | None = None,
+    hatches: HatchAggregate | None = None,
+) -> str:
+    return json.dumps(to_dict(agg, meta=meta, trend=trend, hatches=hatches), indent=2)

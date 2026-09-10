@@ -70,9 +70,9 @@ def _counts_from_json(text: str) -> FindingCounts:
     return FindingCounts(errors=errors, warnings=warnings)
 
 
-def _run(repo_root: Path, executable: str, config: Path) -> FindingCounts:
+def _invoke_oxlint(repo_root: Path, executable: str, config: Path, extra_args: list[str]) -> FindingCounts:
     proc = subprocess.run(
-        [executable, "--config", str(config), "--format", "json", "."],
+        [executable, "--config", str(config), *extra_args, "--format", "json", "."],
         cwd=repo_root,
         text=True,
         stdout=subprocess.PIPE,
@@ -83,7 +83,21 @@ def _run(repo_root: Path, executable: str, config: Path) -> FindingCounts:
     # Lint errors intentionally produce a non-zero exit status; JSON output is still authoritative.
     if not proc.stdout.strip():
         raise ValueError(proc.stderr.strip() or f"oxlint exited {proc.returncode} without JSON output")
-    return _counts_from_json(proc.stdout)
+    try:
+        return _counts_from_json(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError(proc.stdout.strip()) from exc
+
+
+def _run(repo_root: Path, executable: str, config: Path) -> FindingCounts:
+    try:
+        return _invoke_oxlint(repo_root, executable, config, [])
+    except ValueError:
+        # Nested carrier files (linters/oxc/oxlint.config.ts) are not project configs;
+        # oxlint writes a parse error to stdout instead of JSON (rig-cli#433). Retry
+        # without nested discovery. Intentional package-level oxlint.config files still
+        # count on the first attempt.
+        return _invoke_oxlint(repo_root, executable, config, ["--disable-nested-config"])
 
 
 def preview_oxlint_policy(repo_root: Path, desired_content: str, rel_path: str = "oxlint.config.ts") -> LintImpact:

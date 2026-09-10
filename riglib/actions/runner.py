@@ -60,7 +60,9 @@ from ..github_ghas import (
 from ..github_merge import build_merge_body, normalize_merge
 from ..harness_mode import HARNESS_MODES
 from ..github_ruleset import (
+    UNATTRIBUTED_APPROVAL_KEY,
     build_ruleset_body,
+    carry_over_unattributed_approval,
     find_managed_ruleset,
     normalize_ruleset,
     parse_github_remote,
@@ -103,6 +105,25 @@ class ApplyReport:
         return out
 
 
+# omp config.yml paths created during THIS run_plan. Approval and web_search share
+# that file; on_conflict=skip must not treat a file we just created as user content
+# (rig-cli#447 first-run: the second writer would otherwise skip the missing key).
+_omp_yaml_created_this_run: set[str] = set()
+
+
+def _reset_omp_yaml_created() -> None:
+    _omp_yaml_created_this_run.clear()
+
+
+def _mark_omp_yaml_created(path: Path) -> None:
+    _omp_yaml_created_this_run.add(str(path))
+
+
+def _omp_yaml_skip_existing(path: Path, existed: bool, on_conflict: str) -> bool:
+    """True when skip must leave this yaml alone (a user file, not our first-run create)."""
+    return existed and on_conflict == "skip" and str(path) not in _omp_yaml_created_this_run
+
+
 def run_plan(
     plan: InstallPlan,
     *,
@@ -119,6 +140,7 @@ def run_plan(
     # Fresh auth-gate state per run: a new apply re-notifies + re-waits for a missing login (the user
     # may have logged in since), but WITHIN this run the per-action gate dedups (no ~5× push/wait).
     reset_auth_gate()
+    _reset_omp_yaml_created()
     report = ApplyReport()
     for action in plan.actions:
         if on_start is not None and not dry_run:
@@ -1096,7 +1118,7 @@ def _do_apply_harness_mode(action: Action, on_conflict: str) -> ActionResult:
     return ActionResult(action, status, f"{label} → '{value}' ({auto}) in {config_file}{backup_note}")
 
 
-def _set_nested(data: dict, key_path: tuple[str, ...], value: str) -> None:
+def _set_nested(data: dict, key_path: tuple[str, ...], value: object) -> None:
     """Set ``key_path`` to ``value``; a STRING parent of a ``*`` key is opencode's scalar shorthand
     and is expanded to ``{"*": <old>}`` first (the probe already vetted every other shape)."""
     cur = data
@@ -1953,7 +1975,9 @@ def _do_provision_harness_approval(action: Action, on_conflict: str) -> ActionRe
     # Re-serializing an EXISTING yaml destroys its comments/formatting — a conflict-class
     # mutation, not a splice (unlike the execpolicy append, which preserves the rest of the
     # file byte-for-byte). Under ``skip`` that means: leave the file alone and keep the drift.
-    if existed and on_conflict == "skip":
+    # Exception: a sibling writer created this file earlier in THIS run — there is no user
+    # content yet, so merging the missing key is first-run completion, not a skip conflict.
+    if _omp_yaml_skip_existing(config_file, existed, on_conflict):
         return ActionResult(
             action, "skipped",
             f"approval/{action.item}: {config_file} would be rewritten (yaml comments are not "
@@ -1973,6 +1997,8 @@ def _do_provision_harness_approval(action: Action, on_conflict: str) -> ActionRe
     config_file.write_text(
         yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8"
     )
+    if not existed:
+        _mark_omp_yaml_created(config_file)
     receipt = {
         "template": 1,
         "kind": str(action.options.get("kind", "")),
@@ -1991,6 +2017,152 @@ def _do_provision_harness_approval(action: Action, on_conflict: str) -> ActionRe
         "(posture relaxed — enforcement is unverified until the activation probe passes: "
         "RIG_OMP_PROBE=1 rig doctor)",
     )
+
+
+# ── omp idle-TTL keepalive (task.agentIdleTtlMs: 0 in ~/.omp/agent/config.yml) ─────────────
+# Yielded helpers go idle then park after task.agentIdleTtlMs (default 420000 ms) and drop
+# off the live hub roster. <= 0 disables parking. Additive YAML merge, never clobbers a
+# user-set positive TTL (drift only). Independent of the approval-posture receipt.
+
+OMP_IDLE_TTL_KEY = ("task", "agentIdleTtlMs")
+OMP_IDLE_TTL_VALUE = 0
+
+
+def _idle_ttl_parking_disabled(value: object) -> bool:
+    """True when the on-disk value already disables parking (``<= 0``)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value <= 0
+
+
+def _do_provision_omp_idle_ttl(action: Action, on_conflict: str) -> ActionResult:
+    """Merge ``task.agentIdleTtlMs: 0`` into omp config.yml — additive, never clobber."""
+    import yaml
+
+    config_file = action.target
+    dotted = ".".join(OMP_IDLE_TTL_KEY)
+    label = f"omp-idle-ttl/{action.item}"
+    data: dict = {}
+    existed = config_file.is_file()
+    if existed:
+        try:
+            loaded = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            return ActionResult(
+                action, "error",
+                f"{label}: {config_file} is malformed YAML ({exc.__class__.__name__}) — "
+                "fix it by hand; rig never rewrites a config it cannot parse",
+            )
+        if loaded is not None and not isinstance(loaded, dict):
+            return ActionResult(
+                action, "error",
+                f"{label}: {config_file} is not a YAML mapping — fix it by hand",
+            )
+        data = loaded or {}
+
+    state, value = approval_lookup(data, OMP_IDLE_TTL_KEY)
+    if state == "shape":
+        return ActionResult(
+            action, "error",
+            f"{label}: '{value}' is not an object in {config_file}",
+        )
+    if state == "present" and _idle_ttl_parking_disabled(value):
+        return ActionResult(action, "skipped", f"{label}: parking already disabled ({value!r}) in {config_file}")
+    if state == "present":
+        return ActionResult(
+            action, "skipped",
+            f"{label}: {dotted} is {value!r} (rig wants {OMP_IDLE_TTL_VALUE!r}; "
+            "apply never clobbers — change it by hand or remove the key)",
+        )
+
+    # A missing key is additive, not a conflict: skip-forever would leave permanent
+    # drift when a sibling (provision_harness_approval) created the file in this
+    # same apply. YAML dump may drop comments — same tax the approval writer pays.
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    backup_note = ""
+    if existed and _should_backup(on_conflict):
+        bak = fsutil.backup_path(config_file)
+        shutil.copy2(str(config_file), str(bak))
+        backup_note = f" (backed up prior → {bak})"
+    _set_nested(data, OMP_IDLE_TTL_KEY, OMP_IDLE_TTL_VALUE)
+    config_file.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8",
+    )
+    status = "backed_up" if backup_note else ("updated" if existed else "created")
+    return ActionResult(
+        action, status,
+        f"{label}: set {dotted}={OMP_IDLE_TTL_VALUE} in {config_file}{backup_note}",
+    )
+
+
+def _do_provision_omp_web_search(action: Action, on_conflict: str) -> ActionResult:
+    """Additively merge ``providers.webSearchExclude`` into omp config.yml.
+
+    Appends missing desired names; never removes extras. A matching list is a no-op.
+    A non-list / non-mapping parent is a conflict (fix by hand). Malformed YAML is a
+    hard error — same as the approval writer. Re-serializing an existing file drops
+    comments, so ``on_conflict=skip`` leaves drift unreconciled.
+    """
+    import yaml  # lazy, like the rest of the config stack
+
+    from ..omp_web_search import ensure_exclude, missing_exclude_entries
+
+    desired = [str(x) for x in action.options.get("exclude") or [] if str(x)]
+    if not desired:
+        return ActionResult(action, "skipped", f"web-search/{action.item}: empty exclude, nothing to write")
+    config_file = action.target
+    data: dict = {}
+    existed = config_file.is_file()
+    if existed:
+        try:
+            loaded = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            return ActionResult(
+                action, "error",
+                f"web-search/{action.item}: {config_file} is malformed YAML ({exc.__class__.__name__}) — "
+                "fix it by hand; rig never rewrites a config it cannot parse",
+            )
+        if loaded is not None and not isinstance(loaded, dict):
+            return ActionResult(
+                action, "error",
+                f"web-search/{action.item}: {config_file} is not a YAML mapping — fix it by hand",
+            )
+        data = loaded or {}
+    state, missing = missing_exclude_entries(data, desired)
+    if state == "shape":
+        return ActionResult(
+            action, "skipped",
+            f"web-search/{action.item}: providers.webSearchExclude parent/value is the wrong shape, "
+            "left untouched (drift visible)",
+        )
+    if not missing:
+        return ActionResult(
+            action, "skipped",
+            f"web-search/{action.item}: already current in {config_file}",
+        )
+    if _omp_yaml_skip_existing(config_file, existed, on_conflict):
+        return ActionResult(
+            action, "skipped",
+            f"web-search/{action.item}: {config_file} would be rewritten (yaml comments are not "
+            "preserved) but on_conflict=skip — left unchanged (drift NOT reconciled)",
+        )
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    backup_note = ""
+    if existed and _should_backup(on_conflict):
+        bak = fsutil.backup_path(config_file)
+        shutil.copy2(str(config_file), str(bak))
+        backup_note = f" (backed up prior → {bak})"
+    added = ensure_exclude(data, desired)
+    config_file.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8"
+    )
+    if not existed:
+        _mark_omp_yaml_created(config_file)
+    status = "backed_up" if backup_note else ("updated" if existed else "created")
+    return ActionResult(
+        action, status,
+        f"web-search/{action.item}: added {', '.join(added)} to providers.webSearchExclude "
+        f"in {config_file}{backup_note}",
+    )
+
 
 
 # ── advisory instruction policy provisioning (pi/commandcode AGENTS.md) ─────────────────────
@@ -2093,10 +2265,17 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
     is the feedback channel for the agent-tools ``post-write`` point. Claude Code uses its
     pipe-alternation tool matcher for writes, ``Agent|Task`` for subagent dispatch (the
     agent-tools ``pre-agent`` point), ``Skill`` for a skill invocation (the agent-tools
-    ``pre-skill`` point), and ``Monitor`` for a background event-stream watch (the agent-tools
-    ``pre-monitor`` point). Codex uses the hook matchers exposed by its TOML contract here:
-    ``Bash`` and ``apply_patch`` (no ``pre-agent``/``pre-skill``/``pre-monitor`` mapping yet —
-    same gap, tracked upstream in agent-tools; Codex has no Monitor-equivalent tool today either).
+    ``pre-skill`` point), ``Monitor`` for a background event-stream watch (the agent-tools
+    ``pre-monitor`` point — the matcher that lets ``subagent-no-monitor`` block a dispatched
+    subagent from calling Monitor: only the main loop is re-invoked by a Monitor
+    notification, so the subagent must use Bash ``run_in_background`` for one ordinary
+    command or a foreground heartbeat loop for anything else), and ``EnterWorktree`` for
+    switching into a worktree (the agent-tools
+    ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created).
+    Codex uses the hook matchers exposed by its TOML contract here: ``Bash`` and
+    ``apply_patch`` (no ``pre-agent``/``pre-skill``/``pre-monitor``/``pre-worktree-enter``
+    mapping yet — same gap, tracked upstream in agent-tools; Codex has no Monitor-equivalent
+    tool today either, and Codex/opencode have no worktree-switching tool of their own today).
 
     Entries are unconditional by design, not capability-probed against the bridge package at
     plan time: the plan already verifies the runnable module files exist, and drift/apply share
@@ -2110,8 +2289,8 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
     the safety property this unconditional-registration design relies on. The mirror case — an
     agent-hook installed for a point with no matcher registered yet — is likewise inert rather
     than broken: the descriptor simply never fires
-    until this function is updated, exactly the state ``pre-skill`` was in before this matcher
-    was added.
+    until this function is updated, exactly the state ``pre-skill``/``pre-worktree-enter`` were
+    in before their matcher was added.
 
     ``action.options["extra_stop_hooks"]`` (codex only) is a list of already-rendered,
     already-quoted command strings appended as additional ``Stop`` entries after the bridge's
@@ -2160,6 +2339,7 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
             ("Agent|Task", cmd("PreToolUse")),
             ("Skill", cmd("PreToolUse")),
             ("Monitor", cmd("PreToolUse")),
+            ("EnterWorktree", cmd("PreToolUse")),
         ],
         "PostToolUse": [
             ("Edit|Write|MultiEdit|NotebookEdit", cmd("PostToolUse")),
@@ -5141,6 +5321,126 @@ def _do_provision_agents_symlink(action: Action, on_conflict: str) -> ActionResu
     return ActionResult(action, "error", f"agents-md: unhandled state {r.state!r}")
 
 
+# ── AGENTS.md marker splices (orchestrator + autonomous-mode) ─────────────────────
+# Visible at session start so the agent does not have to auto-load a long skill first.
+# File creation stays with provision_agents_symlink: a splice-only apply on an empty
+# repo must skip rather than plant a stub guide.
+
+ORCHESTRATOR_BEGIN_MARKER = "# >>> rig-managed orchestrator (do not edit) >>>"
+ORCHESTRATOR_END_MARKER = "# <<< rig-managed orchestrator (do not edit) <<<"
+
+AUTONOMOUS_BEGIN_MARKER = "# >>> rig-managed autonomous-mode (do not edit) >>>"
+AUTONOMOUS_END_MARKER = "# <<< rig-managed autonomous-mode (do not edit) <<<"
+
+
+def orchestrator_block_text() -> str:
+    """The marker-delimited orchestrator reminder (shared by apply + drift)."""
+    return "\n".join([
+        ORCHESTRATOR_BEGIN_MARKER,
+        "# Orchestrator, not worker. Do not implement inline. Do not run `gh` (list/view/pr/api/run",
+        "# included) except a single `gh ship <N>`. Do not `git worktree add` — `rig worktree create`.",
+        "# Read-only (`git status`, `ls`, `cat`, `grep`, `git worktree list`) is fine. Dispatch a",
+        "# subagent for the rest. Skill: delegate-work-to-subagents. Hook: orchestrator-stays-thin.",
+        "# Key reports MUST go to Telegram (`tg --tag report`): quote the user's original words, include ticket/PR URLs, name the measure already started, draft via `review just-ask`. Never \"not in prod\" with no next action.",
+        "# After a successful `gh ship` of a load-bearing feature, merge is not done: (1) turn it on",
+        "# in settings if it has a config knob, (2) `rig apply commit` on this machine, (3) prove it",
+        "# WORKS on this machine (command output, Telegram, deny text — SHA/on-disk is not a proof),",
+        "# (4) re-check the original user quote is solved.",
+        "# A helper yield is not done — do not tick the todo until the original ask is live-proven; wake parked helpers via hub send.",
+        ORCHESTRATOR_END_MARKER,
+    ])
+
+
+def autonomous_mode_block_text() -> str:
+    """The marker-delimited autonomous-mode reminder (shared by apply + drift)."""
+    return "\n".join([
+        AUTONOMOUS_BEGIN_MARKER,
+        "# Mode autonomous: extra-approval gate OFF. Do not invent a hold-for-human.",
+        "# Ship when gates pass. Skill: autonomous-mode (skill://autonomous-mode).",
+        AUTONOMOUS_END_MARKER,
+    ])
+
+
+def _agents_md_splice_target(root: Path) -> Path | None:
+    """The real canonical guide, or None when there isn't one to own.
+
+    Only a regular (non-symlink) canonical is spliced. A CLAUDE.md-canonical pair
+    writes the real CLAUDE.md; the AGENTS.md symlink still reads it. A foreign
+    AGENTS.md symlink is a conflict the symlink action leaves untouched — following
+    it here would rewrite a file rig does not manage.
+    """
+    r = resolve_agents_md(root)
+    if r.state == "conflict":
+        return None
+    if _is_real_file(r.canonical_path):
+        return r.canonical_path
+    return None
+
+
+def _splice_agents_md_block(
+    action: Action,
+    on_conflict: str,
+    *,
+    desired: str,
+    begin: str,
+    end: str,
+    label: str,
+) -> ActionResult:
+    """Idempotent marker splice into the canonical guide — never creates the file."""
+    path = _agents_md_splice_target(action.target)
+    if path is None:
+        return ActionResult(
+            action, "skipped",
+            f"{label}: no AGENTS.md/CLAUDE.md yet (symlink action owns creation)",
+        )
+    try:
+        with path.open(encoding="utf-8", newline="") as fh:
+            content = fh.read()
+    except OSError as exc:
+        return ActionResult(action, "error", f"{label}: cannot read {path}: {exc}")
+    new_content, state, detail = _splice_managed_block(content, desired, begin, end)
+    if state == "conflict":
+        return ActionResult(action, "error", f"{label}: {detail}")
+    if state == "ok":
+        return ActionResult(action, "skipped", f"{label}: already current in {path}")
+    backup_note = ""
+    if state == "update":
+        if on_conflict == "skip":
+            return ActionResult(
+                action, "skipped",
+                f"{label}: {path} block differs but on_conflict=skip — left unchanged "
+                "(drift NOT reconciled)",
+            )
+        if _should_backup(on_conflict):
+            bak = fsutil.backup_path(path)
+            shutil.copy2(str(path), str(bak))
+            backup_note = f" (backed up prior → {bak})"
+    path.write_text(new_content, encoding="utf-8")
+    status = "backed_up" if backup_note else "updated"
+    verb = "appended block to" if state == "create" else "reconciled block in"
+    return ActionResult(action, status, f"{label}: {verb} {path}{backup_note}")
+
+
+def _do_provision_agents_orchestrator(action: Action, on_conflict: str) -> ActionResult:
+    return _splice_agents_md_block(
+        action, on_conflict,
+        desired=orchestrator_block_text(),
+        begin=ORCHESTRATOR_BEGIN_MARKER,
+        end=ORCHESTRATOR_END_MARKER,
+        label="orchestrator",
+    )
+
+
+def _do_provision_agents_autonomous_mode(action: Action, on_conflict: str) -> ActionResult:
+    return _splice_agents_md_block(
+        action, on_conflict,
+        desired=autonomous_mode_block_text(),
+        begin=AUTONOMOUS_BEGIN_MARKER,
+        end=AUTONOMOUS_END_MARKER,
+        label="autonomous-mode",
+    )
+
+
 # ── per-repo `gh ship` delegator (.claude/scripts/pr-ship.sh) ──────────────────────
 # `gh ship` is a gh alias → `<repo>/.claude/scripts/pr-ship.sh`. Historically that delegator
 # existed ONLY in agent-tools, so `gh ship` FAILED in every other managed repo (papered over by a
@@ -6439,7 +6739,17 @@ def github_ruleset_state(action: Action) -> tuple[str, dict]:
     except ValueError:
         info["detail"] = "gh api returned non-JSON ruleset"
         return "gh_error", info
-    if normalize_ruleset(current) == normalize_ruleset(desired):
+    # Carried by _do_provision_github_ruleset into the PUT body when the unattributed-approval
+    # knob is unmanaged (see carry_over_unattributed_approval) — an unrelated drift must not
+    # silently reset a live GitHub-side value rig never declared an opinion on.
+    info["current"] = current
+    # Compare with the SAME manage_unattributed_approval flag on both sides (see
+    # github_ruleset.normalize_ruleset's docstring) — it is present iff the plan builder
+    # mode-gated `require_extra_approval_for_unattributed_changes` into `action.options`.
+    manage_unattributed = UNATTRIBUTED_APPROVAL_KEY in action.options
+    if normalize_ruleset(
+        current, manage_unattributed_approval=manage_unattributed
+    ) == normalize_ruleset(desired, manage_unattributed_approval=manage_unattributed):
         return "ok", info
     return "update", info
 
@@ -6480,11 +6790,16 @@ def _do_provision_github_ruleset(action: Action, on_conflict: str) -> ActionResu
 
     # state == "update"
     rs_id = info.get("id")
+    # Preserve an UNMANAGED unattributed-approval value across this PUT (see
+    # github_ruleset.carry_over_unattributed_approval's docstring) — a PUT replaces the whole
+    # pull_request rule's parameters, so a live human choice on this security-relevant setting
+    # must not be silently reset to GitHub's default just because some OTHER knob drifted.
+    put_body = json.dumps(carry_over_unattributed_approval(desired, info.get("current")))
     if _gh_dry_run():
         return ActionResult(action, "updated", f"github-ruleset: RIG_GH_DRY_RUN — would UPDATE '{name}' (id={rs_id}) on {owner}/{repo} (not put)")
     rc, out, err = _gh_api(
         ["--method", "PUT", f"repos/{owner}/{repo}/rulesets/{rs_id}", "--input", "-"],
-        input_text=body,
+        input_text=put_body,
     )
     if rc != 0:
         return _ruleset_write_error(action, "update", owner, repo, err, out)
@@ -7700,10 +8015,14 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_execpolicy": _do_provision_execpolicy,
     "install_harness_guard": _do_install_harness_guard,
     "provision_harness_approval": _do_provision_harness_approval,
+    "provision_omp_web_search": _do_provision_omp_web_search,
     "provision_instruction_policy": _do_provision_instruction_policy,
     "register_hook_bridge": _do_register_hook_bridge,
+    "provision_omp_idle_ttl": _do_provision_omp_idle_ttl,
     "provision_schedule": _do_provision_schedule,
     "provision_agents_symlink": _do_provision_agents_symlink,
+    "provision_agents_orchestrator": _do_provision_agents_orchestrator,
+    "provision_agents_autonomous_mode": _do_provision_agents_autonomous_mode,
     "provision_ship_delegator": _do_provision_ship_delegator,
     "provision_gh_ship_alias": _do_provision_gh_ship_alias,
     "lint_policy_blocked": _do_lint_policy_blocked,

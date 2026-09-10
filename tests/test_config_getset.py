@@ -81,6 +81,35 @@ def test_config_set_path_strips_segments():
     assert data == {"harness": {"mode": "auto"}}
 
 
+def test_del_path_removes_nested_key():
+    data = {"env": {"vars": {"FOO": "x", "BAR": "y"}}}
+    config.del_path(data, "env.vars.FOO")
+    assert data == {"env": {"vars": {"BAR": "y"}}}
+
+
+def test_del_path_does_not_prune_empty_parents():
+    data = {"env": {"vars": {"FOO": "x"}}}
+    config.del_path(data, "env.vars.FOO")
+    assert data == {"env": {"vars": {}}}
+
+
+def test_del_path_missing_fails_closed():
+    with pytest.raises(config.ConfigError, match="not found"):
+        config.del_path({"env": {"vars": {}}}, "env.vars.FOO")
+
+
+def test_del_path_through_scalar_fails_closed():
+    with pytest.raises(config.ConfigError, match="not found"):
+        config.del_path({"env": "nope"}, "env.vars.FOO")
+
+
+def test_del_path_strips_segments():
+    data = {"env": {"vars": {"FOO": "x"}}}
+    config.del_path(data, " env . vars . FOO ")
+    assert data == {"env": {"vars": {}}}
+
+
+
 @pytest.mark.parametrize(
     "raw,expected",
     [

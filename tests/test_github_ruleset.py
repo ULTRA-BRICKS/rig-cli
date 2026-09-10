@@ -19,9 +19,12 @@ from riglib.config import ConfigError, LoadedConfig, validate
 from riglib.drift import detect
 from riglib.github_ruleset import (
     GITHUB_RULESET_DEFAULTS,
+    UNATTRIBUTED_APPROVAL_KEY,
     build_ruleset_body,
     build_ruleset_rules,
+    carry_over_unattributed_approval,
     find_managed_ruleset,
+    normalize_ruleset,
     parse_github_remote,
 )
 from riglib.plan import Action, InstallPlan, build
@@ -235,6 +238,185 @@ def test_pr_secure_default_live_flip_reads_as_drift(monkeypatch, tmp_path, gh_re
     _install_gh(monkeypatch, rec)
     state, _ = github_ruleset_state(_action(tmp_path))
     assert state == "update"
+
+
+# ── unattributed-approval knob (mode-gated) ──────────────────────────────────────────
+# GitHub's `require_extra_approval_for_unattributed_changes` requires one more approval on a PR
+# GitHub classifies as opened under an app identity not attributed to a person (docs name the
+# Copilot coding agent as the documented trigger). It was found ON blocking `gh ship`'s merge on
+# agent-tools and hand-patched off (2026-09-07) — the exact causal mechanism wasn't independently
+# confirmed here, only the observed block and working hand-patch. Unlike every other ruleset knob,
+# it has NO unconditional default: it is present in the desired body/comparison ONLY when
+# explicitly injected into `options` (which `plan._build_github_ruleset` does only for a repo
+# whose effective `mode.name` is `autonomous`).
+def test_unattributed_approval_absent_from_body_by_default():
+    # not in GITHUB_RULESET_DEFAULTS, and not injected → never sent to GitHub for a repo whose
+    # plan didn't opt it in.
+    assert UNATTRIBUTED_APPROVAL_KEY not in GITHUB_RULESET_DEFAULTS
+    pr = next(r for r in build_ruleset_rules(_DEFAULT_OPTS) if r["type"] == "pull_request")
+    assert UNATTRIBUTED_APPROVAL_KEY not in pr["parameters"]
+
+
+def test_unattributed_approval_included_when_opts_carries_it():
+    opts = {**_DEFAULT_OPTS, UNATTRIBUTED_APPROVAL_KEY: False}
+    pr = next(r for r in build_ruleset_rules(opts) if r["type"] == "pull_request")
+    assert pr["parameters"][UNATTRIBUTED_APPROVAL_KEY] is False
+
+    opts_true = {**_DEFAULT_OPTS, UNATTRIBUTED_APPROVAL_KEY: True}
+    pr_true = next(r for r in build_ruleset_rules(opts_true) if r["type"] == "pull_request")
+    assert pr_true["parameters"][UNATTRIBUTED_APPROVAL_KEY] is True
+
+
+def test_normalize_ruleset_ignores_unattributed_approval_when_not_managed():
+    # a live-fetched ruleset ALWAYS carries this field (GitHub has a platform default) even when
+    # rig never asked for it. When not managed, the comparison must ignore it on BOTH sides — else
+    # every non-autonomous repo reads permanent drift for a field rig never declared an opinion on.
+    desired = build_ruleset_body(_DEFAULT_OPTS)  # no key in opts → absent from the body
+    actual = json.loads(json.dumps(desired))
+    for rule in actual["rules"]:
+        if rule["type"] == "pull_request":
+            rule["parameters"][UNATTRIBUTED_APPROVAL_KEY] = True  # GitHub's live default
+    assert normalize_ruleset(desired, manage_unattributed_approval=False) == normalize_ruleset(
+        actual, manage_unattributed_approval=False
+    )
+
+
+def test_normalize_ruleset_compares_unattributed_approval_when_managed():
+    desired = build_ruleset_body({**_DEFAULT_OPTS, UNATTRIBUTED_APPROVAL_KEY: False})
+    actual_matching = json.loads(json.dumps(desired))
+    assert normalize_ruleset(desired, manage_unattributed_approval=True) == normalize_ruleset(
+        actual_matching, manage_unattributed_approval=True
+    )
+
+    actual_drifted = json.loads(json.dumps(desired))
+    for rule in actual_drifted["rules"]:
+        if rule["type"] == "pull_request":
+            rule["parameters"][UNATTRIBUTED_APPROVAL_KEY] = True
+    assert normalize_ruleset(desired, manage_unattributed_approval=True) != normalize_ruleset(
+        actual_drifted, manage_unattributed_approval=True
+    )
+
+
+def test_github_ruleset_state_unmanaged_field_is_not_drift(monkeypatch, tmp_path, gh_repo):
+    # action.options carries no UNATTRIBUTED_APPROVAL_KEY (non-autonomous repo) — a live ruleset
+    # with the platform-default `true` must still read "ok", not "update".
+    body = build_ruleset_body(_DEFAULT_OPTS)
+    for rule in body["rules"]:
+        if rule["type"] == "pull_request":
+            rule["parameters"][UNATTRIBUTED_APPROVAL_KEY] = True
+    rec = _GhRecorder(
+        rulesets=[{"id": 8, "name": "rig-managed", "target": "branch", "source_type": "Repository"}],
+        ruleset_by_id={8: {"id": 8, "name": "rig-managed", **body}},
+    )
+    _install_gh(monkeypatch, rec)
+    state, _ = github_ruleset_state(_action(tmp_path))  # no UNATTRIBUTED_APPROVAL_KEY in options
+    assert state == "ok"
+
+
+def test_github_ruleset_state_managed_field_drift_then_idempotent(monkeypatch, tmp_path, gh_repo):
+    # managed (options carries the key, e.g. an autonomous-mode repo): a live `true` is drift...
+    body_live_true = build_ruleset_body(_DEFAULT_OPTS)
+    for rule in body_live_true["rules"]:
+        if rule["type"] == "pull_request":
+            rule["parameters"][UNATTRIBUTED_APPROVAL_KEY] = True
+    rec = _GhRecorder(
+        rulesets=[{"id": 8, "name": "rig-managed", "target": "branch", "source_type": "Repository"}],
+        ruleset_by_id={8: {"id": 8, "name": "rig-managed", **body_live_true}},
+    )
+    _install_gh(monkeypatch, rec)
+    action = _action(tmp_path, **{UNATTRIBUTED_APPROVAL_KEY: False})
+    state, _ = github_ruleset_state(action)
+    assert state == "update"
+
+    # ...and once the live value matches the managed desired (false), a re-apply is a no-op ("ok").
+    desired = build_ruleset_body(action.options)
+    rec2 = _GhRecorder(
+        rulesets=[{"id": 8, "name": "rig-managed", "target": "branch", "source_type": "Repository"}],
+        ruleset_by_id={8: {"id": 8, "name": "rig-managed", **desired}},
+    )
+    _install_gh(monkeypatch, rec2)
+    state2, _ = github_ruleset_state(action)
+    assert state2 == "ok"
+
+
+def test_apply_puts_unattributed_approval_false_when_managed_and_drifted(monkeypatch, tmp_path, gh_repo):
+    # the actual contract: `rig apply` PUTs the corrected knob, not just classifies "update".
+    body_live_true = build_ruleset_body(_DEFAULT_OPTS)
+    for rule in body_live_true["rules"]:
+        if rule["type"] == "pull_request":
+            rule["parameters"][UNATTRIBUTED_APPROVAL_KEY] = True
+    rec = _GhRecorder(
+        rulesets=[{"id": 8, "name": "rig-managed", "target": "branch", "source_type": "Repository"}],
+        ruleset_by_id={8: {"id": 8, "name": "rig-managed", **body_live_true}},
+    )
+    _install_gh(monkeypatch, rec)
+    action = _action(tmp_path, **{UNATTRIBUTED_APPROVAL_KEY: False})
+    res = runner._do_provision_github_ruleset(action, "backup")
+    assert res.status == "updated"
+    assert rec.posts == [] and len(rec.puts) == 1
+    path, sent = rec.puts[0]
+    assert path == "repos/acme/widget/rulesets/8"
+    pr = next(r for r in json.loads(sent)["rules"] if r["type"] == "pull_request")
+    assert pr["parameters"][UNATTRIBUTED_APPROVAL_KEY] is False
+
+
+# ── carry_over_unattributed_approval — preserve an UNMANAGED live value across a PUT ─────────────
+def test_carry_over_copies_unmanaged_live_value_into_desired():
+    desired = build_ruleset_body(_DEFAULT_OPTS)  # no key → unmanaged
+    current = json.loads(json.dumps(desired))
+    for rule in current["rules"]:
+        if rule["type"] == "pull_request":
+            rule["parameters"][UNATTRIBUTED_APPROVAL_KEY] = True
+    out = carry_over_unattributed_approval(desired, current)
+    pr = next(r for r in out["rules"] if r["type"] == "pull_request")
+    assert pr["parameters"][UNATTRIBUTED_APPROVAL_KEY] is True
+    # the original `desired` dict is untouched (pure, no in-place mutation)
+    desired_pr = next(r for r in desired["rules"] if r["type"] == "pull_request")
+    assert UNATTRIBUTED_APPROVAL_KEY not in desired_pr["parameters"]
+
+
+def test_carry_over_never_overwrites_a_managed_value():
+    desired = build_ruleset_body({**_DEFAULT_OPTS, UNATTRIBUTED_APPROVAL_KEY: False})  # managed
+    current = json.loads(json.dumps(desired))
+    for rule in current["rules"]:
+        if rule["type"] == "pull_request":
+            rule["parameters"][UNATTRIBUTED_APPROVAL_KEY] = True  # live drifted to true
+    out = carry_over_unattributed_approval(desired, current)
+    pr = next(r for r in out["rules"] if r["type"] == "pull_request")
+    assert pr["parameters"][UNATTRIBUTED_APPROVAL_KEY] is False  # rig's managed value wins
+
+
+def test_carry_over_is_a_noop_without_current_or_without_the_field():
+    desired = build_ruleset_body(_DEFAULT_OPTS)
+    assert carry_over_unattributed_approval(desired, None) == desired
+    assert carry_over_unattributed_approval(desired, "not-a-dict") == desired  # type: ignore[arg-type]
+    current_without_field = build_ruleset_body(_DEFAULT_OPTS)
+    assert carry_over_unattributed_approval(desired, current_without_field) == desired
+    current_no_pr_rule = {"rules": [{"type": "deletion"}]}
+    assert carry_over_unattributed_approval(desired, current_no_pr_rule) == desired
+
+
+def test_apply_carries_over_unmanaged_live_true_when_unrelated_knob_drifts(monkeypatch, tmp_path, gh_repo):
+    # the P1 case: a non-autonomous repo (unmanaged knob), live has `true`, and an UNRELATED knob
+    # (required_reviews) drifted — the PUT must NOT silently reset the unmanaged `true` to
+    # GitHub's platform default just because some other field triggered a full-body PUT.
+    live = build_ruleset_body(_DEFAULT_OPTS)
+    for rule in live["rules"]:
+        if rule["type"] == "pull_request":
+            rule["parameters"]["required_approving_review_count"] = 1  # will drift vs. desired's 0
+            rule["parameters"][UNATTRIBUTED_APPROVAL_KEY] = True  # unmanaged live value
+    rec = _GhRecorder(
+        rulesets=[{"id": 9, "name": "rig-managed", "target": "branch", "source_type": "Repository"}],
+        ruleset_by_id={9: {"id": 9, "name": "rig-managed", **live}},
+    )
+    _install_gh(monkeypatch, rec)
+    action = _action(tmp_path)  # NO UNATTRIBUTED_APPROVAL_KEY in options — unmanaged
+    res = runner._do_provision_github_ruleset(action, "backup")
+    assert res.status == "updated"
+    _path, sent = rec.puts[0]
+    pr = next(r for r in json.loads(sent)["rules"] if r["type"] == "pull_request")
+    assert pr["parameters"]["required_approving_review_count"] == 0  # the real drift is corrected
+    assert pr["parameters"][UNATTRIBUTED_APPROVAL_KEY] is True  # the unmanaged value is preserved
 
 
 # ── remote URL parsing (owner/repo resolution) ──────────────────────────────────────
@@ -714,6 +896,70 @@ def test_plan_overrides_merge_over_defaults(fake_agent_tools, tmp_path):
     assert action.options["block_force_push"] is True
 
 
+def test_plan_omits_unattributed_approval_knob_without_autonomous_mode(fake_agent_tools, tmp_path):
+    # no `mode` block at all → the plan builder never injects the mode-gated default.
+    from riglib.catalog import Catalog
+
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_cfg({}, tmp_path), cat, project_type="cli")
+    action = next(a for a in plan.actions if a.kind == "provision_github_ruleset")
+    assert UNATTRIBUTED_APPROVAL_KEY not in action.options
+
+
+def test_plan_omits_unattributed_approval_knob_for_non_autonomous_mode_name(fake_agent_tools, tmp_path):
+    # a `mode` block that names something OTHER than autonomous is also not gated in.
+    from riglib.catalog import Catalog
+
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_cfg({"mode": {"name": "supervised"}}, tmp_path), cat, project_type="cli")
+    action = next(a for a in plan.actions if a.kind == "provision_github_ruleset")
+    assert UNATTRIBUTED_APPROVAL_KEY not in action.options
+
+
+def test_plan_defaults_unattributed_approval_to_false_under_autonomous_mode(fake_agent_tools, tmp_path):
+    from riglib.catalog import Catalog
+
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_cfg({"mode": {"name": "autonomous"}}, tmp_path), cat, project_type="cli")
+    action = next(a for a in plan.actions if a.kind == "provision_github_ruleset")
+    assert action.options[UNATTRIBUTED_APPROVAL_KEY] is False
+
+
+def test_plan_explicit_ruleset_override_wins_over_autonomous_mode_default(fake_agent_tools, tmp_path):
+    # a deliberate `true` in the repo's own config is never clobbered by the mode-gated default.
+    from riglib.catalog import Catalog
+
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(
+        _cfg(
+            {
+                "mode": {"name": "autonomous"},
+                "github": {"ruleset": {UNATTRIBUTED_APPROVAL_KEY: True}},
+            },
+            tmp_path,
+        ),
+        cat,
+        project_type="cli",
+    )
+    action = next(a for a in plan.actions if a.kind == "provision_github_ruleset")
+    assert action.options[UNATTRIBUTED_APPROVAL_KEY] is True
+
+
+def test_plan_explicit_ruleset_override_applies_without_autonomous_mode(fake_agent_tools, tmp_path):
+    # an explicit config value is honored even OUTSIDE autonomous mode — only the auto-default is
+    # mode-gated, never a deliberate choice.
+    from riglib.catalog import Catalog
+
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(
+        _cfg({"github": {"ruleset": {UNATTRIBUTED_APPROVAL_KEY: False}}}, tmp_path),
+        cat,
+        project_type="cli",
+    )
+    action = next(a for a in plan.actions if a.kind == "provision_github_ruleset")
+    assert action.options[UNATTRIBUTED_APPROVAL_KEY] is False
+
+
 # ── config validation (fail-closed) ──────────────────────────────────────────────────
 def test_validate_rejects_unknown_github_key():
     with pytest.raises(ConfigError, match="unknown github key"):
@@ -780,7 +1026,26 @@ def test_validate_accepts_empty_and_valid_block():
                     "require_signatures": False,
                     "required_status_checks": ["ci", "lint"],
                     "admin_bypass": True,
+                    "require_extra_approval_for_unattributed_changes": False,
                 }
             },
         }
     )
+
+
+def test_validate_accepts_unattributed_approval_knob():
+    validate(
+        {"version": 1, "github": {"ruleset": {"require_extra_approval_for_unattributed_changes": True}}}
+    )
+
+
+def test_validate_rejects_non_bool_unattributed_approval_knob():
+    with pytest.raises(
+        ConfigError, match="require_extra_approval_for_unattributed_changes must be a bool"
+    ):
+        validate(
+            {
+                "version": 1,
+                "github": {"ruleset": {"require_extra_approval_for_unattributed_changes": "yes"}},
+            }
+        )

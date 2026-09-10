@@ -218,8 +218,8 @@ def test_codex_mcp_merge_preserves_unrelated_config(tmp_path):
     assert project_tools.merge_codex_mcp_section(text, entry.content) == text
 
 
-def test_codex_mcp_merge_handles_empty_other_servers_and_unmarked_haft():
-    section = project_tools._haft_codex_mcp_section()
+def test_codex_mcp_merge_handles_empty_other_servers_and_unmarked_haft(tmp_path):
+    section = project_tools._haft_codex_mcp_section(tmp_path)
     assert project_tools.merge_codex_mcp_section("", section) == section
 
     existing = (
@@ -232,6 +232,28 @@ def test_codex_mcp_merge_handles_empty_other_servers_and_unmarked_haft():
     assert 'command = "old"' not in merged
     assert 'OLD = "1"' not in merged
     assert merged.count("[mcp_servers.haft]") == 1
+
+
+def test_toml_quoted_escapes_backslash_quote_and_controls():
+    assert project_tools._toml_quoted('a\\b"c') == '"a\\\\b\\"c"'
+    assert project_tools._toml_quoted("line1\nline2") == '"line1\\nline2"'
+
+
+def test_haft_codex_mcp_binds_absolute_repo_root(tmp_path):
+    """Codex rmcp rejects tools/list when Haft returns tools=null (unbound root)."""
+    repo = _git_repo(tmp_path / "repo")
+    entry = next(
+        e
+        for e in project_tools.desired_entries(
+            repo,
+            {"haft": {"enabled": True}, "serena": {"enabled": False}, "sverklo": {"enabled": False}},
+        )
+        if e.item == "haft-codex-mcp"
+    )
+    root = str(repo.resolve())
+    assert 'HAFT_PROJECT_ROOT = "."' not in entry.content
+    assert f'HAFT_PROJECT_ROOT = "{root}"' in entry.content
+    assert f'cwd = "{root}"' in entry.content
 
 
 def test_sverklo_register_is_dry_run_gated(tmp_path, monkeypatch):

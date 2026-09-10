@@ -40,7 +40,7 @@ from .github_actions import GITHUB_ACTIONS_DEFAULTS
 from .github_browser import UI_ONLY_TOGGLES
 from .github_ghas import GITHUB_GHAS_DEFAULTS
 from .github_merge import GITHUB_MERGE_DEFAULTS
-from .github_ruleset import CI_GATE_CHECK_CONTEXTS, GITHUB_RULESET_DEFAULTS
+from .github_ruleset import CI_GATE_CHECK_CONTEXTS, GITHUB_RULESET_DEFAULTS, UNATTRIBUTED_APPROVAL_KEY
 from .harness_skills import HARNESS_SKILL_DIRS as _HARNESS_SKILL_DIRS
 from .harness_skills import codex_user_path as _codex_user_path
 from .harness_skills import instruction_file_for as _instruction_file_for
@@ -137,7 +137,7 @@ def _agent_hooks_target_for_kind(kind: str) -> str | None:
 class Action:
     """A single planned install step. ``kind`` selects the runner in ``actions/``."""
 
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_schedule | provision_agents_symlink | provision_project_tool | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
+    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
     category: str
     item: str
     source: Path  # carrier path in the agent-tools checkout
@@ -891,9 +891,16 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     _build_execpolicy(config, plan)
     _build_guard_policy(config, plan)
     _build_harness_delegated_notes(config, plan)
+    # ORDER MATTERS — both omp YAML writers target the same config.yml. Approval
+    # creates the file on first-run; web_search then merges exclude. The reverse
+    # made approval see an existing file and skip under on_conflict=skip (rig-cli#447).
+    _build_omp_web_search(config, plan)
 
     # ── hook bridge (make agents-hooks/v1 descriptors FIRE in the harness) ─────────
     _build_hook_bridge(config, catalog, plan)
+
+    # ── omp idle-TTL keepalive (yielded helpers stay on the live roster) ──────────
+    _build_omp_idle_ttl(config, plan)
 
     # ── models (daily model-freshness checker schedule) ───────────────────────────
     _build_models(config, catalog, plan)
@@ -1016,6 +1023,36 @@ def _enabled_harness_block(config: LoadedConfig) -> dict[str, Any] | None:
     if not isinstance(h, dict) or not h or h.get("enabled") is False:
         return None
     return h
+
+
+def _build_omp_web_search(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the omp ``providers.webSearchExclude`` merge when omp is a configured kind.
+
+    Default ON for an enabled harness that lists omp: exclude ``perplexity`` so web_search
+    never falls through to the Sign-up wall (rig-cli#447). ``web_search.enabled: false``
+    or ``exclude: []`` emits nothing. Extra names already on disk are never removed.
+    """
+    from .harness_skills import omp_user_path
+    from .omp_web_search import resolve_exclude
+
+    h = _enabled_harness_block(config)
+    if h is None:
+        return
+    if "omp" not in _configured_harness_kinds(config):
+        return
+    exclude = resolve_exclude(h)
+    if not exclude:
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_omp_web_search",
+            category="harness",
+            item="omp",
+            source=config.repo_root,
+            target=_expand(omp_user_path("config.yml"), config.repo_root),
+            options={"kind": "omp", "exclude": exclude},
+        )
+    )
 
 
 def _build_harness_delegated_notes(config: LoadedConfig, plan: InstallPlan) -> None:
@@ -1880,14 +1917,39 @@ def _codex_extra_stop_hooks(config: LoadedConfig) -> list[str]:
     return [cmd] if cmd else []
 
 
+def _build_omp_idle_ttl(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan ``task.agentIdleTtlMs: 0`` into omp's agent config so yielded helpers stay live.
+
+    omp parks idle helpers after ``task.agentIdleTtlMs`` (default 420000 ms); parked agents
+    drop off the live hub roster. ``<= 0`` disables parking (docs/tools/task.md). Emitted
+    whenever a configured harness kind is omp and the harness block is enabled.
+    """
+    if _enabled_harness_block(config) is None:
+        return
+    if "omp" not in _configured_harness_kinds(config):
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_omp_idle_ttl",
+            category="harness",
+            item="omp-idle-ttl",
+            source=config.repo_root,
+            target=_expand(_omp_user_path("config.yml"), config.repo_root),
+            options={"kind": "omp"},
+        )
+    )
+
+
+
 def _build_agents_symlink(config: LoadedConfig, plan: InstallPlan) -> None:
     """Plan the AGENTS.md (canonical) + CLAUDE.md (symlink) provisioning for the repo.
 
     Default **ON**: every repo should expose one agent-guide file under both names so every
-    harness reads the same instructions. Opt out with ``agents_md: { enabled: false }`` (or
-    ``{ symlink: false }``). The classify-and-converge logic lives in ``actions/`` (it depends
-    on what is already on disk), so the plan emits one idempotent action anchored at the repo
-    root; no carrier in agent-tools.
+    harness reads the same instructions, plus the marker-delimited orchestrator and
+    autonomous-mode reminders spliced into that guide. Opt out with
+    ``agents_md: { enabled: false }`` (or ``{ symlink: false }``). The classify-and-converge
+    logic lives in ``actions/`` (it depends on what is already on disk), so the plan emits
+    idempotent actions anchored at the repo root; no carrier in agent-tools.
     """
     am = config.data.get("agents_md")
     if am is None:
@@ -1901,6 +1963,27 @@ def _build_agents_symlink(config: LoadedConfig, plan: InstallPlan) -> None:
             kind="provision_agents_symlink",
             category="agents_md",
             item="symlink",
+            source=config.repo_root,
+            target=config.repo_root,
+            options={},
+        )
+    )
+    # Symlink first so create_both writes the placeholder before these splices run.
+    plan.actions.append(
+        Action(
+            kind="provision_agents_orchestrator",
+            category="agents_md",
+            item="orchestrator",
+            source=config.repo_root,
+            target=config.repo_root,
+            options={},
+        )
+    )
+    plan.actions.append(
+        Action(
+            kind="provision_agents_autonomous_mode",
+            category="agents_md",
+            item="autonomous-mode",
             source=config.repo_root,
             target=config.repo_root,
             options={},
@@ -2297,6 +2380,36 @@ def _build_github_ruleset(config: LoadedConfig, catalog: Catalog, plan: InstallP
     are green, WITHOUT requiring a check whose workflow isn't present (which would wedge every PR).
     An explicit ``required_status_checks`` in the config wins verbatim (including ``[]`` to require
     none), so the auto-default never overrides a deliberate choice.
+
+    UNATTRIBUTED-APPROVAL KNOB, MODE-GATED. GitHub's
+    ``require_extra_approval_for_unattributed_changes`` requires one more approval than
+    ``required_approving_review_count`` on a PR GitHub classifies as opened under an app identity
+    not attributed to a person — GitHub's own docs name the Copilot coding agent as the documented
+    trigger ("When Copilot opens a pull request that isn't attributed to a person, the ruleset
+    requires one more approval than the number you configured"). Found ON (``true``) blocking
+    ``gh ship``'s merge on agent-tools' ``rig-managed`` ruleset and hand-patched to ``false`` via a
+    raw ``gh api ... -X PUT`` on 2026-09-07 as an emergency stopgap (rig-cli#399's investigation
+    could not independently confirm from the rule-suites log or PR authorship why it fired there —
+    agent-tools' recent merges are all attributed to a human login, which the documented mechanism
+    would not gate on; the exact causal story is unresolved, only the observed block + the hand-
+    patch are facts). This makes the fix durable regardless of the precise mechanism. rig defaults
+    it to ``False`` (never required), but ONLY for a repo whose EFFECTIVE ``mode.name`` is ``autonomous``
+    (:func:`_autonomous_block`, cascaded from the machine-wide ``~/.config/rig/config.yaml`` —
+    ``mode`` is a GLOBAL-only category, config.py rejects it from a committed repo ``rig.yaml``
+    outright — so THIS GATING IS PER-MACHINE, not per-repo: every repo `rig apply` touches from a
+    machine with ``mode.name: autonomous`` gets the knob managed). A repo NOT running in autonomous
+    mode gets no injected default: the knob is simply absent from ``options``, so it is never sent
+    in the DESIRED body and never compared for drift — it is UNMANAGED. An unrelated knob change
+    still PUTs the full ``pull_request`` rule (a full-replace update), which would otherwise reset
+    an unmanaged knob to GitHub's own platform default — so ``actions/runner.py``'s
+    ``_do_provision_github_ruleset`` carries the live-fetched value into the outgoing PUT
+    unchanged (``github_ruleset.carry_over_unattributed_approval``), NOT a full optimistic-
+    concurrency guarantee: a hand edit landing in the narrow window between that read and the PUT
+    can still be overwritten — the same read-then-write risk this module already carries for every
+    field it reconciles. An explicit
+    ``github.ruleset.require_extra_approval_for_unattributed_changes`` in the repo's own config
+    ALWAYS wins over this mode-gated default, in either direction and regardless of mode — this is
+    the way to opt a single repo back in even on an autonomous-mode machine.
     """
     gh = config.data.get("github")
     if gh is None:
@@ -2321,6 +2434,10 @@ def _build_github_ruleset(config: LoadedConfig, catalog: Catalog, plan: InstallP
     # none" and must survive the `v is not None` filter above — which it does, so check `ruleset`).
     if "required_status_checks" not in ruleset or ruleset.get("required_status_checks") is None:
         options["required_status_checks"] = _enabled_ci_check_contexts(config, catalog)
+    # Mode-gated default only — never overrides an explicit config value (setdefault, and the
+    # config-driven `overrides` merge above already ran).
+    if _autonomous_block(config) is not None:
+        options.setdefault(UNATTRIBUTED_APPROVAL_KEY, False)
     plan.actions.append(
         Action(
             kind="provision_github_ruleset",

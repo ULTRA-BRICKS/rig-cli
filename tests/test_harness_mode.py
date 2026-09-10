@@ -487,6 +487,9 @@ def _omp_yml() -> Path:
 
 
 def _omp_plan(fake_agent_tools, repo: Path, **harness):
+    # Approval tests own tools.approvalMode; keep web_search off so a sibling
+    # rewrite of the same config.yml cannot leak into byte-exact assertions.
+    harness.setdefault("web_search", {"enabled": False})
     cfg = _cfg(repo, fake_agent_tools, kind="omp", **harness)
     cfg.data["permissions"] = {"enabled": True}
     return build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
@@ -943,9 +946,13 @@ def test_omp_adopted_config_gets_its_first_backup_recorded_on_convergence(fake_a
     assert adopt.status == "updated" and "adopted" in adopt.detail, adopt.detail
     receipt_file = _omp_yml().parent / ".rig-permissions-receipt.json"
     assert json.loads(receipt_file.read_text())["backup"] is None
-    assert _omp_yml().read_text(encoding="utf-8") == original
+    import yaml
+    after_adopt = yaml.safe_load(_omp_yml().read_text(encoding="utf-8"))
+    assert after_adopt["tools"]["approvalMode"] == "always-ask"
+    assert after_adopt["task"]["agentIdleTtlMs"] == 0
+    pre_convergence = _omp_yml().read_text(encoding="utf-8")
     res = [r for r in run_plan(_omp_plan(fake_agent_tools, repo, auto_mode=True)).results
            if r.action.kind == "provision_harness_approval"][0]
     assert res.status == "backed_up", res.detail
     backup = json.loads(receipt_file.read_text())["backup"]
-    assert backup and Path(backup).read_text(encoding="utf-8") == original
+    assert backup and Path(backup).read_text(encoding="utf-8") == pre_convergence

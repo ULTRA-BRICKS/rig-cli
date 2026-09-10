@@ -361,6 +361,14 @@ _ASSERT_SCRIPT = textwrap.dedent(
       || fail "cc_hook_bridge PreToolUse hook not wired into settings.json"
     pass "agents-hooks -> CC bridge wired (cc_hook_bridge in PreToolUse)"
 
+    # ── harness orchestrator parity (cc / omp / codex / opencode) ────────────────
+    # Each harness loads a project instruction file (CLAUDE.md or AGENTS.md). After
+    # apply they must all contain the same always-on rig-managed orchestrator block.
+    python3 /opt/cleanroom/check_orchestrator.py "$REPO" \\
+      || fail "harness instruction files do not share the orchestrator block"
+    pass "claude-code/omp/codex/opencode see the same orchestrator block"
+
+
     # ── (3) IDEMPOTENT RE-APPLY ──────────────────────────────────────────────────────
     # `rig apply commit` is the EXECUTE subcommand (a bare `rig apply` is preview-only). It is
     # non-interactive by design (no `--yes`/wizard — only `rig init` prompts), so it never blocks
@@ -518,6 +526,7 @@ _CHECK_SETTINGS = textwrap.dedent(
                 ("PreToolUse", "Agent|Task"),
                 ("PreToolUse", "Skill"),
                 ("PreToolUse", "Monitor"),
+                ("PreToolUse", "EnterWorktree"),
                 ("PostToolUse", "Edit|Write|MultiEdit|NotebookEdit"),
                 ("Stop", None),
             ]
@@ -542,6 +551,83 @@ _CHECK_SETTINGS = textwrap.dedent(
         raise SystemExit(main())
     """
 )
+
+
+# In-container checker: Claude Code (CLAUDE.md), omp, Codex, and opencode (AGENTS.md)
+# all see the same marker-delimited orchestrator block after apply. Staged as a file
+# (not an inline heredoc) so its Python body never inherits the bash script's indentation.
+_CHECK_ORCHESTRATOR = textwrap.dedent(
+    """\
+    #!/usr/bin/env python3
+    import sys
+    from pathlib import Path
+
+    BEGIN = "# >>> rig-managed orchestrator (do not edit) >>>"
+    END = "# <<< rig-managed orchestrator (do not edit) <<<"
+    # Tokens that must live INSIDE the managed block — a mention in user prose must not pass.
+    REQUIRED = (
+        "Orchestrator, not worker",
+        "Do not implement inline",
+        "gh ship",
+        "rig worktree create",
+    )
+    # Project-level instruction files each harness loads. Codex also has ~/.codex/AGENTS.md
+    # (global); this proves the repo-local always-on block every harness reads from the
+    # project (CLAUDE.md for Claude Code; AGENTS.md for omp/Codex/opencode).
+    VIEWS = (
+        ("claude-code", "CLAUDE.md"),
+        ("omp", "AGENTS.md"),
+        ("codex", "AGENTS.md"),
+        ("opencode", "AGENTS.md"),
+    )
+
+
+    def _block(text):
+        start = text.find(BEGIN)
+        stop = text.find(END)
+        if start < 0 or stop < 0 or stop < start:
+            return None
+        return text[start : stop + len(END)]
+
+
+    def main() -> int:
+        if len(sys.argv) < 2:
+            print("usage: check_orchestrator.py <repo>", file=sys.stderr)
+            return 2
+        repo = Path(sys.argv[1])
+        blocks = {}
+        for harness, rel in VIEWS:
+            path = repo / rel
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError as exc:
+                print(f"{harness}: cannot read {path}: {exc}", file=sys.stderr)
+                return 1
+            block = _block(text)
+            if block is None:
+                print(f"{harness}: {path} has no rig-managed orchestrator block", file=sys.stderr)
+                return 1
+            missing = [tok for tok in REQUIRED if tok not in block]
+            if missing:
+                print(f"{harness}: orchestrator block missing {missing!r}", file=sys.stderr)
+                return 1
+            blocks[harness] = block
+        unique = set(blocks.values())
+        if len(unique) != 1:
+            by = {}
+            for harness, block in blocks.items():
+                by.setdefault(block, []).append(harness)
+            groups = " vs ".join("+".join(names) for names in by.values())
+            print(f"orchestrator blocks differ across harnesses ({groups})", file=sys.stderr)
+            return 1
+        return 0
+
+
+    if __name__ == "__main__":
+        raise SystemExit(main())
+    """
+)
+
 
 
 # The Dockerfile. `python:3.12-slim` + git, a brand-new non-root user with a pristine HOME, the
@@ -620,6 +706,7 @@ def _stage_build_context(ctx: Path) -> None:
     _write(cleanroom / "rig.yaml", _CLEANROOM_CONFIG)
     _write(cleanroom / "assert.sh", _ASSERT_SCRIPT, executable=True)
     _write(cleanroom / "check_settings.py", _CHECK_SETTINGS, executable=True)
+    _write(cleanroom / "check_orchestrator.py", _CHECK_ORCHESTRATOR, executable=True)
 
     _write(ctx / "Dockerfile", _DOCKERFILE)
 

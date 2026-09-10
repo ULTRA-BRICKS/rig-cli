@@ -106,6 +106,12 @@ class Option:
     # ``agent_hooks.known`` / ``mcp.known`` lists: the list cascade REPLACES the global list, so
     # a repo-level copy would hide the global entries and resurface them as drift for that repo.
     layer_override: str | None = None
+    # True for an option the plan builder only injects a default for under machine-wide
+    # `mode.name: autonomous` (github.ruleset's unattributed-approval knob today). When the key is
+    # ABSENT from the merged config AND the repo isn't in autonomous mode, `effective_value` shows
+    # "unmanaged" instead of `default` — showing `default` (False) there would claim rig knows the
+    # live GitHub value is off, when in fact rig never asked and the real value could be anything.
+    mode_gated_unmanaged: bool = False
 
     def __post_init__(self) -> None:
         if self.kind not in _KINDS:
@@ -181,6 +187,7 @@ def _opt(
     items_enum: tuple[str, ...] = (),
     null_tokens: tuple[str, ...] = ("", "null", "none", "~", "unset"),
     layer_override: str | None = None,
+    mode_gated_unmanaged: bool = False,
 ) -> Option:
     return Option(
         key=key,
@@ -192,6 +199,7 @@ def _opt(
         items_enum=items_enum,
         null_tokens=null_tokens,
         layer_override=layer_override,
+        mode_gated_unmanaged=mode_gated_unmanaged,
     )
 
 
@@ -335,6 +343,14 @@ AREAS: tuple[Area, ...] = (
             _opt("harness.hook_bridge.enabled", KIND_BOOL, True,
                  "Wire the supported harness hook bridge so installed agent-hooks actually FIRE. "
                  "Without it every agent-hook is inert and auto-mode is NOT safe."),
+            _opt("harness.web_search.enabled", KIND_BOOL, True,
+                 "When omp is a configured harness kind, merge providers.webSearchExclude into "
+                 "the omp agent config.yml so web_search never falls through to Perplexity's "
+                 "Sign-up wall. Off = leave the exclude list alone."),
+            _opt("harness.web_search.exclude", KIND_LIST, ["perplexity"],
+                 "Provider ids omp web_search must never use, even as fallbacks. Additive — "
+                 "names already on disk stay. An empty list opts out of the write. Default "
+                 "excludes perplexity (anonymous path is a Sign-up wall)."),
         ),
     ),
     Area(
@@ -346,7 +362,7 @@ AREAS: tuple[Area, ...] = (
                  "Provision the per-harness permissions layer: the command allowlist (tg/review/draw/"
                  "3d/rig/task/dev + read-only rg/jq/gitleaks pre-allowed, no per-call prompts) plus "
                  "the deny/ask rule baselines (claude-code AND opencode; raw PR-merge, force-push, sudo "
-                 "rm, screencapture, rg --pre denied; pkill/killall/git reset --hard prompt). codex gets a "
+                 "rm, screencapture, rg --pre, git worktree add, EnterWorktree denied; pkill/killall/git reset --hard prompt). codex gets a "
                  "safe-command allow + coarse deny via its execpolicy .rules block. Additive — merges "
                  "into the existing lists, never clobbers or removes the user's own entries. Off = "
                  "leave it alone. The target settings file is per-machine; repo-local config is "
@@ -421,6 +437,16 @@ AREAS: tuple[Area, ...] = (
                  "Dismiss stale pull-request approvals when new commits are pushed (secure default ON). "
                  "Applies to any approval, including voluntary ones when required_reviews is 0. "
                  "Inert only if require_pull_request: false."),
+            _opt("github.ruleset.require_extra_approval_for_unattributed_changes", KIND_BOOL, False,
+                 "GitHub's extra-approval-for-unattributed-changes rule: one more required approval "
+                 "on a PR opened under an app identity not attributed to a person (GitHub's docs "
+                 "name the Copilot coding agent as the documented trigger). NOT unconditionally "
+                 "applied like the knobs above: rig only defaults this to false for a repo whose "
+                 "effective mode.name is 'autonomous' — found ON blocking gh ship's merge on "
+                 "agent-tools and hand-patched off; this makes that fix durable. Shown as "
+                 "'unmanaged' (not off) when absent outside autonomous mode — rig hasn't asked "
+                 "GitHub, so it doesn't know the live value.",
+                 mode_gated_unmanaged=True),
         ),
     ),
     Area(
@@ -565,14 +591,24 @@ def set_path(data: dict[str, Any], dotted: str, value: Any) -> None:
 _BLOCK_PRESENCE_GATED_CATEGORIES = frozenset({"harness", "models", "git_hooks"})
 
 
+UNMANAGED = "unmanaged"
+
+
 def effective_value(option: Option, merged: dict[str, Any]) -> Any:
     """The option's CURRENT value in a (cascaded) config dict — the live state the wizard shows.
 
     ``merged`` is the loaded+cascaded config (global then repo). An absent key normally falls back
-    to the documented default. The exception is a block-presence-gated category (see
-    :data:`_BLOCK_PRESENCE_GATED_CATEGORIES`): when its ENTIRE top-level block is absent, the plan
-    builder skips it, so its bool activation keys are reported OFF (``False``) rather than at the
-    enabled-by-default value — otherwise the wizard would advertise a feature `rig apply` ignores.
+    to the documented default. Two exceptions:
+
+    - A block-presence-gated category (see :data:`_BLOCK_PRESENCE_GATED_CATEGORIES`): when its
+      ENTIRE top-level block is absent, the plan builder skips it, so its bool activation keys are
+      reported OFF (``False``) rather than at the enabled-by-default value — otherwise the wizard
+      would advertise a feature `rig apply` ignores.
+    - A ``mode_gated_unmanaged`` option (e.g. ``github.ruleset``'s unattributed-approval knob):
+      when absent AND the repo's effective ``mode.name`` isn't ``autonomous``, the plan builder
+      injects NO default and never reads the live GitHub value — so showing ``option.default``
+      would claim rig knows it's off when it genuinely doesn't. Returns the sentinel
+      :data:`UNMANAGED` instead.
     """
     try:
         return get_path(merged, option.key)
@@ -584,6 +620,11 @@ def effective_value(option: Option, merged: dict[str, Any]) -> Any:
         ):
             # the block is entirely absent → apply treats it as inactive → show OFF, not the default
             return False
+        if option.mode_gated_unmanaged:
+            mode = merged.get("mode")
+            is_autonomous = isinstance(mode, dict) and mode.get("name") == "autonomous"
+            if not is_autonomous:
+                return UNMANAGED
         return option.default
 
 

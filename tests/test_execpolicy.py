@@ -72,6 +72,9 @@ def test_execpolicy_rule_lines_allow_then_deny():
     assert any('decision="forbidden"' in ln and '["gh", "pr", "merge"]' in ln for ln in lines)
     assert any('["sudo", "rm"]' in ln for ln in lines)
     assert any('["screencapture"]' in ln for ln in lines)
+    # raw `git worktree add` is an unambiguous 3-token prefix (same class as gh pr merge);
+    # worktrees go through `rig worktree create`. Not a bare `git` ban.
+    assert any('["git", "worktree", "add"], decision="forbidden"' in ln for ln in lines)
     # coarse-deny stays MINIMAL: no bare git/gh forbidden (would over-block all pushes/commands)
     assert not any('["git"], decision="forbidden"' in ln for ln in lines)
     # rig-cli#187: flag-first `rg --pre` is an unambiguous 2-token leading prefix (partial
@@ -222,11 +225,29 @@ def test_apply_writes_block_and_is_idempotent(fake_agent_tools, tmp_path, monkey
     assert EXECPOLICY_BEGIN_MARKER in text and EXECPOLICY_END_MARKER in text
     assert 'prefix_rule(pattern=["tg"], decision="allow"' in text
     assert 'prefix_rule(pattern=["gh", "pr", "merge"], decision="forbidden"' in text
+    assert 'prefix_rule(pattern=["git", "worktree", "add"], decision="forbidden"' in text
 
     # re-apply is a byte-identical no-op
     report2 = run_plan(build(_codex_cfg(repo, fake_agent_tools), Catalog.scan(str(fake_agent_tools)), project_type="unknown"))
     assert all(r.status == "skipped" for r in report2.results if r.action.kind == "provision_execpolicy")
     assert rules.read_text(encoding="utf-8") == text
+
+
+def test_apply_git_extra_still_writes_worktree_add_forbid(fake_agent_tools, tmp_path, monkeypatch):
+    """CI does not install the Codex binary, so the engine check is skipif'd. This pins
+    the overlap in the generated block: extra-allowing git must not drop the
+    worktree-add forbid (retired default / user extra)."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    repo = tmp_path / "repo"; repo.mkdir()
+    plan = build(
+        _codex_cfg(repo, fake_agent_tools, extra=["git"]),
+        Catalog.scan(str(fake_agent_tools)),
+        project_type="unknown",
+    )
+    assert not run_plan(plan).errors
+    body = (tmp_path / "home" / ".codex" / "rules" / "rig-managed.rules").read_text(encoding="utf-8")
+    assert 'prefix_rule(pattern=["git"], decision="allow"' in body
+    assert 'prefix_rule(pattern=["git", "worktree", "add"], decision="forbidden"' in body
 
 
 def test_apply_preserves_user_lines_outside_markers(fake_agent_tools, tmp_path, monkeypatch):
@@ -367,3 +388,30 @@ def test_generated_block_passes_codex_execpolicy_check(fake_agent_tools, tmp_pat
         capture_output=True, text=True, timeout=30,
     )
     assert json.loads(rg_plain.stdout).get("decision") == "allow", rg_plain.stdout
+    # raw `git worktree add` is an unambiguous 3-token prefix (same class as gh pr merge).
+    # Worktrees go through `rig worktree create`. Default tools do not allow git, but the
+    # forbidden rule must still match — unmatched (no decision) means Codex can run it.
+    wt = subprocess.run(
+        ["codex", "execpolicy", "check", "--rules", str(rules), "git", "worktree", "add", "x"],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert json.loads(wt.stdout).get("decision") == "forbidden", wt.stdout
+
+    # retired default / user extra: git is allowed, but the more-specific forbidden must
+    # win (same overlap class as rg --pre). `git status` stays allow.
+    extra_plan = build(
+        _codex_cfg(repo, fake_agent_tools, extra=["git"]),
+        Catalog.scan(str(fake_agent_tools)),
+        project_type="unknown",
+    )
+    assert not run_plan(extra_plan).errors
+    wt_with_git = subprocess.run(
+        ["codex", "execpolicy", "check", "--rules", str(rules), "git", "worktree", "add", "x"],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert json.loads(wt_with_git.stdout).get("decision") == "forbidden", wt_with_git.stdout
+    git_status = subprocess.run(
+        ["codex", "execpolicy", "check", "--rules", str(rules), "git", "status"],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert json.loads(git_status.stdout).get("decision") == "allow", git_status.stdout

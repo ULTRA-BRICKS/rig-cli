@@ -87,7 +87,29 @@ def test_pretooluse_matchers_cover_the_full_managed_set():
         "Agent|Task",
         "Skill",
         "Monitor",
+        "EnterWorktree",
     }
+
+
+def test_docs_explain_the_subagent_monitor_ban_and_replacements():
+    """Ask 162: the Monitor matcher is not just a registration line — docs must say WHY a
+    subagent cannot call Monitor and name the two tools that replace it. A matcher-only
+    mention leaves the 175-ask inventory unable to confirm the ban, the reasons, or the
+    hints (https://github.com/alex-mextner/rig-cli/issues/463)."""
+    repo_root = Path(__file__).resolve().parent.parent
+    text = " ".join((repo_root / "docs" / "config-schema.md").read_text().split())
+    assert "subagent-no-monitor" in text, (
+        "docs/config-schema.md must name the hook the Monitor matcher exists to fire"
+    )
+    assert "main loop" in text, (
+        "docs must say only the main loop is re-invoked by a Monitor notification"
+    )
+    assert "run_in_background" in text, (
+        "docs must name Bash run_in_background as the replacement for one ordinary command"
+    )
+    assert "heartbeat" in text, (
+        "docs must name a foreground heartbeat loop as the replacement for anything else"
+    )
 
 
 def test_wizard_registry_exposes_both_knobs_with_correct_defaults():

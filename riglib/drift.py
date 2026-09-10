@@ -119,6 +119,23 @@ class DriftItem:
 
 
 @dataclass
+class DriftNote:
+    """A fact about a reconciled area that is NOT drift but must stay visible (rig-cli#375).
+
+    Unlike :class:`KnownItem` (an on-disk item rig could place but does not manage), a note is a
+    free-form observation a checker wants printed next to its area's state — today: the Spotlight
+    dependency dirs created since the last sweep, which no sweep could have covered yet. Reporting
+    them as drift makes ``rig status`` permanently red on a machine that builds anything; dropping
+    them silently is how a dead sweep agent hides for a month. So: shown dim beside "in sync",
+    never counted in the drift totals, never part of the exit code.
+    """
+
+    category: str
+    item: str
+    detail: str
+
+
+@dataclass
 class KnownItem:
     """An on-disk item rig does NOT manage but CAN place (rig-cli#357) — informational, never drift.
 
@@ -143,6 +160,7 @@ class KnownItem:
 class DriftReport:
     items: list[DriftItem] = field(default_factory=list)
     known: list[KnownItem] = field(default_factory=list)
+    notes: list[DriftNote] = field(default_factory=list)
 
     @property
     def in_sync(self) -> bool:
@@ -495,14 +513,22 @@ def detect(
             _check_harness_guard(action, report)
         elif action.kind == "provision_harness_approval":
             _check_harness_approval(action, report)
+        elif action.kind == "provision_omp_web_search":
+            _check_omp_web_search(action, report)
         elif action.kind == "provision_instruction_policy":
             _check_instruction_policy(action, report)
         elif action.kind == "register_hook_bridge":
             _check_hook_bridge(action, report)
+        elif action.kind == "provision_omp_idle_ttl":
+            _check_omp_idle_ttl(action, report)
         elif action.kind == "provision_schedule":
             _check_schedule(action, report)
         elif action.kind == "provision_agents_symlink":
             _check_agents_symlink(action, report)
+        elif action.kind == "provision_agents_orchestrator":
+            _check_agents_orchestrator(action, report)
+        elif action.kind == "provision_agents_autonomous_mode":
+            _check_agents_autonomous_mode(action, report)
         elif action.kind == "provision_ship_delegator":
             _check_ship_delegator(action, report)
         elif action.kind == "provision_gh_ship_alias":
@@ -725,6 +751,92 @@ def _check_agents_symlink(action: Action, report: DriftReport) -> None:
         report.items.append(
             DriftItem("modified", "agents_md", "symlink", r.link, r.detail)
         )
+
+
+def _check_agents_md_splice(
+    action: Action,
+    report: DriftReport,
+    *,
+    desired: str,
+    begin: str,
+    end: str,
+    missing_file: str,
+    missing_block: str,
+    conflict: str,
+    stale: str,
+) -> None:
+    """missing/modified mirror the instruction-policy checker (same splice resolver)."""
+    from .actions.runner import _agents_md_splice_target, _splice_managed_block
+
+    path = _agents_md_splice_target(action.target)
+    if path is None or not path.is_file():
+        report.items.append(
+            DriftItem("missing", "agents_md", action.item, action.target / "AGENTS.md", missing_file)
+        )
+        return
+    try:
+        with path.open(encoding="utf-8", newline="") as fh:
+            content = fh.read()
+    except OSError as exc:
+        report.items.append(
+            DriftItem("modified", "agents_md", action.item, path, f"cannot read {path}: {exc}")
+        )
+        return
+    _, state, _detail = _splice_managed_block(content, desired, begin, end)
+    if state == "ok":
+        return
+    if state == "create":
+        report.items.append(
+            DriftItem("missing", "agents_md", action.item, path, missing_block)
+        )
+    elif state == "conflict":
+        report.items.append(
+            DriftItem("modified", "agents_md", action.item, path, conflict)
+        )
+    else:  # update
+        report.items.append(
+            DriftItem("modified", "agents_md", action.item, path, stale)
+        )
+
+
+def _check_agents_orchestrator(action: Action, report: DriftReport) -> None:
+    """Flag drift on the rig-managed orchestrator block in the repo AGENTS.md."""
+    from .actions.runner import (
+        ORCHESTRATOR_BEGIN_MARKER,
+        ORCHESTRATOR_END_MARKER,
+        orchestrator_block_text,
+    )
+
+    _check_agents_md_splice(
+        action, report,
+        desired=orchestrator_block_text(),
+        begin=ORCHESTRATOR_BEGIN_MARKER,
+        end=ORCHESTRATOR_END_MARKER,
+        missing_file="AGENTS.md not present (orchestrator splice skips until the symlink action creates it)",
+        missing_block="no rig-managed orchestrator block (apply adds it)",
+        conflict="unbalanced/misordered rig-managed orchestrator markers — reconcile by hand, then re-run",
+        stale="rig-managed orchestrator block is stale (apply rewrites it)",
+    )
+
+
+def _check_agents_autonomous_mode(action: Action, report: DriftReport) -> None:
+    """Flag drift on the rig-managed autonomous-mode block in the repo AGENTS.md."""
+    from .actions.runner import (
+        AUTONOMOUS_BEGIN_MARKER,
+        AUTONOMOUS_END_MARKER,
+        autonomous_mode_block_text,
+    )
+
+    _check_agents_md_splice(
+        action, report,
+        desired=autonomous_mode_block_text(),
+        begin=AUTONOMOUS_BEGIN_MARKER,
+        end=AUTONOMOUS_END_MARKER,
+        missing_file="AGENTS.md not present (autonomous-mode splice skips until the symlink action creates it)",
+        missing_block="no rig-managed autonomous-mode block (apply adds it)",
+        conflict="unbalanced/misordered rig-managed autonomous-mode markers — reconcile by hand, then re-run",
+        stale="rig-managed autonomous-mode block is stale (apply rewrites it)",
+    )
 
 
 def _nearest_existing_ancestor(path: Path) -> Path | None:
@@ -1933,6 +2045,121 @@ def _check_harness_approval(action: Action, report: DriftReport) -> None:
                 )
 
 
+def _check_omp_idle_ttl(action: Action, report: DriftReport) -> None:
+    """Flag missing/positive task.agentIdleTtlMs against the keepalive write."""
+    import yaml
+    from .actions.runner import (
+        OMP_IDLE_TTL_KEY,
+        OMP_IDLE_TTL_VALUE,
+        _idle_ttl_parking_disabled,
+        approval_lookup,
+    )
+
+    path = action.target
+    dotted = ".".join(OMP_IDLE_TTL_KEY)
+    if not path.is_file():
+        report.items.append(
+            DriftItem("missing", "harness", action.item, path,
+                      f"{dotted} not provisioned (apply sets {OMP_IDLE_TTL_VALUE!r})")
+        )
+        return
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      f"cannot read {path}: {exc}")
+        )
+        return
+    try:
+        loaded = yaml.safe_load(text)
+    except yaml.YAMLError:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "omp config is malformed YAML")
+        )
+        return
+    if loaded is not None and not isinstance(loaded, dict):
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "omp config is not a YAML mapping — fix it by hand")
+        )
+        return
+    data = loaded if isinstance(loaded, dict) else {}
+    state, value = approval_lookup(data, OMP_IDLE_TTL_KEY)
+    if state == "shape":
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      f"{dotted} parent '{value}' is not an object — fix it by hand")
+        )
+    elif state == "missing":
+        report.items.append(
+            DriftItem("missing", "harness", action.item, path,
+                      f"{dotted} not provisioned (apply sets {OMP_IDLE_TTL_VALUE!r})")
+        )
+    elif not _idle_ttl_parking_disabled(value):
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      f"{dotted} is {value!r} (rig wants {OMP_IDLE_TTL_VALUE!r}; apply never "
+                      "clobbers — change it by hand or remove the key)")
+        )
+
+
+def _check_omp_web_search(action: Action, report: DriftReport) -> None:
+    """Flag drift between the desired webSearchExclude list and omp config.yml.
+
+    missing  — the file is absent, or a desired name is not in the list (apply adds it).
+    modified — malformed YAML, or providers.webSearchExclude is the wrong shape.
+    A list that already contains every desired name is NOT drift (extras stay).
+    """
+    import yaml  # lazy, like the rest of the config stack
+
+    from .omp_web_search import missing_exclude_entries
+
+    path = action.target
+    desired = [str(x) for x in action.options.get("exclude") or [] if str(x)]
+    if not path.is_file():
+        report.items.append(
+            DriftItem("missing", "harness", action.item, path,
+                      "omp web_search exclude not written (apply sets providers.webSearchExclude)")
+        )
+        return
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError):
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "omp config.yml is unreadable (permissions/encoding) — fix it by hand")
+        )
+        return
+    except yaml.YAMLError:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "omp config.yml is malformed YAML")
+        )
+        return
+    if not isinstance(data, dict) and data is not None:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "omp config.yml is not a YAML mapping — fix it by hand")
+        )
+        return
+    data = data if isinstance(data, dict) else {}
+    state, missing = missing_exclude_entries(data, desired)
+    if state == "shape":
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "providers.webSearchExclude is the wrong shape — fix it by hand")
+        )
+        return
+    if missing:
+        report.items.append(
+            DriftItem("missing", "harness", action.item, path,
+                      f"providers.webSearchExclude missing {', '.join(missing)} (apply adds them)")
+        )
+
+
+
 def _check_instruction_policy(action: Action, report: DriftReport) -> None:
     """Flag drift between the advisory instruction policy block and the instruction file.
 
@@ -2336,11 +2563,15 @@ def _check_spotlight(action: Action, report: DriftReport) -> None:
     are each surfaced): an ABSENT plist is the only short-circuit — you can't probe the loaded
     state of a plist that isn't there. A content-drifted plist still reports its load state.
 
-    missing  — a SAMPLE of matched dependency/build dirs lacks the ``.metadata_never_index``
-               sentinel (a new project appeared since the last sweep, or one was hand-deleted) →
-               ``rig apply`` / ``rig spotlight-sweep`` re-covers it. On macOS the launchd re-sweep
-               plist is absent, or (when live) its agent is not loaded.
+    missing  — dependency/build dirs the last sweep VISITED still lack the
+               ``.metadata_never_index`` sentinel (the sweep failed them, or one was hand-deleted)
+               → ``rig apply`` / ``rig spotlight-sweep`` re-covers them. On macOS the launchd
+               re-sweep plist is absent, or (when live) its agent is not loaded.
     modified — the launchd re-sweep plist on disk differs from the configured schedule/argv.
+    note     — uncovered dirs the last sweep NEVER SAW, i.e. they appeared since. Not drift: every
+               test run mints ``__pycache__`` dirs and the next sweep covers them. Printed dim
+               beside "in sync" so a stalled sweep is still visible. The split lives in
+               :class:`riglib.spotlight.Coverage`.
 
     Cross-platform: the sentinel sweep is cross-platform, so its coverage is checked everywhere; the
     launchd plist only exists on macOS (the runner writes none elsewhere), so the plist surface is
@@ -2354,21 +2585,37 @@ def _check_spotlight(action: Action, report: DriftReport) -> None:
     roots, deny, max_depth = spotlight.sweep_args_from_options(opts)
     label = str(opts.get("label") or spotlight.DEFAULT_BOOT_LABEL)
 
-    # 1) sentinel coverage — DRIFT scans the FULL matched set, not verify's bounded first-N sample.
-    # `iter_target_dirs` already walks the whole tree and returns every matched dir (the dominant
-    # cost, unavoidable here), so checking each for the sentinel is only one extra stat per dir —
-    # cheap. Sampling the head (verify's post-apply spot-check) would miss a NEW project that sorts
-    # past the sample ~(1 - N/total) of the time, defeating drift's stated purpose ("a new project
-    # appeared since the last sweep → missing"): the fresh uncovered dir must be caught wherever it
-    # lands in the walk order, not only when it happens to fall in the first N.
-    targets = spotlight.iter_target_dirs(roots, deny, max_depth)
-    uncovered = [d for d in targets if not spotlight.has_sentinel(d)]
-    if uncovered:
+    # 1) sentinel coverage — the SAME `scan_coverage` predicate the post-apply verify step uses, on
+    # the FULL matched set. `iter_target_dirs` already walks the whole tree (the dominant cost,
+    # unavoidable here), so classifying each dir is one extra stat — cheap. The stale/pending split
+    # is what keeps this honest: only dirs the sweep should have covered count as drift.
+    selector = spotlight.SweepSelector(roots, deny, max_depth)
+    record = spotlight.last_sweep(selector)
+    cov = spotlight.scan_coverage(selector, record)
+    if cov.stale:
         report.items.append(
             DriftItem(
-                "missing", "spotlight", action.item, uncovered[0],
-                f"{len(uncovered)}/{len(targets)} dependency/build dirs lack "
-                f"{spotlight.SENTINEL_NAME} — run `rig apply commit` (or `rig spotlight-sweep`) to re-cover",
+                "missing", "spotlight", action.item, cov.stale[0],
+                f"{len(cov.stale)}/{cov.total} dependency/build dirs the last sweep visited still "
+                f"lack {spotlight.SENTINEL_NAME} — run `rig apply commit` "
+                f"(or `rig spotlight-sweep`) to re-cover",
+            )
+        )
+    if cov.pending:
+        # `pending` exists only relative to a consulted record (the Coverage invariant).
+        assert record is not None
+        # Off macOS rig installs no re-sweep agent, so promising "the next sweep" there would be a
+        # promise nothing keeps — name the manual command instead. The age of the last sweep is
+        # what exposes a loaded-but-failing agent (it happened: 9 runs, 9 import errors).
+        next_sweep = (
+            "the daily re-sweep agent covers them" if _on_darwin()
+            else "run `rig spotlight-sweep` to cover them (no periodic sweep agent off macOS)"
+        )
+        report.notes.append(
+            DriftNote(
+                "spotlight", action.item,
+                f"{len(cov.pending)} of {cov.total} dependency/build dirs appeared since the last "
+                f"sweep ({spotlight.describe_age(record.at)}) — {next_sweep}",
             )
         )
 

@@ -133,6 +133,10 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Writes an approval-policy key into the harness config controlling when it must ask "
         "before acting.",
     ),
+    "provision_omp_web_search": _tag(
+        "provision_omp_web_search", "permission_guard", AUDIENCE_AGENT,
+        "Merges providers.webSearchExclude into omp config.yml so web_search skips broken providers.",
+    ),
     "provision_instruction_policy": _tag(
         "provision_instruction_policy", "permission_guard", AUDIENCE_AGENT,
         "Writes an instruction-following policy key into the harness config.",
@@ -143,6 +147,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "(opencode plugin, codex TOML block, or omp extension symlink) so the same installed "
         "hook descriptors fire under that harness too.",
     ),
+    "provision_omp_idle_ttl": _tag(
+        "provision_omp_idle_ttl", "permission_guard", AUDIENCE_AGENT,
+        "Writes task.agentIdleTtlMs: 0 into omp config.yml so yielded helpers stay on the "
+        "live roster instead of parking off it after the default 7-minute idle TTL.",
+    ),
     "provision_schedule": _tag(
         "provision_schedule", "starts_reloads_service", AUDIENCE_BOTH,
         "Installs a launchd/cron schedule (e.g. the daily model-freshness check) that runs "
@@ -152,6 +161,16 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "provision_agents_symlink", "symlinks", AUDIENCE_AGENT,
         "Symlinks a shared AGENTS.md-equivalent instruction file into a harness's expected "
         "location (e.g. CLAUDE.md).",
+    ),
+    "provision_agents_orchestrator": _tag(
+        "provision_agents_orchestrator", "edits_file", AUDIENCE_AGENT,
+        "Splices a marker-delimited orchestrator block into the repo AGENTS.md "
+        "(user body outside the markers is untouched).",
+    ),
+    "provision_agents_autonomous_mode": _tag(
+        "provision_agents_autonomous_mode", "edits_file", AUDIENCE_AGENT,
+        "Splices a marker-delimited autonomous-mode block into the repo AGENTS.md "
+        "(Skill: autonomous-mode; user body outside the markers is untouched).",
     ),
     "provision_ship_delegator": _tag(
         "provision_ship_delegator", "edits_file", AUDIENCE_HUMAN,

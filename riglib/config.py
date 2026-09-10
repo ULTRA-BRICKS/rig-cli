@@ -310,6 +310,31 @@ def set_path(data: dict[str, Any], dotted: str, value: Any) -> None:
     node[parts[-1]] = value
 
 
+
+def del_path(data: dict[str, Any], dotted: str) -> None:
+    """Delete a nested value by dot path. Raises :class:`ConfigError` if the path is absent.
+
+    Does not prune empty parent mappings: deleting the last ``env.vars.FOO`` leaves
+    ``env.vars: {}``. Fail-closed on a missing segment or a non-mapping intermediate —
+    same "the path does not exist" wording as :func:`get_path`, so ``rig env del`` of a
+    key that was never set is an error, not a silent no-op.
+    """
+    parts = split_path(dotted)
+    node: Any = data
+    walked: list[str] = []
+    for seg in parts[:-1]:
+        if not isinstance(node, dict) or seg not in node:
+            where = ".".join(walked) or "<root>"
+            raise ConfigError(f"config path {dotted!r} not found (no {seg!r} under {where})")
+        node = node[seg]
+        walked.append(seg)
+    last = parts[-1]
+    if not isinstance(node, dict) or last not in node:
+        where = ".".join(walked) or "<root>"
+        raise ConfigError(f"config path {dotted!r} not found (no {last!r} under {where})")
+    del node[last]
+
+
 def coerce_scalar(raw: str) -> Any:
     """Coerce a CLI string to the obvious scalar type: bool, int, float, null, else string.
 
@@ -1149,6 +1174,29 @@ def _validate_harness(h: dict[str, Any]) -> None:
                 f"harness.hook_bridge.python must be a string, got {py!r}",
                 schema_path="harness.hook_bridge.python",
             )
+    # harness.web_search — omp providers.webSearchExclude (rig-cli#447). Default ON when
+    # the block is absent; enabled:false / exclude:[] opts out. Fail-closed on types.
+    ws = h.get("web_search")
+    if ws is not None:
+        if not isinstance(ws, dict):
+            raise ConfigError(
+                f"harness.web_search must be a mapping, got {ws!r}",
+                schema_path="harness.web_search",
+            )
+        _reject_unknown_keys(ws, "harness.web_search")
+        enabled = ws.get("enabled")
+        if enabled is not None and not isinstance(enabled, bool):
+            raise ConfigError(
+                f"harness.web_search.enabled must be a bool, got {enabled!r}",
+                schema_path="harness.web_search.enabled",
+            )
+        exclude = ws.get("exclude")
+        if exclude is not None:
+            if not isinstance(exclude, list) or not all(isinstance(v, str) and v for v in exclude):
+                raise ConfigError(
+                    f"harness.web_search.exclude must be a list of non-empty strings, got {exclude!r}",
+                    schema_path="harness.web_search.exclude",
+                )
 
 
 def _check_int_min(block: dict[str, Any], key: str, path: str, minimum: int) -> None:
@@ -2312,6 +2360,11 @@ _GITHUB_RULESET_BOOL_KNOBS = (
     "require_linear_history",
     "require_signatures",
     "admin_bypass",
+    # Mode-gated (autonomous only) — see plan._build_github_ruleset. An explicit value here always
+    # wins over the mode-gated default, regardless of mode. NOT in GITHUB_RULESET_DEFAULTS: unlike
+    # every other bool knob, it has no unconditional default — its default only applies when the
+    # repo's effective mode is autonomous.
+    "require_extra_approval_for_unattributed_changes",
 )
 _GITHUB_RULESET_KEYS = {
     *_GITHUB_RULESET_BOOL_KNOBS,
