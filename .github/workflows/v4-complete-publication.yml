@@ -1,0 +1,181 @@
+name: Complete v4 review publication
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths:
+      - .github/workflows/v4-complete-publication.yml
+      - tools/recovery_v4_complete.py
+permissions:
+  contents: write
+  actions: read
+  issues: read
+  pull-requests: read
+concurrency:
+  group: grooming-corpus
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install isolated documentation and browser dependencies
+        run: |
+          python3 -m pip install 'markdown-it-py==3.0.0' 'beautifulsoup4==4.13.5' 'markdownify==1.2.0' 'playwright==1.55.0'
+          python3 -m playwright install --with-deps chromium
+          mkdir -p "$RUNNER_TEMP/mermaid" "$RUNNER_TEMP/gitleaks"
+          cd "$RUNNER_TEMP/mermaid"
+          PUPPETEER_SKIP_DOWNLOAD=1 bun add --ignore-scripts '@mermaid-js/mermaid-cli@11.12.0'
+          echo "MERMAID_CLI=$RUNNER_TEMP/mermaid/node_modules/@mermaid-js/mermaid-cli/src/cli.js" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP/gitleaks"
+          curl --fail --silent --show-error --location 'https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz' -o gitleaks_8.30.1_linux_x64.tar.gz
+          curl --fail --silent --show-error --location 'https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_checksums.txt' -o checksums.txt
+          grep 'gitleaks_8.30.1_linux_x64.tar.gz$' checksums.txt | sha256sum --check
+          tar -xzf gitleaks_8.30.1_linux_x64.tar.gz gitleaks
+          echo "GITLEAKS_BIN=$RUNNER_TEMP/gitleaks/gitleaks" >> "$GITHUB_ENV"
+          python3 - <<'PY'
+          import json,os,pathlib
+          from playwright.sync_api import sync_playwright
+          config=pathlib.Path(os.environ['RUNNER_TEMP'])/'mermaid-puppeteer.json'
+          with sync_playwright() as p:
+              config.write_text(json.dumps({'executablePath':p.chromium.executable_path,'args':['--no-sandbox','--disable-setuid-sandbox']}))
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('MERMAID_PUPPETEER_CONFIG='+str(config)+'\n')
+          package=pathlib.Path(os.environ['RUNNER_TEMP'])/'mermaid/node_modules/@mermaid-js/mermaid-cli/package.json'
+          obj=json.loads(package.read_text());entry=obj['bin']['mmdc'] if isinstance(obj['bin'],dict) else obj['bin']
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('MERMAID_CLI='+str(package.parent/entry)+'\n')
+          PY
+      - name: Keep source and publication paths repository-relative
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          path=pathlib.Path('tools/recovery_v4_complete.py')
+          s=path.read_text()
+          s=s.replace('renderer.BASE=BASE\n','renderer.BASE=BASE.relative_to(ROOT)\n').replace('renderer.SPECS=SPECS\n','renderer.SPECS=SPECS.relative_to(ROOT)\n').replace('renderer.OUT=PORTAL\n','renderer.OUT=PORTAL.relative_to(ROOT)\n')
+          path.write_text(s)
+          PY
+          python3 -m py_compile tools/recovery_v4_complete.py tools/grooming/v4_reconcile.py tools/grooming/v4_policy.py
+      - name: Compile v4 and preserve every source section without tracker mutations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/recovery_v4_complete.py
+      - name: Verify the generated v4 reader before publishing
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib,subprocess,time,urllib.parse,urllib.request
+          from playwright.sync_api import sync_playwright
+          out=pathlib.Path('docs/grooming/v4-2026-09-10/browser');out.mkdir(parents=True,exist_ok=True)
+          result={'publication_version':4,'scope':'The review portal itself, not all product workflows described in it','checks':{},'errors':[]}
+          server=subprocess.Popen(['python3','-m','http.server','8765','--bind','127.0.0.1','--directory','portal'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+          try:
+              for _ in range(100):
+                  try:urllib.request.urlopen('http://127.0.0.1:8765',timeout=1);break
+                  except Exception:time.sleep(.1)
+              with sync_playwright() as p:
+                  browser=p.chromium.launch()
+                  page=browser.new_page(viewport={'width':1440,'height':1000})
+                  page.on('pageerror',lambda error:result['errors'].append(str(error)))
+                  page.goto('http://127.0.0.1:8765/',wait_until='networkidle')
+                  data=page.evaluate("JSON.parse(document.getElementById('data').textContent)")
+                  assert len(data['quotes'])==505
+                  assert len(data['issues'])>=1519
+                  page.screenshot(path=str(out/'v4-home.png'),full_page=False)
+                  ids={d['id'] for d in data['documents']}
+                  for required in ['01-retrospective-v4','01a-retrospective-preserved','01b-retrospective-crosswalk']:
+                      assert required in ids,required
+                  for document in data['documents']:
+                      page.goto('http://127.0.0.1:8765/#/spec/'+urllib.parse.quote(document['id'],safe=''))
+                      page.locator('article.document').wait_for()
+                      assert page.locator('article.document script').count()==0
+                  page.goto('http://127.0.0.1:8765/#/spec/01-retrospective-v4')
+                  assert page.locator('article.document svg').count()>=1
+                  page.screenshot(path=str(out/'v4-retrospective.png'),full_page=False)
+                  page.goto('http://127.0.0.1:8765/#/backlog')
+                  page.locator('#repo').select_option('task-cli')
+                  page.locator('#search').fill('task-cli#169')
+                  assert page.locator('#results .row').count()==1
+                  page.set_viewport_size({'width':393,'height':852})
+                  page.goto('http://127.0.0.1:8765/')
+                  page.locator('#menu').click()
+                  assert page.locator('aside').is_visible()
+                  page.locator('aside a[href="#/specs"]').click()
+                  page.locator('#search').fill('retrospective')
+                  page.screenshot(path=str(out/'v4-mobile.png'),full_page=False)
+                  result['checks']={'documents_rendered':len(data['documents']),'quotes':len(data['quotes']),'issues':len(data['issues']),'desktop':'1440x1000','mobile':'393x852','real_retrospective_svg':True,'backlog_filter':True}
+                  browser.close()
+              assert not result['errors'],result['errors']
+              result['passed']=True
+          finally:
+              server.terminate();server.wait(timeout=10)
+              (out/'report.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+          PY
+      - name: Commit source, specification corpus, tested reader and evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'Rig v4 recovery review'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/recovery_v4_complete.py docs/grooming/ docs/specs/recovery/ portal/
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs(review): publish v4 retrospective, source crosswalk and verified reader'
+            git pull --rebase origin docs/full-grooming-2026-09-10
+            git push origin HEAD:docs/full-grooming-2026-09-10
+          fi
+          echo "PUBLICATION_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Verify immutable public publication and write its exact URL
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,time,urllib.error,urllib.request
+          from playwright.sync_api import sync_playwright
+          sha=os.environ['PUBLICATION_SHA']
+          url='https://rawcdn.githack.com/alex-mextner/rig-cli/'+sha+'/portal/index.html'
+          expected=hashlib.sha256(pathlib.Path('portal/index.html').read_bytes()).hexdigest()
+          result={'version':4,'source_sha':sha,'url':url,'retrospective_url':url+'#/spec/01-retrospective-v4','authentication':'Public reading. GitHub-authenticated review submission only; no private-reader OAuth/domain restriction.','expected_sha256':expected}
+          for attempt in range(10):
+              try:
+                  req=urllib.request.Request(url,headers={'User-Agent':'rig-v4-publication-check','Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(req,timeout=45) as response:
+                      raw=response.read();result['status']=response.status;result['sha256']=hashlib.sha256(raw).hexdigest();result['content_type']=response.headers.get('Content-Type')
+                  if result['status']==200 and result['sha256']==expected:break
+              except Exception as exc:result['last_error']=type(exc).__name__+': '+str(exc)[:250]
+              time.sleep(min(30,3*(attempt+1)))
+          result['same_content_verified']=result.get('status')==200 and result.get('sha256')==expected
+          if result['same_content_verified']:
+              with sync_playwright() as p:
+                  b=p.chromium.launch();page=b.new_page(viewport={'width':1440,'height':1000})
+                  page.goto(result['retrospective_url'],wait_until='networkidle',timeout=90000)
+                  page.locator('article.document').wait_for()
+                  result['external_browser_verified']=page.locator('article.document svg').count()>=1
+                  page.screenshot(path='docs/grooming/v4-2026-09-10/browser/v4-live-publication.png',full_page=False)
+                  b.close()
+          path=pathlib.Path('docs/grooming/v4-2026-09-10/publication.json')
+          path.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(result,ensure_ascii=False,indent=2))
+          assert result['same_content_verified'] and result.get('external_browser_verified'), 'Publication is not verified'
+          PY
+      - name: Preserve publication result even on a failed endpoint check
+        if: always()
+        run: |
+          git config user.name 'Rig v4 recovery review'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/grooming/v4-2026-09-10/ || true
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs(review): record v4 publication URL and actual verification result'
+            git pull --rebase origin docs/full-grooming-2026-09-10
+            git push origin HEAD:docs/full-grooming-2026-09-10
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: complete-v4-publication-evidence
+          path: |
+            docs/grooming/v4-2026-09-10/
+            portal/manifest.json
+          retention-days: 30
