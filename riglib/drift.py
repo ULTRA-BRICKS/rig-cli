@@ -230,7 +230,12 @@ def scan_missing_targets(settings_paths: list[Path] | None = None) -> list:
     line (``missing <kind>: <path>``) so the same dead target isn't reported twice.
     """
     if settings_paths is None:
-        settings_paths = [Path(os.path.expanduser("~/.claude/settings.json"))]
+        # the doctor case: the HOME default PLUS every claude-rotate account dir — the files the
+        # DEFAULT fan-out manages (rig-cli#368). Filesystem-only, never the shell's
+        # CLAUDE_CONFIG_DIR, so the scan is deterministic; doctor inventories the env dir separately.
+        from .claude_config_dirs import managed_settings_files
+
+        settings_paths = managed_settings_files()
     findings: list = []
     seen: set[str] = set()
     for settings in settings_paths:
@@ -1830,7 +1835,9 @@ def _report_permission_extras(action: Action, ps, extras: list[str], config_file
     if not extras:
         return
     dotted = ".".join(ps.key_path)
-    harness_kind = action.item
+    # the harness KIND lives in the options; `action.item` is the display label, which a
+    # claude-code fan-out target suffixes (`claude-code@account-1`) — never a rules key
+    harness_kind = str(action.options.get("kind") or action.item)
     rules = DEFAULT_RULES.get(harness_kind, {})
     # Origin lookups are scoped to the container: an ARRAY container (claude-code) holds ONE role,
     # so only that role's baseline (and, for allow, the retired defaults) can explain an entry; an

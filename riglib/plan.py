@@ -22,6 +22,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .catalog import Catalog, Item, rule_provider_carrier
+from .claude_config_dirs import (
+    SETTINGS_FILENAME,
+    SettingsTarget,
+    fan_out_item,
+    fan_out_settings,
+    resolve_settings_paths,
+)
 from .config import (
     GITIGNORE_DEFAULT_ENTRIES,
     GITIGNORE_DEFAULT_EXCLUDESFILE,
@@ -1161,21 +1168,45 @@ def _build_harness_claude_code(config: LoadedConfig, plan: InstallPlan, h: dict[
         settings_path = spec.settings_path()
     else:
         settings_path = _HARNESS_SETTINGS[kind]
-    plan.actions.append(
-        Action(
-            kind="apply_harness",
-            category="harness",
-            item=kind,
-            source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
-            target=_expand(str(settings_path), config.repo_root),
-            options={
-                "kind": kind,
-                "auto_mode": auto_mode,
-                "mode_value": str(mode_value),
-                "self_merge": self_merge,
-            },
+    # One action PER settings file a live `claude` on this machine may load: the user-scope
+    # write fans out to every claude-rotate config dir (rig-cli#368) — see claude_config_dirs.
+    for target in _claude_settings_targets(config, kind, _expand(str(settings_path), config.repo_root)):
+        plan.actions.append(
+            Action(
+                kind="apply_harness",
+                category="harness",
+                item=fan_out_item(kind, target),
+                source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
+                target=target.path,
+                options={
+                    "kind": kind,
+                    "auto_mode": auto_mode,
+                    "mode_value": str(mode_value),
+                    "self_merge": self_merge,
+                },
+            )
         )
-    )
+
+
+def _claude_settings_targets(config: LoadedConfig, kind: str, primary: Path) -> list[SettingsTarget]:
+    """The settings files a claude-code user-scope write must reach (primary + account dirs).
+
+    Every other harness kind (and any non-user-scope claude-code target) resolves to the
+    primary alone — the fan-out registry (:mod:`riglib.claude_config_dirs`) decides.
+    """
+    if kind != "claude-code":
+        return [SettingsTarget(primary, None)]
+    if not primary.suffix:
+        # the documented directory form (`settings_path: ~/.claude`) — the writers append the
+        # native filename at write time; resolve it HERE too, so the user-scope check sees the
+        # same file the writer converges instead of silently skipping the fan-out
+        primary = primary / SETTINGS_FILENAME
+    h = config.data.get("harness")
+    # explicit extra files go through the SAME resolver as settings_path (``$VAR`` + ``~`` +
+    # repo-root relative) — shared with `rig doctor`, so a relative entry never reaches a
+    # writer (or the doctor inventory) as a cwd-dependent path
+    harness = resolve_settings_paths(h if isinstance(h, dict) else {}, config.repo_root)
+    return fan_out_settings(primary, harness)
 
 
 def _build_permissions(config: LoadedConfig, plan: InstallPlan) -> None:
@@ -1278,22 +1309,26 @@ def _build_permissions(config: LoadedConfig, plan: InstallPlan) -> None:
         # An explicit settings_path wins only for the single targeted harness case above; otherwise
         # each harness uses its own documented per-machine settings file.
         settings_path = p.get("settings_path") or spec.settings_path
-        plan.actions.append(
-            Action(
-                kind="provision_permissions",
-                category="permissions",
-                item=kind,
-                source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
-                target=_expand(str(settings_path), config.repo_root),
-                options={
-                    "kind": kind,
-                    "tools": tools,
-                    "allow_rules": allow_rules,
-                    "deny_rules": deny_rules,
-                    "ask_rules": ask_rules,
-                },
+        primary = _expand(str(settings_path), config.repo_root)
+        options = {
+            "kind": kind,
+            "tools": tools,
+            "allow_rules": allow_rules,
+            "deny_rules": deny_rules,
+            "ask_rules": ask_rules,
+        }
+        # one action per settings file a live `claude` may load (claude-rotate dirs, rig-cli#368)
+        for target in _claude_settings_targets(config, kind, primary):
+            plan.actions.append(
+                Action(
+                    kind="provision_permissions",
+                    category="permissions",
+                    item=fan_out_item(kind, target),
+                    source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
+                    target=target.path,
+                    options=dict(options),
+                )
             )
-        )
 
 
 def _build_execpolicy(config: LoadedConfig, plan: InstallPlan) -> None:
@@ -1851,16 +1886,25 @@ def _build_hook_bridge_for_kind(
         extra_stop_hooks = _codex_extra_stop_hooks(config)
         if extra_stop_hooks:
             options["extra_stop_hooks"] = extra_stop_hooks
-    plan.actions.append(
-        Action(
-            kind="register_hook_bridge",
-            category="harness",
-            item="hook-bridge",
-            source=catalog.source,
-            target=_expand(str(settings_path), config.repo_root),
-            options=options,
-        )
+    # the claude-code JSON bridge fans out to every claude-rotate config dir (rig-cli#368);
+    # every other format/kind resolves to its single primary file
+    primary = _expand(str(settings_path), config.repo_root)
+    targets = (
+        _claude_settings_targets(config, kind, primary)
+        if bridge_format == "json"
+        else [SettingsTarget(primary, None)]
     )
+    for target in targets:
+        plan.actions.append(
+            Action(
+                kind="register_hook_bridge",
+                category="harness",
+                item=fan_out_item("hook-bridge", target),
+                source=catalog.source,
+                target=target.path,
+                options=dict(options),
+            )
+        )
 
 
 def _codex_extra_stop_hooks(config: LoadedConfig) -> list[str]:
