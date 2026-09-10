@@ -6,7 +6,7 @@ whose ``(mtime_ns, size)`` are unchanged since the last run. These tests exercis
 production path (``collect`` -> each source's ``iter_invocations`` -> ``SessionFileCache``),
 never the cache class in isolation, so a regression in the wiring (not just the cache
 class itself) would fail them -- except where a test's whole point is inspecting the raw
-on-disk row (retention, no-accumulation, gzip), which necessarily reaches into the SQLite
+on-disk row (pruning, no-accumulation, gzip), which necessarily reaches into the SQLite
 file directly.
 """
 
@@ -144,12 +144,11 @@ def test_cache_get_put_round_trip_preserves_invocation_fields(tmp_path):
     assert got == [inv]
 
 
-def test_deleted_session_file_row_is_retained_not_pruned(tmp_path):
-    """Issue #505's original ask was to PRUNE rows for deleted session files. Alex's
-    review correction rejected that: logs are kept to be used, not discarded. This proves
-    the corrected behavior -- a session file removed from disk keeps its cached row in the
-    database (retrievable by direct inspection), even though `get()` correctly still
-    misses (there is no live file left to validate freshness against)."""
+def test_deleted_session_file_row_is_pruned_on_next_collect(tmp_path):
+    """Issue #505: this cache must not grow unbounded. It never touches the session/log
+    file itself (that stays the untouched source of truth), but a row DERIVED from a file
+    that's gone (deleted/rotated/moved) has nothing left to ever validate or serve again,
+    so a later `flush()` (run once per source, every `collect()`) prunes it."""
     home = tmp_path / "home"
     session_file = write_omp_session(
         home, "-x", "s1",
@@ -157,21 +156,21 @@ def test_deleted_session_file_row_is_retained_not_pruned(tmp_path):
          _omp_tool_event("2026-07-29T10:01:00Z", [{"name": "bash", "arguments": {"command": "ls"}}])],
     )
     collect(home=home)  # warms the cache
+    assert _row_count(_db_path(home, "omp"), session_file) == 1
 
     session_file.unlink()
+    assert session_file.parent.exists()  # sanity: only the file is gone, not its directory
 
-    assert _row_count(_db_path(home, "omp"), session_file) == 1, (
-        "the row for a deleted session file must be retained, not pruned"
-    )
+    collect(home=home)  # a fresh collect() call -> cache.flush() prunes the orphaned row
 
-    cache = SessionFileCache(home, "omp")
-    assert cache.get(session_file) is None  # correct miss: no file left to validate against
+    assert _row_count(_db_path(home, "omp"), session_file) == 0
+    assert not session_file.exists(), "pruning must never recreate/touch the source file"
 
 
 def test_reparsing_a_grown_file_replaces_its_row_not_accumulates(tmp_path):
     """A genuine re-parse of the SAME path (mtime/size changed) must upsert its row, never
     accumulate a second row for that path -- the cache stays bounded by "one row per file
-    that ever existed", not "one row per parse"."""
+    currently on disk", not "one row per parse"."""
     home = tmp_path / "home"
     session_file = write_omp_session(
         home, "-x", "s1",

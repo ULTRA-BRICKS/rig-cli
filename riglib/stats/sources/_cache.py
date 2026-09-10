@@ -15,46 +15,40 @@ AFTER a cache hit. A hit requires the file's ``(mtime_ns, size)`` to match exact
 cached; a new file, a grown/rewritten file (the handful of sessions still in progress), or
 a first-ever run are misses and pay the real parse cost for just that one file.
 
-STORAGE (issue #505): the first cut of this cache (PR #503) was one JSON file per source,
-the WHOLE file rewritten on every ``flush()``. That JSON file only ever grew -- nothing
-ever removed an entry once written, so it reached 88MB after a single cold run on a
-275k-invocation machine, and would keep growing forever as session logs got rotated
-elsewhere on disk.
+STORAGE + PRUNING (issue #505): the first cut of this cache (PR #503) was one JSON file
+per source, the WHOLE file rewritten on every ``flush()``, and NOTHING ever removed an
+entry once written -- it reached 88MB after a single cold run on a 275k-invocation
+machine, and would keep growing forever as session logs got rotated elsewhere on disk.
 
-The originally filed fix for #505 was to prune: drop any entry whose file no longer
-exists, on every flush. Alex's review correction rejected that outright:
+The original fix proposed for #505 was pruning on flush. Alex's first review pass on that
+pushed back -- "why delete, we keep logs to use them" -- and asked for the storage engine
+to switch to SQLite + gzip (mirroring review-cli's own file-identity-keyed parse cache,
+``reviewlib/dashboard/call_log_cache.py``) instead. A follow-up correction clarified the
+actual distinction that matters:
 
-    "А зачем удалять? Там же может быть что-то полезное, нет? Мы же для этого и храним
-    логи чтобы пользоваться ими зачем удалять? Кажется вместо этого надо сделать так как
-    мы сделали в ревью CLI перешли на SQLite + gz"
+    "так если это просто кэш то его надо будет в результате удалить чтобы он не валялся
+    со старым ненужным грузом и не забивал диск"
 
-    (why delete? there might be something useful there. We keep logs specifically so we
-    can use them -- why delete? Seems like instead we should do what we did in review-cli:
-    switch to SQLite + gz.)
+    (if it's just a cache, it eventually needs pruning so old unneeded load doesn't sit
+    around and fill the disk.)
 
-So instead of pruning, this module now mirrors review-cli's own file-identity-keyed parse
-cache (``reviewlib/dashboard/call_log_cache.py``, which caches parsed ``CallLog`` objects
-the same way, keyed the same way, for the exact same "don't re-parse a file whose content
-can't have changed" reason): SQLite, one row per file, an indexed lookup that never pays
-to deserialize the rest of the history, WAL journal mode (safe across a concurrent second
-``rig stats`` process), autocommit (one ``put`` is one transaction, so a mid-run crash
-keeps whatever was already committed instead of losing the lot), and a 0600 db file (a row
-can hold repo paths and command details from private session logs, same as every other
-piece of log-derived data this repo persists). The one deliberate difference from
-review-cli's version: **this cache never prunes**. review-cli's ``save()`` deletes rows for
-files no longer on disk; here, a session file being deleted or rotated away must not erase
-its cached parse -- the whole point, per Alex's correction, is that the log content stored
-in a row can still be useful after the source file is gone. A ``get()`` for a path whose
-file no longer exists still safely misses (there is no ``stat()`` left to validate
-freshness against, so it can never be *served* as a hit), but the row itself is retained,
-not deleted. The only thing that ever replaces a row is a genuine re-parse of the SAME path
--- its ``(mtime_ns, size)`` changed, or ``_CACHE_VERSION`` was bumped -- via
-``INSERT ... ON CONFLICT DO UPDATE``: an upsert, never an accumulate-forever append.
+So: the underlying session/log files are the real source of truth and are NEVER touched
+or deleted by this module -- only what's stored here, in a cache DERIVED from them, is
+ever pruned. A row is dropped once its session file is confirmed gone from disk (deleted,
+rotated, moved) -- exactly review-cli's own ``save()`` behavior on its parse cache, applied
+here on ``flush()`` (called once per source after its per-file loop) rather than needing a
+directory glob, since a stored row's own path is the thing to check.
 
-Additionally, each row's JSON payload is gzip-compressed before it hits disk. review-cli's
-own cache doesn't need this (one row there is a single parsed call, already small); a row
-here is a WHOLE SESSION's invocation list, which for a long-running session can run to tens
-of KB of repetitive JSON, so gzip meaningfully shrinks what actually lands on disk.
+Storage itself mirrors review-cli's cache design: SQLite, one row per file, an indexed
+lookup that never pays to deserialize the rest of the history, WAL journal mode (safe
+across a concurrent second ``rig stats`` process), autocommit (one ``put`` is one
+transaction, so a mid-run crash keeps whatever was already committed instead of losing the
+lot), and a 0600 db file (a row can hold repo paths and command details from private
+session logs, same as every other piece of log-derived data this repo persists). Each
+row's JSON payload is additionally gzip-compressed before it hits disk: review-cli's own
+cache doesn't need this (one row there is a single parsed call, already small); a row here
+is a WHOLE SESSION's invocation list, which for a long-running session can run to tens of
+KB of repetitive JSON, so gzip meaningfully shrinks what actually lands on disk.
 """
 
 from __future__ import annotations
@@ -80,8 +74,8 @@ _CACHE_VERSION = 1
 
 # `sqlite3.Error` is not the only way this can fail: a genuinely corrupt db file, a
 # permissions problem, or a decompress/decode failure on a hand-edited row all need the
-# same "just treat it as a cache miss" handling -- see the module docstring's "never
-# fatal to the caller" contract, mirrored from review-cli's `_CACHE_ERRORS`.
+# same "just treat it as a cache miss" handling -- mirrored from review-cli's own
+# `_CACHE_ERRORS`.
 _CACHE_ERRORS = (sqlite3.Error, OSError, ValueError, TypeError, KeyError)
 
 
@@ -115,8 +109,9 @@ def _deserialize(row: dict) -> ToolInvocation:
 class SessionFileCache:
     """One SQLite db per source (``<home>/.cache/rig/stats/<source>.sqlite3``), one row
     per session file, keyed by its full path. See the module docstring for the full
-    design rationale (SQLite + gzip, mirrored from review-cli's own parse cache; no
-    pruning, per Alex's #505 correction).
+    design rationale (SQLite + gzip mirrored from review-cli's own parse cache; pruning
+    of orphaned rows on ``flush()``, per Alex's #505 correction -- this is a cache, the
+    session/log files it's derived from are the untouched source of truth).
 
     ``get``/``put`` are never fatal to the caller: any storage failure (missing db,
     corrupt file, a bad row) is treated as a cache miss, exactly like the pre-SQLite
@@ -145,8 +140,8 @@ class SessionFileCache:
             # only ever uses its `SessionFileCache` from the single thread that created
             # it today, but matching review-cli's connection settings costs nothing and
             # means this module doesn't silently break if that ever changes. Autocommit
-            # also means every `put()` is already durable -- `flush()` has nothing left
-            # to do.
+            # also means every `put()` is already durable -- `flush()`'s only remaining
+            # job is pruning.
             conn = sqlite3.connect(
                 str(self._path), timeout=30.0, isolation_level=None, check_same_thread=False
             )
@@ -174,9 +169,9 @@ class SessionFileCache:
     def get(self, session_file: Path) -> list[ToolInvocation] | None:
         """The cached, UNFILTERED invocation list for ``session_file`` -- only if its
         ``(mtime_ns, size)`` still match what was cached. ``None`` on any miss, including
-        a ``session_file`` that no longer exists -- its row (if any) is retained, but
-        there is no live file left to validate freshness against, so it can never be
-        served as a hit."""
+        a ``session_file`` that no longer exists (its row, if any, is left for the next
+        ``flush()`` to prune -- there's no live file left to validate freshness against,
+        so it can never be served as a hit)."""
         if self._conn is None:
             return None
         try:
@@ -232,9 +227,25 @@ class SessionFileCache:
             pass
 
     def flush(self) -> None:
-        """No-op: every ``put()`` already commits (autocommit / ``isolation_level=None``),
-        so there is nothing pending to persist. Kept as a public method -- every source
-        calls it once after its per-file loop -- purely so this stays a drop-in
-        replacement for the pre-SQLite cache, whose ``flush()`` did the one-shot JSON
-        rewrite this design no longer needs."""
-        return
+        """Prune rows whose session file no longer exists on disk. This module caches
+        parsed session data -- it never touches the session/log files themselves, which
+        remain the untouched source of truth -- but the cache itself must stay bounded:
+        a row for a file that's gone (deleted, rotated, moved) has nothing left to ever
+        validate or serve again, so it's dropped here rather than accumulating forever
+        (issue #505). Every `put()` already committed (autocommit), so this is pruning
+        only, never required for durability."""
+        if self._conn is None:
+            return
+        try:
+            rows = self._conn.execute("SELECT path FROM entries").fetchall()
+        except _CACHE_ERRORS:
+            return
+        stale = [path for (path,) in rows if not Path(path).exists()]
+        if not stale:
+            return
+        try:
+            self._conn.executemany(
+                "DELETE FROM entries WHERE path = ?", [(path,) for path in stale]
+            )
+        except _CACHE_ERRORS:
+            pass

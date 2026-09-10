@@ -189,9 +189,10 @@ Parsed session files are cached per-source under `~/.cache/rig/stats/<harness>.s
 uses), keyed by each file's `(mtime, size)`: a closed session (the overwhelming majority) is
 never re-parsed once cached, so a repeat `rig stats show` only pays for genuinely new/changed
 session activity — the cache is purely an optimization and is transparent to every filter
-(`--repo`/`--harness`/`--since`). A session file removed or rotated off disk keeps its
-cached row (logs are kept to be used, not silently discarded); delete the cache directory
-any time to force a full rescan.
+(`--repo`/`--harness`/`--since`). The session/log files themselves are never touched or
+deleted — only the cache's own derived rows are pruned once their source file is confirmed
+gone from disk, so the cache stays bounded without ever discarding real log data; delete
+the cache directory any time to force a full rescan.
 
 **Outputs:** `json` is the canonical shape every other renderer draws from; `tui` (default)
 is a rich table-and-bar-chart report that degrades to plain text if `rich` isn't installed;
