@@ -372,3 +372,133 @@ def test_overrides_same_ts_hook_are_not_deduped(tmp_path):
     )
     agg = collect_hatches(home=home)
     assert agg.total == 2
+
+
+def test_require_review_before_commit_exhaustion_is_broken_gate(tmp_path):
+    """require-review-before-commit got zero special-casing; the same review-cli-exhaustion
+    text as ship-review-quorum fell through to lazy. Real overrides.log fixture."""
+    home = tmp_path / "home"
+    _overrides(
+        home,
+        [
+            _override(
+                ts="2026-08-01T10:00:00Z",
+                hatch="require-review-before-commit",
+                reason="codex quota exhausted, self-reviewed manually",
+            )
+        ],
+    )
+    agg = collect_hatches(home=home)
+    assert agg.by_kind["broken-gate"] == 1
+    assert agg.by_hook["require-review-before-commit"]["broken_gate"] == 1
+    assert agg.by_hook["require-review-before-commit"]["lazy"] == 0
+
+
+def test_ship_external_review_billing_blocked_is_broken_gate(tmp_path):
+    """ship-external-review got zero special-casing; GitHub Actions billing outage is an
+    infra failure, not laziness. Real overrides.log fixture."""
+    home = tmp_path / "home"
+    _overrides(
+        home,
+        [
+            _override(
+                ts="2026-08-02T10:00:00Z",
+                hatch="ship-external-review",
+                reason="No GitHub-side reviewer available: billing-blocked CI, review-cli down everywhere.",
+            )
+        ],
+    )
+    agg = collect_hatches(home=home)
+    assert agg.by_kind["broken-gate"] == 1
+    assert agg.by_hook["ship-external-review"]["broken_gate"] == 1
+
+
+def test_ship_review_quorum_weekly_slash_spending_limit_is_broken_gate(tmp_path):
+    """The old regex required a literal 'weekly limit' substring; real logs say
+    'weekly/spending limits' and 'exit 429/1'. Real overrides.log fixture (verbatim,
+    recurring dozens of times in production)."""
+    home = tmp_path / "home"
+    _overrides(
+        home,
+        [
+            _override(
+                ts="2026-08-03T10:00:00Z",
+                hatch="ship-review-quorum",
+                reason=(
+                    "review-cli model pool fully exhausted (GLM/Grok/GLM-cc-last all hit "
+                    "weekly/spending limits, exit 429/1) — no automated quorum review "
+                    "possible right now"
+                ),
+            )
+        ],
+    )
+    agg = collect_hatches(home=home)
+    assert agg.by_kind["broken-gate"] == 1
+    assert agg.by_hook["ship-review-quorum"]["broken_gate"] == 1
+
+
+def test_orchestrator_thin_dispatcher_unavailable_is_broken_gate(tmp_path):
+    """A broken reviewer-dispatch service is a different broken-gate signal than the
+    existing 'subagent'/'leaf worker' phrasing. Real overrides.log fixture."""
+    home = tmp_path / "home"
+    _overrides(
+        home,
+        [
+            _override(
+                ts="2026-08-04T10:00:00Z",
+                hatch="orchestrator-stays-thin",
+                reason=(
+                    "The mandated delegated reviewer service returned no thread. This is a "
+                    "strictly read-only, user-requested uncommitted-diff review; direct "
+                    "inspection is required to provide evidence-backed findings rather than "
+                    "fabricate a verdict."
+                ),
+            )
+        ],
+    )
+    agg = collect_hatches(home=home)
+    assert agg.by_kind["broken-gate"] == 1
+    assert agg.by_hook["orchestrator-stays-thin"]["broken_gate"] == 1
+
+
+def test_dispatch_broken_is_hook_agnostic(tmp_path):
+    """The hook-bridge-misclassification signal appears under hooks OTHER than
+    orchestrator-stays-thin too (e.g. no-long-inline-process) — the check must not be
+    scoped to one hook name. Real overrides.log fixture."""
+    home = tmp_path / "home"
+    _overrides(
+        home,
+        [
+            _override(
+                ts="2026-08-05T10:00:00Z",
+                hatch="no-long-inline-process",
+                reason=(
+                    "Fix119.Review117 is the dispatched review subagent for task #117. The "
+                    "hook bridge did not inject agent_id so this child is misclassified as "
+                    "orchestrator."
+                ),
+            )
+        ],
+    )
+    agg = collect_hatches(home=home)
+    assert agg.by_kind["broken-gate"] == 1
+    assert agg.by_hook["no-long-inline-process"]["broken_gate"] == 1
+
+
+def test_docs_only_skip_reason_stays_lazy(tmp_path):
+    """Regression guard against overreach: a plain 'didn't need to run the gate' judgment
+    call must still classify as lazy, not broken-gate. Real overrides.log fixture."""
+    home = tmp_path / "home"
+    _overrides(
+        home,
+        [
+            _override(
+                ts="2026-08-06T10:00:00Z",
+                hatch="ship-review-quorum",
+                reason="PR #104 fixes issue #120 (hero rounding), CI green, review-cli not run for this PR",
+            )
+        ],
+    )
+    agg = collect_hatches(home=home)
+    assert agg.by_kind["lazy"] == 1
+    assert agg.by_hook["ship-review-quorum"]["broken_gate"] == 0
