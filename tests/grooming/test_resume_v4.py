@@ -205,9 +205,12 @@ def test_write_budget_does_not_fake_total_completion(tmp_path):
 
 
 def test_journal_written_atomically_and_contains_no_credentials(tmp_path):
-    file=tmp_path/'journal.json';m.save_journal(file,{'events':[],'writes':0})
+    # The parent conftest legitimately creates isolated-home under tmp_path.
+    # Use our own directory so unrelated fixtures cannot invalidate leak checks.
+    folder=tmp_path/'journal-only';folder.mkdir()
+    file=folder/'journal.json';m.save_journal(file,{'events':[],'writes':0})
     assert json.loads(file.read_text())=={'events':[],'writes':0}
-    assert list(tmp_path.iterdir())==[file]
+    assert list(folder.iterdir())==[file]
     assert file.stat().st_mode&0o777==0o600
 
 
