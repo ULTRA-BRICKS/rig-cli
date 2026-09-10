@@ -1,0 +1,81 @@
+name: Resume a reviewed v4 grooming plan
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Reviewed 40-character commit in ultrabricks/rig-cli containing runner and plan
+        type: string
+        required: true
+      apply:
+        description: Apply body-only edits after preflight and current-state comparison
+        type: boolean
+        default: false
+      max_writes:
+        description: Maximum body edits in this invocation (1–100)
+        type: number
+        default: 100
+  workflow_call:
+    inputs:
+      source_ref:
+        type: string
+        required: true
+      apply:
+        type: boolean
+        default: false
+      max_writes:
+        type: number
+        default: 100
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: reviewed-v4-grooming-${{ github.repository_id }}
+  cancel-in-progress: false
+jobs:
+  resume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Validate explicit immutable input
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          MAX_WRITES: ${{ inputs.max_writes }}
+        run: |
+          python3 - <<'PY'
+          import os,re
+          assert re.fullmatch(r'[0-9a-f]{40}',os.environ['SOURCE_REF'])
+          assert 1 <= int(os.environ['MAX_WRITES']) <= 100
+          PY
+      - name: Check out reviewed code and plans together
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ultrabricks/rig-cli
+          ref: ${{ inputs.source_ref }}
+          path: .grooming-source
+          persist-credentials: false
+      - name: Validate and compare, then apply only when requested
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+          APPLY: ${{ inputs.apply }}
+          MAX_WRITES: ${{ inputs.max_writes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            --repository "$GITHUB_REPOSITORY"
+            --source-root "$GITHUB_WORKSPACE/.grooming-source"
+            --source-ref "$SOURCE_REF"
+            --max-writes "$MAX_WRITES"
+            --journal "$GITHUB_WORKSPACE/grooming-v4-results/resume.json"
+          )
+          if [[ "$APPLY" == true ]]; then args+=(--apply); fi
+          python3 .grooming-source/tools/grooming/resume_v4.py "${args[@]}"
+      - name: Preserve actual outcomes, including startup failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: v4-resume-${{ github.repository_id }}-${{ github.run_id }}
+          path: grooming-v4-results/resume.json
+          if-no-files-found: warn
+          retention-days: 30
