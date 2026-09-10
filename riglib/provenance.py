@@ -130,6 +130,9 @@ KIND_REPO_WORKFLOW = "repo-workflow"
 KIND_RETIRED_DEFAULT = "retired-default"
 KIND_DISABLED_BASELINE = "disabled-baseline"
 KIND_USER_EXTRA = "user-extra"
+# a managed file whose expected content could not be resolved THIS run (its source tool did not
+# answer — e.g. `review --print-gate` timed out); left as-is, not drift, but never silently clean
+KIND_UNVERIFIED = "unverified"
 
 PERMISSION_KINDS: frozenset[str] = frozenset({KIND_RETIRED_DEFAULT, KIND_DISABLED_BASELINE, KIND_USER_EXTRA})
 
@@ -153,6 +156,7 @@ KIND_LABELS: dict[str, str] = {
     KIND_RETIRED_DEFAULT: "former rig defaults (rig-cli#41, dropped in #165), kept",
     KIND_DISABLED_BASELINE: "rig baseline rules your config turned off, kept",
     KIND_USER_EXTRA: "your own entries beyond the rig baseline, kept",
+    KIND_UNVERIFIED: "could not be verified this run (source tool did not answer) — left as-is; re-run `rig status`",
 }
 
 
