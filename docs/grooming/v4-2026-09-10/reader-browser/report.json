@@ -1,0 +1,10 @@
+{
+  "version": 4,
+  "data_sha": "fea5928e245216c9eccf08cb0798c81ed42fc0ab",
+  "scope": "Published specification reader; not functional certification of the whole ecosystem",
+  "errors": [],
+  "retrospective_characters": 19023,
+  "diagram_renderer": "real Mermaid rendering verified",
+  "quote_records": 505,
+  "passed": true
+}
