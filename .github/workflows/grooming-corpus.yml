@@ -1,23 +1,20 @@
-name: Build and validate complete grooming corpus
+name: Replay historical v1 grooming corpus (read-only)
+# The v4/closeout corpus supersedes this compiler. Historical replay must not
+# rewrite current specs or publication when any tools/grooming file changes.
 on:
-  push:
-    branches: [docs/full-grooming-2026-09-10]
-    paths:
-      - .github/workflows/grooming-corpus.yml
-      - tools/grooming/**
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
   actions: read
-concurrency:
-  group: grooming-corpus
-  cancel-in-progress: false
 jobs:
-  corpus:
+  replay:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Validate original-plus-edited quotation payload
+        with:
+          persist-credentials: false
+      - name: Validate historical quotation transport
         run: |
           python3 - <<'PY'
           import base64,gzip,hashlib,json,pathlib
@@ -27,37 +24,24 @@ jobs:
           encoded=''.join(p.read_text().strip() for p in parts)
           encoded=encoded.replace('b3V7oQXGti/2Li5','b3V7oQXJti/2Li5').replace('DRisvfrdl4Nzh','DRisvfrd4Nzh')
           decoded=gzip.decompress(base64.b64decode(encoded,validate=True))
-          assert hashlib.sha256(decoded).hexdigest()=='df9ed897acb62e9ab1bba1a09445ad8270703f46440763877ac75092eae71d9f', 'Quotation corpus hash mismatch: do not publish or mutate issues'
+          assert hashlib.sha256(decoded).hexdigest()=='df9ed897acb62e9ab1bba1a09445ad8270703f46440763877ac75092eae71d9f'
           compact=json.loads(decoded)
           compact['records']=[dict(zip(compact['fields'],row)) for row in compact['records']]
           compact.pop('fields')
           assert len(compact['records'])==230 and len(compact['excluded_records'])==145
-          assert len({r['id'] for r in compact['records']})==230
           (root/'quote-registry.json').write_text(json.dumps(compact,ensure_ascii=False,indent=2)+'\n')
-          print('Verified 230 source-attributed records; 145 excluded records retained as exclusion IDs/reasons only.')
           PY
-      - name: Install the pinned document renderer dependency
-        run: python3 -m pip install --user 'markdown-it-py==3.0.0'
-      - name: Build read-only corpus with origin-scoped credentials
+      - run: python3 -m pip install --user 'markdown-it-py==3.0.0'
+      - name: Replay locally, without committing or publishing historical output
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 tools/grooming/run.py
-      - name: Commit only generated documentation and public review bundle
-        run: |
-          git config user.name 'Rig grooming audit'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/grooming/full-2026-09-10/ docs/specs/recovery/ portal/
-          if ! git diff --cached --quiet; then
-            git commit -m 'docs(audit): regenerate validated full-backlog provenance and review corpus'
-            git pull --rebase origin docs/full-grooming-2026-09-10
-            git push origin HEAD:docs/full-grooming-2026-09-10
-          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: validated-grooming-corpus
+          name: historical-v1-replay-not-current-publication
           path: |
             docs/grooming/full-2026-09-10/
             docs/specs/recovery/
             portal/
-          retention-days: 30
+          retention-days: 7
