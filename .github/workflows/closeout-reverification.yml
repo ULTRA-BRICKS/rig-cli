@@ -1,0 +1,100 @@
+name: Reverify current ecosystem implementations
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/closeout-reverification.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        repo: [rig-cli, agent-tools, review-cli, harness-cli, task-cli, tg-cli, qa-cli, draw-cli, stt-cli, research-cli, dev-cli, pm-cli]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ultrabricks/${{ matrix.repo }}
+          ref: main
+          persist-credentials: false
+      - name: Record the exact tested revision and prepare isolated dependencies
+        env:
+          REPOSITORY: ${{ matrix.repo }}
+        run: |
+          mkdir -p audit-results
+          git rev-parse HEAD > audit-results/source-sha.txt
+          python3 --version > audit-results/python.txt
+          python3 -m venv "$RUNNER_TEMP/audit-venv"
+          "$RUNNER_TEMP/audit-venv/bin/pip" install 'pytest==9.0.2' 'PyYAML==6.0.3' pillow rich textual pytest-asyncio uv build
+          if test -f pyproject.toml; then "$RUNNER_TEMP/audit-venv/bin/pip" install -e .; fi
+          if [[ "$REPOSITORY" == tg-cli ]]; then
+            curl -fsSL https://bun.sh/install | bash -s 'bun-v1.3.10'
+            echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+            "$HOME/.bun/bin/bun" install --ignore-scripts
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends python3-pil
+          fi
+      - name: Install ImageMagick 7 for declared visual tests
+        if: matrix.repo == 'review-cli'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libpng-dev libjpeg-dev libfreetype-dev libxml2-dev pkg-config
+          git clone --depth=1 --branch 7.1.2-31 https://github.com/ImageMagick/ImageMagick.git "$RUNNER_TEMP/ImageMagick"
+          cd "$RUNNER_TEMP/ImageMagick"
+          git rev-parse HEAD > "$GITHUB_WORKSPACE/audit-results/imagemagick-source.txt"
+          ./configure --prefix="$RUNNER_TEMP/magick" --without-perl --without-x --disable-openmp > "$RUNNER_TEMP/magick-configure.log" 2>&1
+          make -j2 > "$RUNNER_TEMP/magick-build.log" 2>&1
+          make install >> "$RUNNER_TEMP/magick-build.log" 2>&1
+          echo "$RUNNER_TEMP/magick/bin" >> "$GITHUB_PATH"
+      - name: Run complete tests with no live accounts or personal Telegram traffic
+        env:
+          AUDIT_REPO: ${{ matrix.repo }}
+        run: |
+          python3 - <<'PY'
+          import datetime,json,os,pathlib,signal,subprocess,time
+          out=pathlib.Path('audit-results');out.mkdir(exist_ok=True)
+          env=dict(os.environ)
+          for key in list(env):
+              if key.endswith(('TOKEN','API_KEY','SECRET')) or key.startswith(('RIG_HATCH_REQUEST_','SHIP_','REVIEW_TASK_','CLAUDE_','OPENAI_','ANTHROPIC_','TELEGRAM_')):
+                  env.pop(key,None)
+          home=pathlib.Path(os.environ['RUNNER_TEMP'])/'audit-home';home.mkdir(exist_ok=True)
+          env.update(HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),PYTHONNOUSERSITE='1',GIT_CONFIG_GLOBAL=str(home/'.gitconfig'),GIT_CONFIG_NOSYSTEM='1',CI='1',REVIEW_LOG_DIR=str(home/'review-logs'))
+          env['PATH']=os.environ['RUNNER_TEMP']+'/audit-venv/bin:'+env['PATH']
+          python=os.environ['RUNNER_TEMP']+'/audit-venv/bin/python'
+          subprocess.run(['git','config','--global','user.name','Isolated verification'],env=env,check=True)
+          subprocess.run(['git','config','--global','user.email','audit@example.invalid'],env=env,check=True)
+          repo=os.environ['AUDIT_REPO']
+          commands=[['bun','test','./tests']] if repo=='tg-cli' else [[python,'-m','pytest','-q','--junitxml='+str((out/'pytest.xml').resolve())]]
+          if repo=='review-cli':commands.append([python,'tests/smoke.py'])
+          if repo in ('rig-cli','task-cli') and pathlib.Path('tests/smoke.sh').exists():commands.append(['bash','tests/smoke.sh'])
+          report={'repository':repo,'source_sha':(out/'source-sha.txt').read_text().strip(),'platform':'Ubuntu 24.04 / Python 3.12','started_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'live_accounts_used':False,'user_machine_acceptance':False,'commands':[]}
+          for i,cmd in enumerate(commands):
+              start=time.monotonic();log=out/f'command-{i+1}.log'
+              with log.open('wb') as stream:
+                  p=subprocess.Popen(cmd,env=env,stdout=stream,stderr=subprocess.STDOUT,start_new_session=True)
+                  try:code=p.wait(timeout=1500)
+                  except subprocess.TimeoutExpired:
+                      os.killpg(p.pid,signal.SIGTERM)
+                      try:p.wait(timeout=10)
+                      except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait()
+                      code=124
+              result={'argv':cmd,'exit_code':code,'seconds':round(time.monotonic()-start,2),'log':log.name}
+              report['commands'].append(result)
+              (out/'summary.json').write_text(json.dumps(report,indent=2)+'\n')
+              print(json.dumps(result),flush=True)
+              print('\n'.join(log.read_text(errors='replace').splitlines()[-25:]),flush=True)
+          report['passed']=all(c['exit_code']==0 for c in report['commands'])
+          report['finished_at']=datetime.datetime.now(datetime.timezone.utc).isoformat()
+          (out/'summary.json').write_text(json.dumps(report,indent=2)+'\n')
+          raise SystemExit(0 if report['passed'] else 1)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: closeout-reverification-${{ matrix.repo }}
+          path: audit-results/
+          retention-days: 30
