@@ -23,6 +23,7 @@ def test_registry_dispatches_by_kind():
     assert "provision_spotlight" in verify._VERIFIERS
     assert "provision_tmux" in verify._VERIFIERS
     assert "provision_tg_ctl" in verify._VERIFIERS
+    assert "provision_bunfig" in verify._VERIFIERS
 
 
 def test_register_verifier_is_trivial_to_extend():

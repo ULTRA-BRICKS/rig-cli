@@ -432,6 +432,9 @@ def compute_drift_report(
             ),
             report,
         )
+    bun_cfg = loaded.data.get("bun")
+    if isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is False and not _restricted_out("bun"):
+        check_disabled_bunfig(report)
     # missing-target: a hook command in the harness settings.json that points at a file gone
     # from disk (the dead-rtk-hook case) surfaces PROACTIVELY here, before it bites at runtime
     # as a generic "PreToolUse error". This is independent of config↔disk drift. Scan the
@@ -576,6 +579,8 @@ def detect(
             _check_tg_ctl(action, report)
         elif action.kind == "provision_spotlight":
             _check_spotlight(action, report)
+        elif action.kind == "provision_bunfig":
+            _check_bunfig(action, report)
 
     _extras_skills(declared_skill_dirs, report, known.get("skills", set()), catalog.get("skills"))
     _extras_ci(declared_ci_dirs, report, known.get("ci", set()), catalog.get("ci"))
@@ -1508,6 +1513,59 @@ def _check_global_excludes(action: Action, report: DriftReport) -> None:
     elif r.state in ("conflict", "io_error"):
         report.items.append(
             DriftItem("modified", "gitignore", "block", target, r.detail)
+        )
+
+
+def _check_bunfig(action: Action, report: DriftReport) -> None:
+    """Flag drift in ``~/.bunfig.toml`` using the same :func:`bunfig.resolve` apply uses."""
+    from . import bunfig
+
+    r = bunfig.resolve(action.target)
+    if r.state == "ok":
+        return
+    if r.state == "create":
+        report.items.append(
+            DriftItem("missing", "bun", "bunfig", r.path,
+                      "~/.bunfig.toml missing isolated linker + globalStore (apply splices it)")
+        )
+        return
+    if r.state == "update":
+        report.items.append(
+            DriftItem("modified", "bun", "bunfig", r.path,
+                      "managed ~/.bunfig.toml is stale (apply rewrites it)")
+        )
+        return
+    report.items.append(
+        DriftItem("modified", "bun", "bunfig", r.path, r.detail)
+    )
+
+
+def check_disabled_bunfig(report: DriftReport) -> None:
+    """Flag a still-installed managed block when the config disables the ``bun`` category.
+
+    apply never deletes; so a machine that previously provisioned the bunfig block keeps it in
+    ``~/.bunfig.toml`` even after the config turns the category off. With the action gone from
+    the plan, ``_check_bunfig`` never runs — so without this scan the leftover block would
+    report as in sync (mirrors :func:`check_disabled_global_excludes`).
+    """
+    from . import bunfig
+
+    target = bunfig.bunfig_path()
+    if not target.is_file():
+        return
+    try:
+        content = target.read_text(encoding="utf-8")
+    except OSError:
+        return
+    if bunfig.BEGIN_MARKER in content:
+        report.items.append(
+            DriftItem(
+                "extra",
+                "bun",
+                "bunfig",
+                target,
+                "bun disabled in config but the rig-managed block is still in ~/.bunfig.toml",
+            )
         )
 
 

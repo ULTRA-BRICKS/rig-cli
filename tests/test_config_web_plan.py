@@ -448,7 +448,7 @@ def test_global_only_categories_matches_writable_layer_classification():
     from riglib.schema import global_only_categories, writable_layer_for_category
 
     categories = global_only_categories()
-    assert categories == {"gitignore", "spotlight", "tg_ctl", "tcc_watch", "tmux", "mode"}
+    assert categories == {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tmux", "mode"}
     for cat in categories:
         assert writable_layer_for_category(cat) == GLOBAL
     assert writable_layer_for_category("skills") != GLOBAL

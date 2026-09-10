@@ -63,7 +63,7 @@ _HARNESS_KIND_CHOICES: tuple[str, ...] = tuple(
 # ``mode`` (machine-wide agent policy).
 # Routing a GLOBAL-only value into a committed repo rig.yaml is the footgun this map prevents.
 # A category absent here defaults to REPO (the conservative "it lives in the committed file").
-_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "tg_ctl", "tcc_watch", "tmux", "mode"}
+_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tmux", "mode"}
 
 
 def writable_layer_for_category(category: str) -> str:
@@ -485,6 +485,16 @@ AREAS: tuple[Area, ...] = (
                  "Sweep the dev roots dropping .metadata_never_index into node_modules/dist-like dirs, "
                  "and install a daily launchd re-sweep for new projects. Opt-in, macOS-only. "
                  "GLOBAL-only — never written to a repo rig.yaml."),
+        ),
+    ),
+    Area(
+        "bun", "bun install isolated linker + global store",
+        "Splice [install] linker=isolated and globalStore=true into ~/.bunfig.toml.",
+        (
+            _opt("bun.enabled", KIND_BOOL, False,
+                 "Splice a managed [install] linker = \"isolated\" + globalStore = true "
+                 "block into the global bunfig. Opt-in (default OFF). GLOBAL-only — never "
+                 "written to a repo rig.yaml."),
         ),
     ),
     Area(

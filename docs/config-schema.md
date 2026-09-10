@@ -2234,6 +2234,72 @@ reconciles. Shown in the **global** section of status (not the repo section).
 
 ---
 
+## `bun`
+
+Turns on bun's [global virtual store](https://bun.sh/docs/pm/global-store) for this
+machine. The store is a **no-op under the hoisted linker**, so `rig apply` writes
+**both** keys:
+
+```toml
+[install]
+linker = "isolated"
+globalStore = true
+```
+
+Packages then live once under `~/.bun/install/cache/links/`, and each project's
+`node_modules` is a few megabytes of symlinks. A warm
+`rm -rf node_modules && bun install` is symlink-only (~7× faster on bun's fixture).
+
+This is **GLOBAL, opt-in** — `~/.config/rig/config.yaml`, **default OFF**. Isolated
+linking can surface phantom deps in previously-hoisted projects, so the flag stays
+off until you set `bun.enabled: true`.
+
+Requires a bun that implements `install.globalStore` (1.4+; check `bun --version`).
+
+**uv** already uses a global cache (`~/.cache/uv`). macOS default link-mode is
+clone (APFS CoW; `nlink=1` so `du` still looks like copies).
+`link-mode = hardlink` in `~/.config/uv/uv.toml` shares inodes. rig does **not**
+provision `uv.toml`.
+
+```yaml
+bun:
+  enabled: true                 # splice isolated linker + globalStore into ~/.bunfig.toml (default OFF)
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | splice a managed `[install] linker = "isolated"` + `globalStore = true` block into the global bunfig |
+
+**What apply splices** (markers included; everything outside the markers is left
+byte-for-byte):
+
+```toml
+# >>> rig-managed bun (do not edit) >>>
+# bun install: isolated linker + globalStore — packages live once under ~/.bun/install/cache/links/.
+# Replace via `rig config set bun.enabled true --global --commit` (off: `rig config set bun.enabled false --global --commit`).
+[install]
+linker = "isolated"
+globalStore = true
+# <<< rig-managed bun (do not edit) <<<
+```
+
+Path: `$HOME/.bunfig.toml`, or `$XDG_CONFIG_HOME/.bunfig.toml` when that env is set.
+A project `bunfig.toml` still overrides the same keys.
+
+**Hand-written bunfig.** If the file already has extra user keys **and** both
+required values (`linker = "isolated"` and `globalStore = true`), apply leaves it
+(no markers added). If it has no `[install]` table, apply **appends** the block.
+If it already has `[install]` without those keys, that is a **conflict** (a second
+`[install]` header is invalid TOML): add the keys by hand. Unbalanced markers are
+also a conflict. Apply never writes on conflict.
+
+**Drift / verify.** Missing or stale managed block → apply splices. Conflict stays.
+Verify checks both `[install]` keys.
+
+---
+
+
+
 ## `spotlight`
 
 Keeps **macOS Spotlight** (`mds_stores`) from indexing **dependency/build dirs** — the gigabytes of

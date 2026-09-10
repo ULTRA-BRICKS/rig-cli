@@ -978,6 +978,14 @@ _SPOTLIGHT_BLOCK = Block(
     },
 )
 
+_BUN_BLOCK = Block(
+    doc="GLOBAL bunfig: splice [install] linker=isolated and globalStore=true.",
+    leaves={
+        "enabled": Leaf("boolean", "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in)", default=False),
+    },
+)
+
+
 _SHIP_DELEGATOR_BLOCK = Block(
     doc="a per-repo .claude/scripts/pr-ship.sh delegator so `gh ship` works in this repo (ignored in .git/info/exclude).",
     leaves={
@@ -1297,6 +1305,7 @@ BLOCKS: dict[str, Block] = {
     "env": _ENV_BLOCK,
     "gitignore": _GITIGNORE_BLOCK,
     "spotlight": _SPOTLIGHT_BLOCK,
+    "bun": _BUN_BLOCK,
     "tools": _TOOLS_BLOCK,
     "tg_ctl": _TG_CTL_BLOCK,
     "tcc_watch": _TCC_WATCH_BLOCK,
