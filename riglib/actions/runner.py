@@ -4194,6 +4194,7 @@ def tmux_plan_from_action(action: Action):
         pane_titles=dict(opts.get("pane_titles", {}) or {}),
         focus_events=dict(opts.get("focus_events", {}) or {}),
         clipboard=dict(opts.get("clipboard", {}) or {}),
+        copy_mode=dict(opts.get("copy_mode", {}) or {}),
     )
 
 

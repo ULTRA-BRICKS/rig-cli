@@ -896,7 +896,7 @@ _TMUX_BLOCK = Block(
             leaves={"enabled": Leaf("boolean", "tmux's focus-events option (set -g focus-events on/off)", default=True)},
         ),
         "clipboard": Block(
-            doc="copy-mode clipboard integration: pipe a copy-mode selection (keyboard `prefix [`, `v`, `Enter`/`y`, or a mouse-drag release) through a resolved system-clipboard command, since tmux's own built-in copy-pipe-and-cancel bindings run with no pipe command by default (tmux paste buffer only, not the system clipboard).",
+            doc="copy-mode clipboard integration: pipe a copy-mode selection (keyboard `prefix [`, `v`, `Enter`/`y`, or a mouse-drag release) through a resolved system-clipboard command, since tmux's own built-in copy-pipe-and-cancel bindings run with no pipe command by default (tmux paste buffer only, not the system clipboard). See `copy_mode.mode_keys` for the (independent) copy-mode key table.",
             leaves={
                 "enabled": Leaf("boolean", "provision the copy-mode clipboard key bindings", default=True),
                 "command": Leaf(
@@ -907,16 +907,14 @@ _TMUX_BLOCK = Block(
                     default="",
                     not_pattern=TMUX_PANE_TITLES_FORMAT_UNSAFE_PATTERN,
                 ),
-                "mode_keys": Leaf(
-                    "string",
-                    "tmux `mode-keys` override so the copy-mode-vi `v`/`y` bindings above are "
-                    "actually reachable: 'vi' (default) emits `set -g mode-keys vi`, making "
-                    "copy-mode-vi the LIVE key table; 'emacs' skips that override (tmux's own "
-                    "default), keeping copy-mode (emacs) live and mirroring v/y into it instead",
-                    enum=("vi", "emacs"),
-                    default="vi",
-                ),
             },
+        ),
+        "copy_mode": Block(
+            doc="the copy-mode key table (tmux's `mode-keys` option). tmux's own default is `emacs`, "
+            "under which `Space` pages the view (not begin-selection) and a bare `v` is unbound, so a "
+            "vim-style copy-mode workflow (`prefix [` then `v`/`Space` to select) silently does "
+            "nothing. Rendered unconditionally, independent of `clipboard` settings.",
+            leaves={"mode_keys": Leaf("string", "tmux's mode-keys option (setw -g mode-keys)", enum=("vi", "emacs"), default="vi")},
         ),
     },
 )
