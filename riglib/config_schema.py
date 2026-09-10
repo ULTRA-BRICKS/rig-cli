@@ -853,6 +853,8 @@ _TMUX_BLOCK = Block(
         ),
         "moshi": Block(doc="opt-in Moshi status-line tweaks.", leaves={"enabled": Leaf("boolean", "enable Moshi tweaks", default=False)}),
         "cc_restore": Block(doc="per-window Claude Code resume by session id.", leaves={"enabled": Leaf("boolean", "wire cc-save/cc-restore", default=True)}),
+        "omp_restore": Block(doc="per-window omp (oh-my-pi) resume by session file.", leaves={"enabled": Leaf("boolean", "wire omp-save/omp-restore", default=True)}),
+        "codex_restore": Block(doc="per-window Codex CLI resume by session id.", leaves={"enabled": Leaf("boolean", "wire codex-save/codex-restore", default=True)}),
         "anti_sprawl": Block(
             doc="one canonical session (attach-or-create).",
             leaves={"enabled": Leaf("boolean", "install the attach-or-create entry", default=True), "session": Leaf("string", "the canonical session name", default="main")},

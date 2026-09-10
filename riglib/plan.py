@@ -2671,6 +2671,8 @@ def _build_tmux(config: LoadedConfig, plan: InstallPlan) -> None:
                 "continuum": dict(t.get("continuum", {}) or {}),
                 "moshi": dict(t.get("moshi", {}) or {}),
                 "cc_restore": dict(t.get("cc_restore", {}) or {}),
+                "omp_restore": dict(t.get("omp_restore", {}) or {}),
+                "codex_restore": dict(t.get("codex_restore", {}) or {}),
                 "anti_sprawl": dict(t.get("anti_sprawl", {}) or {}),
                 "boot": dict(t.get("boot", {}) or {}),
                 "login_shell": login_shell,

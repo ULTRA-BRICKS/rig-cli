@@ -1204,6 +1204,30 @@
           },
           "additionalProperties": false
         },
+        "omp_restore": {
+          "type": "object",
+          "description": "per-window omp (oh-my-pi) resume by session file.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "wire omp-save/omp-restore",
+              "default": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "codex_restore": {
+          "type": "object",
+          "description": "per-window Codex CLI resume by session id.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "wire codex-save/codex-restore",
+              "default": true
+            }
+          },
+          "additionalProperties": false
+        },
         "anti_sprawl": {
           "type": "object",
           "description": "one canonical session (attach-or-create).",
