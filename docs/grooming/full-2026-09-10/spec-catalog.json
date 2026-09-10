@@ -1,0 +1,256 @@
+[
+  {
+    "id": "rig-cli--SPEC-md",
+    "repo": "rig-cli",
+    "source_path": "SPEC.md",
+    "source_sha": "97023cfd0c1ec4c8ba5c9e6a7666e26391ecc6ad",
+    "review_path": "docs/specs/recovery/existing/rig-cli--SPEC-md.md",
+    "topic": "specs",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "rig-cli--docs-specs-2026-07-15-stack-presets-md",
+    "repo": "rig-cli",
+    "source_path": "docs/specs/2026-07-15-stack-presets.md",
+    "source_sha": "97023cfd0c1ec4c8ba5c9e6a7666e26391ecc6ad",
+    "review_path": "docs/specs/recovery/existing/rig-cli--docs-specs-2026-07-15-stack-presets-md.md",
+    "topic": "roles",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "rig-cli--docs-specs-rig-cross-harness-provisioning-md",
+    "repo": "rig-cli",
+    "source_path": "docs/specs/rig-cross-harness-provisioning.md",
+    "source_sha": "97023cfd0c1ec4c8ba5c9e6a7666e26391ecc6ad",
+    "review_path": "docs/specs/recovery/existing/rig-cli--docs-specs-rig-cross-harness-provisioning-md.md",
+    "topic": "identity",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "rig-cli--docs-specs-rig-github-settings-md",
+    "repo": "rig-cli",
+    "source_path": "docs/specs/rig-github-settings.md",
+    "source_sha": "97023cfd0c1ec4c8ba5c9e6a7666e26391ecc6ad",
+    "review_path": "docs/specs/recovery/existing/rig-cli--docs-specs-rig-github-settings-md.md",
+    "topic": "provisioning",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "rig-cli--docs-specs-rig-linter-bundles-md",
+    "repo": "rig-cli",
+    "source_path": "docs/specs/rig-linter-bundles.md",
+    "source_sha": "97023cfd0c1ec4c8ba5c9e6a7666e26391ecc6ad",
+    "review_path": "docs/specs/recovery/existing/rig-cli--docs-specs-rig-linter-bundles-md.md",
+    "topic": "provisioning",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "rig-cli--docs-specs-rig-subagents-provisioning-md",
+    "repo": "rig-cli",
+    "source_path": "docs/specs/rig-subagents-provisioning.md",
+    "source_sha": "97023cfd0c1ec4c8ba5c9e6a7666e26391ecc6ad",
+    "review_path": "docs/specs/recovery/existing/rig-cli--docs-specs-rig-subagents-provisioning-md.md",
+    "topic": "identity",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "agent-tools--docs-specs-2026-06-15-harness-layer-redesign-md",
+    "repo": "agent-tools",
+    "source_path": "docs/specs/2026-06-15-harness-layer-redesign.md",
+    "source_sha": "5bd4dca121baf3034f9800c70c58fae2f53c3f82",
+    "review_path": "docs/specs/recovery/existing/agent-tools--docs-specs-2026-06-15-harness-layer-redesign-md.md",
+    "topic": "provisioning",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "agent-tools--docs-specs-2026-06-15-shared-lib-architecture-md",
+    "repo": "agent-tools",
+    "source_path": "docs/specs/2026-06-15-shared-lib-architecture.md",
+    "source_sha": "5bd4dca121baf3034f9800c70c58fae2f53c3f82",
+    "review_path": "docs/specs/recovery/existing/agent-tools--docs-specs-2026-06-15-shared-lib-architecture-md.md",
+    "topic": "provisioning",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "agent-tools--docs-specs-2026-06-15-thirdparty-tool-triage-md",
+    "repo": "agent-tools",
+    "source_path": "docs/specs/2026-06-15-thirdparty-tool-triage.md",
+    "source_sha": "5bd4dca121baf3034f9800c70c58fae2f53c3f82",
+    "review_path": "docs/specs/recovery/existing/agent-tools--docs-specs-2026-06-15-thirdparty-tool-triage-md.md",
+    "topic": "provisioning",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "agent-tools--docs-specs-2026-07-11-haft-research-md",
+    "repo": "agent-tools",
+    "source_path": "docs/specs/2026-07-11-haft-research.md",
+    "source_sha": "5bd4dca121baf3034f9800c70c58fae2f53c3f82",
+    "review_path": "docs/specs/recovery/existing/agent-tools--docs-specs-2026-07-11-haft-research-md.md",
+    "topic": "health",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "review-cli--docs-specs-2026-07-16-provider-failover-md",
+    "repo": "review-cli",
+    "source_path": "docs/specs/2026-07-16-provider-failover.md",
+    "source_sha": "c3779b4a2592961f4dcc2d9a98da65ef0e954442",
+    "review_path": "docs/specs/recovery/existing/review-cli--docs-specs-2026-07-16-provider-failover-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "review-cli--docs-specs-review-qa-md",
+    "repo": "review-cli",
+    "source_path": "docs/specs/review-qa.md",
+    "source_sha": "c3779b4a2592961f4dcc2d9a98da65ef0e954442",
+    "review_path": "docs/specs/recovery/existing/review-cli--docs-specs-review-qa-md.md",
+    "topic": "testing",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-2026-06-10-tg-ctl-control-design-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/2026-06-10-tg-ctl-control-design.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-2026-06-10-tg-ctl-control-design-md.md",
+    "topic": "telegram",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-agent-addressing-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/agent-addressing.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-agent-addressing-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-auto-attach-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/auto-attach.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-auto-attach-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-autolink-compound-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/autolink-compound.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-autolink-compound-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-autolink-msgrefs-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/autolink-msgrefs.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-autolink-msgrefs-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-autolink-prs-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/autolink-prs.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-autolink-prs-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-autolink-tasks-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/autolink-tasks.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-autolink-tasks-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-git-state-banner-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/git-state-banner.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-git-state-banner-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-md-as-pdf-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/md-as-pdf.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-md-as-pdf-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-reply-quotes-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/reply-quotes.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-reply-quotes-md.md",
+    "topic": "telegram",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-tg-decomposition-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/tg-decomposition.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-tg-decomposition-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-tg-forum-topics-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/tg-forum-topics.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-tg-forum-topics-md.md",
+    "topic": "telegram",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-unicode-prefix-styling-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/unicode-prefix-styling.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-unicode-prefix-styling-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "tg-cli--docs-specs-whatsapp-transport-md",
+    "repo": "tg-cli",
+    "source_path": "docs/specs/whatsapp-transport.md",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "review_path": "docs/specs/recovery/existing/tg-cli--docs-specs-whatsapp-transport-md.md",
+    "topic": "auxiliary",
+    "status": "source retained; recovery addendum, not blanket reapproval"
+  },
+  {
+    "id": "previous-2026-09-10-telegram-control",
+    "review_path": "docs/specs/recovery/previous/2026-09-10-telegram-control.md",
+    "status": "previous proposed specification; see current recovery contracts"
+  },
+  {
+    "id": "previous-2026-09-10-review-contracts",
+    "review_path": "docs/specs/recovery/previous/2026-09-10-review-contracts.md",
+    "status": "previous proposed specification; see current recovery contracts"
+  },
+  {
+    "id": "previous-2026-09-10-ecosystem-reliability",
+    "review_path": "docs/specs/recovery/previous/2026-09-10-ecosystem-reliability.md",
+    "status": "previous proposed specification; see current recovery contracts"
+  },
+  {
+    "id": "previous-2026-09-10-guard-contracts",
+    "review_path": "docs/specs/recovery/previous/2026-09-10-guard-contracts.md",
+    "status": "previous proposed specification; see current recovery contracts"
+  }
+]

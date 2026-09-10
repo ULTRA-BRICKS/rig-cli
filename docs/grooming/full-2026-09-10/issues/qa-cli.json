@@ -1,0 +1,305 @@
+[
+  {
+    "key": "qa-cli#1",
+    "repo": "qa-cli",
+    "number": 1,
+    "id": 5387362407,
+    "node_id": "I_kwDOUSW00c8AAAABQRygZw",
+    "title": "Headless Telegram Web testing mode (QR login via agent-browser)",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "201",
+      "233"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "qa-cli#1"
+    ],
+    "linked_prs": [
+      {
+        "key": "qa-cli#4",
+        "state": "closed",
+        "merged_at": "2026-09-08T15:01:36Z",
+        "merge_commit_sha": "6e9423855037567fa7554c8e680613ef57b08088"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "cd7b60787b3e304a3bd928c12c15cdb921f1888f0b773569d7cef38beb60143a",
+    "snapshot_updated_at": "2026-09-08T15:01:44Z"
+  },
+  {
+    "key": "qa-cli#3",
+    "repo": "qa-cli",
+    "number": 3,
+    "id": 5387819078,
+    "node_id": "I_kwDOUSW00c8AAAABQSOYRg",
+    "title": "Audit QR wait login change",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "238"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "a357c30158bba6cd7ebfed40617464d5df5b16fa6396ef6e7863ecfe6e44593f",
+    "snapshot_updated_at": "2026-09-09T08:04:17Z"
+  },
+  {
+    "key": "qa-cli#5",
+    "repo": "qa-cli",
+    "number": 5,
+    "id": 5388294080,
+    "node_id": "I_kwDOUSW00c8AAAABQSrXwA",
+    "title": "Assess release version diff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "238"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "existing_paths": [
+      "qa_cli/__init__.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "77b8760685ad362eb3650fb60ff74e1e62ef8d576e01f9513f2cf6740fbdf5cd",
+    "snapshot_updated_at": "2026-09-09T08:03:06Z"
+  },
+  {
+    "key": "qa-cli#6",
+    "repo": "qa-cli",
+    "number": 6,
+    "id": 5389820978,
+    "node_id": "I_kwDOUSW00c8AAAABQUIkMg",
+    "title": "Live-prove qa-cli Telegram Web QR via agent-browser",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "201",
+      "233"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "qa-cli#1",
+      "qa-cli#6"
+    ],
+    "linked_prs": [
+      {
+        "key": "qa-cli#2",
+        "state": "closed",
+        "merged_at": "2026-09-08T13:59:40Z",
+        "merge_commit_sha": "67dae13139d028c8f62fde39a38c103e244364a1"
+      },
+      {
+        "key": "qa-cli#4",
+        "state": "closed",
+        "merged_at": "2026-09-08T15:01:36Z",
+        "merge_commit_sha": "6e9423855037567fa7554c8e680613ef57b08088"
+      },
+      {
+        "key": "qa-cli#7",
+        "state": "closed",
+        "merged_at": "2026-09-08T18:17:54Z",
+        "merge_commit_sha": "22c5f357a8d03b4b0b3900fa71556bc9101e677f"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "a224aaf5fbe1be7868deace08b66d1128957870db6fb14c7a487268489fd00c7",
+    "snapshot_updated_at": "2026-09-10T10:05:52Z"
+  },
+  {
+    "key": "qa-cli#8",
+    "repo": "qa-cli",
+    "number": 8,
+    "id": 5390505294,
+    "node_id": "I_kwDOUSW00c8AAAABQUyVTg",
+    "title": "Commit SHIP_EXTERNAL_REVIEW=0 in .ship-config",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "261",
+      "263"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "cli-8-proofs/c2-pr-merged.js"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "agent-tools#624",
+      "qa-cli#8"
+    ],
+    "linked_prs": [
+      {
+        "key": "qa-cli#10",
+        "state": "closed",
+        "merged_at": "2026-09-08T18:58:22Z",
+        "merge_commit_sha": "d98e82643ce1d316d3957d07918ac467678e8144"
+      },
+      {
+        "key": "review-cli#451",
+        "state": "closed",
+        "merged_at": "2026-09-08T18:27:01Z",
+        "merge_commit_sha": "964b637e685cbec6e16cd22e367e8580bc08b514"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "dbd7d0f72bc43e972789d5adc33044a23d2af690fb08c0c3866e55cf14c20898",
+    "snapshot_updated_at": "2026-09-08T18:59:06Z"
+  },
+  {
+    "key": "qa-cli#9",
+    "repo": "qa-cli",
+    "number": 9,
+    "id": 5390553742,
+    "node_id": "I_kwDOUSW00c8AAAABQU1Sjg",
+    "title": "Audit ship external-review configuration change",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "238"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "agent-tools#600"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "5ea11803f528c2cc170580da40dc97a28c39d9e28ef74c48fc5086716d9b5454",
+    "snapshot_updated_at": "2026-09-09T08:02:29Z"
+  },
+  {
+    "key": "qa-cli#11",
+    "repo": "qa-cli",
+    "number": 11,
+    "id": 5407963101,
+    "node_id": "I_kwDOUSW00c8AAAABQlb33Q",
+    "title": "qa telegram login times out waiting for QR canvas even though QR renders successfully",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "201",
+      "233"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "existing_paths": [
+      "qa_cli/telegram.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "qa-cli#11"
+    ],
+    "linked_prs": [
+      {
+        "key": "qa-cli#12",
+        "state": "closed",
+        "merged_at": "2026-09-10T08:58:36Z",
+        "merge_commit_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "53b95ae140bd2071b6d558bda3095b2b1534cff6ba8c34ae75d68d0deaf7122e",
+    "snapshot_updated_at": "2026-09-10T10:05:49Z"
+  }
+]

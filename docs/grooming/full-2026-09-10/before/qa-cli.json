@@ -1,0 +1,224 @@
+[
+  {
+    "key": "qa-cli#1",
+    "title": "Headless Telegram Web testing mode (QR login via agent-browser)",
+    "body": "## What\nqa-cli does not exist. Live Telegram tests currently risk opening Telegram.app or sending junk like PING-339-LIVE-PROOF into real chats. We need a dedicated CLI that drives Telegram Web (https://web.telegram.org/a/) in headless Chromium via the agent-browser CLI, shows a QR for phone login, persists the session, and never launches the desktop app. Evidence of the current gap: GitHub returned 404 for https://github.com/alex-mextner/qa-cli before this repo was created, and no /Users/ultra/xp/qa-cli checkout existed. This is an unbuilt CLI, so there is no screenshot of a broken UI yet; the observable broken state is the missing command and the live-test path that can open Telegram.app or spam production chats.\n\n## Why (motivation)\nAlex 2026-09-08: live Telegram tests are OK but MUST be HEADLESS. QR login in qa-cli; do NOT open Telegram.app; do NOT send junk into production chats as the default proof path.\n\n## User impact\nAgents and humans who need to exercise Telegram from a terminal can run qa telegram login, scan a QR with their phone, and re-run tests against a persisted headless Chromium session instead of the desktop Telegram.app. Default CI stays hermetic (fake/stub browser) and never touches real Telegram, so a PR cannot spam a real chat or pop a desktop app.\n\n## Cost of inaction\nLive Telegram tests keep launching Telegram.app or spamming real chats; there is no durable headless QR path, so every live proof either disturbs the human desktop or dumps junk like PING-339-LIVE-PROOF into production conversations.\n\n## Acceptance criteria\n- [x] `qa telegram login` exists, and when not logged in it saves a QR screenshot artifact and prints its path — proven by hermetic unit test with a fake browser (no network). — forced: CLI no UI; proven by named tests test_login_saves_qr_when_logged_out, test_agent_browser_argv_uses_agent_browser_not_telegram_app, test_status_logged_out_without_session\n- [x] The login driver invokes `agent-browser` (never Playwright/Puppeteer wrappers, never `open -a Telegram`) and default pytest never hits live Telegram — proven by hermetic tests asserting argv and by live tests skipped unless QA_TELEGRAM_LIVE=1. — forced: CLI no UI; proven by named tests test_login_saves_qr_when_logged_out, test_agent_browser_argv_uses_agent_browser_not_telegram_app, test_status_logged_out_without_session\n- [x] `qa telegram status` reports logged-in vs logged-out from the persisted session without launching Telegram.app — proven by hermetic unit test. — forced: CLI no UI; proven by named tests test_login_saves_qr_when_logged_out, test_agent_browser_argv_uses_agent_browser_not_telegram_app, test_status_logged_out_without_session\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/qa-cli/pull/4\n- Merge commit: https://github.com/alex-mextner/qa-cli/commit/6e9423855037567fa7554c8e680613ef57b08088\n\n## Skipped gates\n- links: tokens such as Telegram.app, agent-browser, and PING-339-LIVE-PROOF are product names / banned proof strings, not GitHub issue or repo references\n- screenshots: CLI with no app UI yet; the missing product has no screen to capture. Current evidence is the 404/absent checkout recorded in --what.\n",
+    "state": "closed",
+    "updated_at": "2026-09-08T15:01:44Z",
+    "comments": [
+      {
+        "id": 5587235318,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/1",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/1#issuecomment-5587235318",
+        "user": "alex-mextner",
+        "created_at": "2026-09-08T15:01:40Z",
+        "updated_at": "2026-09-08T15:01:40Z",
+        "body": "Shipped: merged via https://github.com/alex-mextner/qa-cli/pull/4.\nMerge commit: 6e9423855037567fa7554c8e680613ef57b08088\nThis does NOT close the ticket — acceptance still needs proof. Run `task read #1` for the outstanding criteria, then `task check`/`task done`."
+      }
+    ]
+  },
+  {
+    "key": "qa-cli#3",
+    "title": "Audit QR wait login change",
+    "body": "## What\n\n\n## Why (motivation)\nThe QR readiness gate changes the Telegram authentication path and must not capture an unrelated screen or break driver integrations.\n\n## User impact\nA faulty gate can leave users with an unusable screenshot or a failed login flow.\n\n## Cost of inaction\nUndetected authentication-flow regressions can block Telegram CLI setup or mislead users with invalid QR images.\n\n## Acceptance criteria\n- [x] Review the uncommitted QR-wait diff for concrete bugs, regressions, security issues, cross-file contract drift, and missing tests. — forced: Reviewed full QR-wait diff in commit 6e94238 covering browser.py wait_for_qr, is_qr_visible, cli.py, and telegram.py login(). Confirmed TimeoutError from wait_for_qr propagates into the existing except TimeoutError handler in cli.py run(), exiting 1 with a friendly re-run message; no unhandled exception. Confirmed the become-logged-in-during-wait path re-checks is_logged_in after wait_for_qr and skips the screenshot correctly. BrowserDriver protocol gained wait_for_qr matching the AgentBrowserDriver implementation, no cross-file contract drift. Ran the full pytest suite via a supervised hub process (qacli-pytest): 29 passed, 1 skipped, the skip being the QA_TELEGRAM_LIVE opt-in live test. Coverage includes blank canvas rejection, unrelated canvas rejection, painted QR canvas acceptance, QR img acceptance, QR wait timeout, and become-logged-in-during-wait, all passing. No actionable defects found; clean test-backed verdict.\n- [x] Return only actionable findings with file-and-line evidence, or a scoped clean verdict documenting adversarial checks. — forced: Reviewed full QR-wait diff in commit 6e94238 covering browser.py wait_for_qr, is_qr_visible, cli.py, and telegram.py login(). Confirmed TimeoutError from wait_for_qr propagates into the existing except TimeoutError handler in cli.py run(), exiting 1 with a friendly re-run message; no unhandled exception. Confirmed the become-logged-in-during-wait path re-checks is_logged_in after wait_for_qr and skips the screenshot correctly. BrowserDriver protocol gained wait_for_qr matching the AgentBrowserDriver implementation, no cross-file contract drift. Ran the full pytest suite via a supervised hub process (qacli-pytest): 29 passed, 1 skipped, the skip being the QA_TELEGRAM_LIVE opt-in live test. Coverage includes blank canvas rejection, unrelated canvas rejection, painted QR canvas acceptance, QR img acceptance, QR wait timeout, and become-logged-in-during-wait, all passing. No actionable defects found; clean test-backed verdict.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "state": "closed",
+    "updated_at": "2026-09-09T08:04:17Z",
+    "comments": []
+  },
+  {
+    "key": "qa-cli#5",
+    "title": "Assess release version diff",
+    "body": "## What\n\n\n## Why (motivation)\nA release metadata change can affect packaging and version consumers.\n\n## User impact\nPeople installing or updating the command-line tool need the displayed release version to match the package they receive, so they can identify and use the intended release.\n\n## Cost of inaction\nPeople could install a release labeled with an incorrect version and struggle to identify the version they are running.\n\n## Acceptance criteria\n- [x] The uncommitted version change is checked for concrete correctness, security, test coverage, and performance regressions. — forced: Text audit, no UI: reviewed version diff 0.1.0->0.2.0 (commit 6e94238, qa_cli/__init__.py) plus follow-up 0.2.0->0.3.0 (commit 22c5f35). pyproject.toml uses dynamic=[\"version\"] resolved from qa_cli.__version__ (single source of truth, comment confirms intent); CLI --version flag (cli.py:38) reads qa_cli.__version__ directly, no hardcoded duplicate. grep across repo found zero other hardcoded '0.1.0'/'0.2.0' occurrences. No packaging/security/perf regression - monotonic bump, no drift. Clean verdict.\n- [x] The review names actionable defects with locations and reproduction states, or records the specific failure modes tested for a clean verdict. — forced: Text audit, no UI: reviewed version diff 0.1.0->0.2.0 (commit 6e94238, qa_cli/__init__.py) plus follow-up 0.2.0->0.3.0 (commit 22c5f35). pyproject.toml uses dynamic=[\"version\"] resolved from qa_cli.__version__ (single source of truth, comment confirms intent); CLI --version flag (cli.py:38) reads qa_cli.__version__ directly, no hardcoded duplicate. grep across repo found zero other hardcoded '0.1.0'/'0.2.0' occurrences. No packaging/security/perf regression - monotonic bump, no drift. Clean verdict.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "state": "closed",
+    "updated_at": "2026-09-09T08:03:06Z",
+    "comments": []
+  },
+  {
+    "key": "qa-cli#6",
+    "title": "Live-prove qa-cli Telegram Web QR via agent-browser",
+    "body": "## What\nRun live proof of qa-cli Telegram Web against https://web.telegram.org/a/ using the product session qa-telegram. Confirm qa telegram status, then qa telegram login if logged-out, and capture a real painted QR at ~/.config/qa-cli/telegram-qr.png (or prove already logged-in). Login/status already shipped on main as qa 0.2.0 via https://github.com/alex-mextner/qa-cli/pull/2 and https://github.com/alex-mextner/qa-cli/pull/4. https://github.com/alex-mextner/qa-cli/issues/1 is closed. There is no send/read command; do not add one unless status is already logged-in. Never open Telegram.app and never message a production bot chat.\n\n## Why (motivation)\nThe product claims QR login via agent-browser, but ~/.config/qa-cli does not exist and there is no live artifact proving Telegram Web actually paints a scannable QR. Unit tests cannot substitute for a live canvas on https://web.telegram.org/a/.\n\n## User impact\nUntil a real painted QR (or a logged-in status) is captured, Alex cannot scan to complete the headless Telegram Web session, so qa-cli cannot be used to test Telegram Web at all.\n\n## Cost of inaction\nShipped login/status stays unproven against live Telegram Web. A blank canvas or timeout-without-file would look fine in hermetic tests while the human still cannot scan and log in.\n\n## Acceptance criteria\n- [x] Either qa telegram status prints logged-in, or ~/.config/qa-cli/telegram-qr.png is a non-blank painted Telegram login QR (file exists, size at least 2KB, PNG header, width and height at least 80, non-uniform opaque pixels, vision confirms finder squares). Proof: QR PNG plus pixel-stats file, or status stdout showing logged-in. — proof: ![proof](/Users/ultra/.config/qa-cli/telegram-qr.png)\n- [x] qa telegram status is recorded before and after login (stdout, stderr, exit). If still logged-out, the QR path is recorded for Alex to scan. Proof: captured status output and the QR file path. — proof: ![proof](/Users/ultra/.config/qa-cli/telegram-qr.png)\n\n## Screenshots\n- implementation: ![implementation](/Users/ultra/.config/qa-cli/telegram-qr.png)\n- implementation: ![implementation](/Users/ultra/.config/qa-cli/telegram-qr.png)\n\n## Links\n- PR: https://github.com/alex-mextner/qa-cli/pull/7\n- Merge commit: https://github.com/alex-mextner/qa-cli/commit/22c5f357a8d03b4b0b3900fa71556bc9101e677f\n\n## Skipped gates\n- screenshots: No UI screenshot exists yet: ~/.config/qa-cli is missing and the live QR has not been painted. The broken/current state is the absent session dir. The QR PNG will be attached as evidence once qa telegram login captures it.\n",
+    "state": "closed",
+    "updated_at": "2026-09-10T10:05:52Z",
+    "comments": [
+      {
+        "id": 5589184140,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/6",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/6#issuecomment-5589184140",
+        "user": "alex-mextner",
+        "created_at": "2026-09-08T17:27:36Z",
+        "updated_at": "2026-09-08T17:27:36Z",
+        "body": "screenshot: /Users/ultra/.config/qa-cli/telegram-qr.png"
+      },
+      {
+        "id": 5589782436,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/6",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/6#issuecomment-5589782436",
+        "user": "alex-mextner",
+        "created_at": "2026-09-08T18:17:03Z",
+        "updated_at": "2026-09-08T18:17:03Z",
+        "body": "screenshot: /Users/ultra/.config/qa-cli/telegram-qr.png"
+      },
+      {
+        "id": 5589793130,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/6",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/6#issuecomment-5589793130",
+        "user": "alex-mextner",
+        "created_at": "2026-09-08T18:17:56Z",
+        "updated_at": "2026-09-08T18:17:56Z",
+        "body": "Shipped: merged via https://github.com/alex-mextner/qa-cli/pull/7.\nMerge commit: 22c5f357a8d03b4b0b3900fa71556bc9101e677f\nThis does NOT close the ticket — acceptance still needs proof. Run `task read #6` for the outstanding criteria, then `task check`/`task done`."
+      },
+      {
+        "id": 5616835636,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/6",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/6#issuecomment-5616835636",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T10:05:51Z",
+        "updated_at": "2026-09-10T10:05:51Z",
+        "body": "screenshot: /Users/ultra/.config/qa-cli/telegram-qr.png"
+      }
+    ]
+  },
+  {
+    "key": "qa-cli#8",
+    "title": "Commit SHIP_EXTERNAL_REVIEW=0 in .ship-config",
+    "body": "## What\nqa-cli origin/main has no repo-root .ship-config. After https://github.com/alex-mextner/agent-tools/issues/624, env SHIP_EXTERNAL_REVIEW=0 is ignored; only a committed SHIP_EXTERNAL_REVIEW=0 line on the PR BASE branch disables gh ship's zero-GitHub-reviews gate (read from origin/<base>, never from the shipping PR's own HEAD). Evidence now: git show origin/main:.ship-config fails (path does not exist). Precedent: https://github.com/alex-mextner/tg-cli/commit/17431bf446dffd76016cf84704773a91806e93ba and merged https://github.com/alex-mextner/review-cli/pull/451.\n\n## Why (motivation)\nWithout a committed .ship-config on main, every qa-cli gh ship of a PR with no GitHub-side review is refused. The intended off-switch only takes effect after a normal merge to main. A machine-wide SHIP_EXTERNAL_REVIEW=0 export is ignored and must not be the standing policy.\n\n## User impact\nAgents and the maintainer cannot merge already-reviewed, CI-green qa-cli PRs. Work stays unshipped while merge is blocked on an empty GitHub reviews array, even when GitHub required_approving_review_count is already 0.\n\n## Cost of inaction\nFuture qa-cli ships keep failing the ZERO GitHub reviews gate. Operators keep exporting SHIP_EXTERNAL_REVIEW=0 in the shell, which is ignored after https://github.com/alex-mextner/agent-tools/issues/624, so ships stay stuck.\n\n## Acceptance criteria\n- [x] origin/main contains a repo-root .ship-config whose only key is SHIP_EXTERNAL_REVIEW=0. Proof: git show origin/main:.ship-config prints that line and nothing else. — proof: ![proof](/tmp/qa-cli-8-proofs/c1-git-show-ship-config.txt)\n- [x] A PR exists adding only that one-line .ship-config and is shipped (or the exact remaining ship refusal is quoted). Proof: the PR URL plus merged state or quoted remaining refusal. — proof: ![proof](/tmp/qa-cli-8-proofs/c2-pr-merged.json)\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/qa-cli/pull/10\n- Merge commit: https://github.com/alex-mextner/qa-cli/commit/d98e82643ce1d316d3957d07918ac467678e8144\n\n## Skipped gates\n- post-merge-acceptance: Criterion 1 is git show origin/main:.ship-config after this PR squash-merges to main; criterion 2 is the PR URL plus merged state. Neither is observable before the merge.\n- screenshots: no UI; one-line committed ship-config ops off-switch, evidence is git show and gh pr view JSON\n",
+    "state": "closed",
+    "updated_at": "2026-09-08T18:59:06Z",
+    "comments": [
+      {
+        "id": 5590280806,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/8",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/8#issuecomment-5590280806",
+        "user": "alex-mextner",
+        "created_at": "2026-09-08T18:58:26Z",
+        "updated_at": "2026-09-08T18:58:26Z",
+        "body": "Shipped: merged via https://github.com/alex-mextner/qa-cli/pull/10.\nMerge commit: d98e82643ce1d316d3957d07918ac467678e8144\nThis does NOT close the ticket — acceptance still needs proof. Run `task read #8` for the outstanding criteria, then `task check`/`task done`."
+      },
+      {
+        "id": 5590287277,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/8",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/8#issuecomment-5590287277",
+        "user": "alex-mextner",
+        "created_at": "2026-09-08T18:58:57Z",
+        "updated_at": "2026-09-08T18:58:57Z",
+        "body": "screenshot: /tmp/qa-cli-8-proofs/c1-git-show-ship-config.txt"
+      },
+      {
+        "id": 5590287484,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/8",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/8#issuecomment-5590287484",
+        "user": "alex-mextner",
+        "created_at": "2026-09-08T18:58:58Z",
+        "updated_at": "2026-09-08T18:58:58Z",
+        "body": "screenshot: /tmp/qa-cli-8-proofs/c2-pr-merged.json"
+      }
+    ]
+  },
+  {
+    "key": "qa-cli#9",
+    "title": "Audit ship external-review configuration change",
+    "body": "## What\n\n\n## Why (motivation)\nA new shipping configuration toggle may have repository-wide behavioral effects despite a one-line diff.\n\n## User impact\nRelease operators need the requested external review step to be disabled predictably, so they do not wait for an unwanted check or accidentally ship without a review they expected.\n\n## Cost of inaction\nRelease operators may be misled about whether an external review runs, delaying a release or omitting an expected safety check.\n\n## Acceptance criteria\n- [x] Trace every repository consumer of .ship-config and SHIP_EXTERNAL_REVIEW to verify the new setting is read with the intended false-value semantics. — forced: Text/config audit, no UI: traced .ship-config consumer in ~/bin/ship (_ship_config_load, EXTREV_ENABLED derivation lines 2784-2838) - reads SHIP_EXTERNAL_REVIEW only from origin/<baseRefName> at merge time (never HEAD/env, agent-tools#600/#624), exact-matches 0|false|no. Verified qa-cli's committed .ship-config is git mode 100644, single line 'SHIP_EXTERNAL_REVIEW=0\\n', no NUL bytes, no unrecognized lines - exercised the parser's own malformed/unresolvable-base fail-closed paths by code reading; both fail safe (gate stays enabled). Clean verdict, no actionable findings.\n- [x] Exercise concrete failure scenarios including missing or malformed config, shell parsing edge cases, and affected ship workflow paths; report only actionable findings or a scenario-backed clean verdict. — forced: Text/config audit, no UI: traced .ship-config consumer in ~/bin/ship (_ship_config_load, EXTREV_ENABLED derivation lines 2784-2838) - reads SHIP_EXTERNAL_REVIEW only from origin/<baseRefName> at merge time (never HEAD/env, agent-tools#600/#624), exact-matches 0|false|no. Verified qa-cli's committed .ship-config is git mode 100644, single line 'SHIP_EXTERNAL_REVIEW=0\\n', no NUL bytes, no unrecognized lines - exercised the parser's own malformed/unresolvable-base fail-closed paths by code reading; both fail safe (gate stays enabled). Clean verdict, no actionable findings.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "state": "closed",
+    "updated_at": "2026-09-09T08:02:29Z",
+    "comments": []
+  },
+  {
+    "key": "qa-cli#11",
+    "title": "qa telegram login times out waiting for QR canvas even though QR renders successfully",
+    "body": "## What\n`qa telegram login` reliably times out at its 60s QR-wait window against the real, live\nhttps://web.telegram.org/a/ page — even though the QR code does render successfully. A\ndirect DOM probe taken immediately after each CLI timeout confirms the QR was already\npainted. Reproduced 3/3 times.\n\nExact repro command:\n```\ncd /Users/ultra/xp/qa-cli && QA_TELEGRAM_LIVE=1 timeout 90 qa telegram login\n```\nRepeat 2-3x back-to-back against a logged-out live session (`QA_TELEGRAM_LIVE=1 qa telegram status` should report `logged-out` first).\n\nObserved failure:\n- Exit code: 1\n- stderr:\n  ```\n  error: timed out waiting for Telegram Web QR canvas\n  scan the QR with your phone and re-run: qa telegram login\n  ```\n- Wall time: ~60.3-60.7s each run (i.e. right at the `DEFAULT_QR_WAIT_TIMEOUT` boundary)\n- Reproduced 3/3 consecutive times via the `qa` console-script + argparse dispatch (exactly\n  `QA_TELEGRAM_LIVE=1 timeout 90 qa telegram login`), against a logged-out live session.\n- Screenshots of the failure (QR code visibly rendered at time of CLI timeout):\n  `/tmp/qa-live-login-timeout.png`, `/tmp/qa-live-login-timeout2.png`\n\nContradicting evidence — the QR *is* rendered. Immediately after each of the 3 CLI\ntimeouts, a direct JS DOM probe against that same live page returned proof the QR had\nalready painted:\n```\nagent-browser --session qa-telegram --restore qa-telegram eval \"$(python3 -c 'from qa_cli.browser import _QR_VISIBLE_JS; print(_QR_VISIBLE_JS)')\"\n```\nreturned `\"qr-visible\"` every time — Telegram's real SVG QR code (inside `.qr-container`,\n~280x280, with the Telegram paper-plane logo) was already on the page when the CLI gave up.\nThis confirms the QR-visibility detection heuristic itself is correct; the CLI just stopped\nwaiting before observing the state it was polling for.\n\nWorkaround that succeeded: a direct in-process call — bypassing the `qa` console-script and\nthe external `timeout` wrapper entirely:\n```python\nimport qa_cli.telegram\nqa_cli.telegram.login(...)\n```\n— succeeded in ~3s and saved a real, scannable QR code to\n`~/.config/qa-cli/telegram-qr.png` (confirmed via screenshot).\n\nRelevant code, `qa_cli/telegram.py:17`:\n```python\nDEFAULT_QR_WAIT_TIMEOUT = 60.0\n```\n(`DEFAULT_LOGIN_TIMEOUT = 300.0` is the line immediately above it, at line 16 — a prior\nhandoff note miscited the QR timeout constant as line 16; it is line 17 as of the current\nfile.)\n\nRoot cause — not conclusively isolated. Two live-only hypotheses, either or both may\ncontribute:\n1. Telegram-side throttling: Telegram's live QR-issuance backend intermittently\n   delays/throttles repeated QR requests from the same session in quick back-to-back\n   succession during a single test run.\n2. CLI/subprocess-wrapper overhead: a behavioral difference between invoking through the\n   `qa` binary + external `timeout` wrapper vs. calling `qa_cli.telegram.login()`\n   in-process (e.g. `subprocess` `capture_output` buffering under a wrapped process tree)\n   adds enough latency/delay to blow through the 60s budget even though the underlying\n   browser-side render itself is fast.\n\nSuggested next step:\n- Increase `DEFAULT_QR_WAIT_TIMEOUT` (`qa_cli/telegram.py:17`) to give more headroom, and/or\n- Investigate why the CLI-wrapped path (`qa` binary + `timeout`) is slower/less reliable\n  than the direct `qa_cli.telegram.login()` in-process call — e.g. instrument the poll loop\n  with timestamps to see where the 60s budget is actually spent — with a live re-test to\n  confirm whichever fix resolves the flake.\n\n## Why (motivation)\n`qa telegram login` reliably times out at its 60s QR-wait window against the real, live\nhttps://web.telegram.org/a/ page even though the QR code does render successfully — a\ndirect DOM probe taken immediately after each CLI timeout confirms the QR was already\npainted, and the QR-visibility detection heuristic itself is correct. Reproduced 3/3\ntimes. Root cause is not conclusively isolated: it may be Telegram-side throttling of\nrepeated QR requests, and/or CLI/subprocess-wrapper overhead (the `qa` binary + external\n`timeout` wrapper) adding enough latency to blow through the 60s budget even though the\nunderlying browser-side render itself is fast — a direct in-process call to\n`qa_cli.telegram.login()` succeeded in ~3s where the wrapped CLI path timed out.\n\n## User impact\n`qa telegram login` — the CLI's primary QR-login entrypoint — is unreliable/flaky against\na real live Telegram Web session despite the underlying automation working correctly,\nundermining trust in the tool's core login flow and forcing users to bypass the documented\nCLI command in favor of calling internal Python functions directly.\n\n## Cost of inaction\nUsers of `qa telegram login` — the CLI's primary QR-login entrypoint — keep hitting\nunreliable timeouts against a real live Telegram Web session despite the underlying\nautomation working correctly, undermining trust in the tool's core login flow and forcing\nusers to keep bypassing the documented CLI command in favor of calling internal Python\nfunctions (`qa_cli.telegram.login()`) directly.\n\n## Acceptance criteria\n- [x] Repro command above no longer exits 1 with the QR-canvas timeout error on 3/3 consecutive live runs against a logged-out session. — proof: ![proof](.proof/issue11/c1.txt)\n- [x] If the fix is a timeout increase, the CLI still fails within a bounded time (not an indefinite hang) if the QR truly never renders. — proof: ![proof](.proof/issue11/c2.txt)\n\n## Screenshots\n- creation: ![creation](/tmp/qa-live-login-timeout.png)\n- creation: ![creation](/tmp/qa-live-login-timeout2.png)\n- creation: ![creation](/Users/ultra/.config/qa-cli/telegram-qr.png)\n- implementation: ![implementation](/tmp/qa-live-login-timeout.png)\n- implementation: ![implementation](/tmp/qa-live-login-timeout2.png)\n- implementation: ![implementation](/Users/ultra/.config/qa-cli/telegram-qr.png)\n\n## Links\n- PR: https://github.com/alex-mextner/qa-cli/pull/12\n- Merge commit: https://github.com/alex-mextner/qa-cli/commit/d92752a9d70fe7217c95f89d39fd8cfaf2a66b52\n\n## Skipped gates\n- links: false positive: 'CLI/subprocess-wrapper' is prose (a slash-joined compound noun), not a repo/path reference\n",
+    "state": "closed",
+    "updated_at": "2026-09-10T10:05:49Z",
+    "comments": [
+      {
+        "id": 5613387015,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/11",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/11#issuecomment-5613387015",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T04:54:37Z",
+        "updated_at": "2026-09-10T04:54:37Z",
+        "body": "screenshot: /tmp/qa-live-login-timeout.png"
+      },
+      {
+        "id": 5613387096,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/11",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/11#issuecomment-5613387096",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T04:54:38Z",
+        "updated_at": "2026-09-10T04:54:38Z",
+        "body": "screenshot: /tmp/qa-live-login-timeout2.png"
+      },
+      {
+        "id": 5613387200,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/11",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/11#issuecomment-5613387200",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T04:54:38Z",
+        "updated_at": "2026-09-10T04:54:38Z",
+        "body": "screenshot: /Users/ultra/.config/qa-cli/telegram-qr.png"
+      },
+      {
+        "id": 5615945532,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/11",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/11#issuecomment-5615945532",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T08:57:53Z",
+        "updated_at": "2026-09-10T08:57:53Z",
+        "body": "screenshot: .proof/issue11/c1.txt"
+      },
+      {
+        "id": 5615945536,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/11",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/11#issuecomment-5615945536",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T08:57:53Z",
+        "updated_at": "2026-09-10T08:57:53Z",
+        "body": "screenshot: .proof/issue11/c2.txt"
+      },
+      {
+        "id": 5615948897,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/11",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/11#issuecomment-5615948897",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T08:58:08Z",
+        "updated_at": "2026-09-10T08:58:08Z",
+        "body": "screenshot: .proof/issue11/c1.txt"
+      },
+      {
+        "id": 5615955449,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/11",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/11#issuecomment-5615955449",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T08:58:39Z",
+        "updated_at": "2026-09-10T08:58:39Z",
+        "body": "Shipped: merged via https://github.com/alex-mextner/qa-cli/pull/12.\nMerge commit: d92752a9d70fe7217c95f89d39fd8cfaf2a66b52\nThis does NOT close the ticket — acceptance still needs proof. Run `task read #11` for the outstanding criteria, then `task check`/`task done`."
+      },
+      {
+        "id": 5616834537,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/11",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/11#issuecomment-5616834537",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T10:05:46Z",
+        "updated_at": "2026-09-10T10:05:46Z",
+        "body": "screenshot: /tmp/qa-live-login-timeout.png"
+      },
+      {
+        "id": 5616834783,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/11",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/11#issuecomment-5616834783",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T10:05:47Z",
+        "updated_at": "2026-09-10T10:05:47Z",
+        "body": "screenshot: /tmp/qa-live-login-timeout2.png"
+      },
+      {
+        "id": 5616834990,
+        "issue_url": "https://api.github.com/repos/alex-mextner/qa-cli/issues/11",
+        "html_url": "https://github.com/alex-mextner/qa-cli/issues/11#issuecomment-5616834990",
+        "user": "alex-mextner",
+        "created_at": "2026-09-10T10:05:48Z",
+        "updated_at": "2026-09-10T10:05:48Z",
+        "body": "screenshot: /Users/ultra/.config/qa-cli/telegram-qr.png"
+      }
+    ]
+  }
+]

@@ -1,0 +1,438 @@
+[
+  {
+    "number": 1,
+    "key": "qa-cli#1",
+    "node_id": "I_kwDOUSW00c8AAAABQRygZw",
+    "expected_body_sha256": "cd7b60787b3e304a3bd928c12c15cdb921f1888f0b773569d7cef38beb60143a",
+    "expected_updated_at": "2026-09-08T15:01:44Z",
+    "expected_title": "Headless Telegram Web testing mode (QR login via agent-browser)",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Telegram routing, durable decisions and concurrent delivery. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/telegram.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/qa-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Ответы в Telegram всё ещё не работают для OMP-сессий вне tmux. Я же сказал: нужно проработать все сценарии.\n\nSource **Q201**; compiled-memory-attribution; MEMORY.md standing lesson: Telegram must see every live agent; every reply route must land; PDF page(s) 74. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> и реплаи в телеге все еще не работают для omp сессий вне tmux, я ж сказал надо все сценарии проработать\n\n</details>\n\n> В Telegram само отправилось «/agent 44897 PING-339-LIVE-PROOF». Это явно какие-то тесты.\n\nSource **Q233**; compiled-memory-attribution; MEMORY.md standing lesson: Telegram tests: headless Web + QR, never the real chat; PDF page(s) 87. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> /agent 44897 PING-339-LIVE-PROOF вот такое сейчас само написалось в телегу)) это точно какие-то тесты\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [qa-cli@d92752a9d70f](https://github.com/alex-mextner/qa-cli/tree/d92752a9d70fe7217c95f89d39fd8cfaf2a66b52). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 32, \"skipped\": 1}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nLinked implementation records: [qa-cli#4](https://github.com/alex-mextner/qa-cli/pull/4) — merged 2026-09-08T15:01:36Z.\n\n- Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** The user replies to landing while rig-fable is busy. Delivery to landing and the next Telegram update continue without waiting for rig-fable's full turn. A late Approve is retained for the same scoped action after reconnect, but a changed command, repository, commit or native session cannot reuse it.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\nqa-cli does not exist. Live Telegram tests currently risk opening Telegram.app or sending junk like PING-339-LIVE-PROOF into real chats. We need a dedicated CLI that drives Telegram Web (https://web.telegram.org/a/) in headless Chromium via the agent-browser CLI, shows a QR for phone login, persists the session, and never launches the desktop app. Evidence of the current gap: GitHub returned 404 for https://github.com/alex-mextner/qa-cli before this repo was created, and no /Users/ultra/xp/qa-cli checkout existed. This is an unbuilt CLI, so there is no screenshot of a broken UI yet; the observable broken state is the missing command and the live-test path that can open Telegram.app or spam production chats.\n\n## Why (motivation)\nAlex 2026-09-08: live Telegram tests are OK but MUST be HEADLESS. QR login in qa-cli; do NOT open Telegram.app; do NOT send junk into production chats as the default proof path.\n\n## User impact\nAgents and humans who need to exercise Telegram from a terminal can run qa telegram login, scan a QR with their phone, and re-run tests against a persisted headless Chromium session instead of the desktop Telegram.app. Default CI stays hermetic (fake/stub browser) and never touches real Telegram, so a PR cannot spam a real chat or pop a desktop app.\n\n## Cost of inaction\nLive Telegram tests keep launching Telegram.app or spamming real chats; there is no durable headless QR path, so every live proof either disturbs the human desktop or dumps junk like PING-339-LIVE-PROOF into production conversations.\n\n## Acceptance criteria\n- [x] `qa telegram login` exists, and when not logged in it saves a QR screenshot artifact and prints its path — proven by hermetic unit test with a fake browser (no network). — forced: CLI no UI; proven by named tests test_login_saves_qr_when_logged_out, test_agent_browser_argv_uses_agent_browser_not_telegram_app, test_status_logged_out_without_session\n- [x] The login driver invokes `agent-browser` (never Playwright/Puppeteer wrappers, never `open -a Telegram`) and default pytest never hits live Telegram — proven by hermetic tests asserting argv and by live tests skipped unless QA_TELEGRAM_LIVE=1. — forced: CLI no UI; proven by named tests test_login_saves_qr_when_logged_out, test_agent_browser_argv_uses_agent_browser_not_telegram_app, test_status_logged_out_without_session\n- [x] `qa telegram status` reports logged-in vs logged-out from the persisted session without launching Telegram.app — proven by hermetic unit test. — forced: CLI no UI; proven by named tests test_login_saves_qr_when_logged_out, test_agent_browser_argv_uses_agent_browser_not_telegram_app, test_status_logged_out_without_session\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/qa-cli/pull/4\n- Merge commit: https://github.com/alex-mextner/qa-cli/commit/6e9423855037567fa7554c8e680613ef57b08088\n\n## Skipped gates\n- links: tokens such as Telegram.app, agent-browser, and PING-339-LIVE-PROOF are product names / banned proof strings, not GitHub issue or repo references\n- screenshots: CLI with no app UI yet; the missing product has no screen to capture. Current evidence is the 404/absent checkout recorded in --what.\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "telegram",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "qa-cli#1",
+      "repo": "qa-cli",
+      "number": 1,
+      "id": 5387362407,
+      "node_id": "I_kwDOUSW00c8AAAABQRygZw",
+      "title": "Headless Telegram Web testing mode (QR login via agent-browser)",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "telegram",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "201",
+        "233"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [
+        "qa-cli#1"
+      ],
+      "linked_prs": [
+        {
+          "key": "qa-cli#4",
+          "state": "closed",
+          "merged_at": "2026-09-08T15:01:36Z",
+          "merge_commit_sha": "6e9423855037567fa7554c8e680613ef57b08088"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "cd7b60787b3e304a3bd928c12c15cdb921f1888f0b773569d7cef38beb60143a",
+      "snapshot_updated_at": "2026-09-08T15:01:44Z"
+    }
+  },
+  {
+    "number": 3,
+    "key": "qa-cli#3",
+    "node_id": "I_kwDOUSW00c8AAAABQSOYRg",
+    "expected_body_sha256": "a357c30158bba6cd7ebfed40617464d5df5b16fa6396ef6e7863ecfe6e44593f",
+    "expected_updated_at": "2026-09-09T08:04:17Z",
+    "expected_title": "Audit QR wait login change",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Legacy process records and salvageable review findings. **Record:** process-record.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/qa-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Почему процессные задачи всё ещё заводятся в продуктовый трекер через task-cli? … Ты помнишь, как давно я просил это починить? … Что с harness-cli, в частности с harness task для процессных задач? Пример: https://github.com/conloca/landing/issues/263.\n\nSource **Q222**; compiled-memory-attribution; MEMORY.md standing lesson: Process tasks must not land in the product tracker; PDF page(s) 82. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> https://github.com/conloca/landing/issues/263--почему процессные таски все еще заводятся в продуктовый тасктрекер через task-cli?! … ты помнишь насколько давно я просил это починить? … что с harnesses-cli? в частности harnesses task для процессных тасков\n\n</details>\n\n> Закрыт superseded PR #321. Перед любым удалением нужно проверить, нет ли там полезной работы, которую нужно сохранить, и отчитаться об этой проверке.\n\nSource **Q238**; compiled-memory-attribution; MEMORY.md standing lesson: Before deleting/closing anything, verify nothing salvageable is lost, and report the check; PDF page(s) 89. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> закрыт 1 superseded PR (#321).--всегда когда чтото удаляется надо\n> делать перед удалением проверку точно ли оттуда нечего спасать полезного и отчитывать\n> об этом\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [qa-cli@d92752a9d70f](https://github.com/alex-mextner/qa-cli/tree/d92752a9d70fe7217c95f89d39fd8cfaf2a66b52). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 32, \"skipped\": 1}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\n- Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** A ticket says Review uncommitted version bump. Its review findings and linked commit/PR are retained. Any actionable product bug is linked to a canonical issue before retiring the process record. A cancelled review task is not counted as a newly delivered product feature.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\n\n\n## Why (motivation)\nThe QR readiness gate changes the Telegram authentication path and must not capture an unrelated screen or break driver integrations.\n\n## User impact\nA faulty gate can leave users with an unusable screenshot or a failed login flow.\n\n## Cost of inaction\nUndetected authentication-flow regressions can block Telegram CLI setup or mislead users with invalid QR images.\n\n## Acceptance criteria\n- [x] Review the uncommitted QR-wait diff for concrete bugs, regressions, security issues, cross-file contract drift, and missing tests. — forced: Reviewed full QR-wait diff in commit 6e94238 covering browser.py wait_for_qr, is_qr_visible, cli.py, and telegram.py login(). Confirmed TimeoutError from wait_for_qr propagates into the existing except TimeoutError handler in cli.py run(), exiting 1 with a friendly re-run message; no unhandled exception. Confirmed the become-logged-in-during-wait path re-checks is_logged_in after wait_for_qr and skips the screenshot correctly. BrowserDriver protocol gained wait_for_qr matching the AgentBrowserDriver implementation, no cross-file contract drift. Ran the full pytest suite via a supervised hub process (qacli-pytest): 29 passed, 1 skipped, the skip being the QA_TELEGRAM_LIVE opt-in live test. Coverage includes blank canvas rejection, unrelated canvas rejection, painted QR canvas acceptance, QR img acceptance, QR wait timeout, and become-logged-in-during-wait, all passing. No actionable defects found; clean test-backed verdict.\n- [x] Return only actionable findings with file-and-line evidence, or a scoped clean verdict documenting adversarial checks. — forced: Reviewed full QR-wait diff in commit 6e94238 covering browser.py wait_for_qr, is_qr_visible, cli.py, and telegram.py login(). Confirmed TimeoutError from wait_for_qr propagates into the existing except TimeoutError handler in cli.py run(), exiting 1 with a friendly re-run message; no unhandled exception. Confirmed the become-logged-in-during-wait path re-checks is_logged_in after wait_for_qr and skips the screenshot correctly. BrowserDriver protocol gained wait_for_qr matching the AgentBrowserDriver implementation, no cross-file contract drift. Ran the full pytest suite via a supervised hub process (qacli-pytest): 29 passed, 1 skipped, the skip being the QA_TELEGRAM_LIVE opt-in live test. Coverage includes blank canvas rejection, unrelated canvas rejection, painted QR canvas acceptance, QR img acceptance, QR wait timeout, and become-logged-in-during-wait, all passing. No actionable defects found; clean test-backed verdict.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "process",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "record:process",
+      "source:gap"
+    ],
+    "source": {
+      "key": "qa-cli#3",
+      "repo": "qa-cli",
+      "number": 3,
+      "id": 5387819078,
+      "node_id": "I_kwDOUSW00c8AAAABQSOYRg",
+      "title": "Audit QR wait login change",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "222",
+        "238"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [],
+      "linked_prs": [],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "a357c30158bba6cd7ebfed40617464d5df5b16fa6396ef6e7863ecfe6e44593f",
+      "snapshot_updated_at": "2026-09-09T08:04:17Z"
+    }
+  },
+  {
+    "number": 5,
+    "key": "qa-cli#5",
+    "node_id": "I_kwDOUSW00c8AAAABQSrXwA",
+    "expected_body_sha256": "77b8760685ad362eb3650fb60ff74e1e62ef8d576e01f9513f2cf6740fbdf5cd",
+    "expected_updated_at": "2026-09-09T08:03:06Z",
+    "expected_title": "Assess release version diff",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Legacy process records and salvageable review findings. **Record:** process-record.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/qa-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Почему процессные задачи всё ещё заводятся в продуктовый трекер через task-cli? … Ты помнишь, как давно я просил это починить? … Что с harness-cli, в частности с harness task для процессных задач? Пример: https://github.com/conloca/landing/issues/263.\n\nSource **Q222**; compiled-memory-attribution; MEMORY.md standing lesson: Process tasks must not land in the product tracker; PDF page(s) 82. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> https://github.com/conloca/landing/issues/263--почему процессные таски все еще заводятся в продуктовый тасктрекер через task-cli?! … ты помнишь насколько давно я просил это починить? … что с harnesses-cli? в частности harnesses task для процессных тасков\n\n</details>\n\n> Закрыт superseded PR #321. Перед любым удалением нужно проверить, нет ли там полезной работы, которую нужно сохранить, и отчитаться об этой проверке.\n\nSource **Q238**; compiled-memory-attribution; MEMORY.md standing lesson: Before deleting/closing anything, verify nothing salvageable is lost, and report the check; PDF page(s) 89. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> закрыт 1 superseded PR (#321).--всегда когда чтото удаляется надо\n> делать перед удалением проверку точно ли оттуда нечего спасать полезного и отчитывать\n> об этом\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [qa-cli@d92752a9d70f](https://github.com/alex-mextner/qa-cli/tree/d92752a9d70fe7217c95f89d39fd8cfaf2a66b52). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 32, \"skipped\": 1}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\n- Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** A ticket says Review uncommitted version bump. Its review findings and linked commit/PR are retained. Any actionable product bug is linked to a canonical issue before retiring the process record. A cancelled review task is not counted as a newly delivered product feature.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\n\n\n## Why (motivation)\nA release metadata change can affect packaging and version consumers.\n\n## User impact\nPeople installing or updating the command-line tool need the displayed release version to match the package they receive, so they can identify and use the intended release.\n\n## Cost of inaction\nPeople could install a release labeled with an incorrect version and struggle to identify the version they are running.\n\n## Acceptance criteria\n- [x] The uncommitted version change is checked for concrete correctness, security, test coverage, and performance regressions. — forced: Text audit, no UI: reviewed version diff 0.1.0->0.2.0 (commit 6e94238, qa_cli/__init__.py) plus follow-up 0.2.0->0.3.0 (commit 22c5f35). pyproject.toml uses dynamic=[\"version\"] resolved from qa_cli.__version__ (single source of truth, comment confirms intent); CLI --version flag (cli.py:38) reads qa_cli.__version__ directly, no hardcoded duplicate. grep across repo found zero other hardcoded '0.1.0'/'0.2.0' occurrences. No packaging/security/perf regression - monotonic bump, no drift. Clean verdict.\n- [x] The review names actionable defects with locations and reproduction states, or records the specific failure modes tested for a clean verdict. — forced: Text audit, no UI: reviewed version diff 0.1.0->0.2.0 (commit 6e94238, qa_cli/__init__.py) plus follow-up 0.2.0->0.3.0 (commit 22c5f35). pyproject.toml uses dynamic=[\"version\"] resolved from qa_cli.__version__ (single source of truth, comment confirms intent); CLI --version flag (cli.py:38) reads qa_cli.__version__ directly, no hardcoded duplicate. grep across repo found zero other hardcoded '0.1.0'/'0.2.0' occurrences. No packaging/security/perf regression - monotonic bump, no drift. Clean verdict.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "process",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "record:process",
+      "source:gap"
+    ],
+    "source": {
+      "key": "qa-cli#5",
+      "repo": "qa-cli",
+      "number": 5,
+      "id": 5388294080,
+      "node_id": "I_kwDOUSW00c8AAAABQSrXwA",
+      "title": "Assess release version diff",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "222",
+        "238"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+      "existing_paths": [
+        "qa_cli/__init__.py"
+      ],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [],
+      "linked_prs": [],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "77b8760685ad362eb3650fb60ff74e1e62ef8d576e01f9513f2cf6740fbdf5cd",
+      "snapshot_updated_at": "2026-09-09T08:03:06Z"
+    }
+  },
+  {
+    "number": 6,
+    "key": "qa-cli#6",
+    "node_id": "I_kwDOUSW00c8AAAABQUIkMg",
+    "expected_body_sha256": "a224aaf5fbe1be7868deace08b66d1128957870db6fb14c7a487268489fd00c7",
+    "expected_updated_at": "2026-09-10T10:05:52Z",
+    "expected_title": "Live-prove qa-cli Telegram Web QR via agent-browser",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Telegram routing, durable decisions and concurrent delivery. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/telegram.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/qa-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Ответы в Telegram всё ещё не работают для OMP-сессий вне tmux. Я же сказал: нужно проработать все сценарии.\n\nSource **Q201**; compiled-memory-attribution; MEMORY.md standing lesson: Telegram must see every live agent; every reply route must land; PDF page(s) 74. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> и реплаи в телеге все еще не работают для omp сессий вне tmux, я ж сказал надо все сценарии проработать\n\n</details>\n\n> В Telegram само отправилось «/agent 44897 PING-339-LIVE-PROOF». Это явно какие-то тесты.\n\nSource **Q233**; compiled-memory-attribution; MEMORY.md standing lesson: Telegram tests: headless Web + QR, never the real chat; PDF page(s) 87. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> /agent 44897 PING-339-LIVE-PROOF вот такое сейчас само написалось в телегу)) это точно какие-то тесты\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [qa-cli@d92752a9d70f](https://github.com/alex-mextner/qa-cli/tree/d92752a9d70fe7217c95f89d39fd8cfaf2a66b52). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 32, \"skipped\": 1}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nLinked implementation records: [qa-cli#2](https://github.com/alex-mextner/qa-cli/pull/2) — merged 2026-09-08T13:59:40Z; [qa-cli#4](https://github.com/alex-mextner/qa-cli/pull/4) — merged 2026-09-08T15:01:36Z; [qa-cli#7](https://github.com/alex-mextner/qa-cli/pull/7) — merged 2026-09-08T18:17:54Z.\n\n- Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** The user replies to landing while rig-fable is busy. Delivery to landing and the next Telegram update continue without waiting for rig-fable's full turn. A late Approve is retained for the same scoped action after reconnect, but a changed command, repository, commit or native session cannot reuse it.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\nRun live proof of qa-cli Telegram Web against https://web.telegram.org/a/ using the product session qa-telegram. Confirm qa telegram status, then qa telegram login if logged-out, and capture a real painted QR at ~/.config/qa-cli/telegram-qr.png (or prove already logged-in). Login/status already shipped on main as qa 0.2.0 via https://github.com/alex-mextner/qa-cli/pull/2 and https://github.com/alex-mextner/qa-cli/pull/4. https://github.com/alex-mextner/qa-cli/issues/1 is closed. There is no send/read command; do not add one unless status is already logged-in. Never open Telegram.app and never message a production bot chat.\n\n## Why (motivation)\nThe product claims QR login via agent-browser, but ~/.config/qa-cli does not exist and there is no live artifact proving Telegram Web actually paints a scannable QR. Unit tests cannot substitute for a live canvas on https://web.telegram.org/a/.\n\n## User impact\nUntil a real painted QR (or a logged-in status) is captured, Alex cannot scan to complete the headless Telegram Web session, so qa-cli cannot be used to test Telegram Web at all.\n\n## Cost of inaction\nShipped login/status stays unproven against live Telegram Web. A blank canvas or timeout-without-file would look fine in hermetic tests while the human still cannot scan and log in.\n\n## Acceptance criteria\n- [x] Either qa telegram status prints logged-in, or ~/.config/qa-cli/telegram-qr.png is a non-blank painted Telegram login QR (file exists, size at least 2KB, PNG header, width and height at least 80, non-uniform opaque pixels, vision confirms finder squares). Proof: QR PNG plus pixel-stats file, or status stdout showing logged-in. — proof: ![proof](/Users/ultra/.config/qa-cli/telegram-qr.png)\n- [x] qa telegram status is recorded before and after login (stdout, stderr, exit). If still logged-out, the QR path is recorded for Alex to scan. Proof: captured status output and the QR file path. — proof: ![proof](/Users/ultra/.config/qa-cli/telegram-qr.png)\n\n## Screenshots\n- implementation: ![implementation](/Users/ultra/.config/qa-cli/telegram-qr.png)\n- implementation: ![implementation](/Users/ultra/.config/qa-cli/telegram-qr.png)\n\n## Links\n- PR: https://github.com/alex-mextner/qa-cli/pull/7\n- Merge commit: https://github.com/alex-mextner/qa-cli/commit/22c5f357a8d03b4b0b3900fa71556bc9101e677f\n\n## Skipped gates\n- screenshots: No UI screenshot exists yet: ~/.config/qa-cli is missing and the live QR has not been painted. The broken/current state is the absent session dir. The QR PNG will be attached as evidence once qa telegram login captures it.\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "telegram",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "qa-cli#6",
+      "repo": "qa-cli",
+      "number": 6,
+      "id": 5389820978,
+      "node_id": "I_kwDOUSW00c8AAAABQUIkMg",
+      "title": "Live-prove qa-cli Telegram Web QR via agent-browser",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "telegram",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "201",
+        "233"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [
+        "qa-cli#1",
+        "qa-cli#6"
+      ],
+      "linked_prs": [
+        {
+          "key": "qa-cli#2",
+          "state": "closed",
+          "merged_at": "2026-09-08T13:59:40Z",
+          "merge_commit_sha": "67dae13139d028c8f62fde39a38c103e244364a1"
+        },
+        {
+          "key": "qa-cli#4",
+          "state": "closed",
+          "merged_at": "2026-09-08T15:01:36Z",
+          "merge_commit_sha": "6e9423855037567fa7554c8e680613ef57b08088"
+        },
+        {
+          "key": "qa-cli#7",
+          "state": "closed",
+          "merged_at": "2026-09-08T18:17:54Z",
+          "merge_commit_sha": "22c5f357a8d03b4b0b3900fa71556bc9101e677f"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "a224aaf5fbe1be7868deace08b66d1128957870db6fb14c7a487268489fd00c7",
+      "snapshot_updated_at": "2026-09-10T10:05:52Z"
+    }
+  },
+  {
+    "number": 8,
+    "key": "qa-cli#8",
+    "node_id": "I_kwDOUSW00c8AAAABQUyVTg",
+    "expected_body_sha256": "dbd7d0f72bc43e972789d5adc33044a23d2af690fb08c0c3866e55cf14c20898",
+    "expected_updated_at": "2026-09-08T18:59:06Z",
+    "expected_title": "Commit SHIP_EXTERNAL_REVIEW=0 in .ship-config",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Shipping policy, local CI parity and release consistency. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/shipping.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/qa-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> gh ship должен уметь сам запускать проверки локально. Если что-то не получается, разберись, как это должно работать, и почини.\n\nSource **Q261**; telegram-export; Telegram tg#16230 2026-09-09T09:07:14+00:00; PDF page(s) 100. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> Gh ship должен уметь сам запускать проверки локально, если что-то не выходит резберись как должно работать и почини\n\n</details>\n\n> Какого биллинга ты ждёшь и зачем? Я же сказал: если с CI проблемы, gh ship должен сам прогнать всё локально и разрешить merge, несмотря на CI.\n\nSource **Q263**; telegram-export; Telegram tg#16245 2026-09-09T09:27:57+00:00; PDF page(s) 101. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> Какой биллинг ты ждешь и зачем?! Я ж сказал gh ship должен если с ci проблемы сам локально все прогонять и разрешить мержить несмотря на си ай\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [qa-cli@d92752a9d70f](https://github.com/alex-mextner/qa-cli/tree/d92752a9d70fe7217c95f89d39fd8cfaf2a66b52). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 32, \"skipped\": 1}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nLinked implementation records: [qa-cli#10](https://github.com/alex-mextner/qa-cli/pull/10) — merged 2026-09-08T18:58:22Z; [review-cli#451](https://github.com/alex-mextner/review-cli/pull/451) — merged 2026-09-08T18:27:01Z.\n\n- Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason.\n\n- Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** Hosted CI cannot start because its infrastructure is unavailable. The declared equivalent checks run locally at the exact PR head revision and their results are recorded. A genuine failed test is not reclassified as an infrastructure outage. Two parallel PRs must not both reuse a stale version bump from an unrelated checkout.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\nqa-cli origin/main has no repo-root .ship-config. After https://github.com/alex-mextner/agent-tools/issues/624, env SHIP_EXTERNAL_REVIEW=0 is ignored; only a committed SHIP_EXTERNAL_REVIEW=0 line on the PR BASE branch disables gh ship's zero-GitHub-reviews gate (read from origin/<base>, never from the shipping PR's own HEAD). Evidence now: git show origin/main:.ship-config fails (path does not exist). Precedent: https://github.com/alex-mextner/tg-cli/commit/17431bf446dffd76016cf84704773a91806e93ba and merged https://github.com/alex-mextner/review-cli/pull/451.\n\n## Why (motivation)\nWithout a committed .ship-config on main, every qa-cli gh ship of a PR with no GitHub-side review is refused. The intended off-switch only takes effect after a normal merge to main. A machine-wide SHIP_EXTERNAL_REVIEW=0 export is ignored and must not be the standing policy.\n\n## User impact\nAgents and the maintainer cannot merge already-reviewed, CI-green qa-cli PRs. Work stays unshipped while merge is blocked on an empty GitHub reviews array, even when GitHub required_approving_review_count is already 0.\n\n## Cost of inaction\nFuture qa-cli ships keep failing the ZERO GitHub reviews gate. Operators keep exporting SHIP_EXTERNAL_REVIEW=0 in the shell, which is ignored after https://github.com/alex-mextner/agent-tools/issues/624, so ships stay stuck.\n\n## Acceptance criteria\n- [x] origin/main contains a repo-root .ship-config whose only key is SHIP_EXTERNAL_REVIEW=0. Proof: git show origin/main:.ship-config prints that line and nothing else. — proof: ![proof](/tmp/qa-cli-8-proofs/c1-git-show-ship-config.txt)\n- [x] A PR exists adding only that one-line .ship-config and is shipped (or the exact remaining ship refusal is quoted). Proof: the PR URL plus merged state or quoted remaining refusal. — proof: ![proof](/tmp/qa-cli-8-proofs/c2-pr-merged.json)\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/qa-cli/pull/10\n- Merge commit: https://github.com/alex-mextner/qa-cli/commit/d98e82643ce1d316d3957d07918ac467678e8144\n\n## Skipped gates\n- post-merge-acceptance: Criterion 1 is git show origin/main:.ship-config after this PR squash-merges to main; criterion 2 is the PR URL plus merged state. Neither is observable before the merge.\n- screenshots: no UI; one-line committed ship-config ops off-switch, evidence is git show and gh pr view JSON\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "shipping",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "qa-cli#8",
+      "repo": "qa-cli",
+      "number": 8,
+      "id": 5390505294,
+      "node_id": "I_kwDOUSW00c8AAAABQUyVTg",
+      "title": "Commit SHIP_EXTERNAL_REVIEW=0 in .ship-config",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "shipping",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "261",
+        "263"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+      "existing_paths": [],
+      "unresolved_historical_paths": [
+        "cli-8-proofs/c2-pr-merged.js"
+      ],
+      "named_test_evidence": [],
+      "related_issues": [
+        "agent-tools#624",
+        "qa-cli#8"
+      ],
+      "linked_prs": [
+        {
+          "key": "qa-cli#10",
+          "state": "closed",
+          "merged_at": "2026-09-08T18:58:22Z",
+          "merge_commit_sha": "d98e82643ce1d316d3957d07918ac467678e8144"
+        },
+        {
+          "key": "review-cli#451",
+          "state": "closed",
+          "merged_at": "2026-09-08T18:27:01Z",
+          "merge_commit_sha": "964b637e685cbec6e16cd22e367e8580bc08b514"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason.",
+        "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "dbd7d0f72bc43e972789d5adc33044a23d2af690fb08c0c3866e55cf14c20898",
+      "snapshot_updated_at": "2026-09-08T18:59:06Z"
+    }
+  },
+  {
+    "number": 9,
+    "key": "qa-cli#9",
+    "node_id": "I_kwDOUSW00c8AAAABQU1Sjg",
+    "expected_body_sha256": "5ea11803f528c2cc170580da40dc97a28c39d9e28ef74c48fc5086716d9b5454",
+    "expected_updated_at": "2026-09-09T08:02:29Z",
+    "expected_title": "Audit ship external-review configuration change",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Legacy process records and salvageable review findings. **Record:** process-record.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/qa-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Почему процессные задачи всё ещё заводятся в продуктовый трекер через task-cli? … Ты помнишь, как давно я просил это починить? … Что с harness-cli, в частности с harness task для процессных задач? Пример: https://github.com/conloca/landing/issues/263.\n\nSource **Q222**; compiled-memory-attribution; MEMORY.md standing lesson: Process tasks must not land in the product tracker; PDF page(s) 82. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> https://github.com/conloca/landing/issues/263--почему процессные таски все еще заводятся в продуктовый тасктрекер через task-cli?! … ты помнишь насколько давно я просил это починить? … что с harnesses-cli? в частности harnesses task для процессных тасков\n\n</details>\n\n> Закрыт superseded PR #321. Перед любым удалением нужно проверить, нет ли там полезной работы, которую нужно сохранить, и отчитаться об этой проверке.\n\nSource **Q238**; compiled-memory-attribution; MEMORY.md standing lesson: Before deleting/closing anything, verify nothing salvageable is lost, and report the check; PDF page(s) 89. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> закрыт 1 superseded PR (#321).--всегда когда чтото удаляется надо\n> делать перед удалением проверку точно ли оттуда нечего спасать полезного и отчитывать\n> об этом\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [qa-cli@d92752a9d70f](https://github.com/alex-mextner/qa-cli/tree/d92752a9d70fe7217c95f89d39fd8cfaf2a66b52). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 32, \"skipped\": 1}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\n- Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** A ticket says Review uncommitted version bump. Its review findings and linked commit/PR are retained. Any actionable product bug is linked to a canonical issue before retiring the process record. A cancelled review task is not counted as a newly delivered product feature.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\n\n\n## Why (motivation)\nA new shipping configuration toggle may have repository-wide behavioral effects despite a one-line diff.\n\n## User impact\nRelease operators need the requested external review step to be disabled predictably, so they do not wait for an unwanted check or accidentally ship without a review they expected.\n\n## Cost of inaction\nRelease operators may be misled about whether an external review runs, delaying a release or omitting an expected safety check.\n\n## Acceptance criteria\n- [x] Trace every repository consumer of .ship-config and SHIP_EXTERNAL_REVIEW to verify the new setting is read with the intended false-value semantics. — forced: Text/config audit, no UI: traced .ship-config consumer in ~/bin/ship (_ship_config_load, EXTREV_ENABLED derivation lines 2784-2838) - reads SHIP_EXTERNAL_REVIEW only from origin/<baseRefName> at merge time (never HEAD/env, agent-tools#600/#624), exact-matches 0|false|no. Verified qa-cli's committed .ship-config is git mode 100644, single line 'SHIP_EXTERNAL_REVIEW=0\\n', no NUL bytes, no unrecognized lines - exercised the parser's own malformed/unresolvable-base fail-closed paths by code reading; both fail safe (gate stays enabled). Clean verdict, no actionable findings.\n- [x] Exercise concrete failure scenarios including missing or malformed config, shell parsing edge cases, and affected ship workflow paths; report only actionable findings or a scenario-backed clean verdict. — forced: Text/config audit, no UI: traced .ship-config consumer in ~/bin/ship (_ship_config_load, EXTREV_ENABLED derivation lines 2784-2838) - reads SHIP_EXTERNAL_REVIEW only from origin/<baseRefName> at merge time (never HEAD/env, agent-tools#600/#624), exact-matches 0|false|no. Verified qa-cli's committed .ship-config is git mode 100644, single line 'SHIP_EXTERNAL_REVIEW=0\\n', no NUL bytes, no unrecognized lines - exercised the parser's own malformed/unresolvable-base fail-closed paths by code reading; both fail safe (gate stays enabled). Clean verdict, no actionable findings.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "process",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "record:process",
+      "source:gap"
+    ],
+    "source": {
+      "key": "qa-cli#9",
+      "repo": "qa-cli",
+      "number": 9,
+      "id": 5390553742,
+      "node_id": "I_kwDOUSW00c8AAAABQU1Sjg",
+      "title": "Audit ship external-review configuration change",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "222",
+        "238"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [
+        "agent-tools#600"
+      ],
+      "linked_prs": [],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "5ea11803f528c2cc170580da40dc97a28c39d9e28ef74c48fc5086716d9b5454",
+      "snapshot_updated_at": "2026-09-09T08:02:29Z"
+    }
+  },
+  {
+    "number": 11,
+    "key": "qa-cli#11",
+    "node_id": "I_kwDOUSW00c8AAAABQlb33Q",
+    "expected_body_sha256": "53b95ae140bd2071b6d558bda3095b2b1534cff6ba8c34ae75d68d0deaf7122e",
+    "expected_updated_at": "2026-09-10T10:05:49Z",
+    "expected_title": "qa telegram login times out waiting for QR canvas even though QR renders successfully",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Telegram routing, durable decisions and concurrent delivery. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/telegram.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/qa-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Ответы в Telegram всё ещё не работают для OMP-сессий вне tmux. Я же сказал: нужно проработать все сценарии.\n\nSource **Q201**; compiled-memory-attribution; MEMORY.md standing lesson: Telegram must see every live agent; every reply route must land; PDF page(s) 74. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> и реплаи в телеге все еще не работают для omp сессий вне tmux, я ж сказал надо все сценарии проработать\n\n</details>\n\n> В Telegram само отправилось «/agent 44897 PING-339-LIVE-PROOF». Это явно какие-то тесты.\n\nSource **Q233**; compiled-memory-attribution; MEMORY.md standing lesson: Telegram tests: headless Web + QR, never the real chat; PDF page(s) 87. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> /agent 44897 PING-339-LIVE-PROOF вот такое сейчас само написалось в телегу)) это точно какие-то тесты\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [qa-cli@d92752a9d70f](https://github.com/alex-mextner/qa-cli/tree/d92752a9d70fe7217c95f89d39fd8cfaf2a66b52). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 32, \"skipped\": 1}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nLinked implementation records: [qa-cli#12](https://github.com/alex-mextner/qa-cli/pull/12) — merged 2026-09-10T08:58:36Z.\n\n- Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** The user replies to landing while rig-fable is busy. Delivery to landing and the next Telegram update continue without waiting for rig-fable's full turn. A late Approve is retained for the same scoped action after reconnect, but a changed command, repository, commit or native session cannot reuse it.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\n`qa telegram login` reliably times out at its 60s QR-wait window against the real, live\nhttps://web.telegram.org/a/ page — even though the QR code does render successfully. A\ndirect DOM probe taken immediately after each CLI timeout confirms the QR was already\npainted. Reproduced 3/3 times.\n\nExact repro command:\n```\ncd /Users/ultra/xp/qa-cli && QA_TELEGRAM_LIVE=1 timeout 90 qa telegram login\n```\nRepeat 2-3x back-to-back against a logged-out live session (`QA_TELEGRAM_LIVE=1 qa telegram status` should report `logged-out` first).\n\nObserved failure:\n- Exit code: 1\n- stderr:\n  ```\n  error: timed out waiting for Telegram Web QR canvas\n  scan the QR with your phone and re-run: qa telegram login\n  ```\n- Wall time: ~60.3-60.7s each run (i.e. right at the `DEFAULT_QR_WAIT_TIMEOUT` boundary)\n- Reproduced 3/3 consecutive times via the `qa` console-script + argparse dispatch (exactly\n  `QA_TELEGRAM_LIVE=1 timeout 90 qa telegram login`), against a logged-out live session.\n- Screenshots of the failure (QR code visibly rendered at time of CLI timeout):\n  `/tmp/qa-live-login-timeout.png`, `/tmp/qa-live-login-timeout2.png`\n\nContradicting evidence — the QR *is* rendered. Immediately after each of the 3 CLI\ntimeouts, a direct JS DOM probe against that same live page returned proof the QR had\nalready painted:\n```\nagent-browser --session qa-telegram --restore qa-telegram eval \"$(python3 -c 'from qa_cli.browser import _QR_VISIBLE_JS; print(_QR_VISIBLE_JS)')\"\n```\nreturned `\"qr-visible\"` every time — Telegram's real SVG QR code (inside `.qr-container`,\n~280x280, with the Telegram paper-plane logo) was already on the page when the CLI gave up.\nThis confirms the QR-visibility detection heuristic itself is correct; the CLI just stopped\nwaiting before observing the state it was polling for.\n\nWorkaround that succeeded: a direct in-process call — bypassing the `qa` console-script and\nthe external `timeout` wrapper entirely:\n```python\nimport qa_cli.telegram\nqa_cli.telegram.login(...)\n```\n— succeeded in ~3s and saved a real, scannable QR code to\n`~/.config/qa-cli/telegram-qr.png` (confirmed via screenshot).\n\nRelevant code, `qa_cli/telegram.py:17`:\n```python\nDEFAULT_QR_WAIT_TIMEOUT = 60.0\n```\n(`DEFAULT_LOGIN_TIMEOUT = 300.0` is the line immediately above it, at line 16 — a prior\nhandoff note miscited the QR timeout constant as line 16; it is line 17 as of the current\nfile.)\n\nRoot cause — not conclusively isolated. Two live-only hypotheses, either or both may\ncontribute:\n1. Telegram-side throttling: Telegram's live QR-issuance backend intermittently\n   delays/throttles repeated QR requests from the same session in quick back-to-back\n   succession during a single test run.\n2. CLI/subprocess-wrapper overhead: a behavioral difference between invoking through the\n   `qa` binary + external `timeout` wrapper vs. calling `qa_cli.telegram.login()`\n   in-process (e.g. `subprocess` `capture_output` buffering under a wrapped process tree)\n   adds enough latency/delay to blow through the 60s budget even though the underlying\n   browser-side render itself is fast.\n\nSuggested next step:\n- Increase `DEFAULT_QR_WAIT_TIMEOUT` (`qa_cli/telegram.py:17`) to give more headroom, and/or\n- Investigate why the CLI-wrapped path (`qa` binary + `timeout`) is slower/less reliable\n  than the direct `qa_cli.telegram.login()` in-process call — e.g. instrument the poll loop\n  with timestamps to see where the 60s budget is actually spent — with a live re-test to\n  confirm whichever fix resolves the flake.\n\n## Why (motivation)\n`qa telegram login` reliably times out at its 60s QR-wait window against the real, live\nhttps://web.telegram.org/a/ page even though the QR code does render successfully — a\ndirect DOM probe taken immediately after each CLI timeout confirms the QR was already\npainted, and the QR-visibility detection heuristic itself is correct. Reproduced 3/3\ntimes. Root cause is not conclusively isolated: it may be Telegram-side throttling of\nrepeated QR requests, and/or CLI/subprocess-wrapper overhead (the `qa` binary + external\n`timeout` wrapper) adding enough latency to blow through the 60s budget even though the\nunderlying browser-side render itself is fast — a direct in-process call to\n`qa_cli.telegram.login()` succeeded in ~3s where the wrapped CLI path timed out.\n\n## User impact\n`qa telegram login` — the CLI's primary QR-login entrypoint — is unreliable/flaky against\na real live Telegram Web session despite the underlying automation working correctly,\nundermining trust in the tool's core login flow and forcing users to bypass the documented\nCLI command in favor of calling internal Python functions directly.\n\n## Cost of inaction\nUsers of `qa telegram login` — the CLI's primary QR-login entrypoint — keep hitting\nunreliable timeouts against a real live Telegram Web session despite the underlying\nautomation working correctly, undermining trust in the tool's core login flow and forcing\nusers to keep bypassing the documented CLI command in favor of calling internal Python\nfunctions (`qa_cli.telegram.login()`) directly.\n\n## Acceptance criteria\n- [x] Repro command above no longer exits 1 with the QR-canvas timeout error on 3/3 consecutive live runs against a logged-out session. — proof: ![proof](.proof/issue11/c1.txt)\n- [x] If the fix is a timeout increase, the CLI still fails within a bounded time (not an indefinite hang) if the QR truly never renders. — proof: ![proof](.proof/issue11/c2.txt)\n\n## Screenshots\n- creation: ![creation](/tmp/qa-live-login-timeout.png)\n- creation: ![creation](/tmp/qa-live-login-timeout2.png)\n- creation: ![creation](/Users/ultra/.config/qa-cli/telegram-qr.png)\n- implementation: ![implementation](/tmp/qa-live-login-timeout.png)\n- implementation: ![implementation](/tmp/qa-live-login-timeout2.png)\n- implementation: ![implementation](/Users/ultra/.config/qa-cli/telegram-qr.png)\n\n## Links\n- PR: https://github.com/alex-mextner/qa-cli/pull/12\n- Merge commit: https://github.com/alex-mextner/qa-cli/commit/d92752a9d70fe7217c95f89d39fd8cfaf2a66b52\n\n## Skipped gates\n- links: false positive: 'CLI/subprocess-wrapper' is prose (a slash-joined compound noun), not a repo/path reference\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "telegram",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "qa-cli#11",
+      "repo": "qa-cli",
+      "number": 11,
+      "id": 5407963101,
+      "node_id": "I_kwDOUSW00c8AAAABQlb33Q",
+      "title": "qa telegram login times out waiting for QR canvas even though QR renders successfully",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "telegram",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "201",
+        "233"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+      "existing_paths": [
+        "qa_cli/telegram.py"
+      ],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [
+        "qa-cli#11"
+      ],
+      "linked_prs": [
+        {
+          "key": "qa-cli#12",
+          "state": "closed",
+          "merged_at": "2026-09-10T08:58:36Z",
+          "merge_commit_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "53b95ae140bd2071b6d558bda3095b2b1534cff6ba8c34ae75d68d0deaf7122e",
+      "snapshot_updated_at": "2026-09-10T10:05:49Z"
+    }
+  }
+]

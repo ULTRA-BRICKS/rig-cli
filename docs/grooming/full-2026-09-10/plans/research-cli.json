@@ -1,0 +1,704 @@
+[
+  {
+    "number": 1,
+    "key": "research-cli#1",
+    "node_id": "I_kwDOTF5njs8AAAABGze3qw",
+    "expected_body_sha256": "048b50fbc4ac25b589643155a1ca7050f0e811cb69acef7fd0df22f279f5ec4a",
+    "expected_updated_at": "2026-06-28T00:28:02Z",
+    "expected_title": "Spin out research-cli into its own repo (strategy B: vendor + drift-guard)",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Versioned specification review and discoverable documentation. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/specs.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Все доказательства должны быть проверяемыми.\n\nSource **Q028**; compiled-fragment-attribution; rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report, ResultReport; PDF page(s) 39. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> все пруфы должны быть проверяемы\n\n</details>\n\n> Исследование spec-web и review dashboard.\n\nSource **Q114**; compiled-fragment-attribution; rig-zerobug/rig-fable session 2026-09-04..07; agent=нет; PDF page(s) 12. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> исследование spec-web и review dashboard\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nNamed test-file results: `tests/test_vendored_libs_sync.py` {'passed': 16}.\n\nLinked implementation records: [task-cli#34](https://github.com/alex-mextner/task-cli/pull/34) — merged 2026-06-25T11:59:40Z.\n\n- No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.\n\n- Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** A document changes twice with the same mtime and repeats the same quoted phrase in two sections. Content hashes distinguish captured revisions. A comment keeps its original quote and revision; a fuzzy successor is shown as suggested or ambiguous, never silently confirmed. Compare chosen revisions without replacing the live file.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\nresearch-cli's MVP was scaffolded inside the `agent-tools` umbrella at `tools/research-cli/`, hard-depending on the shared `agenttools_providers` + `agenttools_errors` packages and `lib/contracts/models.yaml` via a `sys.path` umbrella shim.\n\nThis issue tracks the spin-out into a self-contained repo using **strategy B (vendor + drift-guard)** — the proven task-cli pattern (task-cli#34/#37):\n\n- Vendor `agenttools_providers`, `agenttools_errors`, and `models.yaml` under `vendor/`, each carrying a `# SYNC-HEADER` block with a pinned `CANONICAL_SHA256` + provenance commit.\n- A `scripts/resync_vendored_libs.py [--check] <agent-tools>` drift-guard: `--check` fails on body drift (exit 1) vs infra error (exit >=2); bare run re-syncs.\n- A pinned-SHA test (`tests/test_vendored_libs_sync.py`) that fails CI on local drift.\n- A scheduled CI workflow that runs `--check` against the live agent-tools canonical and opens/updates a tracking issue on upstream drift.\n\nStandalone acceptance:\n- `research --help`, `research board`, `research ask --offline`, `research ask --json` all work from a clean checkout with NO agent-tools tree on `sys.path`.\n- Tests + ruff green in this repo, including the vendor drift-check.\n\nStrategy A (publish `agenttools-providers`/`agenttools-errors` to PyPI and depend on them) is deliberately deferred — it needs the CTO's PyPI account. When PyPI is provisioned, the vendored copies can be swapped for published deps.\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "specs",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#1",
+      "repo": "research-cli",
+      "number": 1,
+      "id": 4751603627,
+      "node_id": "I_kwDOTF5njs8AAAABGze3qw",
+      "title": "Spin out research-cli into its own repo (strategy B: vendor + drift-guard)",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "specs",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "114",
+        "028"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [
+        "scripts/resync_vendored_libs.py",
+        "tests/test_vendored_libs_sync.py"
+      ],
+      "unresolved_historical_paths": [
+        "lib/contracts/models.yaml",
+        "models.yaml"
+      ],
+      "named_test_evidence": [
+        {
+          "path": "tests/test_vendored_libs_sync.py",
+          "counts": {
+            "passed": 16
+          },
+          "qualification": "Only named tests collected by this run; no inference of live acceptance."
+        }
+      ],
+      "related_issues": [],
+      "linked_prs": [
+        {
+          "key": "task-cli#34",
+          "state": "closed",
+          "merged_at": "2026-06-25T11:59:40Z",
+          "merge_commit_sha": "6c4547f114f4eb5810f202f0dab66123f22afdb1"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [
+        "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.",
+        "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "048b50fbc4ac25b589643155a1ca7050f0e811cb69acef7fd0df22f279f5ec4a",
+      "snapshot_updated_at": "2026-06-28T00:28:02Z"
+    }
+  },
+  {
+    "number": 2,
+    "key": "research-cli#2",
+    "node_id": "I_kwDOTF5njs8AAAABGzjBBQ",
+    "expected_body_sha256": "3725442d781e99080697c66092acde139e5eb4c7fa2bb240ea15f7505a44ab3f",
+    "expected_updated_at": "2026-06-29T23:34:01Z",
+    "expected_title": "SubprocessTransport.ask does not pass env= to subprocess.run (reachability/call desync)",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Telegram routing, durable decisions and concurrent delivery. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/telegram.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Ответы в Telegram всё ещё не работают для OMP-сессий вне tmux. Я же сказал: нужно проработать все сценарии.\n\nSource **Q201**; compiled-memory-attribution; MEMORY.md standing lesson: Telegram must see every live agent; every reply route must land; PDF page(s) 74. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> и реплаи в телеге все еще не работают для omp сессий вне tmux, я ж сказал надо все сценарии проработать\n\n</details>\n\n> В Telegram само отправилось «/agent 44897 PING-339-LIVE-PROOF». Это явно какие-то тесты.\n\nSource **Q233**; compiled-memory-attribution; MEMORY.md standing lesson: Telegram tests: headless Web + QR, never the real chat; PDF page(s) 87. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> /agent 44897 PING-339-LIVE-PROOF вот такое сейчас само написалось в телегу)) это точно какие-то тесты\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\n- No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** The user replies to landing while rig-fable is busy. Delivery to landing and the next Telegram update continue without waiting for rig-fable's full turn. A late Approve is retained for the same scoped action after reconnect, but a changed command, repository, commit or native session cannot reuse it.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\nCarried verbatim from the agent-tools MVP source. `SubprocessTransport.is_reachable` resolves a key via `self.env` + `.env` files (the shared `KeyCascade`), but `SubprocessTransport.ask` runs the backend with `subprocess.run(..., shell=True)` and NO `env=`, so the child inherits `os.environ` instead of `self.env`.\n\nConsequences:\n- a key resolved from a `.env` file (not an env var) marks a seat reachable, but the subprocess env has no such variable, so a backend referencing `${ANTHROPIC_API_KEY}` won't find it.\n- an injected custom `env` (as in tests) is ignored by the real call.\n\nFix: pass `env=dict(self.env)` to `subprocess.run` (exporting keys found in `.env`), so reachability and the real call agree.\n\nFound by the spin-out review (research-cli#1). Deferred from the spin-out PR to keep that change a pure relocation; this is a behavior fix on its own.\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "telegram",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#2",
+      "repo": "research-cli",
+      "number": 2,
+      "id": 4751671557,
+      "node_id": "I_kwDOTF5njs8AAAABGzjBBQ",
+      "title": "SubprocessTransport.ask does not pass env= to subprocess.run (reachability/call desync)",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "telegram",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "201",
+        "233"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [
+        "research-cli#1"
+      ],
+      "linked_prs": [],
+      "reference_gaps": [],
+      "verification_flags": [
+        "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "3725442d781e99080697c66092acde139e5eb4c7fa2bb240ea15f7505a44ab3f",
+      "snapshot_updated_at": "2026-06-29T23:34:01Z"
+    }
+  },
+  {
+    "number": 3,
+    "key": "research-cli#3",
+    "node_id": "I_kwDOTF5njs8AAAABGzjBSQ",
+    "expected_body_sha256": "d9a6225e76d732f8d2836570dd40c8211bf2526f4649f05da229789f31484f28",
+    "expected_updated_at": "2026-06-26T11:36:21Z",
+    "expected_title": "Non-editable pip install breaks manifest loading (vendor/contracts/models.yaml not packaged)",
+    "expected_state": "open",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Progress-aware execution, fallback and cancellation. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/execution.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> повис на 40+ минут\n\nSource **Q025**; compiled-fragment-attribution; rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub; PDF page(s) 44. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> повис на 40+ минут\n\n</details>\n\n> У бота есть таймер безопасного перезапуска на восемь секунд? Никаких таких таймеров быть не должно. Объясни, что это, и проводи brainstorm заранее, чтобы не добавлять такие обходные решения. Таймеры почти всегда являются обходным решением, кроме случаев, когда пользователь сам просит таймер.\n\nSource **Q239**; compiled-memory-attribution; MEMORY.md standing lesson: Timers are almost always a kludge - find the event-driven fix instead; PDF page(s) 90. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> у бота есть таймер безопасного перезапуска (tg-ctl:4940, 8\n> секунд).--опять какая-то хуйня, никаких сука таймеров не должно быть! и\n> объясни что это за хрень и делай брейншторм в будущем чтобы не затягивать\n> такие костыли, запомни, и таймеры это 99% костыль всегда кроме случаев когда\n> пользователь просит таймер\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\n- No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.\n\n- Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** A remote reviewer emits output, then stops. Another remains silent but supplies a trustworthy progress signal. Neither low local CPU nor silence alone identifies quota exhaustion. Preserve partial output, try compatible alternatives where policy permits, and record cancellation/terminal cause without orphaning the owned child.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n`pyproject.toml` `packages.find` ships only the packages (`research_cli`, `agenttools_providers`, `agenttools_errors`); `vendor/contracts/models.yaml` is data, not a package, so a non-editable `pip install .` does not place it in site-packages. `default_manifest_path()` then points at a non-existent `site-packages/vendor/contracts/models.yaml`, and `research ask`/`board` without `--manifest` fail with `EXIT_USAGE`. Meanwhile `[project.scripts]` still creates the `research` console script, giving a false \"it installed fine\" impression.\n\nThe supported install paths today are the symlink install (`install.sh`) and `pip install -e .` (editable keeps the checkout so the vendored manifest resolves) — documented in the README. Fix options: ship the manifest as package data and resolve it via `importlib.resources`, or only expose the console script on the editable path.\n\nFound by the spin-out review (research-cli#1).\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "execution",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#3",
+      "repo": "research-cli",
+      "number": 3,
+      "id": 4751671625,
+      "node_id": "I_kwDOTF5njs8AAAABGzjBSQ",
+      "title": "Non-editable pip install breaks manifest loading (vendor/contracts/models.yaml not packaged)",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "execution",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "025",
+        "239"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [
+        "install.sh",
+        "pyproject.toml",
+        "vendor/contracts/models.yaml"
+      ],
+      "unresolved_historical_paths": [
+        "site-packages/vendor/contracts/models.yaml"
+      ],
+      "named_test_evidence": [],
+      "related_issues": [
+        "research-cli#1"
+      ],
+      "linked_prs": [],
+      "reference_gaps": [],
+      "verification_flags": [
+        "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.",
+        "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "open-outcome-requires-acceptance",
+      "original_body_sha256": "d9a6225e76d732f8d2836570dd40c8211bf2526f4649f05da229789f31484f28",
+      "snapshot_updated_at": "2026-06-26T11:36:21Z"
+    }
+  },
+  {
+    "number": 4,
+    "key": "research-cli#4",
+    "node_id": "I_kwDOTF5njs8AAAABGzjBnQ",
+    "expected_body_sha256": "bac8f0cef6d54b704879d458eb88e63d9622801be690b47345e557442399734c",
+    "expected_updated_at": "2026-06-26T11:36:22Z",
+    "expected_title": "research_cli/install.py file-mutation helpers are not unit-tested",
+    "expected_state": "open",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Progress-aware execution, fallback and cancellation. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/execution.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> повис на 40+ минут\n\nSource **Q025**; compiled-fragment-attribution; rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub; PDF page(s) 44. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> повис на 40+ минут\n\n</details>\n\n> У бота есть таймер безопасного перезапуска на восемь секунд? Никаких таких таймеров быть не должно. Объясни, что это, и проводи brainstorm заранее, чтобы не добавлять такие обходные решения. Таймеры почти всегда являются обходным решением, кроме случаев, когда пользователь сам просит таймер.\n\nSource **Q239**; compiled-memory-attribution; MEMORY.md standing lesson: Timers are almost always a kludge - find the event-driven fix instead; PDF page(s) 90. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> у бота есть таймер безопасного перезапуска (tg-ctl:4940, 8\n> секунд).--опять какая-то хуйня, никаких сука таймеров не должно быть! и\n> объясни что это за хрень и делай брейншторм в будущем чтобы не затягивать\n> такие костыли, запомни, и таймеры это 99% костыль всегда кроме случаев когда\n> пользователь просит таймер\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\n- No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.\n\n- Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** A remote reviewer emits output, then stops. Another remains silent but supplies a trustworthy progress signal. Neither low local CPU nor silence alone identifies quota exhaustion. Preserve partial output, try compatible alternatives where policy permits, and record cancellation/terminal cause without orphaning the owned child.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n`research_cli/install.py` (the `install-skill` 3-layer installer) has nontrivial idempotent file-editing logic — `_replace_or_append_block`, `_strip_stray_markers`, `_inject_marked_block`, `_ensure_session_start_hook` (incl. the invalid-JSON / non-object-hooks / already-present branches) — and zero tests. A bug in the marker handling could corrupt a user's `CLAUDE.md` / `settings.json`. The `_replace_or_append_block` docstring even says \"Pure … unit-testable\".\n\nAdd unit tests for refresh/append/orphan-marker handling and the JSON-hook branches. (Logic is carried verbatim from task-cli's `install.py`, which is itself under-tested upstream — but this repo should cover its own copy.)\n\nFound by the spin-out review (research-cli#1); README's coverage claim updated to point here.\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "execution",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#4",
+      "repo": "research-cli",
+      "number": 4,
+      "id": 4751671709,
+      "node_id": "I_kwDOTF5njs8AAAABGzjBnQ",
+      "title": "research_cli/install.py file-mutation helpers are not unit-tested",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "execution",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "025",
+        "239"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [
+        "research_cli/install.py"
+      ],
+      "unresolved_historical_paths": [
+        "CLAUDE.md",
+        "install.py",
+        "settings.json"
+      ],
+      "named_test_evidence": [],
+      "related_issues": [
+        "research-cli#1"
+      ],
+      "linked_prs": [],
+      "reference_gaps": [],
+      "verification_flags": [
+        "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.",
+        "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "open-outcome-requires-acceptance",
+      "original_body_sha256": "bac8f0cef6d54b704879d458eb88e63d9622801be690b47345e557442399734c",
+      "snapshot_updated_at": "2026-06-26T11:36:22Z"
+    }
+  },
+  {
+    "number": 6,
+    "key": "research-cli#6",
+    "node_id": "I_kwDOTF5njs8AAAABG11sTA",
+    "expected_body_sha256": "3f46f5a5e86b565662c833cc558fe1b67a15b8753ac007684ecce9a24ce6613e",
+    "expected_updated_at": "2026-06-29T23:34:01Z",
+    "expected_title": "transport: pass resolved provider key (incl. .env-only) into the backend subprocess",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Auxiliary CLI behavior and end-to-end user workflows. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Все доказательства должны быть проверяемыми.\n\nSource **Q028**; compiled-fragment-attribution; rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report, ResultReport; PDF page(s) 39. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> все пруфы должны быть проверяемы\n\n</details>\n\n> Нужно ещё проверить, что это работает на машине, и приложить к отчёту проверяемые доказательства.\n\nSource **Q202**; compiled-memory-attribution; MEMORY.md standing lesson: Merge is not this machine; on disk is not PATH; PDF page(s) 74. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> надо еще проверить что это на машине работает и в отчете приложить пруфы проверяемые\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nLinked implementation records: [research-cli#5](https://github.com/alex-mextner/research-cli/pull/5) — merged 2026-06-28T00:28:00Z.\n\n- No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** A CLI is invoked from outside its repository with a valid input, an invalid input and an unavailable optional backend. Successful output, nonzero failure, cancellation and cleanup are separately asserted. A mock backend passing does not establish that a live account, local model or audio device was exercised.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What is wrong\n`SubprocessTransport.is_reachable()` marks a seat reachable when the provider key resolves via the CORE key cascade — which reads BOTH `self.env` and the `.env` files (`dotenv_files`, default `.env`). But `SubprocessTransport.ask()` runs the backend via `subprocess.run(..., shell=True)` with NO `env=`, so the child inherits only the parent process `os.environ` — neither the `.env`-resolved value nor `self.env`.\n\n## User-facing consequence\nA provider key present ONLY in a `.env` file (the documented `.env`-fallback install) makes the seat REACHABLE, so the engine selects it — then the live call fails at runtime because the backend reads e.g. `ANTHROPIC_API_KEY` from an environment that never got it. `.env`-only installs are effectively unusable unless the user manually sources `.env` into every `RESEARCH_BACKEND_CMD`. A custom `self.env` is likewise honored by reachability but ignored by the call.\n\n## Evidence\ncodex review on PR #5 (P2): transport.py — 'Pass resolved dotenv keys to the backend'.\n\n## Acceptance criteria\n- The backend subprocess sees the same provider key the cascade used to deem the seat reachable, including a `.env`-only key.\n- `self.env` is honored by the call (not just reachability).\n- A test proves a `.env`-only key reaches the backend (echo it back from the child).\n- Existing transport tests stay green (PATH-dependent commands like `sleep` still resolve).\n\n## Fix sketch\nExtract a single `_resolve_provider_key(entry)` used by both `is_reachable` and a new `_backend_env(entry)`; `ask` passes `env=self._backend_env(entry)` — process env, overlaid with `self.env`, plus the resolved key injected under its canonical name when unset (env still beats the file, per the cascade).\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "auxiliary",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#6",
+      "repo": "research-cli",
+      "number": 6,
+      "id": 4754074700,
+      "node_id": "I_kwDOTF5njs8AAAABG11sTA",
+      "title": "transport: pass resolved provider key (incl. .env-only) into the backend subprocess",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "202",
+        "028"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [],
+      "linked_prs": [
+        {
+          "key": "research-cli#5",
+          "state": "closed",
+          "merged_at": "2026-06-28T00:28:00Z",
+          "merge_commit_sha": "b6d148b67141526a0c87257fcb83a5e9d6e2047d"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [
+        "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "3f46f5a5e86b565662c833cc558fe1b67a15b8753ac007684ecce9a24ce6613e",
+      "snapshot_updated_at": "2026-06-29T23:34:01Z"
+    }
+  },
+  {
+    "number": 9,
+    "key": "research-cli#9",
+    "node_id": "I_kwDOTF5njs8AAAABO4avYw",
+    "expected_body_sha256": "f3476b3b30283450bb8ffd82117b0ff305868b39f3368a2f932df3babafe4c41",
+    "expected_updated_at": "2026-08-30T19:11:49Z",
+    "expected_title": "docs: replace ad-hoc Ecosystem note with the shared machine-generated block",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Versioned specification review and discoverable documentation. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/specs.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Все доказательства должны быть проверяемыми.\n\nSource **Q028**; compiled-fragment-attribution; rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report, ResultReport; PDF page(s) 39. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> все пруфы должны быть проверяемы\n\n</details>\n\n> Исследование spec-web и review dashboard.\n\nSource **Q114**; compiled-fragment-attribution; rig-zerobug/rig-fable session 2026-09-04..07; agent=нет; PDF page(s) 12. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> исследование spec-web и review dashboard\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nLinked implementation records: [research-cli#10](https://github.com/alex-mextner/research-cli/pull/10) — merged 2026-08-30T19:11:13Z.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** A document changes twice with the same mtime and repeats the same quoted phrase in two sections. Content hashes distinguish captured revisions. A comment keeps its original quote and revision; a fuzzy successor is shown as suggested or ambiguous, never silently confirmed. Compare chosen revisions without replacing the live file.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\n\n\n## Why (motivation)\nresearch-cli's README had a thinner, hand-written Ecosystem note instead of the canonical shared block other repos now carry, via rig-cli's new ecosystem_readme catalog feature\n\n## User impact\nReaders get the full, consistent sibling-tool list instead of a one-line note\n\n## Cost of inaction\nresearch-cli stays inconsistent with the rest of the ecosystem docs\n\n## Acceptance criteria\n- [x] README.md's Ecosystem section uses the rig:ecosystem-block markers and lists all sibling tools, matching [rig-cli](https://github.com/alex-mextner/rig-cli)/[task-cli](https://github.com/alex-mextner/task-cli)/[dev-cli](https://github.com/alex-mextner/dev-cli) — proof: ![proof](https://github.com/alex-mextner/research-cli/pull/10/files)\n- [x] The old one-paragraph ad-hoc Ecosystem note is fully replaced, not duplicated — proof: ![proof](https://github.com/alex-mextner/research-cli/pull/10/files)\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "specs",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#9",
+      "repo": "research-cli",
+      "number": 9,
+      "id": 5293649763,
+      "node_id": "I_kwDOTF5njs8AAAABO4avYw",
+      "title": "docs: replace ad-hoc Ecosystem note with the shared machine-generated block",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "specs",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "114",
+        "028"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [],
+      "linked_prs": [
+        {
+          "key": "research-cli#10",
+          "state": "closed",
+          "merged_at": "2026-08-30T19:11:13Z",
+          "merge_commit_sha": "06ab1508ad1e809b0cdfad2a1b821875ce8d9e15"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "f3476b3b30283450bb8ffd82117b0ff305868b39f3368a2f932df3babafe4c41",
+      "snapshot_updated_at": "2026-08-30T19:11:49Z"
+    }
+  },
+  {
+    "number": 11,
+    "key": "research-cli#11",
+    "node_id": "I_kwDOTF5njs8AAAABO4jbzA",
+    "expected_body_sha256": "ff5eb7bffb981c32aa49945ebc20090234ad631c77c0c7e7120fdc25629c6330",
+    "expected_updated_at": "2026-09-09T09:56:37Z",
+    "expected_title": "research-cli: 67 pre-existing ruff violations masked by an unpinned CI install",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Progress-aware execution, fallback and cancellation. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/execution.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> повис на 40+ минут\n\nSource **Q025**; compiled-fragment-attribution; rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub; PDF page(s) 44. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> повис на 40+ минут\n\n</details>\n\n> У бота есть таймер безопасного перезапуска на восемь секунд? Никаких таких таймеров быть не должно. Объясни, что это, и проводи brainstorm заранее, чтобы не добавлять такие обходные решения. Таймеры почти всегда являются обходным решением, кроме случаев, когда пользователь сам просит таймер.\n\nSource **Q239**; compiled-memory-attribution; MEMORY.md standing lesson: Timers are almost always a kludge - find the event-driven fix instead; PDF page(s) 90. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> у бота есть таймер безопасного перезапуска (tg-ctl:4940, 8\n> секунд).--опять какая-то хуйня, никаких сука таймеров не должно быть! и\n> объясни что это за хрень и делай брейншторм в будущем чтобы не затягивать\n> такие костыли, запомни, и таймеры это 99% костыль всегда кроме случаев когда\n> пользователь просит таймер\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nLinked implementation records: [research-cli#10](https://github.com/alex-mextner/research-cli/pull/10) — merged 2026-08-30T19:11:13Z.\n\n- Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** A remote reviewer emits output, then stops. Another remains silent but supplies a trustworthy progress signal. Neither low local CPU nor silence alone identifies quota exhaustion. Preserve partial output, try compatible alternatives where policy permits, and record cancellation/terminal cause without orphaning the owned child.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\n\n\n## Why (motivation)\nCI's ruff step ran an unpinned 'pip install ruff', so a newer ruff release surfaced 67 pre-existing violations across the repo that were never actually caught before - found while shipping [an unrelated docs-only PR](https://github.com/alex-mextner/research-cli/pull/10). Same root cause as [dev-cli#19](https://github.com/alex-mextner/dev-cli/issues/19).\n\n## User impact\nA contributor fixing one small thing could get blocked by an unrelated wall of 67 pre-existing lint errors next time ruff is upgraded, wasting their time on unrelated cleanup instead of their actual task.\n\n## Cost of inaction\nThe version pin added alongside this ticket only prevents this from resurfacing on the NEXT ruff release - the 67 existing violations stay unfixed.\n\n## Acceptance criteria\n- [x] ruff check . passes cleanly against research-cli's actual pinned ruff version — proof: ![proof](https://github.com/alex-mextner/research-cli/actions/runs/33329637073/job/99305791479)\n- [x] each of the 67 violations is either fixed, or consciously waived in ruff config if a false positive — forced: no visual surface; terminal output only, matching precedent set by issue #14's criterion checks (git show / API output forced without screenshot). ruff check . output at origin/main tip c0e6070 (clean checkout, no uncommitted changes): All checks passed!\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/research-cli/pull/10\n- Merge commit: https://github.com/alex-mextner/research-cli/commit/06ab1508ad1e809b0cdfad2a1b821875ce8d9e15\n\n## Skipped gates\n- links: internal repo-relative file paths, not real links\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "execution",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#11",
+      "repo": "research-cli",
+      "number": 11,
+      "id": 5293792204,
+      "node_id": "I_kwDOTF5njs8AAAABO4jbzA",
+      "title": "research-cli: 67 pre-existing ruff violations masked by an unpinned CI install",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "execution",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "025",
+        "239"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [
+        "dev-cli#19",
+        "research-cli#11",
+        "research-cli#14"
+      ],
+      "linked_prs": [
+        {
+          "key": "research-cli#10",
+          "state": "closed",
+          "merged_at": "2026-08-30T19:11:13Z",
+          "merge_commit_sha": "06ab1508ad1e809b0cdfad2a1b821875ce8d9e15"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "ff5eb7bffb981c32aa49945ebc20090234ad631c77c0c7e7120fdc25629c6330",
+      "snapshot_updated_at": "2026-09-09T09:56:37Z"
+    }
+  },
+  {
+    "number": 12,
+    "key": "research-cli#12",
+    "node_id": "I_kwDOTF5njs8AAAABO4jlxg",
+    "expected_body_sha256": "de75a9c781a59ed419b8ea9cd5e406306323c73a48a123ad8a8fbbc3e31ea815",
+    "expected_updated_at": "2026-09-08T17:36:55Z",
+    "expected_title": "Review uncommitted CI lint-tool pin",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Legacy process records and salvageable review findings. **Record:** process-record.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Почему процессные задачи всё ещё заводятся в продуктовый трекер через task-cli? … Ты помнишь, как давно я просил это починить? … Что с harness-cli, в частности с harness task для процессных задач? Пример: https://github.com/conloca/landing/issues/263.\n\nSource **Q222**; compiled-memory-attribution; MEMORY.md standing lesson: Process tasks must not land in the product tracker; PDF page(s) 82. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> https://github.com/conloca/landing/issues/263--почему процессные таски все еще заводятся в продуктовый тасктрекер через task-cli?! … ты помнишь насколько давно я просил это починить? … что с harnesses-cli? в частности harnesses task для процессных тасков\n\n</details>\n\n> Закрыт superseded PR #321. Перед любым удалением нужно проверить, нет ли там полезной работы, которую нужно сохранить, и отчитаться об этой проверке.\n\nSource **Q238**; compiled-memory-attribution; MEMORY.md standing lesson: Before deleting/closing anything, verify nothing salvageable is lost, and report the check; PDF page(s) 89. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> закрыт 1 superseded PR (#321).--всегда когда чтото удаляется надо\n> делать перед удалением проверку точно ли оттуда нечего спасать полезного и отчитывать\n> об этом\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\n- Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** A ticket says Review uncommitted version bump. Its review findings and linked commit/PR are retained. Any actionable product bug is linked to a canonical issue before retiring the process record. A cancelled review task is not counted as a newly delivered product feature.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\n\n\n## Why (motivation)\nThe requested CI workflow change can affect repository-wide linting and release reproducibility.\n\n## User impact\nContributors need pull requests to receive reliable feedback instead of unexpected CI failures or skipped code checks.\n\n## Cost of inaction\nContributors could waste time on confusing CI failures, or defects could reach users if the code-quality gate stops working.\n\n## Acceptance criteria\n- [ ] Identify any concrete defects in the workflow change, including an input or state that triggers each defect.\n- [ ] If no defect is found, document the adversarial failure scenarios checked and why they are ruled out.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "process",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "record:process",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#12",
+      "repo": "research-cli",
+      "number": 12,
+      "id": 5293794758,
+      "node_id": "I_kwDOTF5njs8AAAABO4jlxg",
+      "title": "Review uncommitted CI lint-tool pin",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "222",
+        "238"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [],
+      "linked_prs": [],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "de75a9c781a59ed419b8ea9cd5e406306323c73a48a123ad8a8fbbc3e31ea815",
+      "snapshot_updated_at": "2026-09-08T17:36:55Z"
+    }
+  },
+  {
+    "number": 14,
+    "key": "research-cli#14",
+    "node_id": "I_kwDOTF5njs8AAAABQUylmA",
+    "expected_body_sha256": "c26631715241a6c6b9da8f5848069ab2bc8225adf9450dfa0c952bcb9a1ea0d6",
+    "expected_updated_at": "2026-09-08T18:57:57Z",
+    "expected_title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Shipping policy, local CI parity and release consistency. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/shipping.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> gh ship должен уметь сам запускать проверки локально. Если что-то не получается, разберись, как это должно работать, и почини.\n\nSource **Q261**; telegram-export; Telegram tg#16230 2026-09-09T09:07:14+00:00; PDF page(s) 100. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> Gh ship должен уметь сам запускать проверки локально, если что-то не выходит резберись как должно работать и почини\n\n</details>\n\n> Какого биллинга ты ждёшь и зачем? Я же сказал: если с CI проблемы, gh ship должен сам прогнать всё локально и разрешить merge, несмотря на CI.\n\nSource **Q263**; telegram-export; Telegram tg#16245 2026-09-09T09:27:57+00:00; PDF page(s) 101. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> Какой биллинг ты ждешь и зачем?! Я ж сказал gh ship должен если с ci проблемы сам локально все прогонять и разрешить мержить несмотря на си ай\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nLinked implementation records: [agent-tools#609](https://github.com/alex-mextner/agent-tools/pull/609) — merged 2026-09-08T03:43:14Z; [research-cli#15](https://github.com/alex-mextner/research-cli/pull/15) — merged 2026-09-08T18:56:50Z; [review-cli#451](https://github.com/alex-mextner/review-cli/pull/451) — merged 2026-09-08T18:27:01Z.\n\n- Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** Hosted CI cannot start because its infrastructure is unavailable. The declared equivalent checks run locally at the exact PR head revision and their results are recorded. A genuine failed test is not reclassified as an infrastructure outage. Two parallel PRs must not both reuse a stale version bump from an unrelated checkout.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\nGitHub itself does not require an approving review to merge research-cli PRs, but gh ship still refuses a zero-review PR because the external-review gate defaults ON. The machine-wide env SHIP_EXTERNAL_REVIEW=0 is ignored after https://github.com/alex-mextner/agent-tools/issues/624. Durable disable is a committed repo-root .ship-config with SHIP_EXTERNAL_REVIEW=0 on the PR base branch (https://github.com/alex-mextner/agent-tools/issues/600, https://github.com/alex-mextner/agent-tools/pull/609). Evidence captured now: git show origin/main:.ship-config fails with path does not exist. Precedent: https://github.com/alex-mextner/tg-cli/commit/17431bf446dffd76016cf84704773a91806e93ba and merged https://github.com/alex-mextner/review-cli/pull/451.\n\n## Why (motivation)\nAfter https://github.com/alex-mextner/agent-tools/issues/624 the env off-switch no longer works, so gh ship came back to requiring a GitHub-side review even when branch protection does not. research-cli origin/main has no .ship-config, so every zero-review ship is refused.\n\n## User impact\nWhen you try to merge a research-cli PR with gh ship, the command refuses even though GitHub's merge button does not require an approval. You have to post a dummy GitHub review or wait for a Telegram hatch, so a solo ship that already passed review-cli quorum still cannot land.\n\n## Cost of inaction\nEvery future research-cli ship stays blocked on a GitHub-side review that the repo policy already turned off, or burns a live Telegram hatch per PR.\n\n## Acceptance criteria\n- [x] research-cli origin/main has a committed repo-root .ship-config whose only ship-gate line is SHIP_EXTERNAL_REVIEW=0. Proof: git show origin/main:.ship-config prints SHIP_EXTERNAL_REVIEW=0 after the PR merges. — forced: no visual surface; git show origin/main:.ship-config prints SHIP_EXTERNAL_REVIEW=0\n- [x] GitHub required_approving_review_count on research-cli main stays 0 (no leftover required reviewers re-introduced). Proof: GET https://api.github.com/repos/alex-mextner/research-cli/branches/main/protection/required_pull_request_reviews returns required_approving_review_count=0, or the branch is unprotected. — forced: no visual surface; gh api repos/alex-mextner/research-cli/branches/main/protection/required_pull_request_reviews returns Branch not protected HTTP 404\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/research-cli/pull/15\n- Merge commit: https://github.com/alex-mextner/research-cli/commit/c0e6070cf7373e44001c8db5497b2e3d31e0e3d4\n\n## Skipped gates\n- post-merge-acceptance: criterion 1 proof requires git show origin/main:.ship-config after the PR squash-merges to main; criterion 2 is GitHub branch-protection API with no rendered surface\n- screenshots: no UI; this is a committed KEY=value ship-gate off-switch\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "shipping",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#14",
+      "repo": "research-cli",
+      "number": 14,
+      "id": 5390509464,
+      "node_id": "I_kwDOTF5njs8AAAABQUylmA",
+      "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "shipping",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "261",
+        "263"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [
+        "agent-tools#600",
+        "agent-tools#624",
+        "research-cli#14"
+      ],
+      "linked_prs": [
+        {
+          "key": "agent-tools#609",
+          "state": "closed",
+          "merged_at": "2026-09-08T03:43:14Z",
+          "merge_commit_sha": "90f69110c2617f77e700489d04a25a293970ee86"
+        },
+        {
+          "key": "research-cli#15",
+          "state": "closed",
+          "merged_at": "2026-09-08T18:56:50Z",
+          "merge_commit_sha": "c0e6070cf7373e44001c8db5497b2e3d31e0e3d4"
+        },
+        {
+          "key": "review-cli#451",
+          "state": "closed",
+          "merged_at": "2026-09-08T18:27:01Z",
+          "merge_commit_sha": "964b637e685cbec6e16cd22e367e8580bc08b514"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "c26631715241a6c6b9da8f5848069ab2bc8225adf9450dfa0c952bcb9a1ea0d6",
+      "snapshot_updated_at": "2026-09-08T18:57:57Z"
+    }
+  },
+  {
+    "number": 16,
+    "key": "research-cli#16",
+    "node_id": "I_kwDOTF5njs8AAAABQbTOuQ",
+    "expected_body_sha256": "b2f1ec82ad2393f676e763b52229cc3e993e7a752f5a4a7131fa2fc12d294997",
+    "expected_updated_at": "2026-09-10T00:54:22Z",
+    "expected_title": "transport: stale os.environ canonical key can mask fresh alias/.env value in subprocess env",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Telegram routing, durable decisions and concurrent delivery. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/telegram.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Ответы в Telegram всё ещё не работают для OMP-сессий вне tmux. Я же сказал: нужно проработать все сценарии.\n\nSource **Q201**; compiled-memory-attribution; MEMORY.md standing lesson: Telegram must see every live agent; every reply route must land; PDF page(s) 74. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> и реплаи в телеге все еще не работают для omp сессий вне tmux, я ж сказал надо все сценарии проработать\n\n</details>\n\n> В Telegram само отправилось «/agent 44897 PING-339-LIVE-PROOF». Это явно какие-то тесты.\n\nSource **Q233**; compiled-memory-attribution; MEMORY.md standing lesson: Telegram tests: headless Web + QR, never the real chat; PDF page(s) 87. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> /agent 44897 PING-339-LIVE-PROOF вот такое сейчас само написалось в телегу)) это точно какие-то тесты\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nNamed test-file results: `tests/test_research_cli.py` {'passed': 43}.\n\nLinked implementation records: [research-cli#17](https://github.com/alex-mextner/research-cli/pull/17) — merged 2026-09-10T00:54:16Z.\n\n- Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** The user replies to landing while rig-fable is busy. Delivery to landing and the next Telegram update continue without waiting for rig-fable's full turn. A late Approve is retained for the same scoped action after reconnect, but a changed command, repository, commit or native session cannot reuse it.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\nSubprocessTransport._subprocess_env() currently checks the merged child env (child.get(canonical), which includes inherited os.environ) before deciding whether to resolve/publish the canonical provider key via the cascade. It must instead check only self.env.get(canonical) - the same basis is_reachable() uses to decide a backend is reachable. When a stale canonical key (e.g. ANTHROPIC_API_KEY) is already sitting in the parent process's os.environ, but the caller configured a fresh value under an alias (e.g. CLAUDE_API_KEY) or via .env, the merged child.get(canonical) check sees the stale value as 'already set' and skips re-canonicalization - so the backend subprocess receives the stale/wrong key even though is_reachable already reported the fresh alias as reachable. Fix: gate re-canonicalization on self.env.get(canonical) alone.\n\n## Why (motivation)\nPrior art: https://github.com/alex-mextner/research-cli/issues/2 and https://github.com/alex-mextner/research-cli/issues/6 (both closed) fixed the original desync between is_reachable's reachability decision and what the subprocess actually received. This is a follow-up regression in the same area: the fix introduced a new desync source (merged child env vs self.env) that reintroduces the same class of bug - seat selected as reachable, but the actual subprocess call can still receive the wrong key when a stale canonical value happens to already be sitting in the parent process's os.environ.\n\n## User impact\nA user/agent relying on an alias or .env-provided provider key can have research-cli confidently select a backend as reachable, then have the actual subprocess call silently use a stale/wrong key from os.environ instead - a confusing runtime failure (auth error, wrong-account response) that contradicts the reachability check that just passed.\n\n## Cost of inaction\nThe is_reachable/_subprocess_env desync recurs any time a stale canonical env var is present in the parent process, regressing the exact bug class that https://github.com/alex-mextner/research-cli/issues/2 and https://github.com/alex-mextner/research-cli/issues/6 were meant to close, with no regression test guarding against it.\n\n## Acceptance criteria\n- [x] _subprocess_env() checks self.env.get(canonical), not the merged child env, before deciding to resolve+publish the canonical key — forced: transport.py:163-180 now gates re-canonicalization on self.env.get(canonical) alone (see PR #17 diff, research_cli/transport.py).\n- [x] new regression test test_subprocess_transport_alias_beats_stale_os_environ_canonical passes: a stale ANTHROPIC_API_KEY in os.environ does not mask a fresh CLAUDE_API_KEY alias in self.env — forced: pytest tests/test_research_cli.py::test_subprocess_transport_alias_beats_stale_os_environ_canonical -v => 1 passed (worktree .worktrees/transport-stale-canonical, commit 062b321).\n- [x] existing tests test_subprocess_transport_canonicalizes_alias_key_for_backend, test_subprocess_transport_env_var_beats_dotenv_for_backend, and test_subprocess_transport_child_inherits_process_env still pass — forced: pytest -k \"canonicalizes_alias_key_for_backend or env_var_beats_dotenv_for_backend or child_inherits_process_env\" => 3 passed (worktree .worktrees/transport-stale-canonical, commit 062b321).\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/research-cli/pull/17\n- Merge commit: https://github.com/alex-mextner/research-cli/commit/b72836d235b104690b1f98376a6156363f50d85b\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "telegram",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#16",
+      "repo": "research-cli",
+      "number": 16,
+      "id": 5397335737,
+      "node_id": "I_kwDOTF5njs8AAAABQbTOuQ",
+      "title": "transport: stale os.environ canonical key can mask fresh alias/.env value in subprocess env",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "telegram",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "201",
+        "233"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [
+        "research_cli/transport.py",
+        "tests/test_research_cli.py"
+      ],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [
+        {
+          "path": "tests/test_research_cli.py",
+          "counts": {
+            "passed": 43
+          },
+          "qualification": "Only named tests collected by this run; no inference of live acceptance."
+        }
+      ],
+      "related_issues": [
+        "research-cli#16",
+        "research-cli#2",
+        "research-cli#6"
+      ],
+      "linked_prs": [
+        {
+          "key": "research-cli#17",
+          "state": "closed",
+          "merged_at": "2026-09-10T00:54:16Z",
+          "merge_commit_sha": "b72836d235b104690b1f98376a6156363f50d85b"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "b2f1ec82ad2393f676e763b52229cc3e993e7a752f5a4a7131fa2fc12d294997",
+      "snapshot_updated_at": "2026-09-10T00:54:22Z"
+    }
+  },
+  {
+    "number": 18,
+    "key": "research-cli#18",
+    "node_id": "I_kwDOTF5njs8AAAABQjpJAw",
+    "expected_body_sha256": "75fa65e35f6a756dcff510f056730276dd98f1c003c800304037f43313b8c931",
+    "expected_updated_at": "2026-09-10T00:31:48Z",
+    "expected_title": "chore(rig): enable worktree-only guard for the primary checkout",
+    "expected_state": "closed",
+    "body": "<!-- rig-grooming:2026-09-10:v1 -->\n\n## Request provenance and intended outcome\n\n**Scope:** Worktree isolation and preservation of unfinished work. **Record:** product-or-maintenance.\n\n**Recovery epic:** https://github.com/alex-mextner/rig-cli/issues/521 · **Specification:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/worktrees.md · **Evidence ledger:** https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/research-cli.json\n\n**Original feature-request gap:** no unambiguous original for this particular historical ticket was recovered from the supplied export or its source-attributed blockquotes. The quotation below is a related standing instruction, not a claim that Alex dictated this ticket title or every implementation detail. The complete original technical description is retained below.\n\n> Основная директория — только для main.\n\nSource **Q043**; compiled-fragment-attribution; rig-zerobug/rig-fable session 2026-09-04..07; agent=нет; PDF page(s) 47. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> основная директория только для main\n\n</details>\n\n> А что с другими харнесами? Изучи, какие у них есть инструменты и настройки для работы с worktree: OpenCode, OMP, Codex.\n\nSource **Q216**; compiled-memory-attribution; MEMORY.md standing lesson: EnterWorktree is one harness; ban the equivalent on all; PDF page(s) 80. Editorial topic association/standing requirement; not proof of the original creation context of this issue.\n\n<details><summary>Original wording (before editorial correction)</summary>\n\n> а что с другими харнесами? изучи какие там есть тулы и настройки для работы с ворктри, oc, omp, codex\n\n</details>\n\n## Current evidence and next verification\n\nInspected source: [research-cli@b72836d235b1](https://github.com/alex-mextner/research-cli/tree/b72836d235b104690b1f98376a6156363f50d85b). [Fresh isolated suite](https://github.com/alex-mextner/rig-cli/actions/runs/34476344921): {\"passed\": 67}. **This does not certify a live account, UI workflow, installed binary or macOS service.**\n\nLinked implementation records: [research-cli#13](https://github.com/alex-mextner/research-cli/pull/13) — merged 2026-09-10T00:31:26Z.\n\n- Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.\n\n## Worked verification example\n\n**Illustrative scenario for this concern (not an observed reproduction):** Two agents work on the same repository in different .worktrees directories. One edits a relative src/app.py after its execution kernel restarts. The edit must still address its own checkout, not main or the other agent. A file outside any Git repository is a separate case, not automatically a forbidden main-checkout write.\n\nApply the scenario to the exact operation, code paths and acceptance criteria in the retained description. Record the input, actual result, expected result, source revision and a durable artifact. A failure must be tied to this outcome before reopening; a passing unrelated suite must not close it.\n\n## Original technical scope, acceptance and delivery history\n\n## What\nEnroll agent_hooks.worktree_only: true in rig.yaml so agents are forced to do feature work in git worktrees rather than editing the primary research-cli checkout directly, per [PR #13](https://github.com/alex-mextner/research-cli/pull/13).\n\n## Why (motivation)\nA dirty, diverged primary checkout (not a worktree) caused ship/review tooling failures for this repo; the worktree-only guard prevents recurrence.\n\n## User impact\nAgents and maintainers can no longer accidentally leave the primary checkout in a diverged state that breaks ship tooling.\n\n## Cost of inaction\nThe primary checkout can drift from origin/main again, causing the same class of ship failures.\n\n## Acceptance criteria\n- [x] rig.yaml sets agent_hooks.worktree_only: true — forced: PR #13 diff (gh pr diff 13) confirms rig.yaml adds agent_hooks.worktree_only: true; no visual proof applicable for a YAML config change.\n- [x] [PR #13](https://github.com/alex-mextner/research-cli/pull/13) merges cleanly with the change and no other files touched — forced: PR #13 merged cleanly via gh ship (squash), only rig.yaml touched: https://github.com/alex-mextner/research-cli/pull/13\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/research-cli/pull/13\n- Merge commit: https://github.com/alex-mextner/research-cli/commit/88dcc9aad3b833cfc09814fb8a1d47f1ab3b0c71\n\n## Skipped gates\n- post-merge-acceptance: Criterion 2 (PR #13 merges cleanly) is inherently post-merge: ship performs the merge itself as part of this same flow. Criterion 1 is already checked with proof from the PR diff.\n\n\n<!-- /rig-grooming:2026-09-10:v1 -->\n",
+    "topic": "worktrees",
+    "canonical": null,
+    "state_change": null,
+    "preserves": [],
+    "labels_add": [
+      "grooming:2026-09-10",
+      "verification:required",
+      "source:gap"
+    ],
+    "source": {
+      "key": "research-cli#18",
+      "repo": "research-cli",
+      "number": 18,
+      "id": 5406083331,
+      "node_id": "I_kwDOTF5njs8AAAABQjpJAw",
+      "title": "chore(rig): enable worktree-only guard for the primary checkout",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "worktrees",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap; standing/topic instruction available",
+      "quote_ids": [
+        "216",
+        "043"
+      ],
+      "existing_source_attributed_quotes": [],
+      "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+      "existing_paths": [],
+      "unresolved_historical_paths": [],
+      "named_test_evidence": [],
+      "related_issues": [
+        "research-cli#18"
+      ],
+      "linked_prs": [
+        {
+          "key": "research-cli#13",
+          "state": "closed",
+          "merged_at": "2026-09-10T00:31:26Z",
+          "merge_commit_sha": "88dcc9aad3b833cfc09814fb8a1d47f1ab3b0c71"
+        }
+      ],
+      "reference_gaps": [],
+      "verification_flags": [
+        "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+      ],
+      "canonical": null,
+      "preserves": [],
+      "live_acceptance": "not-performed",
+      "verification_disposition": "historical-closure-not-reaccepted",
+      "original_body_sha256": "75fa65e35f6a756dcff510f056730276dd98f1c003c800304037f43313b8c931",
+      "snapshot_updated_at": "2026-09-10T00:31:48Z"
+    }
+  }
+]
