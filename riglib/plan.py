@@ -292,21 +292,2838 @@ def _hook_bridge_kinds(config: LoadedConfig) -> list[str]:
 
 def _same_dir(a: Path, b: Path) -> bool:
     """True when two paths denote the same directory, resolving symlinks/`..` where possible.
-⚠ 1 unresolved conflict detected
-- ours = HEAD
-- theirs = a530cf2 (feat(task): add task.code_prefix, reconciled into .ship-config)
-- base = parent of a530cf2 (feat(task): add task.code_prefix, reconciled into .ship-config)
-NOTICE: Inspect a block by reading `conflict://<N>` (add `/ours` / `/theirs` / `/base` to render a single side). Resolve with `write({ path: "conflict://<N>", content })`, or bulk-resolve every registered conflict with `write({ path: "conflict://*", content })`. Writes replace ONLY the marker block (markers + all sides) — never repeat the lines before/after it; they stay in place.
-`content` shorthand: a line that is exactly `@ours` / `@theirs` / `@base` / `@both` expands to that recorded section. `@both` is ours-then-theirs with no separator — only for additive conflicts where each side adds something different; NEVER for competing edits of the same lines (pick a side or write the combined text). Lines that are not a token pass through verbatim, so `"// keep both\n@ours\n@theirs"` literally writes the comment, then ours, then theirs.
-Per-id bulk: `write({ path: "conflict://*", content: "1: @ours\n2: @theirs\n…" })` resolves each listed id with that side in ONE call — the cheapest way through many pick-one conflicts; unlisted ids stay registered.
-Resolve each block faithfully: keep one side (`@ours`/`@theirs`), or combine them when both intents apply — never invent content beyond the recorded sides, and never stack both sides of competing edits. Resolve several conflicts in a single turn by issuing multiple `write` calls at once; ids stay valid as earlier blocks are resolved.
 
-──── #2  L143-149 ────
-<<< ours
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
-=== base
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_schedule | provision_agents_symlink | provision_project_tool | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
->>> theirs
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_schedule | provision_agents_symlink | provision_project_tool | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight | provision_ship_task_prefix
+    Falls back to a lexical compare if ``resolve()`` raises (e.g. a path under a non-existent
+    parent on a platform that resolves strictly) — never raises.
+    """
+    try:
+        return a.resolve() == b.resolve()
+    except OSError:
+        return a == b
 
-[Showing lines 1-300 of 3136. Use :301 to continue]
+
+def _harness_kind_for_skills(config: LoadedConfig) -> str:
+    """The harness kind whose skill-discovery dir rig links into.
+
+    Follows the ``harness.kind`` if a harness block pins one (so the skill links target the
+    same harness the auto-mode write does); else the built-in default (claude-code).
+    """
+    h = config.data.get("harness")
+    if isinstance(h, dict) and h.get("kind"):
+        return str(h["kind"])
+    return _DEFAULT_HARNESS_KIND
+
+
+def _configured_harness_kinds(config: LoadedConfig) -> list[str]:
+    """Primary harness kind plus any additive ``harness.kinds`` entries, preserving order."""
+    h = config.data.get("harness")
+    if not isinstance(h, dict) or not h:
+        return [_DEFAULT_HARNESS_KIND]
+    primary = str(h.get("kind") or _DEFAULT_HARNESS_KIND)
+    out: list[str] = []
+    for kind in [primary, *(h.get("kinds") or [])]:
+        if not isinstance(kind, str):
+            continue
+        if kind not in out:
+            out.append(kind)
+    return out or [_DEFAULT_HARNESS_KIND]
+
+
+def _resolve_harness_skill_dir(config: LoadedConfig) -> Path | None:
+    """Resolve the harness skill-discovery dir to symlink installed skills into.
+
+    Returns ``None`` when ``skills.harness_link`` is disabled or the harness kind has no
+    known discovery dir — either an INSTRUCTION-FILE harness (pi/commandcode,
+    which surface skills via AGENTS.md, not a symlinked dir) or an unknown kind. We
+    never guess a path. An explicit ``skills.harness_skill_dir`` overrides the per-harness
+    default (and forces the link even for an instruction-file harness — the user pointed at a
+    real dir on purpose).
+    """
+    sk = config.category("skills")
+    if sk.get("harness_link") is False:
+        return None
+    raw = sk.get("harness_skill_dir")
+    if not raw:
+        kind = _harness_kind_for_skills(config)
+        raw = _skill_dir_for(kind)
+        if not raw:
+            return None
+    return _expand(str(raw), config.repo_root)
+
+
+def _resolve_harness_skill_dirs(config: LoadedConfig) -> list[tuple[str, Path]]:
+    """Resolve every harness skill-discovery dir that should receive installed-skill links."""
+    sk = config.category("skills")
+    if sk.get("harness_link") is False:
+        return []
+    raw = sk.get("harness_skill_dir")
+    if raw:
+        return [(_harness_kind_for_skills(config), _expand(str(raw), config.repo_root))]
+
+    out: list[tuple[str, Path]] = []
+    seen: set[Path] = set()
+    skills_target = _resolve_target(config, "skills")
+    for kind in _configured_harness_kinds(config):
+        raw_dir = _skill_dir_for(kind)
+        if raw_dir is None:
+            native = _native_skills_dir_for(kind)
+            if native is None:
+                continue
+            native_path = _expand(str(native), config.repo_root)
+            if _same_dir(skills_target, native_path):
+                continue
+            path = native_path
+        else:
+            path = _expand(str(raw_dir), config.repo_root)
+        if path in seen:
+            continue
+        seen.add(path)
+        out.append((kind, path))
+    return out
+
+
+def _skill_discovery_notes(config: LoadedConfig) -> list[str]:
+    """A status note explaining why no harness skill-link is emitted for an instruction-file
+    harness, or ``None`` when one is (skills-dir harness) or linking is disabled / overridden.
+
+    Keeps ``rig status`` honest: a pi/commandcode config that links no skills isn't a
+    silent gap — the note says the kind reads a global AGENTS.md instead, so the skill
+    content reaches it through the ``agents_md`` area, not a per-skill symlink.
+    """
+    sk = config.category("skills")
+    if sk.get("enabled") is False:
+        return []  # no skills installed at all → nothing to say about their discovery
+    if sk.get("harness_link") is False or sk.get("harness_skill_dir"):
+        return []  # linking off, or an explicit dir override forces a real link → no note
+    notes: list[str] = []
+    skills_target = _resolve_target(config, "skills")
+    for kind in _configured_harness_kinds(config):
+        if _skill_dir_for(kind) is not None:
+            continue  # skills-dir harness → a link IS emitted, no note needed
+        native = _native_skills_dir_for(kind)
+        if native is not None:
+            native_path = _expand(str(native), config.repo_root)
+            if _same_dir(skills_target, native_path):
+                notes.append(
+                    f"skills: harness '{kind}' auto-loads {native} natively — no per-skill symlink "
+                    "needed (skills install to the default skills_target, which it already scans)"
+                )
+            else:
+                notes.append(
+                    f"skills: harness '{kind}' auto-loads {native} natively, but skills_target is "
+                    f"{skills_target}; rig links installed skills into the native discovery dir"
+                )
+            continue
+        instr = _instruction_file_for(kind)
+        if instr is None:
+            continue  # unknown kind → handled by validation; nothing to say here
+        notes.append(
+            f"skills: harness '{kind}' has no skill-discovery dir — it reads a global "
+            f"instruction file ({instr}); rig records that path for status instead of inventing "
+            "a per-skill symlink (set skills.harness_skill_dir to force a directory link)"
+        )
+    return notes
+
+
+def resolve_category_target(config: LoadedConfig, category: str) -> Path | None:
+    """Public: the resolved install dir for a category (None when ``export-only``).
+
+    Used by ``rig status`` to scan a category's configured target for disk→config extras
+    even when no action lands there.
+    """
+    raw = config.category(category).get("target")
+    if raw == "export-only":
+        return None
+    if category == "agent_hooks":
+        return _resolve_agent_hooks_target(config)
+    return _resolve_target(config, category)
+
+
+def resolve_category_targets(config: LoadedConfig, category: str) -> list[Path]:
+    """Public: all resolved install dirs for categories that can fan out by harness."""
+    if category == "agent_hooks":
+        return list(_resolve_agent_hooks_targets(config))
+    target = resolve_category_target(config, category)
+    return [target] if target is not None else []
+
+
+def _item_enabled(cat_cfg: dict[str, Any], item: Item, *, type_enabled: bool) -> bool:
+    """Resolve a single item's enabled state from category-level deltas + per-item override.
+
+    Precedence (highest first):
+      1. explicit per-item ``items.<name>.enabled``
+      2. ``enable:`` / ``disable:`` delta lists
+      3. ``all: true|false``
+      4. project-type pull-in (by-type skills) / catalog ``default_enabled``
+    """
+    items = cat_cfg.get("items", {})
+    if isinstance(items, dict) and item.name in items:
+        spec = items[item.name]
+        if isinstance(spec, dict) and "enabled" in spec:
+            return bool(spec["enabled"])
+
+    enable = set(cat_cfg.get("enable", []) or [])
+    disable = set(cat_cfg.get("disable", []) or [])
+    if item.name in disable:
+        return False
+    if item.name in enable:
+        return True
+
+    all_flag = cat_cfg.get("all")
+    if all_flag is True:
+        return True
+    if all_flag is False:
+        return False
+
+    return type_enabled or item.default_enabled
+
+
+def _skills_enabled(config: LoadedConfig, catalog: Catalog, project_type: str) -> list[Item]:
+    """Skills get special handling: nested universal{} / by_type{} groups + type pull-in."""
+    sk = config.category("skills")
+    if sk.get("enabled") is False:
+        return []
+    out: list[Item] = []
+
+    uni_cfg = sk.get("universal", {})
+    if not isinstance(uni_cfg, dict):
+        uni_cfg = {}
+    # default for universal is all-on (opt-out model)
+    uni_cfg.setdefault("all", True)
+
+    bt_cfg = sk.get("by_type", {})
+    if not isinstance(bt_cfg, dict):
+        bt_cfg = {}
+    enabled_kinds = set(bt_cfg.get("enable", []) or [])
+    # auto-pull the detected project type's bundle unless config explicitly lists kinds
+    if not enabled_kinds and project_type and project_type != "unknown":
+        enabled_kinds = {project_type}
+    bt_items_cfg = bt_cfg.get("items", {})
+    if not isinstance(bt_items_cfg, dict):
+        bt_items_cfg = {}
+
+    bs_cfg = sk.get("by_stack", {})
+    if not isinstance(bs_cfg, dict):
+        bs_cfg = {}
+    bs_disable = set(bs_cfg.get("disable", []) or [])
+    bs_items_cfg = bs_cfg.get("items", {})
+    if not isinstance(bs_items_cfg, dict):
+        bs_items_cfg = {}
+    declared_stack = config.stack
+
+    for item in catalog.by_category("skills"):
+        if item.group == "universal":
+            if _item_enabled(uni_cfg, item, type_enabled=True):
+                out.append(item)
+        elif item.group.startswith("by-type/"):
+            kind = item.meta.get("kind", "")
+            type_on = kind in enabled_kinds
+            # per-item override under by_type.items.<by-type/kind/name>
+            if item.name in bt_items_cfg:
+                spec = bt_items_cfg[item.name]
+                if isinstance(spec, dict) and "enabled" in spec:
+                    if bool(spec["enabled"]):
+                        out.append(item)
+                    continue
+            if type_on:
+                out.append(item)
+        elif item.group.startswith("by-stack/"):
+            if _by_stack_item_enabled(item, declared_stack, bs_disable, bs_items_cfg):
+                out.append(item)
+    return out
+
+
+def _by_stack_item_enabled(
+    item: Item,
+    declared_stack: str | None,
+    disable: set[str],
+    items_cfg: dict[str, Any],
+) -> bool:
+    """Whether a by-stack skill is provisioned for the repo's declared stack.
+
+    Auto-selected when the item's stack path is a PREFIX of the declared stack (hierarchical
+    inheritance — see :mod:`riglib.stack`), unless dropped via ``skills.by_stack.disable`` or a
+    ``skills.by_stack.items.<name>.enabled: false`` override. An explicit
+    ``items.<name>.enabled: true`` FORCES the skill in even without a matching stack (the
+    escape hatch for pulling one stack skill into an off-stack repo).
+
+    NOTE: this is a deliberately-separate resolver from :func:`_item_enabled` (universal/by_type):
+    by_stack has no ``enable``/``all`` axis — selection is driven by the declared ``stack`` prefix
+    match, not a bundle-enable list — so the two do not share a code path. The only overlap is the
+    per-item ``enabled`` override + the ``disable`` list, kept explicit here for readability."""
+    from .stack import stack_matches
+
+    spec = items_cfg.get(item.name)
+    if isinstance(spec, dict) and "enabled" in spec:
+        return bool(spec["enabled"])
+    if item.name in disable:
+        return False
+    if not declared_stack:
+        return False
+    return stack_matches(declared_stack, item.meta.get("stack", ""))
+
+
+def _validate_item_names(config: LoadedConfig, catalog: Catalog) -> None:
+    """Fail-closed on item names that don't exist in the catalog (typo guard).
+
+    Checks every place a config can reference a catalog item by name: ``enable``/
+    ``disable`` lists and ``items.<name>`` keys, across all categories. Skills are special:
+    universal/by_type are separate groups, and by_type uses fully-qualified
+    ``by-type/<kind>/<name>`` keys plus bare ``<kind>`` bundle names in ``by_type.enable``.
+    """
+    from . import errors
+
+    def _check(category: str, names: set[str], known: set[str], key_prefix: str) -> None:
+        """Raise a structured :class:`errors.UnknownItemError` for the first unknown name.
+
+        ``category`` is the catalog category used for the removed-slot lookup + did-you-mean;
+        ``key_prefix`` is the dotted config-key path (e.g. ``mcp.items``) the bad name hangs
+        off, so the error names the EXACT offending key (``mcp.items.review``) + its file. The
+        file is resolved by the key's PROVENANCE (``source_for_key``): a stale entry that came
+        solely from the global config is reported against the global file, not the repo's.
+        """
+        unknown = sorted(names - known)
+        if unknown:
+            bad = unknown[0]
+            key = f"{key_prefix}.{bad}"
+            raise errors.unknown_item_error(
+                category=category,
+                key=key,
+                bad=bad,
+                known=known,
+                config_path=str(config.source_for_key(key)),
+            )
+
+    # skills — universal group
+    sk = config.category("skills")
+    uni = sk.get("universal", {}) if isinstance(sk, dict) else {}
+    if isinstance(uni, dict):
+        uni_known = {i.name for i in catalog.by_category("skills") if i.group == "universal"}
+        refs = set(uni.get("enable", []) or []) | set(uni.get("disable", []) or [])
+        refs |= set(k for k in uni.get("items", {}) if isinstance(uni.get("items"), dict))
+        _check("skills", refs, uni_known, "skills.universal")
+    # skills — by_type group (fully-qualified item keys; bundle names checked separately)
+    bt = sk.get("by_type", {}) if isinstance(sk, dict) else {}
+    if isinstance(bt, dict):
+        bt_known = {i.name for i in catalog.by_category("skills") if i.group.startswith("by-type/")}
+        bt_kinds = {i.meta.get("kind", "") for i in catalog.by_category("skills") if i.group.startswith("by-type/")}
+        bt_items = bt.get("items", {})
+        if isinstance(bt_items, dict):
+            _check("skills", set(bt_items), bt_known, "skills.by_type.items")
+        _check("skills", set(bt.get("enable", []) or []), bt_kinds, "skills.by_type.enable")
+    # skills — by_stack group (fully-qualified `by-stack/<l1>/<lang>[/<fw>]/<name>` item keys)
+    bs = sk.get("by_stack", {}) if isinstance(sk, dict) else {}
+    if isinstance(bs, dict):
+        bs_known = {i.name for i in catalog.by_category("skills") if i.group.startswith("by-stack/")}
+        bs_items = bs.get("items", {})
+        refs = set(bs.get("disable", []) or [])
+        if isinstance(bs_items, dict):
+            refs |= set(bs_items)
+        _check("skills", refs, bs_known, "skills.by_stack.items")
+
+    # agent_hooks + mcp — flat items/enable/disable
+    for cat_name in ("agent_hooks", "mcp"):
+        cfg = config.category(cat_name)
+        if not isinstance(cfg, dict):
+            continue
+        known = catalog.names(cat_name)
+        refs = set(cfg.get("enable", []) or []) | set(cfg.get("disable", []) or [])
+        items = cfg.get("items", {})
+        if isinstance(items, dict):
+            refs |= set(items)
+        _check(cat_name, refs, known, f"{cat_name}.items")
+
+    # git_hooks — nested sub-groups (only 'dispatcher' is shipped in v0.1). A typo like
+    # 'dispatcherr' must fail closed, not silently build no dispatcher action.
+    gh = config.category("git_hooks")
+    if isinstance(gh, dict):
+        gh_known = catalog.names("git_hooks") | {"templates"}  # templates reserved for v0.2
+        _check("git_hooks", set(gh), gh_known, "git_hooks")
+
+
+def _plan_agent_hooks(plan: InstallPlan, config: LoadedConfig, catalog: Catalog) -> None:
+    """Emit one ``install_agent_hook`` action per descriptor of every enabled hook.
+
+    A hook dir may ship MORE THAN ONE ``*.json`` descriptor (e.g. a pre-bash AND a pre-write
+    guard). Emit one action per descriptor so all of them land — taking only the first
+    silently drops the rest (#184 gap). Fail-closed on a destination collision: descriptors
+    from different hooks share one flat target dir, so two hooks shipping the same basename
+    would clobber each other (one guard silently lost, drift never clean).
+    """
+    ah = config.category("agent_hooks")
+    if ah.get("enabled") is False:
+        return
+    ah.setdefault("all", True)
+    hook_targets = _resolve_agent_hooks_targets(config)
+    seen: dict[Path, str] = {}
+    for item in catalog.by_category("agent_hooks"):
+        if not _item_enabled(ah, item, type_enabled=False):
+            continue
+        spec = ah.get("items", {}).get(item.name, {})
+        # Drop empty names so a descriptor-less item can't produce a degenerate
+        # ``hooks_target / ""`` (which collapses to the bare dir). A catalog item always
+        # carries ≥1 descriptor; the meta fallback only guards hand-built Items.
+        descriptors = tuple(d for d in (item.descriptors or (item.meta.get("descriptor", ""),)) if d)
+        for hooks_target in hook_targets:
+            for descriptor in descriptors:
+                dest = hooks_target / descriptor
+                if dest in seen and seen[dest] != item.name:
+                    raise PlanError(
+                        f"agent-hook descriptor collision: '{item.name}' and "
+                        f"'{seen[dest]}' both install '{descriptor}' into {hooks_target} — "
+                        f"one guard would silently clobber the other. Rename the descriptor "
+                        f"in agent-tools so hook basenames are unique."
+                    )
+                seen[dest] = item.name
+                plan.actions.append(
+                    Action(
+                        kind="install_agent_hook",
+                        category="agent_hooks",
+                        item=item.name,
+                        source=item.path,
+                        target=hooks_target,
+                        options={
+                            "descriptor": descriptor,
+                            "on_error": spec.get("on_error") if isinstance(spec, dict) else None,
+                            "agent_tools_source": str(catalog.source),
+                        },
+                    )
+                )
+
+
+def _catalog_by_leaf(catalog: Catalog, category: str) -> dict[str, tuple[Path, ...]]:
+    """Catalog item source paths grouped by on-disk leaf name (see ``InstallPlan.catalog_items``)."""
+    out: dict[str, list[Path]] = {}
+    for item in catalog.by_category(category):
+        out.setdefault(item.name.rsplit("/", 1)[-1], []).append(item.path)
+    return {leaf: tuple(paths) for leaf, paths in out.items()}
+
+
+def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknown") -> InstallPlan:
+    """Build the ordered :class:`InstallPlan` from config + catalog."""
+    plan = InstallPlan(
+        on_conflict=str(config.defaults.get("on_conflict", "backup")),
+        catalog_items={c: _catalog_by_leaf(catalog, c) for c in KNOWN_CATEGORIES},
+        known_names=known_names_from_config(config),
+    )
+    _validate_item_names(config, catalog)
+
+    # ── skills ───────────────────────────────────────────────────────────────────
+    skills_target = _resolve_target(config, "skills")
+    harness_link_dirs = _resolve_harness_skill_dirs(config)
+    # Whether to emit harness-discovery symlinks: only when a dir is configured AND it is not
+    # the install dir itself (no self-link). Compare resolved paths so a HOME symlink or a
+    # ``..`` segment that makes the two dirs textually differ but point at the same place is
+    # still recognized as the same dir (avoids a spurious self-link → real-dir warning).
+    link_dirs = [
+        link_dir
+        for _kind, link_dir in harness_link_dirs
+        if not _same_dir(link_dir, skills_target)
+    ]
+    # Instruction-file harness (pi/commandcode) → no skill-link dir; record WHY so
+    # ``rig status`` shows "uses <AGENTS.md>" instead of a silent empty skill-link area.
+    plan.notes.extend(_skill_discovery_notes(config))
+    for item in _skills_enabled(config, catalog, project_type):
+        installed = skills_target / item.path.name
+        plan.actions.append(
+            Action(
+                kind="copy_skill",
+                category="skills",
+                item=item.name,
+                source=item.path,
+                target=installed,
+            )
+        )
+        # Make the installed skill discoverable by the harness: symlink it into the harness's
+        # skill dir (claude-code: ~/.claude/skills). Without this the skill sits in
+        # skills_target but the harness never lists/loads it.
+        for link_dir in link_dirs:
+            plan.actions.append(
+                Action(
+                    kind="link_skill_harness",
+                    category="skills",
+                    item=item.name,
+                    source=installed,  # the installed skill the symlink points at
+                    target=link_dir / item.path.name,
+                )
+            )
+
+    # ── agent_hooks ──────────────────────────────────────────────────────────────
+    _plan_agent_hooks(plan, config, catalog)
+
+    # ── git_hooks (dispatcher) ───────────────────────────────────────────────────
+    gh = config.category("git_hooks")
+    disp_cfg = gh.get("dispatcher", {}) if isinstance(gh, dict) else {}
+    if isinstance(disp_cfg, dict) and disp_cfg.get("enabled"):
+        item = catalog.get("git_hooks", "dispatcher")
+        if item is not None:
+            runner = disp_cfg.get("runner", "~/.config/git/run-global-hooks")
+            plan.actions.append(
+                Action(
+                    kind="install_dispatcher",
+                    category="git_hooks",
+                    item="dispatcher",
+                    source=item.path,
+                    target=_expand(str(disp_cfg.get("dir", "~/.config/git/global-hooks.d")), config.repo_root),
+                    options={
+                        "runner": str(_expand(str(runner), config.repo_root)),
+                        "set_global_hooks_path": bool(disp_cfg.get("set_global_hooks_path", True)),
+                        "install_local_retrofit_script": bool(
+                            disp_cfg.get("install_local_retrofit_script", True)
+                        ),
+                        "fragments": disp_cfg.get("fragments", {}),
+                    },
+                )
+            )
+
+    # ── ci ───────────────────────────────────────────────────────────────────────
+    ci = config.category("ci")
+    if ci.get("enabled") is not False:
+        ci_target_raw = ci.get("target", config.defaults.get("ci_target", ".github/workflows"))
+        export_only = ci_target_raw == "export-only"
+        ci_target = None if export_only else _resolve_target(config, "ci")
+        ci_items = ci.get("items", {})
+        if not isinstance(ci_items, dict):
+            ci_items = {}
+
+        # fail-closed: an unknown item name (in items:, enable:, or disable:) is a config
+        # typo, not a silent skip. 'ship' is a real catalog item (ci/ship/) — it is in
+        # catalog.names("ci") when present and ABSENT when the checkout lacks it, so a
+        # config enabling ship against a minimal checkout fails closed instead of dropping.
+        known = catalog.names("ci")
+        referenced = set(ci_items) | set(ci.get("enable", []) or []) | set(ci.get("disable", []) or [])
+        unknown = sorted(referenced - known)
+        if unknown:
+            from . import errors
+
+            bad = unknown[0]
+            key = f"ci.items.{bad}"
+            raise errors.unknown_item_error(
+                category="ci",
+                key=key,
+                bad=bad,
+                known=known,
+                config_path=str(config.source_for_key(key)),
+            )
+
+        # resolve which slots are enabled: per-item override > enable/disable > all > off.
+        for item in catalog.by_category("ci"):
+            name = item.name
+            spec = ci_items.get(name, {})
+            if not isinstance(spec, dict):
+                spec = {}
+            if not _item_enabled(ci, item, type_enabled=False):
+                continue
+            if export_only:
+                plan.notes.append(f"ci/{name} export-only (recorded, not written)")
+                continue
+            if name == "ship":
+                plan.actions.append(
+                    Action(
+                        kind="install_ci",
+                        category="ci",
+                        item="ship",
+                        source=item.path,
+                        target=_expand(str(spec.get("install_to", "~/bin")), config.repo_root),
+                        options={"slot": "ship", "gh_alias": bool(spec.get("gh_alias", False))},
+                    )
+                )
+                continue
+            plan.actions.append(
+                Action(
+                    kind="install_ci",
+                    category="ci",
+                    item=name,
+                    source=item.path,
+                    target=ci_target,  # type: ignore[arg-type]
+                    options={
+                        "slot": name,
+                        "tier": spec.get("tier", "block"),
+                        "variant": spec.get("variant"),
+                        # companions install relative to the CHECKOUT ROOT (the workflow
+                        # runs `bash ci/<slot>/x.sh` from there), independent of ci.target.
+                        "repo_root": str(config.repo_root),
+                    },
+                )
+            )
+
+    # ── mcp ──────────────────────────────────────────────────────────────────────
+    mcp = config.category("mcp")
+    if mcp.get("enabled") is not False:
+        mcp_target_raw = mcp.get("target", config.defaults.get("mcp_target", "~/.claude/mcp"))
+        if mcp_target_raw != "export-only":
+            mcp_target = _expand(str(mcp_target_raw), config.repo_root)
+            mcp_items = mcp.get("items", {})
+            if not isinstance(mcp_items, dict):
+                mcp_items = {}
+            for item in catalog.by_category("mcp"):
+                # honor category all/enable/disable + per-item enabled (same as other cats)
+                if not _item_enabled(mcp, item, type_enabled=False):
+                    continue
+                spec = mcp_items.get(item.name, {})
+                if not isinstance(spec, dict):
+                    spec = {}
+                # the registration KEY is the configured server name if set, else the item
+                # name — so `server: serena` registers under "serena", not the catalog key.
+                server_name = str(spec.get("server") or item.name)
+                options = {
+                    "command": spec.get("command", ""),
+                    "server": server_name,
+                }
+                if "args" in spec:
+                    options["args"] = spec.get("args", [])
+                if "env" in spec:
+                    options["env"] = spec.get("env", {})
+                plan.actions.append(
+                    Action(
+                        kind="register_mcp",
+                        category="mcp",
+                        item=item.name,
+                        source=item.path,
+                        target=mcp_target,
+                        options=options,
+                    )
+                )
+
+    # ── harness (auto-mode / permission provisioning) ─────────────────────────────
+    _build_harness(config, plan)
+
+    # ── permissions (per-harness command allowlist) ───────────────────────────────
+    _build_mode(config, plan)
+    _build_permissions(config, plan)
+    _build_execpolicy(config, plan)
+    _build_guard_policy(config, plan)
+    _build_harness_delegated_notes(config, plan)
+    # ORDER MATTERS — both omp YAML writers target the same config.yml. Approval
+    # creates the file on first-run; web_search then merges exclude. The reverse
+    # made approval see an existing file and skip under on_conflict=skip (rig-cli#447).
+    _build_omp_web_search(config, plan)
+
+    # ── hook bridge (make agents-hooks/v1 descriptors FIRE in the harness) ─────────
+    _build_hook_bridge(config, catalog, plan)
+
+    # ── omp idle-TTL keepalive (yielded helpers stay on the live roster) ──────────
+    _build_omp_idle_ttl(config, plan)
+
+    # ── models (daily model-freshness checker schedule) ───────────────────────────
+    _build_models(config, catalog, plan)
+
+    # ── agents_md (AGENTS.md canonical + CLAUDE.md symlink) ────────────────────────
+    _build_agents_symlink(config, plan)
+
+    # ── ship_delegator (per-repo .claude/scripts/pr-ship.sh so `gh ship` works here) ─
+    _build_ship_delegator(config, catalog, plan)
+
+    # ── task.code_prefix → .ship-config's SHIP_TASK_CODE_PREFIX ────────────────────
+    _build_ship_task_prefix(config, plan)
+
+    # ── linters (per-repo linter/formatter config files) ──────────────────────────
+    _build_linters(config, catalog, plan)
+
+    # ── project_tools (Haft / Serena / Sverklo repo integrations) ─────────────────
+    _build_project_tools(config, plan)
+
+    # ── ecosystem_readme (README "## Ecosystem" block, rig-cli#308) ───────────────
+    _build_ecosystem_readme(config, plan)
+
+    # ── github (repository settings via gh api + agent-browser) ───────────────────
+    # ORDER MATTERS — actions run in this build order (runner.run_plan iterates plan.actions
+    # in sequence, no sort). Enable GitHub Actions BEFORE GHAS: CodeQL default-setup
+    # (provisioned by _build_github_ghas) requires Actions to be enabled — GitHub rejects
+    # default-setup with "Actions must be enabled for default setup" otherwise. Building
+    # actions first makes a brand-new repo converge in ONE apply instead of needing a second.
+    _build_github_ruleset(config, catalog, plan)
+    _build_github_merge(config, plan)
+    _build_github_actions(config, plan)
+    _build_github_ghas(config, plan)
+    _build_github_browser(config, plan)
+
+    # ── tmux (rig-managed tmux configuration) ──────────────────────────────────────
+    _build_tmux(config, plan)
+
+    # ── env (rig-managed shell environment variables) ──────────────────────────────
+    _build_env(config, plan)
+
+    # ── gitignore (rig-managed block in the GLOBAL git excludes file) ──────────────
+    _build_global_excludes(config, plan)
+
+    # ── spotlight (macOS: keep Spotlight from indexing dependency/build dirs) ───────
+    _build_spotlight(config, plan)
+
+    # ── bun (isolated linker + global virtual store in ~/.bunfig.toml) ────────────
+    _build_bun(config, plan)
+
+    # ── tools (the personal CLI ecosystem: tg/review/task/draw/…) ──────────────────
+    _build_tools(config, plan)
+
+    # ── tg_ctl (rig-managed tg-ctl inbound daemon LaunchAgent) ─────────────────────
+    _build_tg_ctl(config, plan)
+
+    # ── tcc_watch (rig-managed TCC dialog-watcher daemon LaunchAgent, Phase 1 detection) ──
+    _build_tcc_watch(config, plan)
+
+    return plan
+
+
+# claude-code's PROJECT settings file: a NON-auto mode on the PRIMARY kind is written here
+# (committed, travels with the repo). `auto` is special: Claude Code IGNORES
+# `permissions.defaultMode: auto` from project/local settings (v2.1.142+) and honors it ONLY
+# from the user's machine settings — so auto-mode is provisioned per-MACHINE, not per-repo. The
+# user-scope file and the auto/interactive VALUES come from the one registry
+# (``riglib.harness_mode.HARNESS_MODES["claude-code"]``): `auto` (research preview) auto-approves
+# WITH a safety classifier — preferred over `bypassPermissions` (which skips every check;
+# container/VM only). `default` restores prompts. Pin `harness.mode: bypassPermissions` to opt
+# back into full bypass (non-qualifying account / container) — that value IS committable at
+# project scope.
+_HARNESS_SETTINGS = {
+    "claude-code": ".claude/settings.json",
+}
+
+
+def _build_harness(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the auto/permission-mode write for EVERY configured harness kind.
+
+    No harness block → no action (rig leaves the harness config untouched). With a block, the
+    primary ``kind`` AND each additive ``kinds`` entry is routed through the per-kind registry
+    (:mod:`riglib.harness_mode`): claude-code keeps its dedicated writer (project-vs-user settings
+    file, self-merge); codex/opencode get a generic ``apply_harness`` write of their own key; omp's
+    key is owned by the permissions approval action (a note points at it); pi/commandcode have no
+    such setting and get a VISIBLE n/a note. The plan stays pure; the merge happens in ``actions/``.
+    """
+    h = _enabled_harness_block(config)
+    if h is None:
+        return
+    primary = str(h.get("kind", _DEFAULT_HARNESS_KIND))
+    mode = h.get("mode")
+    # Resolved ONCE here and handed to every per-kind builder — a builder re-deriving it from the
+    # raw block would disagree with this one in the unknown-mode case ("not declared" while
+    # ``mode:`` IS set) and `rig status` would print the contradiction.
+    intent = harness_auto_intent(h, primary)
+    # A `mode:` the primary kind does not know (and no auto_mode to decide): no other kind can
+    # follow it — an unknown string must not become a silent tighten to interactive (or a silent
+    # nothing) for the kind set. A claude-code PRIMARY still writes its own `mode:` verbatim (the
+    # user owns that string, and claude-code's vocabulary can outgrow the registry).
+    unknown_mode = intent is None and bool(mode) and not mode_is_known(primary, mode)
+    kinds = _configured_harness_kinds(config)
+    if unknown_mode and any(k in HARNESS_MODES and not (k == primary == "claude-code") for k in kinds):
+        plan.notes.append(unknown_mode_note(primary, mode))
+    for kind in kinds:
+        spec = HARNESS_MODES.get(kind)
+        if spec is None:
+            # elevated only when the N/A kind is the PRIMARY and something was asked of it; an
+            # additive `kinds: [pi]` next to `auto_mode: true` is the documented skills-only
+            # listing and must not raise an alarm on every apply
+            asked = kind == primary and (h.get("auto_mode") is not None or bool(mode))
+            plan.notes.append(na_note(kind, declared=asked))
+        elif spec.writer == WRITER_APPROVAL:
+            continue  # noted by _build_harness_delegated_notes once the approval builder has run
+        elif kind == primary == "claude-code":
+            _build_harness_claude_code(config, plan, h, kind)
+        elif unknown_mode:
+            # the primary (non-claude) kind and every additive kind alike: nothing is written
+            plan.notes.append(unknown_mode_kind_note(kind, primary, mode))
+        elif kind == "claude-code":
+            block = _claude_code_block(h, kind, primary, intent)
+            if block is None:
+                plan.notes.append(undeclared_note(kind))
+            else:
+                _build_harness_claude_code(config, plan, block, kind)
+        else:
+            _build_harness_mode_for_kind(config, plan, kind, intent, primary=primary, mode=mode)
+
+
+def _enabled_harness_block(config: LoadedConfig) -> dict[str, Any] | None:
+    """The ``harness:`` block when present and not ``enabled: false``, else ``None``."""
+    h = config.data.get("harness")
+    if not isinstance(h, dict) or not h or h.get("enabled") is False:
+        return None
+    return h
+
+
+def _build_omp_web_search(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the omp ``providers.webSearchExclude`` merge when omp is a configured kind.
+
+    Default ON for an enabled harness that lists omp: exclude ``perplexity`` so web_search
+    never falls through to the Sign-up wall (rig-cli#447). ``web_search.enabled: false``
+    or ``exclude: []`` emits nothing. Extra names already on disk are never removed.
+    """
+    from .harness_skills import omp_user_path
+    from .omp_web_search import resolve_exclude
+
+    h = _enabled_harness_block(config)
+    if h is None:
+        return
+    if "omp" not in _configured_harness_kinds(config):
+        return
+    exclude = resolve_exclude(h)
+    if not exclude:
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_omp_web_search",
+            category="harness",
+            item="omp",
+            source=config.repo_root,
+            target=_expand(omp_user_path("config.yml"), config.repo_root),
+            options={"kind": "omp", "exclude": exclude},
+        )
+    )
+
+
+def _build_harness_delegated_notes(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Note, for every configured kind whose mode key is owned by the permissions approval action,
+    whether the plan ACTUALLY carries that action — read off ``plan.actions`` after
+    ``_build_guard_policy`` ran, never re-derived from its gate (a re-prediction that drifts from
+    the real gate would claim "written by the approval action" while nothing writes it, and the
+    kind would fall off ``rig status`` — the silent gap rig-cli#355 exists to close)."""
+    if _enabled_harness_block(config) is None:
+        return
+    for kind in _configured_harness_kinds(config):
+        spec = HARNESS_MODES.get(kind)
+        if spec is None or spec.writer != WRITER_APPROVAL:
+            continue
+        written = any(
+            a.kind == "provision_harness_approval" and str(a.options.get("kind", "")) == kind
+            for a in plan.actions
+        )
+        plan.notes.append(delegated_note(kind, written=written))
+
+
+def _claude_code_block(h: dict[str, Any], kind: str, primary: str, intent: bool | None) -> dict[str, Any] | None:
+    """The harness block the claude-code writer sees — or ``None`` when nothing should be written.
+
+    As the PRIMARY kind it is the block itself (``mode:`` / ``settings_path`` are claude-code
+    values there; an undeclared intent keeps the legacy ``default`` write). As an ADDITIVE kind
+    (``kind: opencode, kinds: [claude-code]``) the block's ``mode:``/``settings_path`` belong to the
+    primary harness and must not leak: claude-code then gets only the inferred boolean intent
+    (plus ``self_merge``), and an UNDECLARED intent means no write at all — the same rule as every
+    other additive kind (a skills-only listing must not change the posture behind the user's back).
+    The write is pinned to the USER-scope file either way: auto-mode is a per-machine posture for
+    every additive kind, so an interactive intent must not land in the committed project settings.
+    """
+    if kind == primary:
+        return h
+    if intent is None:
+        return None
+    reduced: dict[str, Any] = {"auto_mode": intent, "settings_path": HARNESS_MODES[kind].settings_path()}
+    if "self_merge" in h:
+        reduced["self_merge"] = h["self_merge"]
+    return reduced
+
+
+def _build_harness_mode_for_kind(
+    config: LoadedConfig, plan: InstallPlan, kind: str, intent: bool | None, *, primary: str, mode: object,
+) -> None:
+    """One generic ``apply_harness`` write of ``kind``'s own mode key (codex/opencode).
+
+    The value follows the harness auto ``intent`` resolved by :func:`_build_harness` (``auto_mode``,
+    else inferred from a pinned ``mode:`` via the primary kind's ``auto_values``) — except that the
+    PRIMARY kind's own known ``mode:`` is written verbatim (``kind: opencode, mode: deny`` must stay
+    ``deny``, not relax to ``ask``; see :func:`resolved_mode_value`). No declared intent → no write
+    (an informational note instead). The target is always the kind's user-scope file from the registry.
+    """
+    spec = HARNESS_MODES[kind]
+    if intent is None:
+        # no auto_mode / mode declared: a skills-only additive kind (`kinds: [opencode]`) must not
+        # have its posture tightened to the interactive value behind its back — write nothing, say so.
+        plan.notes.append(undeclared_note(kind))
+        return
+    # An ADDITIVE kind never gets the raw ``mode:`` string: it is the primary harness's value
+    # (claude-code's ``acceptEdits``, opencode's ``deny``) and would be an invalid setting here — it
+    # only feeds the intent inference above. The primary's own known value is the documented override.
+    mode_value = resolved_mode_value(kind, primary, mode, intent)
+    # ALWAYS the kind's user-scope file: auto-mode is a per-MACHINE posture (the same reason the
+    # claude-code ``auto`` write is user-scope only). ``harness.settings_path`` is NOT consulted here —
+    # it is the hook-bridge / claude settings override (for opencode it names a .js PLUGIN), never
+    # the mode file.
+    settings_path = spec.settings_path()
+    plan.actions.append(
+        Action(
+            kind="apply_harness",
+            category="harness",
+            item=kind,
+            source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
+            target=_expand(str(settings_path), config.repo_root),
+            options={
+                "kind": kind,
+                "auto_mode": bool(intent),
+                "mode_value": mode_value,
+                "format": spec.format,
+            },
+        )
+    )
+
+
+def _build_harness_claude_code(config: LoadedConfig, plan: InstallPlan, h: dict[str, Any], kind: str) -> None:
+    """The claude-code writer: ``permissions.defaultMode`` + the self-merge unblock."""
+    spec = HARNESS_MODES[kind]
+    auto_mode = bool(h.get("auto_mode", False))
+    # an explicit `mode:` override wins over the auto_mode → mode mapping (lets a config pin
+    # e.g. `acceptEdits` instead of full bypass while staying non-interactive for edits).
+    mode_value = h.get("mode") or spec.values[auto_mode]
+    # The self-merge classifier carve-out (default ON) is EFFECTIVE only under `auto` — the
+    # auto-mode classifier is the only mode that runs the soft-block rules, and its config lives
+    # in the user-scope settings (same file the `auto` mode write targets). It is safe precisely
+    # because every other guard stays: the review-fix loop, the local CI gate via ship.sh, the
+    # agent-hooks (incl. block-raw-pr-merge for OTHER PRs), and the anti-exfil hard_deny.
+    self_merge = bool(h.get("self_merge", True)) and mode_value == "auto"
+    # `auto` is honored only from the user's machine settings (CC strips it from project/local
+    # scope); every other mode writes to the repo's project settings. Explicit settings_path wins.
+    if h.get("settings_path"):
+        settings_path = h["settings_path"]
+    elif mode_value == "auto":
+        settings_path = spec.settings_path()
+    else:
+        settings_path = _HARNESS_SETTINGS[kind]
+    # One action PER settings file a live `claude` on this machine may load: the user-scope
+    # write fans out to every claude-rotate config dir (rig-cli#368) — see claude_config_dirs.
+    for target in _claude_settings_targets(config, kind, _expand(str(settings_path), config.repo_root)):
+        plan.actions.append(
+            Action(
+                kind="apply_harness",
+                category="harness",
+                item=fan_out_item(kind, target),
+                source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
+                target=target.path,
+                options={
+                    "kind": kind,
+                    "auto_mode": auto_mode,
+                    "mode_value": str(mode_value),
+                    "self_merge": self_merge,
+                },
+            )
+        )
+
+
+def _claude_settings_targets(config: LoadedConfig, kind: str, primary: Path) -> list[SettingsTarget]:
+    """The settings files a claude-code user-scope write must reach (primary + account dirs).
+
+    Every other harness kind (and any non-user-scope claude-code target) resolves to the
+    primary alone — the fan-out registry (:mod:`riglib.claude_config_dirs`) decides.
+    """
+    if kind != "claude-code":
+        return [SettingsTarget(primary, None)]
+    if not primary.suffix:
+        # the documented directory form (`settings_path: ~/.claude`) — the writers append the
+        # native filename at write time; resolve it HERE too, so the user-scope check sees the
+        # same file the writer converges instead of silently skipping the fan-out
+        primary = primary / SETTINGS_FILENAME
+    h = config.data.get("harness")
+    # explicit extra files go through the SAME resolver as settings_path (``$VAR`` + ``~`` +
+    # repo-root relative) — shared with `rig doctor`, so a relative entry never reaches a
+    # writer (or the doctor inventory) as a cwd-dependent path
+    harness = resolve_settings_paths(h if isinstance(h, dict) else {}, config.repo_root)
+    return fan_out_settings(primary, harness)
+
+
+def _build_permissions(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the per-harness permissions provisioning (allow + deny/ask), unless ``enabled: false``.
+
+    Default **ON** (like ``agents_md``/``github``/``tg_ctl``): an ABSENT or empty ``permissions:``
+    block still provisions the allowlist with the default tool set AND the conservative deny/ask
+    rule baselines (rig-cli#100 — the outer belt), so ``rig init`` on a clean machine gets both
+    with no config at all.
+
+    Everything is CONFIG-DRIVEN — ``permissions.tools`` (a list) REPLACES the default set;
+    ``permissions.extra`` adds; ``permissions.disable`` removes; ``permissions.allow`` adds RAW
+    rule entries on top of the tool-derived allowlist; ``permissions.deny``/``ask`` REPLACE the
+    baked rule baselines. The action carries the RESOLVED lists (so the runner stays config-pure)
+    and is keyed off ``harness.kind`` (exactly like the auto-mode write), targeting the SAME
+    per-harness user-scope settings file. A harness whose kind has no additively-mergeable
+    allowlist (codex, pi — see :mod:`riglib.permissions`) emits NO action and is recorded
+    N/A; a note explains why so ``rig status`` isn't silently empty.
+    """
+    from .permissions import (
+        HARNESS_ALLOWLISTS,
+        HARNESS_ALLOWLIST_NA,
+        harness_supported,
+        resolve_tools,
+    )
+
+    p = config.data.get("permissions")
+    if p is None:
+        p = {}
+    if not isinstance(p, dict):
+        return  # validate() already fail-closed on a non-mapping block
+    if p.get("enabled") is False:
+        return
+
+    tools_cfg = p.get("tools")
+    tools = resolve_tools(
+        list(tools_cfg) if isinstance(tools_cfg, list) else None,
+        list(p.get("extra", []) or []) if isinstance(p.get("extra"), list) else [],
+        list(p.get("disable", []) or []) if isinstance(p.get("disable"), list) else [],
+    )
+    kinds = _permissions_kinds(config, p)
+    if p.get("settings_path") and len(kinds) > 1:
+        original = list(kinds)
+        supported = [kind for kind in kinds if harness_supported(kind)]
+        if supported:
+            kinds = [supported[0]]
+            skipped = [kind for kind in original if kind != kinds[0]]
+            plan.notes.append(
+                "permissions: settings_path override with multiple harnesses targets the first "
+                f"supported harness only ({kinds[0]}); skipped {', '.join(skipped)}"
+            )
+
+    from .permissions import (
+        HARNESS_PERMISSION_TIERS,
+        TIER_LABELS,
+        execpolicy_supported,
+        guard_supported,
+        instruction_policy_supported,
+    )
+
+    for kind in kinds:
+        if not harness_supported(kind):
+            # No config-array allowlist to merge — but every known harness has an enforcement
+            # TIER and the effect is delivered by another surface, so describe what IS
+            # achieved (and its tier) rather than a bare "skipped". codex: execpolicy .rules +
+            # hook bridge. omp: the generated guard extension + approval posture (planned
+            # separately below). pi/commandcode: the advisory instruction policy.
+            tier = HARNESS_PERMISSION_TIERS.get(kind)
+            tier_note = f" (tier {tier}: {TIER_LABELS[tier]})" if tier else ""
+            if execpolicy_supported(kind):
+                plan.notes.append(
+                    f"permissions: harness '{kind}' has no config allowlist{tier_note} — "
+                    "safe-command allow + coarse deny are provisioned via the execpolicy .rules "
+                    "block, and flag-position denies via the PreToolUse hook bridge"
+                )
+            elif guard_supported(kind):
+                plan.notes.append(
+                    f"permissions: harness '{kind}' has no config allowlist{tier_note} — "
+                    "deny/ask are enforced by the generated guard extension (tool_call block) "
+                    "plus the declarative approval posture"
+                )
+            elif instruction_policy_supported(kind):
+                plan.notes.append(
+                    f"permissions: harness '{kind}' has no enforcement mechanism{tier_note} — "
+                    "the deny/ask intent is provisioned as an advisory instruction-file policy "
+                    "block (not enforced at the execution layer)"
+                )
+            else:
+                reason = HARNESS_ALLOWLIST_NA.get(kind, "no command-allowlist mechanism")
+                plan.notes.append(
+                    f"permissions: skipped — harness '{kind}' has no allowlist to provision ({reason})"
+                )
+            continue
+
+        allow_rules, deny_rules, ask_rules = _resolve_permission_rules(p, kind, plan)
+        for entry in _autonomous_allow_rules(config, kind, plan):
+            if entry not in allow_rules:
+                allow_rules.append(entry)
+        spec = HARNESS_ALLOWLISTS[kind]
+        # An explicit settings_path wins only for the single targeted harness case above; otherwise
+        # each harness uses its own documented per-machine settings file.
+        settings_path = p.get("settings_path") or spec.settings_path
+        primary = _expand(str(settings_path), config.repo_root)
+        options = {
+            "kind": kind,
+            "tools": tools,
+            "allow_rules": allow_rules,
+            "deny_rules": deny_rules,
+            "ask_rules": ask_rules,
+        }
+        # one action per settings file a live `claude` may load (claude-rotate dirs, rig-cli#368)
+        for target in _claude_settings_targets(config, kind, primary):
+            plan.actions.append(
+                Action(
+                    kind="provision_permissions",
+                    category="permissions",
+                    item=fan_out_item(kind, target),
+                    source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
+                    target=target.path,
+                    options=dict(options),
+                )
+            )
+
+
+def _build_execpolicy(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the codex execpolicy .rules provisioning (allow + coarse deny), unless disabled.
+
+    Part of the ``permissions`` feature (gated by the same ``permissions.enabled`` and, when set,
+    ``permissions.kind`` selection). For each configured harness kind that supports an execpolicy
+    surface (codex — see :data:`riglib.permissions.HARNESS_EXECPOLICY`), emit ONE
+    ``provision_execpolicy`` action carrying the SAME resolved tool set the allowlist uses. codex
+    has no config-array allowlist, so this is how its safe-command allow + coarse deny is delivered;
+    flag-position denies stay in the PreToolUse hook bridge. A kind with no execpolicy surface emits
+    nothing here (the allowlist builder already noted it).
+    """
+    from .permissions import HARNESS_EXECPOLICY, execpolicy_supported, resolve_tools
+
+    p = config.data.get("permissions")
+    if p is None:
+        p = {}
+    if not isinstance(p, dict):
+        return
+    if p.get("enabled") is False:
+        return
+
+    tools_cfg = p.get("tools")
+    tools = resolve_tools(
+        list(tools_cfg) if isinstance(tools_cfg, list) else None,
+        list(p.get("extra", []) or []) if isinstance(p.get("extra"), list) else [],
+        list(p.get("disable", []) or []) if isinstance(p.get("disable"), list) else [],
+    )
+    for kind in _permissions_kinds(config, p):
+        if not execpolicy_supported(kind):
+            continue
+        spec = HARNESS_EXECPOLICY[kind]
+        # codex's rules root honors RIG_CODEX_HOME (same resolver as its hooks/skills/config
+        # targets); other kinds fall back to the generic ~-expansion of the declared path. The
+        # RIG_CODEX_HOME-aware root is joined with the SAME suffix declared in spec.rules_path
+        # (relative to codex's default ~/.codex root) so the two never drift.
+        rules_path = spec.rules_path
+        if kind == "codex":
+            codex_prefix = "~/.codex/"
+            if not rules_path.startswith(codex_prefix):
+                raise PlanError(
+                    f"codex execpolicy rules_path must live under {codex_prefix!r}: {rules_path!r}"
+                )
+            suffix = rules_path[len(codex_prefix) :]
+            # The suffix is a hardcoded spec constant today (never user input), but this is the
+            # one seam where a future spec/config change could smuggle a `..`/absolute component
+            # and escape RIG_CODEX_HOME (Codex review of #169). PurePosixPath normalizes `.`/`//`
+            # but leaves `..` and a leading `/` visible for us to reject explicitly.
+            suffix_path = PurePosixPath(suffix)
+            if not suffix.strip() or suffix_path.is_absolute() or ".." in suffix_path.parts:
+                raise PlanError(
+                    f"codex execpolicy rules_path suffix must not escape RIG_CODEX_HOME: {suffix!r}"
+                )
+            rules_path = _codex_user_path(suffix)
+        plan.actions.append(
+            Action(
+                kind="provision_execpolicy",
+                category="permissions",
+                item=kind,
+                source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
+                target=_expand(rules_path, config.repo_root),
+                options={"kind": kind, "tools": tools},
+            )
+        )
+
+
+def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the guard-extension / approval-posture / advisory-policy provisioning (rig-cli#202).
+
+    Part of the ``permissions`` feature (gated by the same ``permissions.enabled`` and, when
+    set, ``permissions.kind`` selection). Three ATOMIC actions, one per surface — never an
+    overloaded container:
+
+    * ``install_harness_guard`` (omp) — the wholly rig-owned GENERATED TS guard extension
+      (``<agent root>/extensions/<name>``), codegen'd from the single rule registry in
+      :mod:`riglib.permissions` by :mod:`riglib.omp_guard`. deny blocks outright; ask
+      confirm-gates with a UI, blocks headless.
+    * ``provision_harness_approval`` (omp) — the declarative approval posture merged
+      additively into the harness config (never a differing user value clobbered).
+    * ``provision_instruction_policy`` (pi/commandcode) — the deny/ask INTENT as an
+      ADVISORY managed block in the harness's global instruction file (truthfully tensed:
+      not enforced at the execution layer).
+    """
+    from .permissions import (
+        HARNESS_APPROVAL,
+        HARNESS_INSTRUCTION_POLICY,
+        approval_supported,
+        guard_extension_path_for,
+        guard_supported,
+        instruction_policy_supported,
+    )
+
+    p = config.data.get("permissions")
+    if p is None:
+        p = {}
+    if not isinstance(p, dict):
+        return
+    if p.get("enabled") is False:
+        # rig-managed permissions artifacts are left in place (rig never auto-deletes), but
+        # a relaxed posture with the feature OFF must not be silent — note ONLY when there
+        # is evidence something was actually provisioned (no noise on fresh machines).
+        from .permissions import (
+            HARNESS_APPROVAL,
+            HARNESS_INSTRUCTION_POLICY,
+            guard_extension_path_for,
+        )
+
+        for kind in _permissions_kinds(config, p):
+            leftovers = []
+            if kind in HARNESS_APPROVAL:
+                leftovers.append(_expand(guard_extension_path_for(kind), config.repo_root))
+                leftovers.append(
+                    _expand(f"{HARNESS_APPROVAL[kind].root()}/{HARNESS_APPROVAL[kind].config_name}",
+                            config.repo_root)
+                )
+            if kind in HARNESS_INSTRUCTION_POLICY:
+                leftovers.append(_expand(HARNESS_INSTRUCTION_POLICY[kind], config.repo_root))
+            if any(p_.exists() for p_ in leftovers):
+                plan.notes.append(
+                    f"permissions: disabled — rig-managed guard/approval artifacts for '{kind}' "
+                    "stay on disk (rig never auto-deletes); remove them by hand to fully relax"
+                )
+        return
+
+    # the allowlist knobs are INERT for kinds without an allowlist surface (guard/advisory/
+    # execpolicy) — say so instead of silently ignoring a user's custom rules.
+    _inert_note_kinds = {"tools", "extra", "disable", "allow", "deny", "ask"}
+    configured_knobs = sorted(k for k in _inert_note_kinds if p.get(k))
+    for kind in _permissions_kinds(config, p):
+        guard_target: Path | None = None
+        if guard_supported(kind):
+            guard_target = _expand(guard_extension_path_for(kind), config.repo_root)
+            plan.actions.append(
+                Action(
+                    kind="install_harness_guard",
+                    category="permissions",
+                    item=kind,
+                    source=config.repo_root,  # no carrier in agent-tools; anchor on the repo
+                    target=guard_target,
+                    options={"kind": kind},
+                )
+            )
+        if (guard_supported(kind) or instruction_policy_supported(kind)) and configured_knobs:
+            plan.notes.append(
+                f"permissions: {', '.join(configured_knobs)} "
+                f"{'is' if len(configured_knobs) == 1 else 'are'} inert for harness '{kind}' "
+                "(no allowlist surface — the rules come from the baked baseline registry)"
+            )
+        if approval_supported(kind):
+            # The approval posture relaxes the harness to auto-approve — it may ONLY land
+            # when the guard belt for the same kind is in place (the runner re-verifies the
+            # guard target's content before writing; see the action handler).
+            options: dict[str, Any] = {"kind": kind, "mode_value": _approval_mode_value(config, kind)}
+            if guard_target is not None:
+                options["guard_target"] = str(guard_target)
+            plan.actions.append(
+                Action(
+                    kind="provision_harness_approval",
+                    category="permissions",
+                    item=kind,
+                    source=config.repo_root,
+                    target=_expand(
+                        f"{HARNESS_APPROVAL[kind].root()}/{HARNESS_APPROVAL[kind].config_name}",
+                        config.repo_root,
+                    ),
+                    options=options,
+                )
+            )
+        if instruction_policy_supported(kind):
+            plan.actions.append(
+                Action(
+                    kind="provision_instruction_policy",
+                    category="permissions",
+                    item=kind,
+                    source=config.repo_root,
+                    target=_expand(HARNESS_INSTRUCTION_POLICY[kind], config.repo_root),
+                    options={"kind": kind},
+                )
+            )
+
+
+def _approval_mode_value(config: LoadedConfig, kind: str) -> str:
+    """The approval-posture value for ``kind`` — follows the harness auto intent when the harness
+    block configures ``kind``; otherwise (no block, ``enabled: false``, or ``kind`` not among the
+    configured harness kinds) the legacy relaxed posture (yolo, rig-cli#202 owner decision) — a
+    foreign harness's ``auto_mode: false`` must not flip a kind it never declared."""
+    h = _enabled_harness_block(config)
+    if h is None or kind not in _configured_harness_kinds(config):
+        return mode_value_for(kind, None, legacy_intent=True)
+    primary = str(h.get("kind") or _DEFAULT_HARNESS_KIND)
+    intent = harness_auto_intent(h, primary)
+    # a primary omp's own pinned mode (``write``) is honoured verbatim, like every primary kind
+    return resolved_mode_value(kind, primary, h.get("mode"), intent, legacy_intent=True)
+
+
+def _permissions_kinds(config: LoadedConfig, p: dict[str, Any]) -> list[str]:
+    """Harness kinds whose command allowlist should be provisioned, preserving config order."""
+    # Callers pass the cascaded permissions block. Missing or explicit-null kind means
+    # "unpinned" here; a repo-local null has already masked any global pin before this point.
+    if p.get("kind"):
+        return [str(p["kind"])]
+    return _configured_harness_kinds(config)
+
+
+def _autonomous_block(config: LoadedConfig) -> dict[str, Any] | None:
+    mode = config.data.get("mode")
+    if not isinstance(mode, dict) or mode.get("name") != "autonomous":
+        return None
+    auto = mode.get("autonomous", {})
+    return auto if isinstance(auto, dict) else {}
+
+
+def _subblock(parent: dict[str, Any], key: str) -> dict[str, Any]:
+    child = parent.get(key, {})
+    return child if isinstance(child, dict) else {}
+
+
+def _build_mode(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Surface autonomous-mode policy in the plan.
+
+    The runtime execution lives in the agent skills/harnesses; rig's job is to make the policy
+    declared, validated, and visible in dry-run/status surfaces instead of burying it in prose.
+    """
+    auto = _autonomous_block(config)
+    if auto is None:
+        return
+    plan.actions.append(
+        Action(
+            kind="record_mode",
+            category="mode",
+            item="autonomous",
+            source=config.repo_root,
+            target=config.repo_root,
+            options={"name": "autonomous"},
+        )
+    )
+    review_fix = _subblock(auto, "review_fix")
+    if review_fix.get("enabled", True) is not False:
+        until = str(review_fix.get("until", "clean"))
+        max_iter = int(review_fix.get("max_iterations", 5))
+        plan.notes.append(f"autonomous mode: review/fix until {until} (max {max_iter} iterations)")
+
+    quorum = _subblock(_subblock(auto, "decisions"), "review_quorum")
+    if quorum.get("enabled", True) is not False:
+        min_iter = int(quorum.get("min_iterations", 2))
+        min_models = int(quorum.get("min_models", 3))
+        plan.notes.append(
+            f"autonomous mode: decisions require review quorum ({min_iter} iterations across {min_models} models)"
+        )
+
+    escalation = _subblock(auto, "escalation")
+    framework = str(escalation.get("framework_skill", "decision-request-discipline"))
+    plan.notes.append(f"autonomous mode: escalation framework skill '{framework}'")
+
+    comparison = _subblock(auto, "parallel_worktree_comparison")
+    if comparison.get("enabled", True) is not False and escalation.get("require_parallel_worktree_comparison", True) is not False:
+        candidates = int(comparison.get("candidates", 2))
+        plan.notes.append(
+            f"autonomous mode: parallel worktree comparison required before escalation ({candidates} candidates)"
+        )
+    plan.notes.append(
+        "autonomous mode: do not interrupt in-flight work for unrelated requests; "
+        "dispatch independent work to parallel subagents/worktrees and keep the current task alive"
+    )
+
+    parallel = _subblock(auto, "parallelism")
+    if parallel.get("limit_aware", True) is not False:
+        max_agents = int(parallel.get("max_agents", 4))
+        max_worktrees = int(parallel.get("max_worktrees", 4))
+        reserve = int(parallel.get("reserve_slots", 1))
+        plan.notes.append(
+            "autonomous mode: "
+            f"limit-aware parallelism max_agents={max_agents} max_worktrees={max_worktrees} "
+            f"reserve_slots={reserve}"
+        )
+
+    permissions = config.data.get("permissions", {})
+    devtools = _subblock(auto, "development_tools")
+    if isinstance(permissions, dict) and permissions.get("enabled") is False and devtools.get("allow", list(_AUTONOMOUS_DEFAULT_ALLOW_RULES)):
+        plan.notes.append(
+            "autonomous mode: development tool allow rules not provisioned because permissions.enabled=false"
+        )
+
+
+def _autonomous_allow_rules(config: LoadedConfig, kind: str, plan: InstallPlan) -> list[str]:
+    auto = _autonomous_block(config)
+    if auto is None:
+        return []
+    devtools = _subblock(auto, "development_tools")
+    raw = devtools.get("allow", list(_AUTONOMOUS_DEFAULT_ALLOW_RULES))
+    if not isinstance(raw, list) or not raw:
+        return []
+    from .permissions import CONFIG_RULE_DIALECT_KINDS
+
+    # The autonomous dev-tool allow rules are claude-code dialect (Bash(...) specifiers), so only
+    # kinds that consume that dialect verbatim get them. opencode HAS rule containers but a
+    # different glob dialect — adding a claude-shaped rule as an opencode allow key would be a bogus
+    # entry that never matches, so drop it with a note (same split as _resolve_permission_rules).
+    if kind not in CONFIG_RULE_DIALECT_KINDS:
+        plan.notes.append(
+            f"autonomous mode: development tool allow rules dropped for harness '{kind}' "
+            "(claude-code dialect rules; this harness has a different command-rule syntax)"
+        )
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for entry in raw:
+        s = str(entry)
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out
+
+
+def _resolve_permission_rules(
+    p: dict[str, Any], kind: str, plan: InstallPlan
+) -> tuple[list[str], list[str], list[str]]:
+    """Resolve the raw allow entries + the deny/ask rule lists for the permissions action.
+
+    ``allow`` is ADDITIVE raw entries on top of the tool-derived allowlist (this is how the
+    hand-grown machine allowlist is adopted as declared config); ``deny``/``ask`` REPLACE the
+    baked baseline (see :mod:`riglib.permissions` — an explicit ``[]`` disables it). All three
+    config lists are RAW rule strings in claude-code's dialect, so only claude-code
+    (``CONFIG_RULE_DIALECT_KINDS``) consumes them verbatim:
+
+    - A kind with NO rule containers at all (codex — its execpolicy is a separate surface) gets
+      nothing here, with a plan note when the config explicitly asked.
+    - A kind WITH containers but a different dialect (opencode: ``permission.bash`` glob keys) gets
+      its BAKED opencode-dialect deny/ask baseline (never the claude-shaped config override, which
+      would be a bogus glob key that never matches); the raw config allow/deny/ask are dropped with
+      a plan note so the drop is visible in ``rig plan``, never silent.
+    """
+    from .permissions import (
+        CONFIG_RULE_DIALECT_KINDS,
+        HARNESS_RULE_CONTAINERS,
+        HARNESS_RULES_NA,
+        resolve_rules,
+    )
+
+    if kind not in HARNESS_RULE_CONTAINERS:
+        dropped = [k for k in ("allow", "deny", "ask") if isinstance(p.get(k), list)]
+        if dropped:
+            reason = HARNESS_RULES_NA.get(kind, "no verified rule dialect")
+            plan.notes.append(
+                f"permissions: raw {'/'.join(dropped)} entries dropped — harness '{kind}' ({reason})"
+            )
+        return [], [], []
+    if kind not in CONFIG_RULE_DIALECT_KINDS:
+        # opencode: containers exist, but the config lists are claude-dialect → drop with a note,
+        # and use the BAKED opencode-dialect baseline (override=None) for deny/ask.
+        dropped = [k for k in ("allow", "deny", "ask") if isinstance(p.get(k), list)]
+        if dropped:
+            plan.notes.append(
+                f"permissions: raw {'/'.join(dropped)} entries dropped — harness '{kind}' uses its "
+                "baked opencode-dialect deny/ask baseline (config lists are claude-code dialect)"
+            )
+        return [], resolve_rules(kind, "deny", None), resolve_rules(kind, "ask", None)
+    allow_cfg = p.get("allow")
+    allow_rules: list[str] = []
+    seen: set[str] = set()
+    for entry in (allow_cfg if isinstance(allow_cfg, list) else []):
+        if str(entry) not in seen:
+            seen.add(str(entry))
+            allow_rules.append(str(entry))
+    deny = resolve_rules(kind, "deny", list(p["deny"]) if isinstance(p.get("deny"), list) else None)
+    ask = resolve_rules(kind, "ask", list(p["ask"]) if isinstance(p.get("ask"), list) else None)
+    return allow_rules, deny, ask
+
+
+_HOOK_BRIDGE_HARNESSES = {
+    "claude-code": {
+        "module": "cc_hook_bridge",
+        "settings": ".claude/settings.json",
+        "format": "json",
+    },
+    "codex": {
+        "module": "codex_hook_bridge",
+        "settings": "~/.codex/config.toml",
+        "format": "toml",
+    },
+    "opencode": {
+        "module": "opencode_hook_bridge",
+        "settings": f".opencode/plugins/{OPENCODE_HOOK_BRIDGE_PLUGIN_NAME}",
+        "format": "opencode-plugin",
+    },
+    "omp": {
+        "module": "omp_hook_bridge",
+        "settings": f"~/.omp/agent/extensions/{OMP_HOOK_BRIDGE_EXTENSION_NAME}",
+        "format": "omp-extension",
+    },
+}
+
+
+def _hook_bridge_spec_for_kind(kind: str) -> dict[str, str] | None:
+    spec = _HOOK_BRIDGE_HARNESSES.get(kind)
+    if spec is None:
+        return None
+    if kind == "codex":
+        return {**spec, "settings": _codex_user_path("config.toml")}
+    if kind == "omp":
+        # dynamic like codex: the extensions dir lives under the resolved omp agent root, not
+        # the literal ``~/.omp/agent`` placeholder above.
+        return {**spec, "settings": _omp_user_path(f"extensions/{OMP_HOOK_BRIDGE_EXTENSION_NAME}")}
+    return spec
+
+
+def _build_hook_bridge(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> None:
+    """Plan the agents-hooks/v1 → harness bridge registration, if applicable.
+
+    Harnesses do not run the ``agent_hooks`` descriptors directly; they need a bridge registered
+    in their own config. This emits one ``register_hook_bridge`` action that wires the relevant
+    dispatcher from ``agent-tools/lib`` into that harness config.
+
+    Gated on a harness block being present, enabled, of a supported kind, AND
+    ``agent_hooks`` being enabled (a bridge with no installed descriptors is pointless) AND
+    ``harness.hook_bridge`` not turned off. Anchored on the resolved agent-tools checkout so
+    the dispatcher command imports the harness bridge from ``<checkout>/lib``.
+    """
+    h = config.data.get("harness")
+    if not isinstance(h, dict) or not h or h.get("enabled") is False:
+        return
+    ah = config.category("agent_hooks")
+    if ah.get("enabled") is False:
+        plan.notes.append(
+            "hook_bridge: skipped — agent_hooks disabled, so no descriptors to dispatch"
+        )
+        return
+    primary_kind = str(h.get("kind", _DEFAULT_HARNESS_KIND))
+    hooks_dir: Path | None = None
+    if not _additional_hook_targets_enabled(config):
+        hooks_dir = _resolve_agent_hooks_targets(config)[0]
+        plan.notes.append(
+            "hook_bridge: agent_hooks target/default pins one descriptor dir; registering "
+            "configured bridges with that descriptor-dir override"
+        )
+    for kind in _hook_bridge_kinds(config):
+        _build_hook_bridge_for_kind(config, catalog, plan, h, kind, primary_kind, hooks_dir=hooks_dir)
+
+
+def _build_hook_bridge_for_kind(
+    config: LoadedConfig,
+    catalog: Catalog,
+    plan: InstallPlan,
+    h: dict[str, Any],
+    kind: str,
+    primary_kind: str,
+    hooks_dir: Path | None = None,
+) -> None:
+    bridge_cfg = h.get("hook_bridge")
+    # The explicit opt-out check runs FIRST, before the "no known bridge surface" branch below —
+    # an explicit `hook_bridge.enabled: false` is a documented key with documented semantics
+    # (quiet the bridge entirely), and it must stay honored even for a kind with no bridge at
+    # all. Ordering it AFTER the unconditional gap note (an earlier version of this function
+    # did) made that opt-out dead code for pi/commandcode: bridge_spec is None returns before
+    # the enabled-False branch is ever reached, so a user who already knows pi/commandcode has
+    # no bridge and deliberately silenced it would get nagged on every build with no way to
+    # suppress it (review-cli caught this regression on rig-cli#342).
+    if isinstance(bridge_cfg, dict) and bridge_cfg.get("enabled") is False:
+        return
+    bridge_spec = _hook_bridge_spec_for_kind(kind)
+    if bridge_spec is None:
+        # Reaching this branch means the harness has skill/instruction discovery but no known
+        # hook bridge surface yet (currently pi/commandcode). Surfaced UNCONDITIONALLY whenever
+        # the user has NOT explicitly opted out above — a real coverage gap the user should see
+        # on every plan build, not only when they thought to ask for a bridge that does not
+        # exist. (Silently staying quiet unless hook_bridge.enabled: true was explicitly set let
+        # this gap hide forever for anyone who never tried opting in — rig-cli#337/#342.)
+        plan.notes.append(
+            f"hook_bridge: skipped — kind '{kind}' {HOOK_BRIDGE_NO_SUPPORT_PHRASE}"
+        )
+        return
+    lib_dir = catalog.source / "lib"
+    # Fail-CLOSED: never wire a harness-config command that would error at runtime. The
+    # catalog only checks for skills/ + agent-hooks/, so an older agent-tools checkout can
+    # lack a runnable bridge package — wiring it anyway means every tool call hits a broken
+    # hook (which, fail-open, is harmless but noisy). Skip with a clear,
+    # actionable note instead.
+    module = str(bridge_spec["module"])
+    bridge_format = str(bridge_spec["format"])
+    bridge_dir = lib_dir / module
+    bridge_required = [bridge_dir / "dispatch.py", bridge_dir / "__main__.py"]
+    if bridge_format == "opencode-plugin":
+        bridge_required.append(bridge_dir / "plugin.js")
+    if bridge_format == "omp-extension":
+        bridge_required.append(bridge_dir / "extension.ts")
+    bridge_missing = [p.name for p in bridge_required if not p.is_file()]
+    if bridge_missing:
+        plan.notes.append(
+            f"hook_bridge: skipped — {bridge_dir} is incomplete in this agent-tools checkout "
+            f"(missing {', '.join(bridge_missing)}; update agent-tools to a version that ships "
+            "the runnable dispatcher)"
+        )
+        return
+    explicit_settings_path = h.get("settings_path") if kind == primary_kind else None
+    settings_path = explicit_settings_path or bridge_spec["settings"]
+    expected_suffix = {
+        "toml": ".toml",
+        "opencode-plugin": ".js",
+        "omp-extension": ".ts",
+    }.get(bridge_format, ".json")
+    actual_suffix = Path(str(settings_path)).suffix
+    if (
+        bridge_format in {"toml", "opencode-plugin", "omp-extension"}
+        and explicit_settings_path
+        and actual_suffix
+        and actual_suffix != expected_suffix
+    ):
+        plan.notes.append(
+            f"hook_bridge: skipped — kind '{kind}' expects a {expected_suffix} settings_path, "
+            f"got {settings_path}"
+        )
+        return
+    options: dict[str, Any] = {
+        "kind": kind,
+        "lib_dir": str(lib_dir),
+        "module": module,
+        "format": bridge_format,
+    }
+    effective_hooks_dir = hooks_dir
+    if effective_hooks_dir is None and kind == "codex":
+        codex_hooks_dir = _expand(
+            _codex_user_path("hooks"),
+            config.repo_root,
+        )
+        # _codex_user_path never returns empty for codex; call it directly and keep the baseline
+        # literal ~/.codex/hooks so RIG_CODEX_HOME-driven divergence is detected.
+        baseline_codex_hooks_dir = _expand(_HARNESS_AGENT_HOOK_TARGETS["codex"], config.repo_root)
+        if not _same_dir(codex_hooks_dir, baseline_codex_hooks_dir):
+            effective_hooks_dir = codex_hooks_dir
+    # NOTE: omp deliberately has NO equivalent divergence block here, unlike codex above. The
+    # divergence exists for codex because ``RIG_CODEX_HOME`` is a rig-owned env var the codex
+    # dispatcher does not know about on its own — without threading it through explicitly, rig
+    # would write descriptors to the RIG_CODEX_HOME-resolved dir while the dispatcher kept
+    # reading the literal ~/.codex/hooks default, a real mismatch. omp's dispatcher instead
+    # PORTS rig's own ``omp_agent_root()`` precedence verbatim (``PI_CODING_AGENT_DIR`` /
+    # ``PI_CONFIG_DIR``, see lib/omp_hook_bridge/dispatch.py's ``_omp_agent_root()``), so it
+    # independently resolves the SAME directory rig writes descriptors to with no override
+    # needed — baking one in here would only turn a plain symlink into an unnecessary wrapper.
+    if effective_hooks_dir is not None:
+        options["hooks_dir"] = str(effective_hooks_dir)
+    if isinstance(bridge_cfg, dict) and bridge_cfg.get("python"):
+        options["python"] = str(bridge_cfg["python"])
+    has_repo_config_layer = any(layer.startswith(("repo:", "config:")) for layer in config.layers)
+    if (
+        bridge_format == "opencode-plugin"
+        and not Path(os.path.expanduser(str(settings_path))).is_absolute()
+        and not has_repo_config_layer
+    ):
+        plan.notes.append(
+            "hook_bridge: skipped — repo-local opencode plugin path requires a repo config layer"
+        )
+        return
+    if kind == "codex":
+        extra_stop_hooks = _codex_extra_stop_hooks(config)
+        if extra_stop_hooks:
+            options["extra_stop_hooks"] = extra_stop_hooks
+    # the claude-code JSON bridge fans out to every claude-rotate config dir (rig-cli#368);
+    # every other format/kind resolves to its single primary file
+    primary = _expand(str(settings_path), config.repo_root)
+    targets = (
+        _claude_settings_targets(config, kind, primary)
+        if bridge_format == "json"
+        else [SettingsTarget(primary, None)]
+    )
+    for target in targets:
+        plan.actions.append(
+            Action(
+                kind="register_hook_bridge",
+                category="harness",
+                item=fan_out_item("hook-bridge", target),
+                source=catalog.source,
+                target=target.path,
+                options=dict(options),
+            )
+        )
+
+
+def _codex_extra_stop_hooks(config: LoadedConfig) -> list[str]:
+    """tg-ctl's Codex Stop usage-telemetry hook, folded into rig's own bridge (tg-cli#308).
+
+    Delegates entirely to :func:`riglib.tg_ctl.codex_usage_hook_command` — the single place
+    that decides whether to fold in and resolves the command — so this planner never
+    independently re-derives tg-ctl's bun/tg_ctl_path resolution (that would risk disagreeing
+    with the actual provisioned daemon, and with tg-ctl's own grep-based detection of this
+    command in the rendered config.toml). tg-ctl's paths are HOME-anchored per-machine (not
+    repo-relative), same reasoning as ``_build_tg_ctl``, so this resolves against ``Path.home()``
+    rather than the repo-relative ``_expand`` helper.
+    """
+    from .tg_ctl import codex_usage_hook_command
+
+    t = config.data.get("tg_ctl") or {}
+    cmd = codex_usage_hook_command(t, home=Path.home())
+    return [cmd] if cmd else []
+
+
+def _build_omp_idle_ttl(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan ``task.agentIdleTtlMs: 0`` into omp's agent config so yielded helpers stay live.
+
+    omp parks idle helpers after ``task.agentIdleTtlMs`` (default 420000 ms); parked agents
+    drop off the live hub roster. ``<= 0`` disables parking (docs/tools/task.md). Emitted
+    whenever a configured harness kind is omp and the harness block is enabled.
+    """
+    if _enabled_harness_block(config) is None:
+        return
+    if "omp" not in _configured_harness_kinds(config):
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_omp_idle_ttl",
+            category="harness",
+            item="omp-idle-ttl",
+            source=config.repo_root,
+            target=_expand(_omp_user_path("config.yml"), config.repo_root),
+            options={"kind": "omp"},
+        )
+    )
+
+
+
+def _build_agents_symlink(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the AGENTS.md (canonical) + CLAUDE.md (symlink) provisioning for the repo.
+
+    Default **ON**: every repo should expose one agent-guide file under both names so every
+    harness reads the same instructions, plus the marker-delimited orchestrator and
+    autonomous-mode reminders spliced into that guide. Opt out with
+    ``agents_md: { enabled: false }`` (or ``{ symlink: false }``). The classify-and-converge
+    logic lives in ``actions/`` (it depends on what is already on disk), so the plan emits
+    idempotent actions anchored at the repo root; no carrier in agent-tools.
+    """
+    am = config.data.get("agents_md")
+    if am is None:
+        am = {}
+    if not isinstance(am, dict):
+        return  # validate() already fail-closed on a non-mapping block
+    if am.get("enabled") is False or am.get("symlink") is False:
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_agents_symlink",
+            category="agents_md",
+            item="symlink",
+            source=config.repo_root,
+            target=config.repo_root,
+            options={},
+        )
+    )
+    # Symlink first so create_both writes the placeholder before these splices run.
+    plan.actions.append(
+        Action(
+            kind="provision_agents_orchestrator",
+            category="agents_md",
+            item="orchestrator",
+            source=config.repo_root,
+            target=config.repo_root,
+            options={},
+        )
+    )
+    plan.actions.append(
+        Action(
+            kind="provision_agents_autonomous_mode",
+            category="agents_md",
+            item="autonomous-mode",
+            source=config.repo_root,
+            target=config.repo_root,
+            options={},
+        )
+    )
+
+
+def _build_ship_delegator(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> None:
+    """Plan the per-repo ``.claude/scripts/pr-ship.sh`` (``gh ship`` delegator) provisioning.
+
+    Default **ON**: every managed repo should expose the delegator the global ``gh ship`` alias
+    runs, so ``gh ship`` works there on a clean machine — not only in agent-tools (the only repo that
+    historically carried it). Opt out with ``ship_delegator: { enabled: false }``.
+
+    Fail-CLOSED on a checkout lacking the canonical ``ci/ship/ship.sh``: rig never provisions a
+    delegator that would exec a non-existent script. The canonical path is resolved from the
+    agent-tools checkout NOW and carried in the action's ``canonical_ship`` option — apply writes
+    it (as the agent-tools root) into the MACHINE-level ``$XDG_CONFIG_HOME/agent-tools/env`` file,
+    NOT into the delegator, whose rendered content is a portable constant (a re-apply / drift
+    compare is a byte-for-byte no-op even for a repo that commits it). The classify-and-converge
+    + the ``.git/info/exclude`` ignore handling live in ``actions/`` (they depend on what is on
+    disk); the plan emits one idempotent action anchored at the repo root. No carrier in agent-tools.
+    """
+    sd = config.data.get("ship_delegator")
+    if sd is None:
+        sd = {}
+    if not isinstance(sd, dict):
+        return  # validate() already fail-closed on a non-mapping block
+    delegator_enabled = sd.get("enabled") is not False
+    # The `gh ship` gh alias is provisioned by ONE action, gated by EITHER path that wants it: the
+    # (default-on) ship_delegator area, OR a ci `ship` item with `gh_alias: true`. `_build_ci` runs
+    # BEFORE this, so its already-resolved ship action is in the plan — reading it here (rather than
+    # re-deriving the ci enable logic) keeps a single source of truth AND guarantees exactly one
+    # alias action (never a second, unconditional writer racing the reconciler). When ONLY the ci
+    # path asks (delegator disabled), the alias is still provisioned but no delegator file is.
+    ci_alias_requested = any(
+        a.kind == "install_ci" and a.options.get("slot") == "ship" and a.options.get("gh_alias")
+        for a in plan.actions
+    )
+    if not (delegator_enabled or ci_alias_requested):
+        return  # nothing to do — neither path wants the delegator or the alias
+    canonical = catalog.source / "ci" / "ship" / "ship.sh"
+    if not canonical.is_file():
+        plan.notes.append(
+            "ship_delegator: skipped — no ci/ship/ship.sh in this agent-tools checkout "
+            f"({catalog.source}); `gh ship` cannot delegate (update agent-tools to a version "
+            "that ships the ship gate)"
+        )
+        return
+    if delegator_enabled:
+        plan.actions.append(
+            Action(
+                kind="provision_ship_delegator",
+                category="ship_delegator",
+                item="delegator",
+                source=catalog.source,
+                target=config.repo_root,
+                options={"canonical_ship": str(canonical)},
+            )
+        )
+    # The machine-global `gh ship` alias is the ENTRY POINT the delegator serves: `gh ship <PR>`
+    # runs it, and it dispatches to `<repo>/.claude/scripts/pr-ship.sh` (or the canonical fallback).
+    # It was historically HAND-SET; provision it so a clean machine has a working `gh ship` and it
+    # can't silently go missing. A GLOBAL artifact (the expansion is a portable constant, so the
+    # action carries no options) — its target is gh's config file, matching the drift row's target.
+    from .gh_ship_alias import GH_SHIP_ALIAS_CATEGORY, gh_config_path
+
+    # The alias's out-of-repo fallback resolves AGENT_TOOLS_ROOT from the machine-level env file,
+    # which `_do_provision_ship_delegator` reconciles. In the ci-only combo (delegator DISABLED but
+    # a ci `ship` item asks for the alias) NO delegator action is emitted, so the alias action must
+    # own the env file itself — else `gh ship` outside a managed repo resolves nothing and exits 127
+    # on a clean machine (codex P2, PR #151). Carry canonical_ship ONLY then: when the delegator is
+    # emitted it reconciles the env file, so the alias stays a portable, option-less constant (no
+    # double writer). The runner + drift read this option to decide whether to reconcile/check it.
+    # (KNOWN GAP, pre-existing and out of this thread's scope: a SELF-HOSTING repo — agent-tools —
+    # with the delegator enabled skips the env reconcile entirely, so a clean machine that only ever
+    # applies agent-tools has no env file and `gh ship` outside it exits 127. The durable fix is to
+    # make the machine-global alias the SOLE owner of the machine-global env file; tracked separately.)
+    alias_options: dict[str, str] = {} if delegator_enabled else {"canonical_ship": str(canonical)}
+    plan.actions.append(
+        Action(
+            kind="provision_gh_ship_alias",
+            category=GH_SHIP_ALIAS_CATEGORY,
+            item="alias",
+            source=catalog.source,
+            target=gh_config_path(),
+            options=alias_options,
+        )
+    )
+
+
+# The task.code_prefix / SHIP_TASK_CODE_PREFIX contract, encoded ONCE and shared with
+# actions/runner.py's re-check before writing the line to disk (a shell-sourced file, so the
+# runner is the last gate) — the JSON Schema's not_pattern (config_schema.py) is a THIRD,
+# necessarily-separate encoding (regex syntax the schema generator emits), kept in sync by hand.
+SHIP_TASK_CODE_PREFIX_RE = re.compile(r"[A-Z0-9]{1,40}")
+
+
+def _build_ship_task_prefix(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan ``.ship-config``'s ``SHIP_TASK_CODE_PREFIX`` line from ``task.code_prefix``.
+
+    Unset (the default) emits NOTHING — the action is only added when a prefix is actually
+    configured, so a repo that never touches the ``task`` block never gets a ``.ship-config``
+    conjured out of nothing. See ``_do_provision_ship_task_prefix`` (actions/runner.py) for why
+    this is a merge into any existing file rather than a whole-file write, and
+    ``ci/ship/ship.sh``'s header doc for why the prefix exists: review-cli's review-quorum
+    store is a single GLOBAL file keyed only by the task-code string, with no per-repo scoping —
+    a repo whose task-cli backend is GitHub Issues (bare ``#NNN``, no code convention of its
+    own) needs a repo-unique prefix synthesized in front of the issue number, or two repos both
+    deriving bare ``#346`` would silently share (and falsely satisfy) each other's count.
+    """
+    task = config.data.get("task")
+    if task is None:
+        task = {}
+    if not isinstance(task, dict):
+        # validate() (config.py's _validate_task) already raises ConfigError for a non-mapping
+        # `task` block in the normal production path (rig apply / rig config set always call
+        # validate() first) — this branch is bypass-only defense-in-depth for a caller that
+        # constructs a LoadedConfig directly (see test_build_notes_non_mapping_task_block_
+        # when_validate_is_bypassed). Note it anyway, for the same reason a malformed
+        # code_prefix gets a note below: silence here would look identical to "no task block
+        # configured" and a caller that DID bypass validate() would never learn why nothing
+        # was written.
+        plan.notes.append(f"task {task!r} is not a mapping — not writing .ship-config")
+        return
+    prefix = task.get("code_prefix")
+    if prefix is None or prefix == "":
+        return  # genuinely unset — no note, this is the expected default
+    if not isinstance(prefix, str):
+        # validate() checks block/scalar STRUCTURE, not a leaf's declared type (see the
+        # not_pattern comment in config_schema.py) — a non-string value reaches here
+        # undetected. Deliberately NOT coerced (e.g. an unquoted `code_prefix: 12345` parses
+        # as a YAML int): the JSON schema declares `"type": "string"`, so a coercing builder
+        # would silently accept a value every schema-aware editor already flags as invalid —
+        # the same string/schema disagreement the config_schema.py:870 comment warns against.
+        # Note it, same as a malformed string below, and tell the author how to fix it.
+        plan.notes.append(
+            f"task.code_prefix {prefix!r} is not a string (quote it, e.g. code_prefix: \"12345\") "
+            "— not writing .ship-config"
+        )
+        return
+    # Re-validate the SAME 1-40-uppercase-letters/digits contract ship.sh enforces (see
+    # ci/ship/ship.sh's SHIP_TASK_CODE_PREFIX parsing) here too, at plan-build time — not just
+    # in the JSON schema's `not_pattern`. Catching a malformed value HERE means `rig apply`
+    # refuses to even attempt the write, rather than writing a value ship.sh will later read and
+    # discard by ignoring the WHOLE .ship-config file (silently dropping any hand-committed
+    # SHIP_LOCAL_TEST_DIR/SHIP_LOCAL_TEST_CMD override too — exactly what the merge-not-overwrite
+    # design in _do_provision_ship_task_prefix exists to protect).
+    if not SHIP_TASK_CODE_PREFIX_RE.fullmatch(prefix):
+        plan.notes.append(
+            f"task.code_prefix {prefix!r} is not 1-40 uppercase letters/digits — "
+            "not writing .ship-config (fix the value, or ship.sh would ignore the whole file)"
+        )
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_ship_task_prefix",
+            category="task",
+            item="code_prefix",
+            source=config.repo_root,
+            target=config.repo_root,
+            options={"code_prefix": prefix},
+        )
+    )
+
+
+def _build_linters(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> None:
+    """Plan generic config carriers plus Rig-owned Oxc rule policy.
+
+    Explicit ``linters.items`` remain generic and can be provisioned regardless of the active lint
+    engine. Rule policy is different: Rig only emits Oxc policy/plugin actions when the repository
+    is ready to execute them. A foreign/no-linter repository gets one loud blocked action containing
+    a copy-ready migration prompt while the rest of ``rig apply`` can continue.
+    """
+    li = config.data.get("linters")
+    if li is None:
+        li = {}
+    if not isinstance(li, dict) or li.get("enabled") is False:
+        return
+
+    from .lint_policy import anti_slop_required, render_oxlint_config, resolve_rule_severities, rule_policy_summary
+    from .linter_carriers import read_source_text
+    from .linter_environment import inspect_formatter_environment, inspect_linter_environment
+    from .managed_config import SOURCE_BACKED, with_managed_header
+
+    bundles = li.get("bundles", {})
+    if isinstance(bundles, dict):
+        for name, spec in bundles.items():
+            if not isinstance(spec, dict) or spec.get("enabled") is False:
+                continue
+            plan.actions.append(Action(
+                kind="provision_linter_bundle", category="linters", item=str(name),
+                source=catalog.source, target=config.repo_root,
+                options={"source_rel": str(spec["source"]), "target_rel": str(spec["target"])},
+            ))
+
+    items = li.get("items", {})
+    item_paths: set[str] = set()
+    if isinstance(items, dict):
+        for name, spec in items.items():
+            if not isinstance(spec, dict) or spec.get("enabled") is False:
+                continue
+            rel_path = spec.get("path")
+            if not isinstance(rel_path, str) or not rel_path:
+                continue
+            content = spec.get("content")
+            source_rel = spec.get("source")
+            source_backed = isinstance(source_rel, str) and bool(source_rel)
+            if source_backed:
+                try:
+                    content = read_source_text(catalog.source, source_rel)
+                except ValueError as exc:
+                    raise PlanError(f"linters.items.{name}.source: {exc}") from exc
+            if not isinstance(content, str) or not content:
+                continue
+            if source_backed:
+                content = with_managed_header(
+                    rel_path,
+                    content,
+                    source=f"agent-tools/{source_rel} + rig.yaml selection",
+                    management_class=SOURCE_BACKED,
+                )
+            item_paths.add(PurePosixPath(rel_path).as_posix())
+            plan.actions.append(
+                Action(
+                    kind="provision_linter_config",
+                    category="linters",
+                    item=str(name),
+                    source=catalog.source,
+                    target=config.repo_root,
+                    options={
+                        "tool": str(spec.get("tool") or ""),
+                        "role": str(spec.get("role") or "linter"),
+                        "rel_path": rel_path,
+                        "content": content,
+                    },
+                )
+            )
+
+    stack_parts = set((config.stack or "").split("/"))
+    typescript_stack = bool({"ts", "typescript"} & stack_parts)
+    rules_explicit = "rules" in li
+    if not typescript_stack and not rules_explicit:
+        return
+    if "oxlint.config.ts" in item_paths:
+        raise PlanError(
+            "linters.items targets oxlint.config.ts while Rig rule policy also owns that file; "
+            "remove the item and configure linters.rules instead"
+        )
+
+    rules_cfg = li.get("rules", {})
+    if not isinstance(rules_cfg, dict):
+        rules_cfg = {}
+    severities = resolve_rule_severities(rules_cfg)
+    summary = rule_policy_summary(rules_cfg)
+    plan.notes.append(
+        "linters: effective rule policy — "
+        f"{summary['error']} error, {summary['warn']} warn, {summary['off']} off"
+    )
+
+    env = inspect_linter_environment(config.repo_root)
+    formatter_env = inspect_formatter_environment(config.repo_root)
+    if ".oxfmtrc.jsonc" not in item_paths:
+        if formatter_env.ready:
+            source_rel = "linters/oxc/.oxfmtrc.jsonc"
+            source_file = catalog.source / source_rel
+            if not source_file.is_file():
+                raise PlanError(f"Oxfmt carrier is missing: {source_file}")
+            try:
+                formatter_content = source_file.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
+            except (OSError, UnicodeDecodeError) as exc:
+                raise PlanError(f"cannot read Oxfmt carrier {source_file}: {exc}") from exc
+            formatter_content = with_managed_header(
+                ".oxfmtrc.jsonc", formatter_content,
+                source=f"agent-tools/{source_rel}", management_class=SOURCE_BACKED,
+            )
+            plan.actions.append(Action(
+                kind="provision_linter_config", category="linters", item="rig-oxfmt-baseline",
+                source=source_file, target=config.repo_root,
+                options={"tool": "oxfmt", "role": "formatter", "rel_path": ".oxfmtrc.jsonc",
+                         "content": formatter_content, "rig_owned": True},
+            ))
+            if formatter_env.foreign_formatters:
+                plan.notes.append(
+                    "formatters: Oxfmt is available alongside " + ", ".join(formatter_env.foreign_formatters)
+                    + "; Rig applies the Oxfmt baseline but duplicate/conflicting format scripts should be migrated deliberately"
+                )
+        else:
+            plan.actions.append(Action(
+                kind="format_policy_blocked", category="linters", item="formatter",
+                source=catalog.source, target=config.repo_root,
+                options={"reason": formatter_env.reason, "agent_prompt": formatter_env.agent_prompt},
+            ))
+
+    blocked_reason = ""
+    if not env.ready:
+        blocked_reason = env.reason
+    elif anti_slop_required(severities) and "@oxlint/plugins" in env.missing_oxc_packages:
+        blocked_reason = (
+            "Rig anti-slop policy is blocked because @oxlint/plugins is not declared in this "
+            "repository; the generated local plugin cannot execute reliably without it."
+        )
+    if blocked_reason:
+        plan.actions.append(
+            Action(
+                kind="lint_policy_blocked",
+                category="linters",
+                item="rules",
+                source=catalog.source,
+                target=config.repo_root,
+                options={"reason": blocked_reason, "agent_prompt": env.agent_prompt},
+            )
+        )
+        return
+
+    if env.foreign_linters:
+        plan.notes.append(
+            "linters: Oxlint is available alongside "
+            + ", ".join(env.foreign_linters)
+            + "; Rig applies Oxc policy but the repository should avoid duplicate/conflicting lint scripts"
+        )
+
+    generated = render_oxlint_config(rules_cfg)
+    plan.actions.append(
+        Action(
+            kind="provision_linter_config",
+            category="linters",
+            item="rig-oxlint-policy",
+            source=catalog.source,
+            target=config.repo_root,
+            options={
+                "tool": "oxlint",
+                "role": "linter",
+                "rel_path": "oxlint.config.ts",
+                "content": generated,
+                "preview_findings": li.get("preview") is not False,
+                "rig_owned": True,
+            },
+        )
+    )
+
+    if anti_slop_required(severities):
+        try:
+            source_rel, _source_root = rule_provider_carrier(catalog.source, "anti-slop")
+        except Exception as exc:
+            raise PlanError(str(exc)) from exc
+        if not any(a.kind == "provision_linter_bundle" and a.options.get("target_rel") == "tools/oxlint/anti-slop" for a in plan.actions):
+            plan.actions.append(Action(
+                kind="provision_linter_bundle", category="linters", item="anti-slop",
+                source=catalog.source, target=config.repo_root,
+                options={"source_rel": source_rel, "target_rel": "tools/oxlint/anti-slop"},
+            ))
+
+
+def _build_global_excludes(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed block in the GLOBAL git excludes file (``core.excludesfile``).
+
+    This is GLOBAL (machine-wide) config, wired like the git-hooks ``dispatcher``: rig owns ONE
+    marker-delimited block in git's global ``core.excludesfile`` so harness artifacts — chiefly
+    Claude Code's throwaway ``**/.claude/worktrees/`` — are ignored in EVERY repo on the machine,
+    with zero per-repo commits and no per-repo ``rig apply``. Opt out with
+    ``gitignore: { enabled: false }``. Default **ON** (like the dispatcher), so on a clean machine
+    ``rig init``/``rig apply`` provisions it without any per-repo config.
+
+    Target resolution is deferred to apply time (it depends on whether ``core.excludesfile`` is
+    already set on this machine — a thing the plan cannot read purely), so the plan emits ONE
+    idempotent action carrying the resolved ``entries`` and the XDG fallback path; the runner
+    reads ``core.excludesfile`` and EITHER reconciles the block in the user's existing excludes
+    file OR sets ``core.excludesfile`` to the XDG default and writes the block there. The
+    placeholder ``target`` is the XDG default for display; the runner re-resolves it. No carrier
+    in agent-tools.
+
+    The ignored ``entries`` are configurable with a sensible default (``GITIGNORE_DEFAULT_ENTRIES``);
+    an empty/absent list uses that default. The ``excludesfile`` override (rare) forces a specific
+    file rather than honoring ``core.excludesfile``.
+    """
+    gi = config.data.get("gitignore")
+    if gi is None:
+        gi = {}
+    if not isinstance(gi, dict):
+        return  # validate() already fail-closed on a non-mapping block
+    if gi.get("enabled") is False:
+        return
+    raw_entries = gi.get("entries")
+    if not isinstance(raw_entries, list) or not raw_entries:
+        entries = list(GITIGNORE_DEFAULT_ENTRIES)
+    else:
+        entries = [str(e) for e in raw_entries]
+    override = gi.get("excludesfile")
+    options: dict[str, Any] = {
+        "entries": entries,
+        "xdg_default": GITIGNORE_DEFAULT_EXCLUDESFILE,
+    }
+    if isinstance(override, str) and override:
+        options["excludesfile"] = override
+    plan.actions.append(
+        Action(
+            kind="provision_global_excludes",
+            category="gitignore",
+            item="block",
+            source=config.repo_root,
+            # Placeholder for display only — the runner re-resolves the real target from
+            # core.excludesfile (or the XDG default) at apply time. Expanded for portability.
+            target=_expand(GITIGNORE_DEFAULT_EXCLUDESFILE, config.repo_root),
+            options=options,
+        )
+    )
+
+
+def _enabled_ci_check_contexts(config: LoadedConfig, catalog: Catalog) -> list[str]:
+    """The required-status-check contexts for the merge-gating CI gates this repo actually has.
+
+    ROADMAP §5 names the PR-checklist and unresolved-review-threads gates as the required checks
+    rig adds to the ruleset. But requiring a check whose workflow ISN'T in the repo wedges every PR
+    (GitHub waits forever for a check-run that can never report — the lockout guard in
+    ``github_ruleset.CI_GATE_CHECK_CONTEXTS``). So we require a context ONLY when its CI gate is
+    enabled AND being written to ``.github/workflows`` (not ``export-only``, where nothing lands).
+    The returned list is in ``CI_GATE_CHECK_CONTEXTS`` order so the plan is deterministic.
+    """
+    ci = config.category("ci")
+    if ci.get("enabled") is False:
+        return []
+    # WHITELIST the one target GitHub actually runs workflows from: `.github/workflows`. GitHub only
+    # executes workflow files in that exact directory — `export-only` (write nowhere) OR any other
+    # custom target means the check-run never appears, so requiring its context would wedge every PR
+    # (the lockout footgun). A blacklist of just `export-only` would miss every other non-standard
+    # target; the whitelist is the safe form.
+    target = ci.get("target", config.defaults.get("ci_target", ".github/workflows"))
+    if target != ".github/workflows":
+        return []
+    known = catalog.names("ci")
+    contexts: list[str] = []
+    for slot, context in CI_GATE_CHECK_CONTEXTS.items():
+        if slot not in known:
+            continue  # the checkout doesn't carry this gate — can't be provisioned, so don't require
+        item = catalog.get("ci", slot)
+        # `type_enabled=False` is DELIBERATE: a gate becomes a required check only when the config
+        # actually enables it (items.<>.enabled / enable: / all:), matching the CI builder's own
+        # resolution exactly — so a gate that is WRITTEN as a workflow is the same set that is
+        # REQUIRED, and the two can't drift. The scaffold (riglib/state.py) enables both merge gates
+        # explicitly, so a fresh repo gets both required. (A bare project-type default does not flip a
+        # CI gate on here — CI items are `default_enabled=False` in the catalog — so there is no
+        # "type pulls in a gate but it isn't required" gap; the gate isn't pulled in at all without
+        # explicit config.)
+        if item is not None and _item_enabled(ci, item, type_enabled=False):
+            contexts.append(context)
+    return contexts
+
+
+def _build_github_ruleset(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> None:
+    """Plan the GitHub repository branch-ruleset provisioning for the repo.
+
+    Default **ON** (like ``agents_md``): rig reconciles a branch ruleset named
+    ``github.ruleset.name`` (default ``rig-managed``) on the repo's DEFAULT branch via
+    ``gh api``. Opt out with ``github: { ruleset: { enabled: false } }``. The whole
+    GitHub-vs-desired classification lives in ``actions/`` (it depends on the live API), so the
+    plan emits ONE idempotent action carrying the resolved knobs; no carrier in agent-tools,
+    and the repo root is the target the action resolves ``owner/repo`` from.
+
+    The action itself returns ``skipped`` when the repo has no github remote — so "default ON
+    when the repo has a github remote" needs no detection here; a non-github repo is a no-op.
+    The resolved options merge the documented defaults with any ``ruleset`` overrides, so a
+    sparse config still produces the safe default ruleset and the footgun ``update`` rule is
+    never reachable.
+
+    REQUIRED STATUS CHECKS (ROADMAP §5). When the config does NOT pin ``required_status_checks``,
+    rig defaults them to the merge-gating CI gates this repo actually provisions (PR Checklist +
+    review-threads, via :func:`_enabled_ci_check_contexts`) — so a PR can't merge until those gates
+    are green, WITHOUT requiring a check whose workflow isn't present (which would wedge every PR).
+    An explicit ``required_status_checks`` in the config wins verbatim (including ``[]`` to require
+    none), so the auto-default never overrides a deliberate choice.
+
+    UNATTRIBUTED-APPROVAL KNOB, MODE-GATED. GitHub's
+    ``require_extra_approval_for_unattributed_changes`` requires one more approval than
+    ``required_approving_review_count`` on a PR GitHub classifies as opened under an app identity
+    not attributed to a person — GitHub's own docs name the Copilot coding agent as the documented
+    trigger ("When Copilot opens a pull request that isn't attributed to a person, the ruleset
+    requires one more approval than the number you configured"). Found ON (``true``) blocking
+    ``gh ship``'s merge on agent-tools' ``rig-managed`` ruleset and hand-patched to ``false`` via a
+    raw ``gh api ... -X PUT`` on 2026-09-07 as an emergency stopgap (rig-cli#399's investigation
+    could not independently confirm from the rule-suites log or PR authorship why it fired there —
+    agent-tools' recent merges are all attributed to a human login, which the documented mechanism
+    would not gate on; the exact causal story is unresolved, only the observed block + the hand-
+    patch are facts). This makes the fix durable regardless of the precise mechanism. rig defaults
+    it to ``False`` (never required), but ONLY for a repo whose EFFECTIVE ``mode.name`` is ``autonomous``
+    (:func:`_autonomous_block`, cascaded from the machine-wide ``~/.config/rig/config.yaml`` —
+    ``mode`` is a GLOBAL-only category, config.py rejects it from a committed repo ``rig.yaml``
+    outright — so THIS GATING IS PER-MACHINE, not per-repo: every repo `rig apply` touches from a
+    machine with ``mode.name: autonomous`` gets the knob managed). A repo NOT running in autonomous
+    mode gets no injected default: the knob is simply absent from ``options``, so it is never sent
+    in the DESIRED body and never compared for drift — it is UNMANAGED. An unrelated knob change
+    still PUTs the full ``pull_request`` rule (a full-replace update), which would otherwise reset
+    an unmanaged knob to GitHub's own platform default — so ``actions/runner.py``'s
+    ``_do_provision_github_ruleset`` carries the live-fetched value into the outgoing PUT
+    unchanged (``github_ruleset.carry_over_unattributed_approval``), NOT a full optimistic-
+    concurrency guarantee: a hand edit landing in the narrow window between that read and the PUT
+    can still be overwritten — the same read-then-write risk this module already carries for every
+    field it reconciles. An explicit
+    ``github.ruleset.require_extra_approval_for_unattributed_changes`` in the repo's own config
+    ALWAYS wins over this mode-gated default, in either direction and regardless of mode — this is
+    the way to opt a single repo back in even on an autonomous-mode machine.
+    """
+    gh = config.data.get("github")
+    if gh is None:
+        gh = {}
+    if not isinstance(gh, dict):
+        return  # validate() already fail-closed on a non-mapping block
+    ruleset = gh.get("ruleset", {})
+    if not isinstance(ruleset, dict):
+        return
+    if ruleset.get("enabled") is False:
+        return
+    # `enabled` is a plan-gating meta-key, not a ruleset-body knob — strip it before merging the
+    # overrides onto the canonical defaults so it never leaks into the action options. Also drop
+    # explicit `null` values: a `required_reviews: null` (which validate() tolerates) would
+    # otherwise overlay the `0` default with None and crash `int(None)` in build_ruleset_rules —
+    # and a `null` bool knob would silently disable a guard instead of using its default. A
+    # missing key already falls back to the default; an explicit null must do the same.
+    overrides = {k: v for k, v in ruleset.items() if k != "enabled" and v is not None}
+    options = {**GITHUB_RULESET_DEFAULTS, **overrides}
+    # Default the required checks to the repo's actual merge-gating CI gates when not pinned. The
+    # presence test is on the ORIGINAL ruleset mapping (an explicit `[]` is a deliberate "require
+    # none" and must survive the `v is not None` filter above — which it does, so check `ruleset`).
+    if "required_status_checks" not in ruleset or ruleset.get("required_status_checks") is None:
+        options["required_status_checks"] = _enabled_ci_check_contexts(config, catalog)
+    # Mode-gated default only — never overrides an explicit config value (setdefault, and the
+    # config-driven `overrides` merge above already ran).
+    if _autonomous_block(config) is not None:
+        options.setdefault(UNATTRIBUTED_APPROVAL_KEY, False)
+    plan.actions.append(
+        Action(
+            kind="provision_github_ruleset",
+            category="github",
+            item="ruleset",
+            source=config.repo_root,
+            target=config.repo_root,
+            options=options,
+        )
+    )
+
+
+def _github_subblock(config: LoadedConfig, name: str) -> dict | None:
+    """Resolve the ``github.<name>`` sub-block for a plan builder, or None to SKIP it.
+
+    Returns None when the github block is absent/non-mapping, the sub-block is non-mapping, or the
+    sub-block is explicitly disabled (``enabled: false``) — the four callers each then return early.
+    Otherwise returns the sub-block dict (possibly empty → all defaults). One helper so every
+    github plan builder reads the block the same way, with the same default-ON + opt-out semantics
+    as ``_build_github_ruleset``.
+    """
+    gh = config.data.get("github")
+    if gh is None:
+        gh = {}
+    if not isinstance(gh, dict):
+        return None
+    block = gh.get(name, {})
+    if not isinstance(block, dict):
+        return None
+    if block.get("enabled") is False:
+        return None
+    return block
+
+
+def _github_options(block: dict, defaults: dict) -> dict:
+    """Merge a sub-block's overrides onto ``defaults``, dropping ``enabled`` and explicit nulls.
+
+    ``enabled`` is a plan-gating meta-key (handled by :func:`_github_subblock`), and an explicit
+    ``null`` must fall back to the default (never overlay it with None — which would disable a
+    secure-default guard or crash a coercion). Mirrors the ruleset builder's override discipline.
+    """
+    overrides = {k: v for k, v in block.items() if k != "enabled" and v is not None}
+    return {**defaults, **overrides}
+
+
+def _build_github_merge(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the GitHub repo merge-button-policy provisioning (``github.merge``).
+
+    Default **ON** (like ``github.ruleset``): rig reconciles the squash-only merge model +
+    auto-delete-head-branch + allow-auto-merge via ``PATCH /repos/{o}/{r}``. Opt out with
+    ``github: { merge: { enabled: false } }``. The classification lives in ``actions/`` (it depends
+    on the live API); the plan emits ONE idempotent action carrying the resolved knobs. The action
+    returns ``skipped`` on a repo with no github remote, so default-ON needs no detection here.
+    """
+    block = _github_subblock(config, "merge")
+    if block is None:
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_github_merge",
+            category="github",
+            item="merge",
+            source=config.repo_root,
+            target=config.repo_root,
+            options=_github_options(block, GITHUB_MERGE_DEFAULTS),
+        )
+    )
+
+
+def _build_github_ghas(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the GitHub Advanced Security provisioning (``github.ghas``).
+
+    Default **ON**: rig reconciles dependency graph + vuln-alerts + Dependabot security updates +
+    secret-scanning (+ push protection) + CodeQL default-setup, each via the right ``gh api``
+    endpoint. Opt out with ``github: { ghas: { enabled: false } }``. The action degrades loudly on a
+    repo whose plan does not include a GHAS-licensed scanner (private repo without GHAS), and is a
+    no-op on a repo with no github remote.
+    """
+    block = _github_subblock(config, "ghas")
+    if block is None:
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_github_ghas",
+            category="github",
+            item="ghas",
+            source=config.repo_root,
+            target=config.repo_root,
+            options=_github_options(block, GITHUB_GHAS_DEFAULTS),
+        )
+    )
+
+
+def _build_github_actions(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the GitHub Actions permissions provisioning (``github.actions``).
+
+    Default **ON**: rig reconciles Actions-enabled + allowed_actions and the default GITHUB_TOKEN
+    scope (READ-only by default, least privilege) + whether workflows may approve PRs. Opt out with
+    ``github: { actions: { enabled: false } }``. A no-op on a repo with no github remote.
+    """
+    block = _github_subblock(config, "actions")
+    if block is None:
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_github_actions",
+            category="github",
+            item="actions",
+            source=config.repo_root,
+            target=config.repo_root,
+            options=_github_options(block, GITHUB_ACTIONS_DEFAULTS),
+        )
+    )
+
+
+def _build_github_browser(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the API-unreachable GitHub settings provisioning via agent-browser (``github.browser``).
+
+    Default **ON** in the plan (so ``rig status`` shows it), but the action itself is gated OFF at
+    apply time unless ``RIG_GH_BROWSER=1`` — driving a real browser is a heavier path than gh api,
+    so it runs only when explicitly enabled. Opt out of even planning it with
+    ``github: { browser: { enabled: false } }``. The toggle defaults come from the browser backend's
+    ``UI_ONLY_TOGGLES`` table (one source).
+    """
+    block = _github_subblock(config, "browser")
+    if block is None:
+        return
+    defaults = {knob: spec["default"] for knob, spec in UI_ONLY_TOGGLES.items()}
+    plan.actions.append(
+        Action(
+            kind="provision_github_browser",
+            category="github",
+            item="browser",
+            source=config.repo_root,
+            target=config.repo_root,
+            options=_github_options(block, defaults),
+        )
+    )
+
+
+def _build_models(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> None:
+    """Plan the daily model-freshness checker schedule, if a ``models`` block enables it.
+
+    The CTO's #3685 direction: on ``rig init`` AND ``rig apply``, check whether the daily
+    checker cron is installed and install it if missing. The action carries the
+    platform-resolved desired schedule (launchd plist on macOS / crontab line on Linux); the
+    install-if-missing + idempotency live in ``actions/runner.py``, so the plan stays pure.
+
+    No ``models`` block (or ``enabled: false``) → no action (rig leaves the system cron
+    alone). The checker command is anchored on the resolved ``agent_tools_source`` (rig runs
+    agent-tools content read-only from the checkout) unless ``checker_path`` pins one.
+    """
+    from .config import _DEFAULT_SCHEDULE_TIME, parse_hhmm
+    from .schedule import DEFAULT_LABEL, build_schedule, default_checker_path
+
+    m = config.data.get("models")
+    if not isinstance(m, dict) or not m:
+        return
+    if m.get("enabled") is False:
+        return
+
+    schedule_cfg = m.get("schedule", {}) if isinstance(m.get("schedule"), dict) else {}
+    hour, minute = parse_hhmm(schedule_cfg.get("time", _DEFAULT_SCHEDULE_TIME))
+    label = str(schedule_cfg.get("label") or DEFAULT_LABEL)
+
+    # checker path: an explicit ``checker_path`` wins; else the model_freshness.py inside the
+    # resolved agent-tools checkout. If neither resolves, plan a note (not a crash) — the
+    # schedule can't run a checker that doesn't exist.
+    checker_raw = m.get("checker_path")
+    if checker_raw:
+        checker_path = _expand(str(checker_raw), config.repo_root)
+    else:
+        checker_path = default_checker_path(catalog.source)
+    if checker_path is None:
+        plan.notes.append(
+            "models: schedule skipped — no checker_path and agent_tools_source did not resolve "
+            "a checker (set models.checker_path or agent_tools_source)"
+        )
+        return
+    # Don't provision a schedule that runs a checker that isn't on disk — that would install a
+    # cron firing a missing script daily. Skip with a note so the operator fixes the path.
+    if not checker_path.is_file():
+        plan.notes.append(
+            f"models: schedule skipped — checker not found at {checker_path} "
+            "(set models.checker_path, or point agent_tools_source at a checkout that ships "
+            "lib/checker/model_freshness.py)"
+        )
+        return
+
+    sched = build_schedule(checker_path=checker_path, hour=hour, minute=minute, label=label)
+    # the action target is the artifact path the install/drift code keys off: the plist on
+    # macOS, or the user's crontab (a sentinel-conceptual target) on Linux.
+    target = sched.plist_path if sched.platform == "launchd" else config.repo_root
+    plan.actions.append(
+        Action(
+            kind="provision_schedule",
+            category="models",
+            item="model-freshness",
+            source=config.repo_root,  # no carrier; anchor on the repo
+            target=target,  # type: ignore[arg-type]
+            options={
+                "platform": sched.platform,
+                "label": label,
+                "hour": hour,
+                "minute": minute,
+                "checker_path": str(checker_path),
+            },
+        )
+    )
+
+
+def _build_tmux(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed tmux configuration provisioning, if a ``tmux`` block enables it.
+
+    NOT default-on: tmux config is opt-in (a ``tmux:`` block with ``enabled`` not false). The
+    whole generate-and-migrate logic depends on what is already on disk (an existing hand-
+    written ``~/.tmux.conf``), so the plan emits ONE idempotent ``provision_tmux`` action
+    carrying the validated config sub-blocks; the runner resolves the :class:`TmuxPlan` and
+    writes the artifacts. No carrier in agent-tools — rig generates the config itself.
+
+    The conf path is resolved at apply time (HOME-relative ``~/.tmux.conf`` stays portable in a
+    committed rig.yaml), so the action target is the conf path expanded against the repo root.
+    """
+    t = config.data.get("tmux")
+    # A PRESENT `tmux:` block opts in (the docs: a block with `enabled` not false provisions) —
+    # including an explicit empty mapping `tmux: {}` (which yields all the safe defaults). Only an
+    # ABSENT key (None) or `enabled: false` is a no-op. `t == {}` must NOT be treated as absent.
+    if t is None or not isinstance(t, dict):
+        return
+    if t.get("enabled") is False:
+        return
+
+    from .tmux import DEFAULT_APPLY_MODE
+
+    # Resolve conf_path / generated_dir HERE against the repo root, so a relative path is
+    # anchored to the `-C` repo (never the process CWD) and ~/ stays home-anchored. The runner
+    # gets ABSOLUTE paths and never re-resolves against CWD. (Mirrors how every other action's
+    # target is plan-resolved.)
+    conf_path = _expand(str(t.get("conf_path", "~/.tmux.conf")), config.repo_root)
+    generated_dir = _expand(str(t.get("generated_dir", "~/.config/rig/tmux")), config.repo_root)
+
+    # RESOLVE the login shell to a CONCRETE path ONCE here (plan time), not per render. An empty
+    # `login_shell.shell` means "use the user's $SHELL"; resolving it at render would make
+    # rig.tmux.conf depend on $SHELL/FS at the moment of EACH render — so `rig apply` (one $SHELL)
+    # and `rig status` (launchd/cron/CI, different/empty $SHELL) would render DIFFERENT
+    # default-command lines → permanent flapping drift apply "fixes" every run (review Medium). By
+    # baking the path into the action options, render/drift are deterministic and idempotent.
+    login_shell = dict(t.get("login_shell", {}) or {})
+    if login_shell.get("enabled", True) is not False and not login_shell.get("shell"):
+        from .tmux import resolve_login_shell
+
+        login_shell["shell"] = resolve_login_shell()
+
+    # The independent autosave agent is macOS-only (a launchd LaunchAgent). On a non-darwin host
+    # we must NOT let the generated rig.tmux.conf disable continuum's own periodic save
+    # (@continuum-save-interval 0) — no independent runner replaces it there, so the user would be
+    # left with NO autosave at all. Force autosave off off-darwin; continuum keeps saving (codex
+    # P1). apply and status run on the SAME machine, so the gated value is consistent (no drift).
+    autosave = dict(t.get("autosave", {}) or {})
+    if sys.platform != "darwin":
+        autosave["enabled"] = False
+
+    plan.actions.append(
+        Action(
+            kind="provision_tmux",
+            category="tmux",
+            item="config",
+            source=config.repo_root,  # no carrier; rig generates the config
+            target=conf_path,
+            options={
+                "apply_mode": str(t.get("apply", DEFAULT_APPLY_MODE)),
+                "conf_path": str(conf_path),
+                "generated_dir": str(generated_dir),
+                "resurrect": dict(t.get("resurrect", {}) or {}),
+                "continuum": dict(t.get("continuum", {}) or {}),
+                "moshi": dict(t.get("moshi", {}) or {}),
+                "cc_restore": dict(t.get("cc_restore", {}) or {}),
+                "omp_restore": dict(t.get("omp_restore", {}) or {}),
+                "codex_restore": dict(t.get("codex_restore", {}) or {}),
+                "anti_sprawl": dict(t.get("anti_sprawl", {}) or {}),
+                "boot": dict(t.get("boot", {}) or {}),
+                "login_shell": login_shell,
+                "autosave": autosave,
+                "pane_titles": dict(t.get("pane_titles", {}) or {}),
+                "focus_events": dict(t.get("focus_events", {}) or {}),
+                "clipboard": dict(t.get("clipboard", {}) or {}),
+                "copy_mode": dict(t.get("copy_mode", {}) or {}),
+            },
+        )
+        )
+
+
+def env_options_from_config(e: dict[str, Any], repo_root: Path) -> dict[str, Any]:
+    """Resolve an ``env:`` config block into the exact ``options`` dict a ``provision_env``
+    ``Action`` carries (``rc_path``/``generated_dir`` expanded + baked absolute, ``vars``
+    stringified). The ONE place this resolution happens — ``_build_env`` below AND the
+    disabled-env status scan (``cli.py``, which needs the same resolved paths to know WHERE to
+    look for a leftover ``rig.env.sh`` when the config has since turned the block off) both call
+    this instead of each re-deriving the same defaults/``_expand`` calls independently, which
+    would risk silently diverging if this resolution ever changes (review finding).
+    """
+    from .shell_env import DEFAULT_GENERATED_DIR, DEFAULT_RC_PATH
+
+    rc_path = _expand(str(e.get("rc_path", DEFAULT_RC_PATH)), repo_root)
+    generated_dir = _expand(str(e.get("generated_dir", DEFAULT_GENERATED_DIR)), repo_root)
+    vars_block = dict(e.get("vars", {}) or {})
+    return {
+        "rc_path": str(rc_path),
+        "generated_dir": str(generated_dir),
+        "vars": {str(k): str(v) for k, v in vars_block.items()},
+    }
+
+
+def _build_env(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed shell-environment-variables provisioning, if an ``env`` block enables it.
+
+    Mirrors ``_build_tmux``'s opt-in shape exactly: a PRESENT ``env:`` block opts in (including an
+    explicit empty mapping ``env: {}``, which yields a harmless header-only generated file); only an
+    ABSENT key or ``enabled: false`` is a no-op. This is a per-MACHINE concern (the shell startup
+    file rig sources into is HOME-anchored, not repo-relative), so the block lives in the GLOBAL
+    layer (``~/.config/rig/config.yaml``) — but it cascades into the merged config the same way.
+
+    ``rc_path``/``generated_dir`` are resolved by :func:`env_options_from_config` against the
+    repo root (mirrors every other action's target resolution — never re-resolved against CWD by
+    the runner) so a relative path stays anchored to the ``-C`` repo and ``~/`` stays home-anchored.
+    """
+    e = config.data.get("env")
+    if e is None or not isinstance(e, dict):
+        return
+    if e.get("enabled") is False:
+        return
+
+    options = env_options_from_config(e, config.repo_root)
+    plan.actions.append(
+        Action(
+            kind="provision_env",
+            category="env",
+            item="vars",
+            source=config.repo_root,  # no carrier; rig generates the file itself
+            target=Path(options["rc_path"]),
+            options=options,
+        )
+    )
+
+
+def _build_spotlight(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the macOS Spotlight-exclude provisioning, if a ``spotlight`` block enables it.
+
+    Default **OFF** (opt-in, macOS-specific — like ``tmux``/``tools``): an ABSENT, empty, or
+    ``enabled: false`` block emits NO action, so ``rig apply`` on Linux / a non-opted machine
+    never sweeps the filesystem. Alex enables it in the GLOBAL config. It is a per-MACHINE concern
+    (the dev roots on this box), so the block lives in the GLOBAL layer.
+
+    Emits ONE idempotent ``provision_spotlight`` action carrying the resolved roots + denylist +
+    launchd knobs. The runner drops ``.metadata_never_index`` into every matched dir and writes +
+    loads the periodic re-sweep LaunchAgent. The sweep argv is resolved HERE (the current
+    interpreter + ``-m riglib``) so the committed plan is explicit about what launchd runs.
+    """
+    from . import spotlight
+
+    s = config.data.get("spotlight")
+    if s is None or not isinstance(s, dict):
+        return
+    # Default OFF (opt-in): unlike tmux (present-block = opt-in), spotlight requires an EXPLICIT
+    # `enabled: true`. An absent OR empty `spotlight: {}` block provisions nothing — matching the
+    # schema default (`enabled: false`) and the docs, so a stray empty block never sweeps the FS.
+    if not s.get("enabled"):
+        return
+
+    roots = spotlight.resolve_roots(s.get("roots"))
+    deny = spotlight.resolve_deny(s.get("deny"), s.get("extra"))
+    label = str(s.get("label") or spotlight.DEFAULT_BOOT_LABEL)
+    max_depth = int(s.get("max_depth", spotlight.DEFAULT_MAX_DEPTH))
+    plan.actions.append(
+        Action(
+            kind="provision_spotlight",
+            category="spotlight",
+            item="exclude",
+            source=config.repo_root,  # no carrier in agent-tools; rig owns the sweep
+            target=Path(label),  # the launchd label — runner resolves the real plist under HOME
+            options={
+                "roots": [str(r) for r in roots],
+                "deny": sorted(deny),
+                "label": label,
+                "max_depth": max_depth,
+                "sweep_cmd": list(spotlight.default_sweep_cmd()),
+            },
+        )
+    )
+
+
+def _build_bun(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the global bunfig isolated-linker + globalStore splice.
+
+    Default **OFF** (opt-in): an absent, empty, or ``enabled: false`` block emits NO action.
+    GLOBAL-only. Writes both ``linker = "isolated"`` and ``globalStore = true`` because
+    bun's global store is a no-op under the hoisted linker.
+    """
+    from . import bunfig
+
+    block = config.data.get("bun")
+    if block is None or not isinstance(block, dict):
+        return
+    if not block.get("enabled"):
+        return
+    target = bunfig.bunfig_path()
+    plan.actions.append(
+        Action(
+            kind="provision_bunfig",
+            category="bun",
+            item="bunfig",
+            source=config.repo_root,
+            target=target,
+        )
+    )
+
+
+
+def _build_project_tools(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan repo-local integrations for Haft, Serena, and Sverklo.
+
+    The pure renderer in :mod:`riglib.project_tools` owns the desired carriers. The plan emits one
+    action per file/operation so dry-run/status can name the exact drifting integration.
+    """
+    for entry in project_tools.desired_entries(config.repo_root, config.data.get("project_tools")):
+        plan.actions.append(
+            Action(
+                kind="provision_project_tool",
+                category="project_tools",
+                item=entry.item,
+                source=config.repo_root,
+                target=config.repo_root,
+                options=entry.to_options(),
+            )
+        )
+
+
+def _build_ecosystem_readme(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed README ``## Ecosystem`` block (rig-cli#308), if opted in.
+
+    Default **OFF** (opt-in, like ``tools:``/``project_tools`` in spirit): an ABSENT, empty, or
+    ``enabled: false`` ``ecosystem_readme:`` block emits NO action, so a clean ``rig apply`` never
+    rewrites a repo's README unprompted. A repo opts in via ``rig setup`` (the schema.py registry)
+    or ``rig config set ecosystem_readme.enabled true``. Emits ONE ``apply_ecosystem_readme``
+    action; the runner splices the SAME registry-rendered block (:mod:`riglib.ecosystem_readme`)
+    into every target repo, so a re-apply with an unchanged registry is a no-op everywhere.
+    """
+    er = config.data.get("ecosystem_readme")
+    if not isinstance(er, dict) or not er.get("enabled"):
+        # rig never auto-deletes: a block left over from a PRIOR enabled apply still sits in the
+        # target file, and its own in-block notice still claims it is "kept in sync by rig apply"
+        # — false the moment the feature is off. Note it ONLY when there is evidence a block was
+        # actually written (no noise on a repo that never opted in), mirroring the leftover-note
+        # pattern _build_guard_policy uses for a disabled permissions posture.
+        er_dict = er if isinstance(er, dict) else {}
+        target_rel = str(er_dict.get("target") or "README.md")
+        target = config.repo_root / target_rel
+        try:
+            orphaned = target.is_file() and ecosystem_readme.has_managed_block(
+                target.read_text(encoding="utf-8")
+            )
+        except (OSError, UnicodeDecodeError):
+            orphaned = False
+        if orphaned:
+            plan.notes.append(
+                f"ecosystem_readme: disabled — a rig-managed Ecosystem block stays in {target_rel} "
+                "(rig never auto-deletes) but will no longer be kept in sync; re-enable it or "
+                "remove the block by hand"
+            )
+        return
+
+    target_rel = str(er.get("target") or "README.md")
+    if linter_path_escapes_repo(target_rel):
+        raise PlanError(f"ecosystem_readme.target must stay inside the repo: {target_rel!r}")
+
+    plan.actions.append(
+        Action(
+            kind="apply_ecosystem_readme",
+            category="ecosystem_readme",
+            item="readme",
+            source=config.repo_root,  # no carrier in agent-tools; the registry is in-code
+            target=config.repo_root / target_rel,
+            options={"target": target_rel},
+        )
+    )
+
+
+def _build_tools(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the personal CLI ecosystem install (tg/review/task/draw/…), if ``tools:`` opts in.
+
+    Default **OFF** (opt-in, unlike ``tg_ctl``/``models``): an ABSENT, empty, or ``enabled: false``
+    ``tools:`` block emits NO action, so a clean ``rig init`` never clones four repos a user may not
+    have and the e2e suite never shells out to a real ``install.sh``. A machine opts in by listing
+    tools under ``tools.items``. This is a per-MACHINE concern (the tool ecosystem on this dev box),
+    so the block lives in the GLOBAL layer (``~/.config/rig/config.yaml``).
+
+    Emits ONE idempotent ``provision_tools`` action carrying every resolved :class:`ToolSpec` (as a
+    small JSON-ish dict each). The runner runs each tool's OWN ``install.sh`` only when the tool is
+    not already current; drift diffs declared-vs-on-disk. There is no agent-tools carrier — each
+    tool installs FROM its own checkout, so ``source`` is just the repo root for describe().
+    """
+    from . import tools as toolsmod
+
+    specs = toolsmod.resolve_tool_specs(config.data.get("tools"))
+    if not specs:
+        return
+
+    plan.actions.append(
+        Action(
+            kind="provision_tools",
+            category="tools",
+            item="ecosystem",
+            source=config.repo_root,  # no carrier; each tool installs from its own checkout
+            target=specs[0].bin_dir,  # the managed PATH dir (display/anchor only)
+            options={"specs": [toolsmod.spec_to_option(s) for s in specs]},
+        )
+    )
+
+
+def _build_tg_ctl(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed tg-ctl inbound-daemon LaunchAgent, unless ``enabled: false``.
+
+    Default **ON** (like ``agents_md``/``github``): an ABSENT or empty ``tg_ctl:`` block still
+    provisions the daemon, so ``rig init`` on a clean machine sets it up with no config at all.
+    Only ``enabled: false`` opts out. This is a per-MACHINE concern (one inbound Telegram
+    control daemon per machine), so the block belongs in the GLOBAL layer
+    (``~/.config/rig/config.yaml``) — but it cascades into the merged config the same way.
+
+    Unlike tmux, the tg-ctl artifact paths are HOME-anchored per-machine (not repo-relative):
+    the runner resolves them against ``Path.home()`` at apply time (so a committed rig.yaml stays
+    portable and never anchors ~/.files/bin to a repo root). The action just carries the raw
+    config knobs; the bun path is discovered at apply time.
+    """
+    from .tg_ctl import DEFAULT_BOOT_LABEL
+
+    # An ABSENT key (None) defaults to provisioning (default-on). A PRESENT block (validate() has
+    # already guaranteed it is a mapping) opts in unless `enabled: false`.
+    t = config.data.get("tg_ctl") or {}
+    if t.get("enabled") is False:
+        return
+
+    plan.actions.append(
+        Action(
+            kind="provision_tg_ctl",
+            category="tg_ctl",
+            item="boot",
+            source=config.repo_root,  # no carrier; rig generates the plist
+            # target is the launchd LABEL (not a filesystem path) — the runner resolves the real
+            # ~/Library/LaunchAgents/<label>.plist against HOME at apply time. `label or DEFAULT`
+            # (not `get(key, default)`) so a YAML `label:` with no value (None) can't become the
+            # literal string "None".
+            target=Path(t.get("label") or DEFAULT_BOOT_LABEL),
+            options={
+                "boot": t.get("boot", True),
+                "label": t.get("label"),
+                "bun_path": t.get("bun_path"),
+                "tg_ctl_path": t.get("tg_ctl_path"),
+                "config_dir": t.get("config_dir"),
+            },
+        )
+    )
+
+
+def _build_tcc_watch(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed tcc-watch dialog-watcher LaunchAgent, unless ``enabled: false``.
+
+    Phase 1 (detection-only) of the defense-in-depth design behind the eval-tool TCC deny-list
+    (PR #488) — see :mod:`riglib.tcc_watch`'s module docstring for the full phased design and
+    :mod:`riglib.tcc_watch_daemon` for what the daemon actually does.
+
+    Default **ON** (like ``tg_ctl``): an ABSENT or empty ``tcc_watch:`` block still provisions
+    the daemon, so `rig init` on a clean macOS machine sets it up with no config at all. Only
+    `enabled: false` opts out. Per-MACHINE concern (one watcher daemon per machine), so the block
+    belongs in the GLOBAL layer (``~/.config/rig/config.yaml``) — but it cascades into the
+    merged config the same way every other GLOBAL-only block does.
+    """
+    from .tcc_watch import DEFAULT_LABEL
+
+    # An ABSENT key (None) defaults to provisioning (default-on). A PRESENT block (validate() has
+    # already guaranteed it is a mapping) opts in unless `enabled: false`.
+    t = config.data.get("tcc_watch") or {}
+    if t.get("enabled") is False:
+        return
+
+    plan.actions.append(
+        Action(
+            kind="provision_tcc_watch",
+            category="tcc_watch",
+            item="watch",
+            source=config.repo_root,  # no carrier; rig generates the plist + copies the watcher script
+            # target is the launchd LABEL (not a filesystem path), like provision_tg_ctl.
+            target=Path(t.get("label") or DEFAULT_LABEL),
+            options={
+                "label": t.get("label"),
+                "config_dir": t.get("config_dir"),
+                "python_bin": t.get("python_bin"),
+            },
+        )
+    )
