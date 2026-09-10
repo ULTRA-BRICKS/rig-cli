@@ -117,6 +117,13 @@ harness:
   kind: claude-code
   auto_mode: true
 
+# ── ecosystem_readme — dogfood the README "## Ecosystem" reconciler (rig-cli#308) ──
+# The section is wrapped in <!-- rig:ecosystem-block --> / <!-- /rig:ecosystem-block --> markers
+# below the "## Ecosystem" heading in README.md; `rig apply` keeps it in sync with the canonical
+# registry in riglib/ecosystem_readme.py instead of it being hand-copied and drifting.
+ecosystem_readme:
+  enabled: true
+
 # ── tmux — rig-managed tmux config (generate + migrate ~/.tmux.conf) ───────────────
 # OPT-IN and per-MACHINE (like auto-mode): tmux config is a developer-machine concern, so
 # DECLARE IT IN THE GLOBAL CONFIG (~/.config/rig/config.yaml), not in a per-repo rig.yaml.

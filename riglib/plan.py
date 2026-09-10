@@ -28,6 +28,7 @@ from .config import (
     LoadedConfig,
     OMP_HOOK_BRIDGE_EXTENSION_NAME,
     OPENCODE_HOOK_BRIDGE_PLUGIN_NAME,
+    linter_path_escapes_repo,
 )
 from .github_actions import GITHUB_ACTIONS_DEFAULTS
 from .github_browser import UI_ONLY_TOGGLES
@@ -55,6 +56,7 @@ from .harness_mode import (
 )
 from .paths import expand_user_path as _expand_user_path
 from .provenance import KNOWN_CATEGORIES, known_names_from_config
+from . import ecosystem_readme
 from . import project_tools
 
 
@@ -130,7 +132,7 @@ def _agent_hooks_target_for_kind(kind: str) -> str | None:
 class Action:
     """A single planned install step. ``kind`` selects the runner in ``actions/``."""
 
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
+    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
     category: str
     item: str
     source: Path  # carrier path in the agent-tools checkout
@@ -909,6 +911,9 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
 
     # ── project_tools (Haft / Serena / Sverklo repo integrations) ─────────────────
     _build_project_tools(config, plan)
+
+    # ── ecosystem_readme (README "## Ecosystem" block, rig-cli#308) ───────────────
+    _build_ecosystem_readme(config, plan)
 
     # ── github (repository settings via gh api + agent-browser) ───────────────────
     # ORDER MATTERS — actions run in this build order (runner.run_plan iterates plan.actions
@@ -2801,6 +2806,56 @@ def _build_project_tools(config: LoadedConfig, plan: InstallPlan) -> None:
                 options=entry.to_options(),
             )
         )
+
+
+def _build_ecosystem_readme(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed README ``## Ecosystem`` block (rig-cli#308), if opted in.
+
+    Default **OFF** (opt-in, like ``tools:``/``project_tools`` in spirit): an ABSENT, empty, or
+    ``enabled: false`` ``ecosystem_readme:`` block emits NO action, so a clean ``rig apply`` never
+    rewrites a repo's README unprompted. A repo opts in via ``rig setup`` (the schema.py registry)
+    or ``rig config set ecosystem_readme.enabled true``. Emits ONE ``apply_ecosystem_readme``
+    action; the runner splices the SAME registry-rendered block (:mod:`riglib.ecosystem_readme`)
+    into every target repo, so a re-apply with an unchanged registry is a no-op everywhere.
+    """
+    er = config.data.get("ecosystem_readme")
+    if not isinstance(er, dict) or not er.get("enabled"):
+        # rig never auto-deletes: a block left over from a PRIOR enabled apply still sits in the
+        # target file, and its own in-block notice still claims it is "kept in sync by rig apply"
+        # — false the moment the feature is off. Note it ONLY when there is evidence a block was
+        # actually written (no noise on a repo that never opted in), mirroring the leftover-note
+        # pattern _build_guard_policy uses for a disabled permissions posture.
+        er_dict = er if isinstance(er, dict) else {}
+        target_rel = str(er_dict.get("target") or "README.md")
+        target = config.repo_root / target_rel
+        try:
+            orphaned = target.is_file() and ecosystem_readme.has_managed_block(
+                target.read_text(encoding="utf-8")
+            )
+        except (OSError, UnicodeDecodeError):
+            orphaned = False
+        if orphaned:
+            plan.notes.append(
+                f"ecosystem_readme: disabled — a rig-managed Ecosystem block stays in {target_rel} "
+                "(rig never auto-deletes) but will no longer be kept in sync; re-enable it or "
+                "remove the block by hand"
+            )
+        return
+
+    target_rel = str(er.get("target") or "README.md")
+    if linter_path_escapes_repo(target_rel):
+        raise PlanError(f"ecosystem_readme.target must stay inside the repo: {target_rel!r}")
+
+    plan.actions.append(
+        Action(
+            kind="apply_ecosystem_readme",
+            category="ecosystem_readme",
+            item="readme",
+            source=config.repo_root,  # no carrier in agent-tools; the registry is in-code
+            target=config.repo_root / target_rel,
+            options={"target": target_rel},
+        )
+    )
 
 
 def _build_tools(config: LoadedConfig, plan: InstallPlan) -> None:

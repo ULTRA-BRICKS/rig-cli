@@ -533,6 +533,19 @@ AREAS: tuple[Area, ...] = (
                  "Run `sverklo reindex` during apply. Off by default because indexing can be slow."),
         ),
     ),
+    Area(
+        "ecosystem_readme", "README ecosystem block",
+        "A marker-delimited '## Ecosystem' section in this repo's README, reconciled from one "
+        "canonical tool registry instead of hand-copied and left to drift (rig-cli#308).",
+        (
+            _opt("ecosystem_readme.enabled", KIND_BOOL, False,
+                 "Provision the README Ecosystem block (opt-in). `rig apply` inserts a marked "
+                 "section listing the sibling CLI ecosystem, or updates it in place if it "
+                 "already exists but is stale; content outside the markers is never touched."),
+            _opt("ecosystem_readme.target", KIND_STR, "README.md",
+                 "Repo-relative README path to reconcile."),
+        ),
+    ),
 )
 
 

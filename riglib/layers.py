@@ -55,6 +55,7 @@ _CATEGORY_LAYER = {
     "ship_delegator": REPO,
     "linters": REPO,
     "project_tools": REPO,
+    "ecosystem_readme": REPO,
     "agents_md": REPO,
     "github": REPO,
 }

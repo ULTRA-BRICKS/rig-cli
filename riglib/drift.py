@@ -20,7 +20,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .actions import fsutil
+from . import ecosystem_readme
 from .actions.runner import (
+    ECOSYSTEM_README_BEGIN_MARKER,
+    ECOSYSTEM_README_END_MARKER,
     EXECPOLICY_BEGIN_MARKER,
     EXECPOLICY_END_MARKER,
     _ci_companion_files,
@@ -61,6 +64,8 @@ from .actions.runner import (
     omp_hook_bridge_extension_target,
     opencode_hook_bridge_plugin_target,
     desired_mcp_server_entry,
+    ecosystem_readme_block_text,
+    ecosystem_readme_file,
     permissions_settings_file,
     _is_rig_import_line,
     resolve_agents_md,
@@ -542,6 +547,8 @@ def detect(
                 report.items.append(DriftItem(direction, "linters", action.item, r.target, r.detail or f"linter bundle state: {r.state}"))
         elif action.kind == "provision_project_tool":
             _check_project_tool(action, report)
+        elif action.kind == "apply_ecosystem_readme":
+            _check_ecosystem_readme(action, report)
         elif action.kind == "provision_github_ruleset":
             _check_github_ruleset(action, report)
         elif action.kind == "provision_github_merge":
@@ -1891,6 +1898,63 @@ def _check_execpolicy(action: Action, report: DriftReport) -> None:
         report.items.append(
             DriftItem("modified", "permissions", action.item, path,
                       "rig-managed execpolicy block is stale (apply rewrites it)")
+        )
+
+
+def _check_ecosystem_readme(action: Action, report: DriftReport) -> None:
+    """Flag drift between the canonical README Ecosystem block and the on-disk README (rig-cli#308).
+
+    missing  — the README is absent, or holds no rig-managed block and no unmarked
+               ``## Ecosystem`` heading either (apply APPENDS the block cleanly).
+    modified — the managed block is stale (apply rewrites it), the file has unbalanced/misordered
+               markers, OR it already has a bare ``## Ecosystem`` heading with no rig markers (all
+               three are a HAND fix — apply hard-errors, does not reconcile or duplicate).
+
+    Routes through the SAME :func:`_splice_managed_block` resolver apply uses, so the drift verdict
+    and its message can never overstate what apply will actually do."""
+    desired = ecosystem_readme_block_text(action)
+    path = ecosystem_readme_file(action)
+    if not path.is_file():
+        report.items.append(
+            DriftItem("missing", "ecosystem_readme", action.item, path, "README Ecosystem block not written")
+        )
+        return
+    try:
+        with path.open(encoding="utf-8", newline="") as fh:
+            content = fh.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        # a README target is a pre-existing, arbitrary user-authored file — non-UTF-8 bytes are a
+        # real, reachable case here (unlike execpolicy's own rig-generated .rules file), so this
+        # must report actionable drift instead of letting rig status crash.
+        report.items.append(
+            DriftItem("modified", "ecosystem_readme", action.item, path, f"cannot read {path}: {exc}")
+        )
+        return
+    _, state, _detail = _splice_managed_block(
+        content, desired, ECOSYSTEM_README_BEGIN_MARKER, ECOSYSTEM_README_END_MARKER
+    )
+    if state == "ok":
+        return  # in sync
+    if state == "create":
+        if ecosystem_readme.has_unmarked_ecosystem_heading(content):
+            report.items.append(
+                DriftItem("modified", "ecosystem_readme", action.item, path,
+                          "an unmarked '## Ecosystem' section already exists — apply refuses to "
+                          "append a duplicate; wrap it in the rig markers by hand, then re-run")
+            )
+        else:
+            report.items.append(
+                DriftItem("missing", "ecosystem_readme", action.item, path, "no rig-managed Ecosystem block (apply adds it)")
+            )
+    elif state == "conflict":
+        report.items.append(
+            DriftItem("modified", "ecosystem_readme", action.item, path,
+                      "unbalanced/misordered rig-managed ecosystem-block markers — reconcile by hand, then re-run")
+        )
+    else:  # update
+        report.items.append(
+            DriftItem("modified", "ecosystem_readme", action.item, path,
+                      "rig-managed Ecosystem block is stale (apply rewrites it)")
         )
 
 

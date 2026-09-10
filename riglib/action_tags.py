@@ -203,6 +203,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Writes a repo-local project-tool carrier file, or runs a one-shot tool operation "
         "(e.g. a code-index register/reindex) — check the action's detail for which.",
     ),
+    "apply_ecosystem_readme": _tag(
+        "apply_ecosystem_readme", "edits_file", AUDIENCE_HUMAN,
+        "Writes/updates a managed 'Ecosystem' section in the repo's README from the canonical "
+        "tool registry, or creates the README if it does not exist yet.",
+    ),
     "provision_github_ruleset": _tag(
         "provision_github_ruleset", "remote_github_change", AUDIENCE_HUMAN,
         "Creates/updates a branch-protection ruleset on the GitHub repo via the API — a remote "

@@ -58,6 +58,7 @@ def test_blocks_without_open_map_are_closed():
         "tmux",
         "tg_ctl",
         "project_tools",
+        "ecosystem_readme",
     ):
         assert doc["properties"][name]["additionalProperties"] is False, f"{name} must be closed"
 

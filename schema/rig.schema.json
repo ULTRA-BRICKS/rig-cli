@@ -1848,6 +1848,23 @@
       },
       "additionalProperties": false
     },
+    "ecosystem_readme": {
+      "type": "object",
+      "description": "writes/updates a marker-delimited '## Ecosystem' section in a target repo's README from one canonical, in-code tool registry (riglib.ecosystem_readme), so the hand-copied sibling-tool list every repo carries stops silently drifting (rig-cli#308). Default OFF (opt-in) — enable it, then `rig apply` inserts the section (or updates a stale one).",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "provision the README Ecosystem block (opt-in)",
+          "default": false
+        },
+        "target": {
+          "type": "string",
+          "description": "repo-relative README path to reconcile",
+          "default": "README.md"
+        }
+      },
+      "additionalProperties": false
+    },
     "task": {
       "type": "object",
       "description": "task-cli ticket-tracker routing for THIS repo (CTO decision #4136.4: hyperide -> Linear/HYP, every other repo -> GitHub Issues by default). task-cli reads this block directly (tasklib/config.py's rig_task_overlay) with LOWER precedence than a repo's own native task.yaml, so a repo that already keeps one is unaffected. Flat shorthands (team/project/repo/attachment_mode) and the nested github:/linear: sections may be used together in the same block; task-cli itself rejects a genuine collision between the two forms (e.g. both `team: X` and `linear: {team: Y}` set to different values) — this schema only checks the KEY SET, not that kind of cross-field conflict.",
