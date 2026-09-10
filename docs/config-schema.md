@@ -1500,9 +1500,16 @@ hard error rig refuses to guess at (fix it by hand, then re-apply). A rewrite ho
 copy before rewriting; `skip` leaves a stale block untouched (drift stays visible in `rig
 status`) but still performs the additive append when no managed block exists yet.
 
+**Migrating an existing hand-copied `## Ecosystem` section.** If the target already has a bare
+`## Ecosystem` heading with no rig markers — the primary case this feature exists for — `rig
+apply` refuses to append a second, misplaced heading rather than guess: wrap the existing section
+in `<!-- rig:ecosystem-block -->` / `<!-- /rig:ecosystem-block -->` by hand (or delete it) first,
+then re-apply.
+
 **Drift.** `rig status` flags the block as missing when the target file (or a managed block
 inside it) is absent, and modified when the on-disk block differs from the canonical rendering
-(including an unbalanced/misordered marker pair, which needs a hand fix).
+(including an unbalanced/misordered marker pair or an unmarked pre-existing `## Ecosystem`
+heading, both of which need a hand fix).
 
 ---
 

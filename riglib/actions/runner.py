@@ -1638,8 +1638,11 @@ def _do_apply_ecosystem_readme(action: Action, on_conflict: str) -> ActionResult
     Mirrors ``_do_provision_execpolicy`` exactly: append the block to a README that lacks it
     (creating the file/dirs), collapse any duplicated managed regions to ONE correct block in
     place, or no-op a correct single block. Every line OUTSIDE the markers is preserved verbatim.
-    An unbalanced/misordered marker pair is a hard error rig refuses to guess at. ``on_conflict=
-    backup`` keeps a timestamped copy before a rewrite; ``skip`` leaves a drifted block untouched.
+    An unbalanced/misordered marker pair is a hard error rig refuses to guess at, as is a target
+    that already has a BARE (unmarked) ``## Ecosystem`` heading — the primary migration case —
+    rather than silently appending a duplicate, misplaced section (see
+    :func:`riglib.ecosystem_readme.has_unmarked_ecosystem_heading`). ``on_conflict=backup`` keeps
+    a timestamped copy before a rewrite; ``skip`` leaves a drifted block untouched.
     """
     desired = ecosystem_readme_block_text(action)
     path = ecosystem_readme_file(action)
@@ -1665,6 +1668,17 @@ def _do_apply_ecosystem_readme(action: Action, on_conflict: str) -> ActionResult
     )
     if state == "conflict":
         return ActionResult(action, "error", f"ecosystem_readme/{action.item}: {detail}")
+    if state == "create" and ecosystem_readme.has_unmarked_ecosystem_heading(content):
+        # The primary migration case (rig-cli#308's own stated motivation): a target repo already
+        # hand-copies an unmarked '## Ecosystem' section. Blindly appending here would leave that
+        # stale section untouched (still drifting) AND bolt on a second, misplaced heading -- refuse
+        # instead, same "refuse to guess" stance as an unbalanced marker pair.
+        return ActionResult(
+            action, "error",
+            f"ecosystem_readme/{action.item}: {path} already has an unmarked '## Ecosystem' section "
+            f"-- wrap it in {ECOSYSTEM_README_BEGIN_MARKER} / {ECOSYSTEM_README_END_MARKER} by hand "
+            "(or remove it) before enabling this, so apply never appends a duplicate section",
+        )
     if state == "ok":
         return ActionResult(action, "skipped", f"ecosystem_readme/{action.item}: already current in {path}")
     backup_note = ""

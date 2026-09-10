@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .actions import fsutil
+from . import ecosystem_readme
 from .actions.runner import (
     ECOSYSTEM_README_BEGIN_MARKER,
     ECOSYSTEM_README_END_MARKER,
@@ -1903,9 +1904,11 @@ def _check_execpolicy(action: Action, report: DriftReport) -> None:
 def _check_ecosystem_readme(action: Action, report: DriftReport) -> None:
     """Flag drift between the canonical README Ecosystem block and the on-disk README (rig-cli#308).
 
-    missing  — the README is absent, or holds no rig-managed block (apply APPENDS it).
-    modified — the managed block is stale (apply rewrites it), OR the file has unbalanced/misordered
-               markers rig refuses to rewrite (a HAND fix — apply hard-errors, does not reconcile).
+    missing  — the README is absent, or holds no rig-managed block and no unmarked
+               ``## Ecosystem`` heading either (apply APPENDS the block cleanly).
+    modified — the managed block is stale (apply rewrites it), the file has unbalanced/misordered
+               markers, OR it already has a bare ``## Ecosystem`` heading with no rig markers (all
+               three are a HAND fix — apply hard-errors, does not reconcile or duplicate).
 
     Routes through the SAME :func:`_splice_managed_block` resolver apply uses, so the drift verdict
     and its message can never overstate what apply will actually do."""
@@ -1933,9 +1936,16 @@ def _check_ecosystem_readme(action: Action, report: DriftReport) -> None:
     if state == "ok":
         return  # in sync
     if state == "create":
-        report.items.append(
-            DriftItem("missing", "ecosystem_readme", action.item, path, "no rig-managed Ecosystem block (apply adds it)")
-        )
+        if ecosystem_readme.has_unmarked_ecosystem_heading(content):
+            report.items.append(
+                DriftItem("modified", "ecosystem_readme", action.item, path,
+                          "an unmarked '## Ecosystem' section already exists — apply refuses to "
+                          "append a duplicate; wrap it in the rig markers by hand, then re-run")
+            )
+        else:
+            report.items.append(
+                DriftItem("missing", "ecosystem_readme", action.item, path, "no rig-managed Ecosystem block (apply adds it)")
+            )
     elif state == "conflict":
         report.items.append(
             DriftItem("modified", "ecosystem_readme", action.item, path,

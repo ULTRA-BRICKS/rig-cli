@@ -134,3 +134,31 @@ def has_managed_block(text: str) -> bool:
     ``plan._build_ecosystem_readme``).
     """
     return any(line.strip() == ECOSYSTEM_README_BEGIN_MARKER for line in text.splitlines())
+
+
+
+# A bare (unmarked) heading text that matches the rendered section's own heading exactly, modulo
+# case -- the ONLY signal available before any rig markers exist. Deliberately narrow (an exact
+# heading-line match, not a substring/fuzzy check) to avoid false positives on an unrelated section
+# that merely mentions the word "ecosystem".
+_BARE_HEADING = "## ecosystem"
+
+
+def has_unmarked_ecosystem_heading(text: str) -> bool:
+    """True if ``text`` has a bare ``## Ecosystem`` heading with NO rig markers anywhere in it.
+
+    A target repo's primary migration case -- this feature's own stated motivation -- is a repo
+    that already hand-copies an ``## Ecosystem`` section (rig-cli's own README before it adopted
+    the markers is the canonical example). Splicing into a marker-less file with
+    :func:`has_managed_block` false always takes the ``create``/append path in
+    :func:`riglib.actions.runner._splice_managed_block`: it appends the rendered block at the END
+    of the file, unconditionally. Without this check that would leave the stale hand-copied
+    section exactly where it was (still drifting -- the bug #308 exists to fix) AND bolt on a
+    second, misplaced ``## Ecosystem`` heading, invisible to `rig status` since the *managed*
+    block would then read as perfectly in sync. Callers use this to refuse instead (a HAND
+    migration -- wrap the existing section in the markers, or delete it -- same "refuse to guess"
+    stance as an unbalanced marker pair) rather than ever produce that duplicate silently.
+    """
+    if has_managed_block(text):
+        return False
+    return any(line.strip().lower() == _BARE_HEADING for line in text.splitlines())

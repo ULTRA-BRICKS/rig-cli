@@ -22,7 +22,7 @@ from riglib.actions.runner import (
 from riglib.catalog import Catalog
 from riglib.config import ConfigError, LoadedConfig
 from riglib.drift import detect
-from riglib.ecosystem_readme import ECOSYSTEM_TOOLS, render_ecosystem_block
+from riglib.ecosystem_readme import ECOSYSTEM_TOOLS, has_unmarked_ecosystem_heading, render_ecosystem_block
 from riglib.plan import build
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -142,6 +142,29 @@ def test_apply_inserts_into_existing_readme_preserving_content(fake_agent_tools,
     assert ECOSYSTEM_README_BEGIN_MARKER in text
 
 
+def test_apply_refuses_to_duplicate_an_existing_unmarked_ecosystem_heading(fake_agent_tools, tmp_path):
+    # the primary migration case (#308's own stated motivation): a target already hand-copies an
+    # unmarked '## Ecosystem' section. Apply must refuse rather than blindly append a second,
+    # misplaced heading while leaving the stale original untouched.
+    repo = tmp_path / "repo"; repo.mkdir()
+    readme = repo / "README.md"
+    original = "# my-project\n\n## Ecosystem\n\n- some hand-copied tool\n\n## License\n\nMIT\n"
+    readme.write_text(original, encoding="utf-8")
+    plan = build(_cfg(repo, fake_agent_tools, enabled=True), Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+
+    report = run_plan(plan)
+    assert report.errors, "expected apply to refuse duplicating an unmarked '## Ecosystem' heading"
+    assert "unmarked" in report.errors[0].detail
+    assert readme.read_text(encoding="utf-8") == original  # untouched — no duplicate appended
+
+
+def test_has_unmarked_ecosystem_heading_true_only_without_markers():
+    assert has_unmarked_ecosystem_heading("# x\n\n## Ecosystem\n\n- y\n")
+    assert has_unmarked_ecosystem_heading("# x\n\n## ecosystem\n\n- y\n")  # case-insensitive
+    assert not has_unmarked_ecosystem_heading("# x\n\n## Something Else\n")
+    assert not has_unmarked_ecosystem_heading(render_ecosystem_block())  # already marked
+
+
 def test_apply_backs_up_before_rewrite_under_backup_policy(fake_agent_tools, tmp_path):
     repo = tmp_path / "repo"; repo.mkdir()
     readme = repo / "README.md"
@@ -193,6 +216,19 @@ def test_drift_unbalanced_markers_is_modified(fake_agent_tools, tmp_path):
     plan = build(_cfg(repo, fake_agent_tools, enabled=True), Catalog.scan(str(fake_agent_tools)), project_type="unknown")
     mod = [d for d in detect(plan).by_direction("modified") if d.category == "ecosystem_readme"]
     assert any("unbalanced" in d.detail for d in mod)
+
+
+def test_drift_unmarked_ecosystem_heading_is_modified_not_missing(fake_agent_tools, tmp_path):
+    # a bare hand-copied '## Ecosystem' heading needs a HAND migration, same as an unbalanced
+    # marker pair — it must not be reported as plain "missing" (which would imply a clean append).
+    repo = tmp_path / "repo"; repo.mkdir()
+    readme = repo / "README.md"
+    readme.write_text("# my-project\n\n## Ecosystem\n\n- some hand-copied tool\n", encoding="utf-8")
+    plan = build(_cfg(repo, fake_agent_tools, enabled=True), Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    items = [d for d in detect(plan).items if d.category == "ecosystem_readme"]
+    assert len(items) == 1
+    assert items[0].direction == "modified"
+    assert "unmarked" in items[0].detail
 
 
 def test_apply_unbalanced_markers_is_a_hard_error(fake_agent_tools, tmp_path):
