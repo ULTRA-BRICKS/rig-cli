@@ -102,6 +102,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Installs the global git-hook dispatcher + fragments (e.g. secret-scan) and points "
         "core.hooksPath at it — runs on every git operation, not just for the agent.",
     ),
+    "install_dev_reload_hook": _tag(
+        "install_dev_reload_hook", "installs_hook", AUDIENCE_HUMAN,
+        "Writes a repo-local post-commit git hook that gracefully reloads a live-symlink/daemon "
+        "rig-ecosystem tool when a commit touches configured daemon-source paths.",
+    ),
     "install_ci": _tag(
         "install_ci", "creates_file", AUDIENCE_HUMAN,
         "Writes a GitHub Actions workflow file under .github/workflows — runs in CI, not locally.",

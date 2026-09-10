@@ -70,6 +70,7 @@ _VALID_TOP_KEYS = {
     "tools",
     "tg_ctl",
     "tcc_watch",
+    "internal_dev",
     "ship_delegator",
     "linters",
     "project_tools",
@@ -531,6 +532,16 @@ def load(
                 fix=f"move mode to {global_config_path()} or run `rig config set mode.name ... --global`",
                 schema_path="mode",
             )
+        if label == "global" and data.get("internal_dev"):
+            raise ConfigError(
+                "internal_dev is a repo-only config block",
+                why=(
+                    f"{path} is the GLOBAL layer, but internal_dev.daemon_source_paths is "
+                    "repo-specific — a global block would silently cascade into every repo apply"
+                ),
+                fix="move internal_dev into this repo's committed ./rig.yaml",
+                schema_path="internal_dev",
+            )
         merged = _deep_merge(merged, data)
         for k in data:
             key_sources[k] = path
@@ -642,6 +653,7 @@ def validate(data: dict[str, Any]) -> None:
     _validate_tools(data.get("tools", {}))
     _validate_tg_ctl(data.get("tg_ctl", {}))
     _validate_tcc_watch(data.get("tcc_watch", {}))
+    _validate_internal_dev(data.get("internal_dev", {}))
     _validate_ship_delegator(data.get("ship_delegator", {}))
     _validate_linters(data.get("linters", {}))
     _validate_project_tools(data.get("project_tools", {}))
@@ -1811,6 +1823,47 @@ WORKTREES_EXCLUDE_COMMENT = (
     "# rig-created agent worktrees live under .worktrees/; ignored so they don't dirty the "
     "primary checkout."
 )
+
+
+def _validate_internal_dev(d: dict[str, Any]) -> None:
+    """Validate the ``internal_dev`` block — the per-repo daemon auto-reload post-commit hook.
+
+    A per-repo COMMITTED concern (the enablement + source paths travel with the repo's rig.yaml,
+    like ``agent_hooks.worktree_only``), so it belongs in the REPO layer — NOT the global config.
+    Default **OFF** (opt-in): an EMPTY/absent block is a no-op. Fail-closed, consistent with every
+    other block, on: a non-mapping block, an unknown key (typo guard), a non-bool
+    ``auto_reload_on_commit``, a non-string-list ``daemon_source_paths``, a non-string
+    ``reload_command``, and (a review-caught gap) enabling with no paths at all — that would
+    install a hook that can never match anything, silently.
+    """
+    if not isinstance(d, dict):
+        raise ConfigError("internal_dev must be a mapping", schema_path="internal_dev")
+    if not d:
+        return
+    _reject_unknown_keys(d, "internal_dev")
+    _check_bool(d, "auto_reload_on_commit", "internal_dev.auto_reload_on_commit")
+    paths = d.get("daemon_source_paths")
+    if paths is not None and (not isinstance(paths, list) or not all(isinstance(e, str) for e in paths)):
+        raise ConfigError(
+            f"internal_dev.daemon_source_paths must be a list of strings, got {paths!r}",
+            schema_path="internal_dev.daemon_source_paths",
+        )
+    cmd = d.get("reload_command")
+    if cmd is not None and not isinstance(cmd, str):
+        raise ConfigError(
+            f"internal_dev.reload_command must be a string, got {cmd!r}",
+            schema_path="internal_dev.reload_command",
+        )
+    if d.get("auto_reload_on_commit") is True:
+        raw_paths = paths if paths is not None else []
+        effective = [p for p in raw_paths if p.strip()]
+        if not effective:
+            raise ConfigError(
+                "internal_dev.auto_reload_on_commit is enabled but daemon_source_paths is "
+                "empty or whitespace-only — that would install a post-commit hook that can "
+                "never match anything",
+                schema_path="internal_dev.daemon_source_paths",
+            )
 
 
 def _validate_ship_delegator(sd: dict[str, Any]) -> None:
