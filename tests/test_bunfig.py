@@ -283,7 +283,7 @@ def test_check_disabled_bunfig_flags_leftover_managed_block(tmp_path, monkeypatc
     report = DriftReport()
     check_disabled_bunfig(report)
     assert len(report.items) == 1
-    assert report.items[0].kind == "extra"
+    assert report.items[0].direction == "extra"
     assert report.items[0].category == "bun"
 
 
