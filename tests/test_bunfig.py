@@ -61,6 +61,29 @@ def test_has_required_install_keys_needs_both():
     assert not bunfig.has_required_install_keys("[install]\nlinker = \"isolated\"\n")
 
 
+def test_has_required_install_keys_accepts_dotted_keys():
+    dotted = 'install.linker = "isolated"\ninstall.globalStore = true\n'
+    assert bunfig.has_dotted_install_keys(dotted)
+    assert bunfig.has_install_table(dotted)
+    assert bunfig.has_required_install_keys(dotted)
+
+
+def test_resolve_dotted_install_keys_is_ok_without_taking_ownership(tmp_path):
+    p = tmp_path / "dotted.toml"
+    p.write_text('install.linker = "isolated"\ninstall.globalStore = true\n', encoding="utf-8")
+    r = bunfig.resolve(p)
+    assert r.state == "ok"
+    assert r.new_content == ""
+
+
+def test_resolve_dotted_install_keys_partial_is_conflict(tmp_path):
+    p = tmp_path / "partial.toml"
+    p.write_text('install.linker = "isolated"\n', encoding="utf-8")
+    r = bunfig.resolve(p)
+    assert r.state == "conflict"
+    assert "invalid TOML" in r.detail
+
+
 def test_resolve_missing_is_create(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
@@ -224,6 +247,44 @@ def test_apply_appends_to_handwritten_without_install_table(tmp_path, monkeypatc
     text = target.read_text(encoding="utf-8")
     assert "coverage = false" in text
     assert bunfig.has_required_install_keys(text)
+
+
+def test_apply_appends_even_when_on_conflict_skip(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    target = tmp_path / ".bunfig.toml"
+    target.write_text("[test]\ncoverage = false\n", encoding="utf-8")
+    res = _do_provision_bunfig(_action(target), "skip")
+    assert res.status == "updated"
+    assert bunfig.has_required_install_keys(target.read_text(encoding="utf-8"))
+
+
+def test_apply_skips_stale_managed_block_when_on_conflict_skip(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    target = tmp_path / ".bunfig.toml"
+    original = (
+        bunfig.BEGIN_MARKER + "\n[install]\nglobalStore = false\n" + bunfig.END_MARKER + "\n"
+    )
+    target.write_text(original, encoding="utf-8")
+    res = _do_provision_bunfig(_action(target), "skip")
+    assert res.status == "skipped"
+    assert "on_conflict=skip" in res.detail
+    assert target.read_text(encoding="utf-8") == original
+
+
+def test_check_disabled_bunfig_flags_leftover_managed_block(tmp_path, monkeypatch):
+    from riglib.drift import DriftReport, check_disabled_bunfig
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    target = tmp_path / ".bunfig.toml"
+    target.write_text(bunfig.managed_block() + "\n", encoding="utf-8")
+    report = DriftReport()
+    check_disabled_bunfig(report)
+    assert len(report.items) == 1
+    assert report.items[0].kind == "extra"
+    assert report.items[0].category == "bun"
 
 
 def test_apply_does_not_clobber_existing_install_table(tmp_path, monkeypatch):

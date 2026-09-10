@@ -42,6 +42,8 @@ BLOCK_COMMENT = (
 
 _STORE_LINE_RE = re.compile(r"^globalStore\s*=\s*true\s*(?:#.*)?$")
 _LINKER_LINE_RE = re.compile(r"^linker\s*=\s*[\"\']isolated[\"\']\s*(?:#.*)?$")
+_DOTTED_LINKER_RE = re.compile(r'^install\.linker\s*=\s*["\']isolated["\']\s*(?:#.*)?$')
+_DOTTED_STORE_RE = re.compile(r'^install\.globalStore\s*=\s*true\s*(?:#.*)?$')
 _TABLE_RE = re.compile(r"^\[([^\]]+)\]\s*(?:#.*)?$")
 
 
@@ -67,16 +69,26 @@ def managed_block() -> str:
     )
 
 
-def has_install_table(text: str) -> bool:
-    """True when the file already has a top-level ``[install]`` table (not a subtable)."""
+def _iter_nonempty_lines(text: str):
     for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
+        yield line
+
+
+def has_dotted_install_keys(text: str) -> bool:
+    """True when dotted ``install.*`` keys imply an implicit install table."""
+    return any(line.startswith("install.") for line in _iter_nonempty_lines(text))
+
+
+def has_install_table(text: str) -> bool:
+    """True when the file already has a top-level ``[install]`` table or dotted install keys."""
+    for line in _iter_nonempty_lines(text):
         table = _TABLE_RE.match(line)
         if table and table.group(1) == "install":
             return True
-    return False
+    return has_dotted_install_keys(text)
 
 
 def _in_install_matches(text: str, line_re: re.Pattern[str]) -> bool:
@@ -95,15 +107,21 @@ def _in_install_matches(text: str, line_re: re.Pattern[str]) -> bool:
 
 
 def has_install_global_store(text: str) -> bool:
-    """True when ``[install]`` (not a subtable) contains ``globalStore = true``.
+    """True when install config contains ``globalStore = true`` (table or dotted key).
 
     Commented-out lines and ``globalStore`` under any other table do not count.
     """
+    for line in _iter_nonempty_lines(text):
+        if _DOTTED_STORE_RE.match(line):
+            return True
     return _in_install_matches(text, _STORE_LINE_RE)
 
 
 def has_install_isolated_linker(text: str) -> bool:
-    """True when ``[install]`` (not a subtable) contains ``linker = "isolated"``."""
+    """True when install config contains ``linker = "isolated"`` (table or dotted key)."""
+    for line in _iter_nonempty_lines(text):
+        if _DOTTED_LINKER_RE.match(line):
+            return True
     return _in_install_matches(text, _LINKER_LINE_RE)
 
 

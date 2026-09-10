@@ -432,6 +432,9 @@ def compute_drift_report(
             ),
             report,
         )
+    bun_cfg = loaded.data.get("bun")
+    if isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is False and not _restricted_out("bun"):
+        check_disabled_bunfig(report)
     # missing-target: a hook command in the harness settings.json that points at a file gone
     # from disk (the dead-rtk-hook case) surfaces PROACTIVELY here, before it bites at runtime
     # as a generic "PreToolUse error". This is independent of config↔disk drift. Scan the
@@ -1535,6 +1538,35 @@ def _check_bunfig(action: Action, report: DriftReport) -> None:
     report.items.append(
         DriftItem("modified", "bun", "bunfig", r.path, r.detail)
     )
+
+
+def check_disabled_bunfig(report: DriftReport) -> None:
+    """Flag a still-installed managed block when the config disables the ``bun`` category.
+
+    apply never deletes; so a machine that previously provisioned the bunfig block keeps it in
+    ``~/.bunfig.toml`` even after the config turns the category off. With the action gone from
+    the plan, ``_check_bunfig`` never runs — so without this scan the leftover block would
+    report as in sync (mirrors :func:`check_disabled_global_excludes`).
+    """
+    from . import bunfig
+
+    target = bunfig.bunfig_path()
+    if not target.is_file():
+        return
+    try:
+        content = target.read_text(encoding="utf-8")
+    except OSError:
+        return
+    if bunfig.BEGIN_MARKER in content:
+        report.items.append(
+            DriftItem(
+                "extra",
+                "bun",
+                "bunfig",
+                target,
+                "bun disabled in config but the rig-managed block is still in ~/.bunfig.toml",
+            )
+        )
 
 
 def check_disabled_global_excludes(action: Action, report: DriftReport) -> None:
