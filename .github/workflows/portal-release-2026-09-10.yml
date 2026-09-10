@@ -1,0 +1,67 @@
+name: Publish verified specification reader
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/portal-release-2026-09-10.yml]
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: rig-spec-reader-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: true
+      - name: Validate committed source and publish immutable public URL
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import datetime,hashlib,json,os,pathlib,time,urllib.error,urllib.parse,urllib.request
+          source=pathlib.Path('portal/index.html')
+          if not source.is_file(): raise SystemExit('Portal source missing; do not claim publication')
+          raw=source.read_bytes()
+          if b'<script src=' in raw: raise SystemExit('Unexpected external executable dependency')
+          root=pathlib.Path('docs/grooming/full-2026-09-10/publication');root.mkdir(parents=True,exist_ok=True)
+          report={'source_sha':os.environ['GITHUB_SHA'],'source_sha256':hashlib.sha256(raw).hexdigest(),'published_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'authentication':'Public read-only reader. GitHub authenticates review submissions; private-reading OAuth is not implemented.','runtime_acceptance':'Documentation publication only, not product live acceptance.','attempts':[]}
+          url='https://rawcdn.githack.com/'+os.environ['GITHUB_REPOSITORY']+'/'+os.environ['GITHUB_SHA']+'/portal/index.html'
+          for attempt in range(5):
+              try:
+                  req=urllib.request.Request(url,headers={'User-Agent':'Rig-authorized-publication-verification'})
+                  with urllib.request.urlopen(req,timeout=45) as response:
+                      data=response.read(20_000_001)
+                      record={'status':response.status,'final_url':response.url,'content_type':response.headers.get('Content-Type'),'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data)}
+                  report['attempts'].append(record)
+                  if record['status']==200 and record['sha256']==report['source_sha256'] and 'text/html' in (record['content_type'] or ''):
+                      report['verified']=True;report['url']=url;break
+              except Exception as exc:report['attempts'].append({'error_type':type(exc).__name__,'message':str(exc)[:500]})
+              time.sleep(3*(attempt+1))
+          (root/'latest.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          if report.get('verified'):
+              (root/'README.md').write_text('# Specification review site\n\n[Open the verified public reader]('+url+')\n\nImmutable source: `'+report['source_sha']+'`. The response content hash matches the committed portal. Reading is public; review submissions use GitHub authentication.\n\nThis publication contains the committed audit snapshot; the newest v4 source reconciliation is a separate update and must not be inferred from deployment success.\n')
+              with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write('## Verified publication\n\n[Open specification reader]('+url+')\n\nSHA-256: `'+report['source_sha256']+'`\n')
+          else:raise SystemExit('No verified public HTML response; inspect publication/latest.json')
+          PY
+      - name: Preserve publication proof
+        if: always()
+        run: |
+          git config user.name 'Rig documentation publication'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/grooming/full-2026-09-10/publication/
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs: record verified public specification URL and content hash'
+            git pull --rebase origin docs/full-grooming-2026-09-10
+            git push origin HEAD:docs/full-grooming-2026-09-10
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: specification-publication-proof
+          path: docs/grooming/full-2026-09-10/publication/
+          retention-days: 30
