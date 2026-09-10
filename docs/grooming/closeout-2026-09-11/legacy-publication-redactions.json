@@ -1,0 +1,20 @@
+[
+  {
+    "path": "docs/grooming/full-2026-09-10/before/tg-cli.json",
+    "original_sha256": "d51edc13ee1e59ded30b32e7203c83c4c17bbbc4f89276dcfa4fbd65ed10390e",
+    "published_sha256": "bf041df94c8e89c0abcb929145436aaa328111a8e9ad292ad51d25d4ea0d9f57",
+    "reason": "Incidental request correlation identifier omitted; original issue and PR were not modified. Legacy copy must not be used as an exact mutation baseline."
+  },
+  {
+    "path": "docs/grooming/full-2026-09-10/plans/tg-cli.json",
+    "original_sha256": "5941fe927289ccc67990ee2f31ae31e75964e28cd7253dd81b23027cff773374",
+    "published_sha256": "2126dd08b950e30865f60d7e5124a6a09706c0a42593772440a459bbe7115603",
+    "reason": "Incidental request correlation identifier omitted; original issue and PR were not modified. Legacy copy must not be used as an exact mutation baseline."
+  },
+  {
+    "path": "docs/grooming/full-2026-09-10/pull-requests.json",
+    "original_sha256": "5613d0da75ad99cd3999b635c302927a81034cc32be16e745ed894523808a9ef",
+    "published_sha256": "25a2893ca1cc5728b07453632bce671aebfeca0ae4b76849b88d97f502ffcf29",
+    "reason": "Incidental request correlation identifier omitted; original issue and PR were not modified. Legacy copy must not be used as an exact mutation baseline."
+  }
+]

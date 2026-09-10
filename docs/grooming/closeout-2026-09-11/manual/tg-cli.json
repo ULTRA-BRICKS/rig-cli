@@ -1,0 +1,7 @@
+[
+  {
+    "key": "tg-cli#118",
+    "reason": "Historical redacted before-image requires separate live reconciliation.",
+    "observed_body_sha256": "98a9015006871f7b2ba1371d0cccbb69052a78b638a5f3c9e21d904e3a20fa54"
+  }
+]
