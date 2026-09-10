@@ -9,197 +9,101 @@
 ## Разделы исходника
 
 | Раздел | Исходный заголовок | Контракт и решение ревью | Явные связи |
-
 |---|---|---|---|
-
 | S001 | Agent Ecosystem Retrospective and Fix Strategy — 2026-07-01 # | [Версии, контекст цитат и сохранение истории](specs.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S002 | Table of contents # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S003 | 1. Executive summary # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S004 | Finding A — The rulebook never reaches the agents # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S005 | Finding B — Enforcement exists but has holes and friction # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S006 | Finding C — E2E is a solvable problem measured by a broken instrument # | [Реальный пользовательский сценарий, не один helper](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S007 | Finding D — The tool ecosystem is less home-grown-madness than feared, but under-wired # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S008 | Finding E — Throughput went to tooling while product backlog grows and hygiene decays # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S009 | The strategy in one paragraph # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S010 | 2. Method # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S011 | 3. Broken-things catalog # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S012 | 3.1 Provisioning and context delivery # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S013 | 3.2 Guards and enforcement # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S014 | 3.3 Git / GitHub / CI # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S015 | 3.4 E2E infrastructure # | [Реальный пользовательский сценарий, не один helper](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S016 | 3.5 E2E portal # | [Реальный пользовательский сценарий, не один helper](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S017 | 3.6 Tools # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S018 | 3.6.1 rig # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S019 | 3.6.2 rtk # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S020 | 3.6.3 serena # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S021 | Serena: worktree defect — upstream status, alternatives evaluated, chosen path (2026-07-02) # | [Изоляция checkout, effective cwd и сохранность работы](worktrees.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S022 | 3.6.3.1 Part A — rig auto-provisions the TypeScript language server (native-LSP enablement, 2026-07-02) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S023 | 3.6.3.2 Part B — own rename/refactor + structural-search CLI: alex-mextner/morph-cli (2026-07-02) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S024 | 3.6.4 sverklo # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S025 | 3.6.5 haft # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S026 | 3.6.6 review-cli / review pool # | [Роли, модель, effort и независимые попытки](roles.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S027 | 3.6.7 tg # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S028 | 3.6.8 agent-browser # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S029 | 3.6.9 Ecosystem-level # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S030 | 3.6.10 Shared-lib consolidation (agent-tools/lib): built-but-unadopted # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S031 | 3.7 Process / tickets / PRs # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S032 | 3.8 Docs and memory # | [Контроль admission вместо письменного обещания](resources.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S033 | 3.9 Working-diff findings (canvas-preview fork in client/App.tsx ) # | [Роли, модель, effort и независимые попытки](roles.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S034 | 4. Root-cause synthesis # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S035 | 4.1 Rules-as-prose vs rules-as-mechanism # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S036 | 4.2 Context economics: what actually reaches whom # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S037 | 4.3 Measurement before goal # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S038 | 4.4 Incumbent-vs-new-tool niche collisions # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S039 | 4.5 The July-1 KPI audit pattern: tooling exempted itself from its own rules # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S040 | 5. Strategy (phased) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S041 | 5.0 Mapping to the CTO's stated goal priorities # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S042 | 5.1 Phase 0 — days (stop the bleeding) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S043 | 5.2 Phase 1 — ~2 weeks (measurement program + context decomposition + enforcement wave 1) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S044 | 5.2.1 The E2E measurement program (quorum-ratified) # | [Реальный пользовательский сценарий, не один helper](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S045 | 5.2.2 AGENTS.md decomposition (context delivery fix) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S046 | 5.2.3 Enforcement wave 1 # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S047 | 5.2.4 Repo/rig reconciliation # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S048 | 5.2.5 Communication upgrades (tg) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S049 | 5.2.6 Linear triage # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S050 | 5.2.7 Code-intel remediation + reasoning-tool delineation (serena / native LSP / superpowers / haft) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S051 | 5.2.8 2026-07-02 directive batch (knip, mergiraf, CLI-language policy) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S052 | 5.2.9 docs/rules migration into rig provisioning (tg#5631) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S053 | 5.3 Phase 2 — 2–4 weeks (distribution, rig UX, portal, decision discipline) # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S054 | 5.3.1 Distribution: global-source migration (quorum-unanimous Option B) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S055 | 5.3.2 rig UX and scope # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S056 | 5.3.3 Portal productionization # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S057 | 5.3.4 Native-lite decision discipline (brainstorm Phase 1) # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S058 | 5.4 Phase 3 — month+ (autonomy on top of stable measurement) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S059 | 6. Enforcement matrix # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S060 | 7. Tool verdicts # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S061 | 7.1 haft + sverklo: the two positions, presented for decision # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S062 | 8. Process and hygiene # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S063 | 8.1 Ticket discipline scorecard # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S064 | 8.2 PR–ticket linkage # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S065 | 8.3 Throughput and backlog # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S066 | 8.4 Linear triage plan # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S067 | 8.5 tg communication # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S068 | 8.6 Session-task hygiene (a meta-observation from this retrospective) # | [Версии, контекст цитат и сохранение истории](specs.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S069 | 9. CTO instructions review # | [Роли, модель, effort и независимые попытки](roles.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S070 | 9.1 What is demonstrably working — keep, and say why # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S071 | 9.2 What is duplicated or misplaced — move, don't rewrite # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S072 | 9.3 What is stale or self-violating — fix # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S073 | 9.4 The proposed constitution: "rule = hook, prose = pointer" # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S074 | 9.5 Sonnet-proofing (the original framing, answered by the data) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S075 | 10. In-flight fix tracks # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S076 | 11. Open decisions for the CTO # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S077 | Decision #1 — haft + sverklo: integrate-thin trial vs native-lite retirement # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S078 | Decision #2 — portal email provider and sending domain # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S079 | Decision #3 — rig descoping list # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S080 | Decision #4 — GitHub plan (recorded decision, no action needed) # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S081 | Decision #5 — e2e scope freeze + Tier 0 core composition + merge-bracket batch size # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S082 | Decision #6 — serena / sverklo MCP registration defaults # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S083 | Decision #7 — Shared-lib distribution model (declared uv path/git dep vs PyPI vs vendor + drift-guard) # | [Раздельная приёмка fixture, integration и live](testing.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S084 | 12. Appendix # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S085 | 12.1 Artifact paths # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S086 | 12.2 Agent report provenance # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S087 | 12.3 Glossary # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S088 | 12.4 Translated CTO quotes used in this spec # | [Версии, контекст цитат и сохранение истории](specs.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S089 | 13. Execution status & handover (2026-07-02) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S090 | 13.1 Shipped 2026-07-02 # | [Локальная проверка, revision-bound evidence и release](shipping.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S091 | 13.2 In-flight tracks # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S092 | 13.3 Pending CTO actions # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S093 | 13.4 Resume protocol for the successor # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S094 | 13.5 Live-verification log (2026-07-02 ~09:30 CEST) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
-
 | S095 | 13.6 Status update — 2026-08-18 (five weeks post-ratification) # | [Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки](01-retrospective-v4.md) | См. исходные ссылки; новая blocking-зависимость не выдумана |
 
 
