@@ -75,6 +75,7 @@ def test_guard_registry_covers_the_baseline_intents():
     assert "git-commit-no-verify" in deny_ids
     assert "sudo-rm" in deny_ids
     assert "screencapture" in deny_ids
+    assert "osascript" in deny_ids
     assert "git-worktree-add" in deny_ids
     assert "eval-osascript-spawn" in deny_ids
     # the ask baseline
@@ -678,6 +679,8 @@ const cases: Case[] = [
   ["deny sudo rm", { toolName: "bash", input: { command: "sudo rm -rf /" } }, noUI, "sudo-rm"],
   ["sudo cat ok", { toolName: "bash", input: { command: "sudo cat /etc/hosts" } }, noUI, "allow"],
   ["deny screencapture", { toolName: "bash", input: { command: "screencapture /tmp/x.png" } }, noUI, "screencapture"],
+  ["deny osascript", { toolName: "bash", input: { command: "osascript -e 'tell application \"System Events\" to keystroke \"x\"'" } }, noUI, "osascript"],
+  ["deny osascript activate", { toolName: "bash", input: { command: "osascript -e 'tell application \"Visual Studio Code\" to activate'" } }, noUI, "osascript"],
   ["ask pkill headless blocks", { toolName: "bash", input: { command: "pkill -f worker" } }, noUI, "ask pkill"],
   ["ask killall confirm-yes allows", { toolName: "bash", input: { command: "killall worker" } }, uiYes, "allow"],
   ["ask killall confirm-no blocks", { toolName: "bash", input: { command: "killall worker" } }, uiNo, "killall"],
@@ -1072,6 +1075,7 @@ def test_guard_rules_cover_the_same_intents_as_the_glob_belts():
         "git-commit-no-verify": "--no-verify",
         "sudo-rm": "sudo rm",
         "screencapture": "screencapture",
+        "osascript": "osascript",
         "rg-pre": "--pre",
         "git-worktree-add": "git worktree add",
     }
