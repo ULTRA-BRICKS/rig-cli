@@ -1,0 +1,40 @@
+{
+  "2e9ab377c988543fef6e": {
+    "documents": [
+      "docs/specs/recovery/testing.md",
+      "docs/specs/recovery/auxiliary.md",
+      "docs/specs/recovery/roles.md",
+      "docs/specs/recovery/specs.md",
+      "docs/specs/recovery/telegram.md",
+      "docs/specs/recovery/provisioning.md",
+      "docs/specs/recovery/process.md",
+      "docs/specs/recovery/health.md",
+      "docs/specs/recovery/shipping.md",
+      "docs/specs/recovery/identity.md",
+      "docs/specs/recovery/worktrees.md",
+      "docs/specs/recovery/resources.md",
+      "docs/specs/recovery/telemetry.md",
+      "docs/specs/recovery/execution.md",
+      "docs/specs/recovery/intake.md"
+    ],
+    "status": "rendered"
+  },
+  "6040ebe6f1900443492a": {
+    "documents": [
+      "docs/specs/recovery/00-master.md"
+    ],
+    "status": "rendered"
+  },
+  "22185fff54ccb110bdd4": {
+    "documents": [
+      "docs/specs/recovery/01-retrospective-v4.md"
+    ],
+    "status": "rendered"
+  },
+  "89e8eae8ea485a1fd5b1": {
+    "documents": [
+      "docs/specs/recovery/01-retrospective-v4.md"
+    ],
+    "status": "rendered"
+  }
+}

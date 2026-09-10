@@ -1,0 +1,342 @@
+[
+  {
+    "key": "pm-cli#2",
+    "repo": "pm-cli",
+    "number": 2,
+    "title": "pm-cli: cron wrapper to push stuck-task reminder digests to Telegram",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#3",
+    "repo": "pm-cli",
+    "number": 3,
+    "title": "pm ingest: refresh state of already-tracked tickets (stale reminders)",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#4",
+    "repo": "pm-cli",
+    "number": 4,
+    "title": "pm ingest: degraded project fetches are dropped silently — add a strict mode for automation",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#5",
+    "repo": "pm-cli",
+    "number": 5,
+    "title": "pm reminders --digest: move digest formatting and schema knowledge out of the bash wrapper into pm",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#7",
+    "repo": "pm-cli",
+    "number": 7,
+    "title": "pm-cli: provision CI (tests + secret-scan) — repo had zero CI, blocking gh ship",
+    "provider_state": "closed",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#8",
+    "repo": "pm-cli",
+    "number": 8,
+    "title": "pm report metrics: cycle time / time-in-status per work item",
+    "provider_state": "closed",
+    "topic": "telemetry",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#9",
+    "repo": "pm-cli",
+    "number": 9,
+    "title": "Aging alert: flag work items whose current-state age exceeds a threshold",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#10",
+    "repo": "pm-cli",
+    "number": 10,
+    "title": "Weekly metrics digest via tg, built on pm report metrics",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#11",
+    "repo": "pm-cli",
+    "number": 11,
+    "title": "fix(reconcile): PR-url discovery via task read (pr_url_for always empty, scanned:0 forever)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#13",
+    "repo": "pm-cli",
+    "number": 13,
+    "title": "test_monthly_report_groups_product_and_process is a time-bomb test (hardcoded 2026-07 month)",
+    "provider_state": "closed",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#14",
+    "repo": "pm-cli",
+    "number": 14,
+    "title": "Sprint system (M4): architectural follow-ups from review (lifecycle rules, error tracking, library-level reminders API)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#16",
+    "repo": "pm-cli",
+    "number": 16,
+    "title": "pm why: add --json output for tg-cli /next command",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#17",
+    "repo": "pm-cli",
+    "number": 17,
+    "title": "Review pm why JSON diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#19",
+    "repo": "pm-cli",
+    "number": 19,
+    "title": "Review uncommitted sprint-system diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#21",
+    "repo": "pm-cli",
+    "number": 21,
+    "title": "pm-cli: add an install-skill command + install.sh for rig tools.items registration",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#22",
+    "repo": "pm-cli",
+    "number": 22,
+    "title": "Review pm-cli worktree-only rig diff",
+    "provider_state": "closed",
+    "topic": "worktrees",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#25",
+    "repo": "pm-cli",
+    "number": 25,
+    "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+    "provider_state": "closed",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#26",
+    "repo": "pm-cli",
+    "number": 26,
+    "title": "Review ship external-review config change",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#28",
+    "repo": "pm-cli",
+    "number": 28,
+    "title": "Weekly metrics digest counts ship-ready as shipped, inflating throughput",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "pm-cli#29",
+    "repo": "pm-cli",
+    "number": 29,
+    "title": "[EPIC] pm-cli: complete backlog recovery and verified acceptance",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  }
+]

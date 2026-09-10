@@ -358,9 +358,9 @@ def redact_publication() -> None:
 
 def render_portal(rendered: dict) -> None:
     renderer=module(ROOT/'tools/grooming/render.py','rig_v4_public_renderer')
-    renderer.BASE=BASE
-    renderer.SPECS=SPECS
-    renderer.OUT=PORTAL
+    renderer.BASE=BASE.relative_to(ROOT)
+    renderer.SPECS=SPECS.relative_to(ROOT)
+    renderer.OUT=PORTAL.relative_to(ROOT)
     def markdown(text):
         while re.search(r'(?m)(^\|[^\n]*\|)\n\n(?=\|)',text):text=re.sub(r'(?m)(^\|[^\n]*\|)\n\n(?=\|)',r'\1\n',text)
         text=re.sub(r'<details><summary>(.*?)</summary>',r'\n\n**\1**\n\n',text,flags=re.S).replace('</details>','')

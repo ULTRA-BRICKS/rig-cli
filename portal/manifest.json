@@ -1,8 +1,14 @@
 {
-  "documents": 47,
-  "public_issues": 1519,
-  "quote_records": 230,
-  "bytes": 3788369,
-  "auth": "public-reader; GitHub-authenticated review submission",
-  "private_source_included": false
+  "documents": 49,
+  "public_issues": 1602,
+  "quote_records": 505,
+  "bytes": 5178909,
+  "auth": "Public reading; GitHub authentication only for submitting reviews",
+  "private_source_included": false,
+  "source_version": 4,
+  "export_rows": 4329,
+  "qualified_records": 505,
+  "sha256": "a68ca13e0ee9cf79bde589b3b2908413556edfca2d685fd61e9f25172f5fe3bf",
+  "retrospective": "01-retrospective-v4",
+  "publication": "GitHub-committed static reader; immutable URL after this build is committed"
 }

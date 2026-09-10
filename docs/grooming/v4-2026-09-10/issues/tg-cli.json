@@ -1,0 +1,3995 @@
+[
+  {
+    "key": "tg-cli#26",
+    "repo": "tg-cli",
+    "number": 26,
+    "title": "/tasks command — session task table + Gantt + agent summary (HD inline)",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#27",
+    "repo": "tg-cli",
+    "number": 27,
+    "title": "/new command — spawn a new agent session (interactive inline-button options)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#28",
+    "repo": "tg-cli",
+    "number": 28,
+    "title": "tg#<id> message-ref convention + autolink (before #N PR/issue detection)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#29",
+    "repo": "tg-cli",
+    "number": 29,
+    "title": "File-excerpt attachment — quote referenced lines for path:line refs (currently broken)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#30",
+    "repo": "tg-cli",
+    "number": 30,
+    "title": "Decisions-as-buttons + hanging-question inject-collision (no-expiration; DEFER inbound)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#31",
+    "repo": "tg-cli",
+    "number": 31,
+    "title": "CodeQL JS/TS: fix-or-justify 8 pre-existing TS findings (surfaced by #25 rig rollout)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#32",
+    "repo": "tg-cli",
+    "number": 32,
+    "title": "AGENTS.md stale test count: ~578 tests → 997",
+    "provider_state": "closed",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#52",
+    "repo": "tg-cli",
+    "number": 52,
+    "title": "tg-ctl forum-topics: wire the routing half (increment 3 minus spawn) — topic→pane map + inbound route + outbound message_thread_id",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#53",
+    "repo": "tg-cli",
+    "number": 53,
+    "title": "reply to agent-B mis-delivered to agent-A: recognized route loses to the single global registration",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#56",
+    "repo": "tg-cli",
+    "number": 56,
+    "title": "forum-topics incr2: tg --topic <id> — agent replies thread into their own topic",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#57",
+    "repo": "tg-cli",
+    "number": 57,
+    "title": "forwarded question must wait indefinitely for its Telegram answer, not expire to terminal",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#58",
+    "repo": "tg-cli",
+    "number": 58,
+    "title": "unscoped question expiry silently strands its deferred backlog (no dead-letter notice)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#59",
+    "repo": "tg-cli",
+    "number": 59,
+    "title": "/agent shows useless duplicate text rows + no buttons — make it an inline-keyboard picker with distinct labels",
+    "provider_state": "closed",
+    "topic": "roles",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#63",
+    "repo": "tg-cli",
+    "number": 63,
+    "title": "/agent picker: drop the redundant text list + ▸window header — buttons only",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#65",
+    "repo": "tg-cli",
+    "number": 65,
+    "title": "ask-forward silently drops a question when the registration doesn't match (no log line)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#67",
+    "repo": "tg-cli",
+    "number": 67,
+    "title": "per-pane registration set: every live session's questions forward (kill the single-registration limit)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#68",
+    "repo": "tg-cli",
+    "number": 68,
+    "title": "self-provision the bot command menu via setMyCommands on startup",
+    "provider_state": "closed",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#70",
+    "repo": "tg-cli",
+    "number": 70,
+    "title": "test hygiene: ctl-multi-session-forward integration leaks detached tg-ctl daemons",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#72",
+    "repo": "tg-cli",
+    "number": 72,
+    "title": "tg --tag answer must require --reply-to; hidden terminal-only bypass, not in help",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#74",
+    "repo": "tg-cli",
+    "number": 74,
+    "title": "tg-ctl: ambiguous/gone target dumps plain text instead of the tappable agent picker",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#75",
+    "repo": "tg-cli",
+    "number": 75,
+    "title": "no-reply auto-bind to last-active agent + /agent picker uses tmux window names not cwd",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#78",
+    "repo": "tg-cli",
+    "number": 78,
+    "title": "no-reply inbound binds to the last-message agent (simplify the MRU machinery); fix the regression",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#80",
+    "repo": "tg-cli",
+    "number": 80,
+    "title": "tg VERSION literal (1.15.0) has DRIFTED from package.json (1.0.0) — derive it dynamically",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#82",
+    "repo": "tg-cli",
+    "number": 82,
+    "title": "integration tests leak daemon processes → flaky no-agent; guarantee teardown",
+    "provider_state": "closed",
+    "topic": "resources",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#84",
+    "repo": "tg-cli",
+    "number": 84,
+    "title": "forum-topics: spawn an agent on forum_topic_created (the /new flow trigger — spec increment 2)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#86",
+    "repo": "tg-cli",
+    "number": 86,
+    "title": "tg-ctl forum-topics increment-4 polish: recent-path buttons, clear model keyboard, re-spawn on dead pane, crash-orphan reconcile",
+    "provider_state": "closed",
+    "topic": "roles",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#88",
+    "repo": "tg-cli",
+    "number": 88,
+    "title": "tg-ctl status: autostart shows 'NOT enabled' when daemon is supervised by an external launchd job",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#93",
+    "repo": "tg-cli",
+    "number": 93,
+    "title": "tg-ctl: cleanExit unlinks the pidfile unconditionally — a departing/loser daemon deletes the live winner's pidfile (false 'not running')",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#95",
+    "repo": "tg-cli",
+    "number": 95,
+    "title": "tg --file report.html renders RAW HTML tags in PDF instead of formatted output",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#97",
+    "repo": "tg-cli",
+    "number": 97,
+    "title": "AskUserQuestion forwards a duplicate Telegram card; second tap reads as 'expired'",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#99",
+    "repo": "tg-cli",
+    "number": 99,
+    "title": "tg-ctl: question-answer state must survive socket-close + daemon restart (late-deliver + lossless reconnect)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#100",
+    "repo": "tg-cli",
+    "number": 100,
+    "title": "tg-ctl late-delivery: verify pane IDENTITY (not just liveness) before injecting a late answer",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#102",
+    "repo": "tg-cli",
+    "number": 102,
+    "title": "md-pdf: convertMdToPdf lacks the network-blackhole + drops embed-resources hardening that convertHtmlToPdf got in #96",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#103",
+    "repo": "tg-cli",
+    "number": 103,
+    "title": "pdf-render: Chrome still loads absolute-path / file:// <img> subresources into the printed PDF (both md-pdf and html-report paths)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#104",
+    "repo": "tg-cli",
+    "number": 104,
+    "title": "convertMdToPdf does not sanitize pandoc raw-HTML output — a hostile .md with <iframe src=file://>/<script> reaches Chrome (md path not at .html sanitization parity)",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#106",
+    "repo": "tg-cli",
+    "number": 106,
+    "title": "Fix tg review-visual hook timeout and dirty-cwd routing",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#113",
+    "repo": "tg-cli",
+    "number": 113,
+    "title": "Notify Telegram when the harness hits a session limit or API error; inline button schedules auto-continue at reset time",
+    "provider_state": "closed",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#114",
+    "repo": "tg-cli",
+    "number": 114,
+    "title": "Reaction lifecycle on inbound tg messages: sleeping-mark on limit-stop, eyes on resume, done-mark on answer or filed task",
+    "provider_state": "open",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#115",
+    "repo": "tg-cli",
+    "number": 115,
+    "title": "/tasks [<agent>] [<status>] bot command: task table with lifecycle status (tickets + PR/CI state)",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#116",
+    "repo": "tg-cli",
+    "number": 116,
+    "title": "autolink-msgrefs: replace literal tg#<id> with a quoted preview of the referenced message («начало сообщения…»), hyperlinked where possible",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#117",
+    "repo": "tg-cli",
+    "number": 117,
+    "title": "/tasks v2: full lifecycle depth — tg-origin linkage, acceptance-criteria progress, review cycles, done-vs-accepted",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#118",
+    "repo": "tg-cli",
+    "number": 118,
+    "title": "question buttons: tapped answer never reaches the agent (CC >=2.1.198 requires hookEventName); multi-question ends on an extra manual Enter",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#121",
+    "repo": "tg-cli",
+    "number": 121,
+    "title": "tg replies --session accepts a tmux window name, not only a pane id",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#123",
+    "repo": "tg-cli",
+    "number": 123,
+    "title": "docs(replies): document --since/--until/--all-sessions (and new --session window support) in README/AGENTS",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#124",
+    "repo": "tg-cli",
+    "number": 124,
+    "title": "tg: auto-split messages exceeding Telegram's 4096-char limit",
+    "provider_state": "open",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#126",
+    "repo": "tg-cli",
+    "number": 126,
+    "title": "test: ctl-new-spawn-integration flakes under full-suite load",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#127",
+    "repo": "tg-cli",
+    "number": 127,
+    "title": "Answered unscoped blocker never flushes deferred backlog; ✍️ never flips to 👀 (tg#5855)",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#128",
+    "repo": "tg-cli",
+    "number": 128,
+    "title": "tg: ✍️ reaction doesn't flip to 👀 after limit-blocker is cleared, reply not delivered to agent",
+    "provider_state": "closed",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#130",
+    "repo": "tg-cli",
+    "number": 130,
+    "title": "Reply quote-anchor should carry the original message's tg#<id>",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#132",
+    "repo": "tg-cli",
+    "number": 132,
+    "title": "Report agent usage limits at 90 percent",
+    "provider_state": "open",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#134",
+    "repo": "tg-cli",
+    "number": 134,
+    "title": "tg replies: multi-id sends (split/album) show duplicate lines in list/find",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#136",
+    "repo": "tg-cli",
+    "number": 136,
+    "title": "tg replies history.jsonl: outbound writer has no RMW lock (unlike routes.json)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#138",
+    "repo": "tg-cli",
+    "number": 138,
+    "title": "--title should refuse a tg#<id> reference",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#140",
+    "repo": "tg-cli",
+    "number": 140,
+    "title": "pre-send-photo hook: forward outgoing caption as --intent to review visual",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#142",
+    "repo": "tg-cli",
+    "number": 142,
+    "title": "pre-send-photo: _safe_intent() silently drops an unencodable caption without warn()",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#143",
+    "repo": "tg-cli",
+    "number": 143,
+    "title": "Flaky CI: tests/ctl-topic-spawn-integration.test.ts VANISHED-dir re-spawn cases fail intermittently in full suite",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#149",
+    "repo": "tg-cli",
+    "number": 149,
+    "title": "tg-ctl: synchronous unforgeable 'ask & wait for a real Telegram reply' primitive for external approval callers (tg#6554)",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#150",
+    "repo": "tg-cli",
+    "number": 150,
+    "title": "Persistent codex/agent tmux panes have no task-lock — new inbound message silently drops in-flight work",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#151",
+    "repo": "tg-cli",
+    "number": 151,
+    "title": "Empty-watermark heuristic never detects a real empty VS Code screenshot",
+    "provider_state": "closed",
+    "topic": "resources",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#152",
+    "repo": "tg-cli",
+    "number": 152,
+    "title": "git-state-check banner: warn before a message lands in an occupied pane",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#154",
+    "repo": "tg-cli",
+    "number": 154,
+    "title": "CI flakiness: 2 integration tests intermittently fail on ubuntu runner",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#159",
+    "repo": "tg-cli",
+    "number": 159,
+    "title": "Fix tg-cli subagent sender label detection",
+    "provider_state": "closed",
+    "topic": "identity",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#160",
+    "repo": "tg-cli",
+    "number": 160,
+    "title": "Fix tg voice transcript confirmation and reactions",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#161",
+    "repo": "tg-cli",
+    "number": 161,
+    "title": "Inspect tg voice reply reaction semantics",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#163",
+    "repo": "tg-cli",
+    "number": 163,
+    "title": "pre-send-photo: selection-highlight veto downgraded to WARN, not BLOCK",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#164",
+    "repo": "tg-cli",
+    "number": 164,
+    "title": "Escalation-format gate: pre-send-text hook + question tag (tg-cli core)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#167",
+    "repo": "tg-cli",
+    "number": 167,
+    "title": "tg-cli: print tg# message refs on send",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#168",
+    "repo": "tg-cli",
+    "number": 168,
+    "title": "Escalation gate follow-ups: e2e block test, Tier-2 reachability note, minor edge cases",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#171",
+    "repo": "tg-cli",
+    "number": 171,
+    "title": "Auto-continue transient API overload stops",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#172",
+    "repo": "tg-cli",
+    "number": 172,
+    "title": "Investigate missing Codex 90 percent usage warning",
+    "provider_state": "closed",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#173",
+    "repo": "tg-cli",
+    "number": 173,
+    "title": "Rewrite dirty-pane routing warning",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#176",
+    "repo": "tg-cli",
+    "number": 176,
+    "title": "Add automatic Codex usage telemetry collector for 90 percent warnings",
+    "provider_state": "closed",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#178",
+    "repo": "tg-cli",
+    "number": 178,
+    "title": "Improve Telegram tasks view with status groups and filters",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#181",
+    "repo": "tg-cli",
+    "number": 181,
+    "title": "tg-ctl: ask once before falling back from private topics",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#182",
+    "repo": "tg-cli",
+    "number": 182,
+    "title": "tg-cli should not hide pending permission prompts by its own timeout",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#183",
+    "repo": "tg-cli",
+    "number": 183,
+    "title": "tg-cli: stop dropping stale inbound messages",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#185",
+    "repo": "tg-cli",
+    "number": 185,
+    "title": "tg-ctl /new private-topic spawn leaks an orphan forum topic and binding on each retry",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#186",
+    "repo": "tg-cli",
+    "number": 186,
+    "title": "tg-ctl /new is broken: tmux index collision, ignored inline dir, fixed arg order, and a re-ask loop on spawn failure",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#188",
+    "repo": "tg-cli",
+    "number": 188,
+    "title": "tg: hard-block stray CJK stuck mid-word into Latin/Cyrillic text",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#190",
+    "repo": "tg-cli",
+    "number": 190,
+    "title": "tg-ctl: inject !shell messages verbatim for harness passthrough",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#191",
+    "repo": "tg-cli",
+    "number": 191,
+    "title": "tg replies: agent-scoped history (attribution + default/--agent/--all)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#194",
+    "repo": "tg-cli",
+    "number": 194,
+    "title": "tg-ctl: graceful reload — no dropped channel across restart",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#197",
+    "repo": "tg-cli",
+    "number": 197,
+    "title": "tg-ctl: graceful reload preserves queued inbound messages",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#201",
+    "repo": "tg-cli",
+    "number": 201,
+    "title": "/tasks: a failing 'task list' renders as an empty board (log-only, not surfaced to the user)",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#203",
+    "repo": "tg-cli",
+    "number": 203,
+    "title": "tg-ctl: self-heal Claude hooks on daemon start (question + token-limit states silently break)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#205",
+    "repo": "tg-cli",
+    "number": 205,
+    "title": "tg: block mixed-script homoglyph/mojibake garbage tokens (почčesна)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#207",
+    "repo": "tg-cli",
+    "number": 207,
+    "title": "auto-attach fails the whole send when the body mentions a nonexistent or empty file path",
+    "provider_state": "open",
+    "topic": "resources",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#208",
+    "repo": "tg-cli",
+    "number": 208,
+    "title": "tg silently fragments an oversized message into dozens of separate Telegram sends instead of warning or refusing",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#209",
+    "repo": "tg-cli",
+    "number": 209,
+    "title": "tg-cli: decode text escapes before enforcing escalation format on --tag decision/question",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#210",
+    "repo": "tg-cli",
+    "number": 210,
+    "title": "tg-cli: skip fenced code blocks when auto-converting markdown pipe tables",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#211",
+    "repo": "tg-cli",
+    "number": 211,
+    "title": "tg-ctl: migrate pre-existing fully-installed hook setups to the opt-in sentinel",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#212",
+    "repo": "tg-cli",
+    "number": 212,
+    "title": "tg-ctl: preserve a symlinked ~/.claude/settings.json during hook self-heal write",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#213",
+    "repo": "tg-cli",
+    "number": 213,
+    "title": "tg-ctl: strengthen test coverage for the /tasks Review column and title-guard feature flag wiring",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#214",
+    "repo": "tg-cli",
+    "number": 214,
+    "title": "tg-cli: reconcile the autolink-tasks spec doc with the title guard and exact ticket-code grammar",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#215",
+    "repo": "tg-cli",
+    "number": 215,
+    "title": "tg: don't hard-block Cyrillic-affixed acronyms like antiDDoS-style mixed-script tech terms",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#216",
+    "repo": "tg-cli",
+    "number": 216,
+    "title": "tg: make escalation-format section validation actually section-aware",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#217",
+    "repo": "tg-cli",
+    "number": 217,
+    "title": "tg: require a real file:line, not just a path, in the escalation-format where-to-look field",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#218",
+    "repo": "tg-cli",
+    "number": 218,
+    "title": "tg: convert every markdown pipe table in a message, not just the first",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#219",
+    "repo": "tg-cli",
+    "number": 219,
+    "title": "tg: use the post-conversion format when checking the long-unstructured-message warning",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#220",
+    "repo": "tg-cli",
+    "number": 220,
+    "title": "tg: reconcile the pre-send escalation-format hook with the new deny-by-default gate contract",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#221",
+    "repo": "tg-cli",
+    "number": 221,
+    "title": "tg: harden pipe-table rendering for ragged rows and tighten the where-to-look file reference check",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#222",
+    "repo": "tg-cli",
+    "number": 222,
+    "title": "tg: document how to compose a compliant decision or question escalation via tg --table",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#223",
+    "repo": "tg-cli",
+    "number": 223,
+    "title": "tg: escalation-format validator structure checks have false-positive and false-negative edge cases",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#224",
+    "repo": "tg-cli",
+    "number": 224,
+    "title": "tg: reconcile mixed-script-guard docs with its actual bidirectional detection",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#225",
+    "repo": "tg-cli",
+    "number": 225,
+    "title": "tg: report the mixed-script guard's offending-token position against the authored input, not the rendered table",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#226",
+    "repo": "tg-cli",
+    "number": 226,
+    "title": "tg: mixed-script guard hard-blocks common Russian dev slang like zapushil, zadeployil (Cyrillic prefix plus English verb stem plus Cyrillic suffix)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#227",
+    "repo": "tg-cli",
+    "number": 227,
+    "title": "tg: mixed-script guard is bypassable via invisible format characters splitting a run",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#228",
+    "repo": "tg-cli",
+    "number": 228,
+    "title": "transmit() preflight refusals (rich-HTML / flood-cap) leak pdfTempDirs via process.exit",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#230",
+    "repo": "tg-cli",
+    "number": 230,
+    "title": "tg-ctl: usage-limit notification can't detect staleness when resetAt is null (claude/pi context-window)",
+    "provider_state": "closed",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#231",
+    "repo": "tg-cli",
+    "number": 231,
+    "title": "tg-ctl: unidentifiable/overclaiming abandoned-hook text and codex-only advice shown to every harness",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#233",
+    "repo": "tg-cli",
+    "number": 233,
+    "title": "tg-ctl: queued permission decision must never expire on a timer",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#235",
+    "repo": "tg-cli",
+    "number": 235,
+    "title": "tg-ctl: stale abandoned question/permission entries not reaped from questions.json store",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#236",
+    "repo": "tg-cli",
+    "number": 236,
+    "title": "tg-ctl: no relay of agent's post-completion follow-up work back to Telegram (silent open thread despite work being done)",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#237",
+    "repo": "tg-cli",
+    "number": 237,
+    "title": "Add offline dry-run validation for tg escalation-format gate",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#238",
+    "repo": "tg-cli",
+    "number": 238,
+    "title": "pre-send-text decision-gate hook inspects pre-substitution shell text, blindspot for $(cat file) message bodies",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#239",
+    "repo": "tg-cli",
+    "number": 239,
+    "title": "No dry-run mode: agents testing the --tag decision|question gate leak placeholder content to the live chat",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#240",
+    "repo": "tg-cli",
+    "number": 240,
+    "title": "tg: dry-run/send guard parity is enforced by code position, not structure",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#242",
+    "repo": "tg-cli",
+    "number": 242,
+    "title": "tg --dry-run: fix attachment-detection ordering and add pre-autolink and rich-message validation",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#243",
+    "repo": "tg-cli",
+    "number": 243,
+    "title": "tg-ctl: recognize omp (Oh My Pi) harness — inbound discovery + outbound branding",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#244",
+    "repo": "tg-cli",
+    "number": 244,
+    "title": "Review the current code changes (staged, unstaged, and untracked files) ",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#246",
+    "repo": "tg-cli",
+    "number": 246,
+    "title": "tg --detect-model misbrands omp sessions as claude (CLAUDECODE env checked before ancestry)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#248",
+    "repo": "tg-cli",
+    "number": 248,
+    "title": "Review this uncommitted git diff for bugs, regressions, security issues,",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#249",
+    "repo": "tg-cli",
+    "number": 249,
+    "title": "Review OMP model-detection ordering diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#250",
+    "repo": "tg-cli",
+    "number": 250,
+    "title": "Review the uncommitted tg-cli diff for cross-file consistency bugs, regr",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#251",
+    "repo": "tg-cli",
+    "number": 251,
+    "title": "Review omp model-detection ordering diff for cross-file consistency",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#252",
+    "repo": "tg-cli",
+    "number": 252,
+    "title": "Review OMP detection ordering for cross-file consistency",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#253",
+    "repo": "tg-cli",
+    "number": 253,
+    "title": "Review OMP lineage-first model detection diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#254",
+    "repo": "tg-cli",
+    "number": 254,
+    "title": "Review OMP model-detection order diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#255",
+    "repo": "tg-cli",
+    "number": 255,
+    "title": "Read-only review of the current uncommitted tg-cli diff for bugs, regres",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#256",
+    "repo": "tg-cli",
+    "number": 256,
+    "title": "Review OMP model detection ordering",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#257",
+    "repo": "tg-cli",
+    "number": 257,
+    "title": "Review OMP model-detection ordering diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#258",
+    "repo": "tg-cli",
+    "number": 258,
+    "title": "Review OMP model-detection ordering diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#259",
+    "repo": "tg-cli",
+    "number": 259,
+    "title": "Escalation gate hasWallOfText measures RAW line length incl. HTML markup — any single-line HTML body >350 chars is deny-by-default blocked",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#260",
+    "repo": "tg-cli",
+    "number": 260,
+    "title": "tg --dry-run gate gives different accept/reject verdict than real send for byte-identical content depending on shell arg-passing mechanism",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#261",
+    "repo": "tg-cli",
+    "number": 261,
+    "title": "Verify escalation-format gate Readability check against real decision-request content (reported false-rejects)",
+    "provider_state": "closed",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#263",
+    "repo": "tg-cli",
+    "number": 263,
+    "title": "harness-event mislabels bare StopFailure notifications with stale tmux window name instead of live harness kind",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#264",
+    "repo": "tg-cli",
+    "number": 264,
+    "title": "harness-event bare StopFailure alerts lose per-pane identity when multiple panes run the same harness",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#265",
+    "repo": "tg-cli",
+    "number": 265,
+    "title": "limit-continue arm/fire guard recovers agent from windowName, same drift weakness as the harness-event bug",
+    "provider_state": "open",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#267",
+    "repo": "tg-cli",
+    "number": 267,
+    "title": "Late-deliver a Telegram permission tap by injecting the digit into the still-showing terminal menu",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#268",
+    "repo": "tg-cli",
+    "number": 268,
+    "title": "tg-ctl permission pane-inject: deferred hardening (verbose deny label, state-machine extraction, other prompt shapes, deny-window guard test)",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#270",
+    "repo": "tg-cli",
+    "number": 270,
+    "title": "escalation-format: withVisualLineBreaks is markup-context-blind (breaks inside <pre>/<code>) and its block-tag set is incomplete",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#271",
+    "repo": "tg-cli",
+    "number": 271,
+    "title": "tg-ctl: no-reply anchor uses the CTO's own last message, not any agent's last outbound send",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#272",
+    "repo": "tg-cli",
+    "number": 272,
+    "title": "tg-ctl anchor: centralize recordLastAlexTarget at a delivery chokepoint + close remaining gaps",
+    "provider_state": "open",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#273",
+    "repo": "tg-cli",
+    "number": 273,
+    "title": "tg-ctl: last-alex-target anchor edge cases deferred from tg-cli#78 follow-up review",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#274",
+    "repo": "tg-cli",
+    "number": 274,
+    "title": "tg-ctl: /agent <selector> <text> route drops the tg#<id> wrap tag",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#275",
+    "repo": "tg-cli",
+    "number": 275,
+    "title": "tg-ctl: /agent-routed messages lose the tg#<id> wrap tag",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#277",
+    "repo": "tg-cli",
+    "number": 277,
+    "title": "tg-cli: stale bare-hash id-wrap references across several files and one test",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#279",
+    "repo": "tg-cli",
+    "number": 279,
+    "title": "tg-ctl: the live daemon process never restarts after a merge, so shipped fixes silently sit inert for weeks",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#280",
+    "repo": "tg-cli",
+    "number": 280,
+    "title": "tg-ctl inbound Telegram albums (media_group_id) are split into separate per-photo deliveries instead of one bundled message",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#281",
+    "repo": "tg-cli",
+    "number": 281,
+    "title": "Rename Alex-specific identifiers to generic User in tg-ctl routing anchor",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#282",
+    "repo": "tg-cli",
+    "number": 282,
+    "title": "Review uncommitted permission retention diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#283",
+    "repo": "tg-cli",
+    "number": 283,
+    "title": "permission-menu.ts: multi-line Bash command matching for late-delivery pane-injection needs live-verified redesign (tg-cli#182 leg-2 follow-up)",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#284",
+    "repo": "tg-cli",
+    "number": 284,
+    "title": "Review last-user-target rename for cross-file consistency",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#287",
+    "repo": "tg-cli",
+    "number": 287,
+    "title": "escalation-format gate rejects its own documented --tag decision example",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#288",
+    "repo": "tg-cli",
+    "number": 288,
+    "title": "/next <ticket-id> bot command: live pm-cli lifecycle card, replacing dead /state and /next runbooks",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#289",
+    "repo": "tg-cli",
+    "number": 289,
+    "title": "Review uncommitted /next lifecycle command diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#290",
+    "repo": "tg-cli",
+    "number": 290,
+    "title": "feat(tg-ctl): /usage bot command + scheduled weekly/monthly push",
+    "provider_state": "open",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#291",
+    "repo": "tg-cli",
+    "number": 291,
+    "title": "Review uncommitted /spend command rename",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#293",
+    "repo": "tg-cli",
+    "number": 293,
+    "title": "tg-ctl: scheduled usage report silently lost if machine asleep or off across the weekly/monthly boundary",
+    "provider_state": "open",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#294",
+    "repo": "tg-cli",
+    "number": 294,
+    "title": "tg-ctl: malformed rig usage --json can crash the /spend report formatter",
+    "provider_state": "open",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#295",
+    "repo": "tg-cli",
+    "number": 295,
+    "title": "tg-ctl: long /daily report can exceed Telegram's message limit and be lost with no retry",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#296",
+    "repo": "tg-cli",
+    "number": 296,
+    "title": "tg-ctl: /spend shows a misleading $0.00 for models rig usage marks unpriced",
+    "provider_state": "open",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#297",
+    "repo": "tg-cli",
+    "number": 297,
+    "title": "tg-ctl: scheduled usage HTML send does not escape report body content",
+    "provider_state": "open",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#298",
+    "repo": "tg-cli",
+    "number": 298,
+    "title": "tg-ctl: isLikelySlashCommand rejects Telegram's @botname group-chat suffix, breaking verbatim passthrough in bound topics",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#299",
+    "repo": "tg-cli",
+    "number": 299,
+    "title": "Audit lost inbound Telegram messages across all agents and close the delivery gap",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#300",
+    "repo": "tg-cli",
+    "number": 300,
+    "title": "tg: a file path mentioned in a rich HTML message is auto-attached, which silently downgrades the send to the basic tier and fails with a misleading 'only those HTML tags are supported' error",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#301",
+    "repo": "tg-cli",
+    "number": 301,
+    "title": "tg: drop the question tag — only the standard tags stay (answer, decision, problem, report); a question is a decision request",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#302",
+    "repo": "tg-cli",
+    "number": 302,
+    "title": "tg: refuse to send a message containing a banned word from the shared dictionary (DICT.json next to the global CLAUDE.md), printing the replacement",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#303",
+    "repo": "tg-cli",
+    "number": 303,
+    "title": "tg-ctl ask: honour --timeout beyond the 115s hook cap, auto-deliver a queued decision to a re-run of the same deterministic request, and tell the truth about why the asker went away",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#304",
+    "repo": "tg-cli",
+    "number": 304,
+    "title": "Empirical study of Claude Code prompts inside tmux: how to tell whether a permission or question is still pending, and wire the findings into tg-ctl",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#306",
+    "repo": "tg-cli",
+    "number": 306,
+    "title": "tg-ctl: agents running outside tmux are invisible — show them as unreachable with the reason, and deliver to them through the Stop-hook inbox",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#307",
+    "repo": "tg-cli",
+    "number": 307,
+    "title": "Review usage schedule uncommitted diff",
+    "provider_state": "closed",
+    "topic": "health",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#308",
+    "repo": "tg-cli",
+    "number": 308,
+    "title": "Codex loads hook config from both hooks.json and config.toml — tg-ctl's usage telemetry and rig's hook bridge need one shared representation",
+    "provider_state": "open",
+    "topic": "identity",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#309",
+    "repo": "tg-cli",
+    "number": 309,
+    "title": "Permission pane-inject: truncated-identity prefix match and TOCTOU can approve the wrong command",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#310",
+    "repo": "tg-cli",
+    "number": 310,
+    "title": "Review uncommitted tg-cli diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#311",
+    "repo": "tg-cli",
+    "number": 311,
+    "title": "Scheduled usage push: a send failure on the boundary day loses the report, next day's retry is a wrong-cause notice",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#312",
+    "repo": "tg-cli",
+    "number": 312,
+    "title": "Review uncommitted tg-cli diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#314",
+    "repo": "tg-cli",
+    "number": 314,
+    "title": "Review Codex rig hook dedup diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#316",
+    "repo": "tg-cli",
+    "number": 316,
+    "title": "tg-ctl: migrate the legacy Codex hooks.json Stop entry away, detect the telemetry hook in config.toml, and recognize the launchd-owned daemon in status",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#317",
+    "repo": "tg-cli",
+    "number": 317,
+    "title": "Approval requests report \"not posted\" for messages Telegram actually received",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#318",
+    "repo": "tg-cli",
+    "number": 318,
+    "title": "Review uncommitted rig worktree guard configuration",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#319",
+    "repo": "tg-cli",
+    "number": 319,
+    "title": "Review omp non-tmux diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#323",
+    "repo": "tg-cli",
+    "number": 323,
+    "title": "tg-ctl: control live omp via ACP, not tmux send-keys",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-201"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#326",
+    "repo": "tg-cli",
+    "number": 326,
+    "title": "CI gates fail closed and audit PR lockfiles as data",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#327",
+    "repo": "tg-cli",
+    "number": 327,
+    "title": "pre-send-photo consumes a live Telegram hatch approval without weakening the default block",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#329",
+    "repo": "tg-cli",
+    "number": 329,
+    "title": "Commit SHIP_EXTERNAL_REVIEW=0 in .ship-config",
+    "provider_state": "open",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#331",
+    "repo": "tg-cli",
+    "number": 331,
+    "title": "Review .ship-config external review toggle",
+    "provider_state": "open",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#332",
+    "repo": "tg-cli",
+    "number": 332,
+    "title": "Review ship configuration change",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#333",
+    "repo": "tg-cli",
+    "number": 333,
+    "title": "Hatch permission asks from non-tmux omp are dropped not-registered",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#334",
+    "repo": "tg-cli",
+    "number": 334,
+    "title": "tg-ctl status lies not-running while launchd pid lives",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#336",
+    "repo": "tg-cli",
+    "number": 336,
+    "title": "Audit ACP-backed omp routing for unsafe delivery paths",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#337",
+    "repo": "tg-cli",
+    "number": 337,
+    "title": "Block outbound tg send that mentions screenshot/скриншот without an attached image",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#339",
+    "repo": "tg-cli",
+    "number": 339,
+    "title": "Telegram replies still miss live omp sessions outside tmux",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "source-text-also-present-in-original-description",
+    "quote_ids": [
+      "v4-201"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#341",
+    "repo": "tg-cli",
+    "number": 341,
+    "title": "tg-ctl ACP initialize times out: omp 18.1.14 speaks NDJSON, not Content-Length",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#342",
+    "repo": "tg-cli",
+    "number": 342,
+    "title": "Telegram /agent does not match landing or rig-fable on live omp",
+    "provider_state": "closed",
+    "topic": "roles",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#343",
+    "repo": "tg-cli",
+    "number": 343,
+    "title": "ACP initialize timed out: tg-ctl speaks Content-Length, omp acp speaks NDJSON",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#344",
+    "repo": "tg-cli",
+    "number": 344,
+    "title": "tg-ctl must self-register OS autostart on first run",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-201"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#347",
+    "repo": "tg-cli",
+    "number": 347,
+    "title": "Audit dictionary-gate diff correctness",
+    "provider_state": "open",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#349",
+    "repo": "tg-cli",
+    "number": 349,
+    "title": "tg-ctl drops RIG_HATCH_REQUEST_* Telegram approvals when the human taps after the requesting process exits",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#353",
+    "repo": "tg-cli",
+    "number": 353,
+    "title": "ACP session/prompt stays wedged forever after one failed prompt (post-#346)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#354",
+    "repo": "tg-cli",
+    "number": 354,
+    "title": "tg-ctl: stale pane registrations survive a tmux server restart (pane_id reuse)",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-4166"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#355",
+    "repo": "tg-cli",
+    "number": 355,
+    "title": "tg-ctl: ask-forward log line conflates timeout with daemon failure (tg-ctl:3726)",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#356",
+    "repo": "tg-cli",
+    "number": 356,
+    "title": "tg hatches: list/show hatch-approval history in a durable local store",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-4166",
+      "v4-3183"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#357",
+    "repo": "tg-cli",
+    "number": 357,
+    "title": "Delivery isolation: preserve per-target ordering without waiting for another agent's response",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-4227"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#358",
+    "repo": "tg-cli",
+    "number": 358,
+    "title": "Fix omp session title in outbound header and /agent picker",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#360",
+    "repo": "tg-cli",
+    "number": 360,
+    "title": "tg-ctl: rescope omp delivery to fire-and-forget, fix offset-advance-before-persistence ordering (supersedes PR 322)",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-4227"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#363",
+    "repo": "tg-cli",
+    "number": 363,
+    "title": "tg-ctl: active-silence nudge for tg-unaware agent sessions",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#367",
+    "repo": "tg-cli",
+    "number": 367,
+    "title": "chore: enable worktree-only guard on primary checkout (prevents dirty-stale-primary incidents)",
+    "provider_state": "open",
+    "topic": "worktrees",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#369",
+    "repo": "tg-cli",
+    "number": 369,
+    "title": "tg-ctl: non-reply auto-bind (tg-cli#78 anchor) never applies with 2+ out-of-tmux omp candidates — regression",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#372",
+    "repo": "tg-cli",
+    "number": 372,
+    "title": "tg-ctl ask: report the daemon's real posted/dropped/expired outcome instead of a generic not-posted",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#373",
+    "repo": "tg-cli",
+    "number": 373,
+    "title": "tg-ctl ask: a request raised from a codex session has no pane/window/subagent to route an answer back to",
+    "provider_state": "open",
+    "topic": "identity",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-201"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#374",
+    "repo": "tg-cli",
+    "number": 374,
+    "title": "tg-ctl: 3 generic-ask hardening findings from PR #368 review round 3 (not yet fixed)",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-4166"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#375",
+    "repo": "tg-cli",
+    "number": 375,
+    "title": "test suite: gh ship's local full-suite fallback gate is structurally flaky (4/4 runs failed on unrelated hardcoded-timeout tests)",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-233",
+      "v4-202"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#377",
+    "repo": "tg-cli",
+    "number": 377,
+    "title": "Generic interactive agent control: migrate all message and permission routes to harness-cli",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-201",
+      "v4-4227"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#379",
+    "repo": "tg-cli",
+    "number": 379,
+    "title": "tg-ctl: awareness-nudge sweep repeatedly fails with 'Internal error' for stale /private/tmp omp ACP sessions",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-201"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#380",
+    "repo": "tg-cli",
+    "number": 380,
+    "title": "[EPIC] Reliable Telegram agent control: durable delivery, generic harness API and scoped approvals",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "epic",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-201",
+      "v4-4166"
+    ],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#382",
+    "repo": "tg-cli",
+    "number": 382,
+    "title": "[EPIC] tg-cli: complete backlog recovery and verified acceptance",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#383",
+    "repo": "tg-cli",
+    "number": 383,
+    "title": "[EPIC] tg-cli recovery: Telegram routing and decisions",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#384",
+    "repo": "tg-cli",
+    "number": 384,
+    "title": "[EPIC] tg-cli recovery: Auxiliary product workflows",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#385",
+    "repo": "tg-cli",
+    "number": 385,
+    "title": "[EPIC] tg-cli recovery: Testing and platform acceptance",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#386",
+    "repo": "tg-cli",
+    "number": 386,
+    "title": "[EPIC] tg-cli recovery: Review roles and independent routes",
+    "provider_state": "open",
+    "topic": "roles",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#387",
+    "repo": "tg-cli",
+    "number": 387,
+    "title": "[EPIC] tg-cli recovery: Provisioning and drift",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#388",
+    "repo": "tg-cli",
+    "number": 388,
+    "title": "[EPIC] tg-cli recovery: Execution, progress and cleanup",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#389",
+    "repo": "tg-cli",
+    "number": 389,
+    "title": "[EPIC] tg-cli recovery: Resource admission and services",
+    "provider_state": "open",
+    "topic": "resources",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#390",
+    "repo": "tg-cli",
+    "number": 390,
+    "title": "[EPIC] tg-cli recovery: Account health and quota",
+    "provider_state": "open",
+    "topic": "health",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#391",
+    "repo": "tg-cli",
+    "number": 391,
+    "title": "[EPIC] tg-cli recovery: Task intake and acceptance evidence",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#392",
+    "repo": "tg-cli",
+    "number": 392,
+    "title": "[EPIC] tg-cli recovery: Specifications and documentation",
+    "provider_state": "open",
+    "topic": "specs",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#393",
+    "repo": "tg-cli",
+    "number": 393,
+    "title": "[EPIC] tg-cli recovery: Telemetry and dashboards",
+    "provider_state": "open",
+    "topic": "roles",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#394",
+    "repo": "tg-cli",
+    "number": 394,
+    "title": "[EPIC] tg-cli recovery: Native identity and guard parity",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#395",
+    "repo": "tg-cli",
+    "number": 395,
+    "title": "[EPIC] tg-cli recovery: Historical process records",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#396",
+    "repo": "tg-cli",
+    "number": 396,
+    "title": "[EPIC] tg-cli recovery: Shipping, local CI and releases",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "tg-cli#397",
+    "repo": "tg-cli",
+    "number": 397,
+    "title": "[EPIC] tg-cli recovery: Worktree isolation and preservation",
+    "provider_state": "open",
+    "topic": "worktrees",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  }
+]

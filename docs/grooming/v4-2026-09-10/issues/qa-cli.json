@@ -1,0 +1,141 @@
+[
+  {
+    "key": "qa-cli#1",
+    "repo": "qa-cli",
+    "number": 1,
+    "title": "Headless Telegram Web testing mode (QR login via agent-browser)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-233",
+      "v4-202"
+    ],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "qa-cli#3",
+    "repo": "qa-cli",
+    "number": 3,
+    "title": "Audit QR wait login change",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-233"
+    ],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "qa-cli#5",
+    "repo": "qa-cli",
+    "number": 5,
+    "title": "Assess release version diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-233"
+    ],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "qa-cli#6",
+    "repo": "qa-cli",
+    "number": 6,
+    "title": "Live-prove qa-cli Telegram Web QR via agent-browser",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-233",
+      "v4-202"
+    ],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "qa-cli#8",
+    "repo": "qa-cli",
+    "number": 8,
+    "title": "Commit SHIP_EXTERNAL_REVIEW=0 in .ship-config",
+    "provider_state": "closed",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-233"
+    ],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "qa-cli#9",
+    "repo": "qa-cli",
+    "number": 9,
+    "title": "Audit ship external-review configuration change",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-233"
+    ],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "qa-cli#11",
+    "repo": "qa-cli",
+    "number": 11,
+    "title": "qa telegram login times out waiting for QR canvas even though QR renders successfully",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-233",
+      "v4-202"
+    ],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "qa-cli#13",
+    "repo": "qa-cli",
+    "number": 13,
+    "title": "[EPIC] qa-cli: complete backlog recovery and verified acceptance",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  }
+]

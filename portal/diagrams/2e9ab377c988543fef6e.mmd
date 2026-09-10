@@ -1,0 +1,9 @@
+flowchart LR
+  Q[Source request + context] --> T[Canonical task + scope]
+  T --> C[Implementation at exact revision]
+  C --> U[Isolated regression check]
+  U --> I[Producer / consumer integration]
+  I --> L[Required real-environment acceptance]
+  L --> A[Accepted outcome]
+  U -->|failure or unknown| T
+  I -->|gap| T

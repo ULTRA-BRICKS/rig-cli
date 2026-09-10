@@ -1,0 +1,211 @@
+[
+  {
+    "key": "research-cli#1",
+    "repo": "research-cli",
+    "number": 1,
+    "title": "Spin out research-cli into its own repo (strategy B: vendor + drift-guard)",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#2",
+    "repo": "research-cli",
+    "number": 2,
+    "title": "SubprocessTransport.ask does not pass env= to subprocess.run (reachability/call desync)",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#3",
+    "repo": "research-cli",
+    "number": 3,
+    "title": "Non-editable pip install breaks manifest loading (vendor/contracts/models.yaml not packaged)",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#4",
+    "repo": "research-cli",
+    "number": 4,
+    "title": "research_cli/install.py file-mutation helpers are not unit-tested",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#6",
+    "repo": "research-cli",
+    "number": 6,
+    "title": "transport: pass resolved provider key (incl. .env-only) into the backend subprocess",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#9",
+    "repo": "research-cli",
+    "number": 9,
+    "title": "docs: replace ad-hoc Ecosystem note with the shared machine-generated block",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#11",
+    "repo": "research-cli",
+    "number": 11,
+    "title": "research-cli: 67 pre-existing ruff violations masked by an unpinned CI install",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#12",
+    "repo": "research-cli",
+    "number": 12,
+    "title": "Review uncommitted CI lint-tool pin",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#14",
+    "repo": "research-cli",
+    "number": 14,
+    "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+    "provider_state": "closed",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#16",
+    "repo": "research-cli",
+    "number": 16,
+    "title": "transport: stale os.environ canonical key can mask fresh alias/.env value in subprocess env",
+    "provider_state": "closed",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#18",
+    "repo": "research-cli",
+    "number": 18,
+    "title": "chore(rig): enable worktree-only guard for the primary checkout",
+    "provider_state": "closed",
+    "topic": "worktrees",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "research-cli#19",
+    "repo": "research-cli",
+    "number": 19,
+    "title": "[EPIC] research-cli: complete backlog recovery and verified acceptance",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  }
+]

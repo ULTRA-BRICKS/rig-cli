@@ -1,0 +1,192 @@
+[
+  {
+    "key": "draw-cli#5",
+    "repo": "draw-cli",
+    "number": 5,
+    "title": "add `draw --version` reading the version dynamically from pyproject",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "draw-cli#7",
+    "repo": "draw-cli",
+    "number": 7,
+    "title": "`draw --version` prints \"unknown\" when run via the installed symlink",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "draw-cli#10",
+    "repo": "draw-cli",
+    "number": 10,
+    "title": "Deferred review findings from pipx packaging (PR #9)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "draw-cli#11",
+    "repo": "draw-cli",
+    "number": 11,
+    "title": "chore: add scripts/deploy.sh so rig apply keeps this tool fresh",
+    "provider_state": "closed",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "draw-cli#13",
+    "repo": "draw-cli",
+    "number": 13,
+    "title": "deploy.sh: resolve configured @{upstream} instead of hard-coded refs/remotes/origin/<branch>",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "draw-cli#15",
+    "repo": "draw-cli",
+    "number": 15,
+    "title": "Review uncommitted worktree-only guard diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "draw-cli#17",
+    "repo": "draw-cli",
+    "number": 17,
+    "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+    "provider_state": "closed",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "draw-cli#21",
+    "repo": "draw-cli",
+    "number": 21,
+    "title": "chore(rig): enable worktree-only guard for the primary checkout",
+    "provider_state": "closed",
+    "topic": "worktrees",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "draw-cli#22",
+    "repo": "draw-cli",
+    "number": 22,
+    "title": "feat: SD 3.5 APIs and local inference with native Apple Silicon/GGUF backend (PR https://github.com/alex-mextner/draw-cli/pull/14)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "draw-cli#23",
+    "repo": "draw-cli",
+    "number": 23,
+    "title": "feat: ChatGPT subscription images via Codex CLI (PR https://github.com/alex-mextner/draw-cli/pull/20)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "draw-cli#24",
+    "repo": "draw-cli",
+    "number": 24,
+    "title": "[EPIC] draw-cli: complete backlog recovery and verified acceptance",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  }
+]
