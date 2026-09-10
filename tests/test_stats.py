@@ -146,6 +146,8 @@ def test_categorize_our_clis_inside_bash():
     # env-prefixed and piped commands still detect the review CLI
     assert categorize("Bash", command="FOO=1 review -C /r")[0] == "review-cycles"
     assert categorize("Bash", command="git diff | review")[0] == "review-cycles"
+    # harness/qa/stt are unambiguous ecosystem CLI names added for rig-cli#480
+    assert categorize("Bash", command="harness stats")[0] == "ours"
 
 
 def test_categorize_mcp_split():
@@ -219,6 +221,9 @@ def test_detect_our_cli_handles_pipelines():
     assert detect_our_cli("(cd /x && review)") == "review"
     assert detect_our_cli("{ review; }") == "review"
     assert detect_our_cli("/usr/local/bin/3d test") == "3d"
+    assert detect_our_cli("harness stats") == "harness"
+    assert detect_our_cli("qa run") == "qa"
+    assert detect_our_cli("stt transcribe") == "stt"
     assert detect_our_cli("dev e2e run smoke") == "dev"
     assert detect_our_cli("dev-server up") is None
     assert detect_our_cli("(cd /x && ls)") is None

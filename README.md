@@ -157,7 +157,8 @@ each tool is invoked, sorting every invocation into five buckets:
 - **baseline** — the harness built-ins (`Bash`, `Read`, `Write`, `Edit`/`MultiEdit`,
   `Grep`, `Glob`, `NotebookEdit`, `Task`/`Agent`, `WebFetch`/`WebSearch`). The yardstick.
 - **ours** — the agent-tools ecosystem only: the CLIs `rig` / `tg` / `draw` / `3d` /
-  `task` / `dev` / `pm` / `research` (detected **inside** a shell command — a `Bash` call
+  `task` / `dev` / `pm` / `research` / `harness` / `qa` / `stt` (detected **inside** a shell
+  command — a `Bash` call
   running `tg …` is pulled out of the baseline shell count and re-labelled `tg (cli)`),
   plus our skills except `review`. Not the review MCP.
 - **review-cycles** — the review CLI inside Bash (re-labelled `review (cli)`),
