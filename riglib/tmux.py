@@ -1059,6 +1059,73 @@ def assess_autosave_freshness(
     return AutosaveHealth("ok", f"last run {age_min}m ago{result_note}")
 
 
+@dataclass(frozen=True)
+class PtyPressure:
+    """The verdict for macOS's SYSTEM-WIDE (not per-process, not launchd-rlimit) pty ceiling.
+
+    ``kern.tty.ptmx_max`` counts every live pseudo-terminal on the whole machine — every SSH
+    session, every terminal app tab, every tmux pane's shell, AND every zsh ``zpty``/``forkpty``
+    async worker (spaceship, zsh-async, powerlevel10k) — as ONE shared pool. It is NOT something a
+    LaunchAgent's ``SoftResourceLimits``/``NumberOfFiles`` can raise or lower — that controls
+    per-process ``RLIMIT_NOFILE``/``RLIMIT_NPROC``, an entirely different (and, on this machine,
+    already generous) ceiling; see the investigation note on :func:`assess_pty_pressure`. A tmux
+    server that never lets a pane die — rig's OWN anti-sprawl + continuum-restore + boot design
+    intentionally keeps sessions alive across every reboot — accumulates live zpty-held ptys pane
+    by pane over the server's entire lifetime, in a way a bare Terminal.app tab (which frees its
+    pty the instant the tab closes) never does. ``state`` is one of:
+
+    - ``"ok"`` — comfortably under the warn ratio.
+    - ``"high"`` — at/above the warn ratio; new pty allocations (zpty/forkpty — e.g. a prompt's
+      async worker) can start failing with ``can't open pseudo terminal: device not configured``
+      well before the literal ceiling, since every other process/user on the box competes for the
+      same pool.
+    - ``"unavailable"`` — off darwin (no ``kern.tty.ptmx_max``), or the count/sysctl read failed;
+      stays silent rather than risk a false positive or false negative.
+    """
+
+    state: Literal["ok", "high", "unavailable"]
+    detail: str
+
+
+# 70%: the same "catch the slow climb with headroom" philosophy as the autosave staleness
+# threshold (3x its interval) — `kern.tty.ptmx_max` is a HARD machine-wide ceiling shared by
+# every process on the box (other terminal apps, SSH sessions, VMs), so waiting for 100% before
+# warning would already be an outage for whoever allocates the NEXT pty.
+_PTY_WARN_RATIO = 0.7
+
+
+def assess_pty_pressure(pty_count: int | None, ptmx_max: int | None) -> PtyPressure:
+    """Pure verdict from already-collected counts — the I/O (``sysctl kern.tty.ptmx_max``,
+    counting live ``/dev/ttys*`` devices) is the caller's, so this stays hermetically testable
+    like :func:`assess_autosave_freshness`.
+
+    Investigation note (the zpty/spaceship "device not configured" + "async_worker_eval: no such
+    async worker" report this exists to diagnose): on this machine ``ulimit -n`` inside a
+    rig-managed tmux pane reads 1048576 and ``kern.maxfilesperproc`` is 92160 — NEITHER
+    launchd-constrained nor anywhere near exhausted, refuting the "launchd gives the boot/autosave
+    agent's process tree a stingy rlimit" hypothesis. The real, confirmed-scarce resource is
+    ``kern.tty.ptmx_max`` (511 on this machine) — a single machine-wide count, not a per-process
+    rlimit a plist's ``SoftResourceLimits`` could touch. This is also a documented upstream
+    spaceship-prompt failure mode (spaceship-prompt/spaceship-prompt#1207, #1507), independent of
+    rig — rig cannot fix zsh/spaceship's own zpty leak, only surface the shared resource climbing.
+    """
+    if pty_count is None or ptmx_max is None or ptmx_max <= 0:
+        return PtyPressure(
+            "unavailable",
+            "pty accounting unavailable (non-darwin, or the sysctl/device count could not be read)",
+        )
+    ratio = pty_count / ptmx_max
+    if ratio >= _PTY_WARN_RATIO:
+        return PtyPressure(
+            "high",
+            f"{pty_count}/{ptmx_max} live ptys ({ratio:.0%}) — approaching the machine-wide "
+            "kern.tty.ptmx_max ceiling; new pty allocations (zpty/forkpty, e.g. a shell prompt's "
+            "async worker) can start failing with 'device not configured' before it is fully "
+            "exhausted",
+        )
+    return PtyPressure("ok", f"{pty_count}/{ptmx_max} live ptys ({ratio:.0%})")
+
+
 def _resurrect_token(name: str) -> str:
     """Quote a resurrect process token if it contains whitespace; keep tilde matches as-is.
 
