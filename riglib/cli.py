@@ -933,6 +933,7 @@ _CATEGORY_LABELS = {
     "gitignore": "gitignore",
     "tools": "tools",
     "tg_ctl": "tg-ctl",
+    "tcc_watch": "tcc-watch",
 }
 
 
@@ -1929,6 +1930,7 @@ def _apply_commit_command(args: argparse.Namespace) -> str:
 _LIVE_ACTIVATION_KINDS = frozenset({
     "provision_tmux",
     "provision_tg_ctl",
+    "provision_tcc_watch",
     "provision_schedule",
     "provision_spotlight",
     "provision_project_tool",

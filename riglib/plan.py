@@ -945,6 +945,9 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     # ── tg_ctl (rig-managed tg-ctl inbound daemon LaunchAgent) ─────────────────────
     _build_tg_ctl(config, plan)
 
+    # ── tcc_watch (rig-managed TCC dialog-watcher daemon LaunchAgent, Phase 1 detection) ──
+    _build_tcc_watch(config, plan)
+
     return plan
 
 
@@ -2930,6 +2933,44 @@ def _build_tg_ctl(config: LoadedConfig, plan: InstallPlan) -> None:
                 "bun_path": t.get("bun_path"),
                 "tg_ctl_path": t.get("tg_ctl_path"),
                 "config_dir": t.get("config_dir"),
+            },
+        )
+    )
+
+
+def _build_tcc_watch(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed tcc-watch dialog-watcher LaunchAgent, unless ``enabled: false``.
+
+    Phase 1 (detection-only) of the defense-in-depth design behind the eval-tool TCC deny-list
+    (PR #488) — see :mod:`riglib.tcc_watch`'s module docstring for the full phased design and
+    :mod:`riglib.tcc_watch_daemon` for what the daemon actually does.
+
+    Default **ON** (like ``tg_ctl``): an ABSENT or empty ``tcc_watch:`` block still provisions
+    the daemon, so `rig init` on a clean macOS machine sets it up with no config at all. Only
+    `enabled: false` opts out. Per-MACHINE concern (one watcher daemon per machine), so the block
+    belongs in the GLOBAL layer (``~/.config/rig/config.yaml``) — but it cascades into the
+    merged config the same way every other GLOBAL-only block does.
+    """
+    from .tcc_watch import DEFAULT_LABEL
+
+    # An ABSENT key (None) defaults to provisioning (default-on). A PRESENT block (validate() has
+    # already guaranteed it is a mapping) opts in unless `enabled: false`.
+    t = config.data.get("tcc_watch") or {}
+    if t.get("enabled") is False:
+        return
+
+    plan.actions.append(
+        Action(
+            kind="provision_tcc_watch",
+            category="tcc_watch",
+            item="watch",
+            source=config.repo_root,  # no carrier; rig generates the plist + copies the watcher script
+            # target is the launchd LABEL (not a filesystem path), like provision_tg_ctl.
+            target=Path(t.get("label") or DEFAULT_LABEL),
+            options={
+                "label": t.get("label"),
+                "config_dir": t.get("config_dir"),
+                "python_bin": t.get("python_bin"),
             },
         )
     )

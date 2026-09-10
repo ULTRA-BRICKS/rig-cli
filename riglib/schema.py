@@ -63,7 +63,7 @@ _HARNESS_KIND_CHOICES: tuple[str, ...] = tuple(
 # ``mode`` (machine-wide agent policy).
 # Routing a GLOBAL-only value into a committed repo rig.yaml is the footgun this map prevents.
 # A category absent here defaults to REPO (the conservative "it lives in the committed file").
-_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "tg_ctl", "tmux", "mode"}
+_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "tg_ctl", "tcc_watch", "tmux", "mode"}
 
 
 def writable_layer_for_category(category: str) -> str:
@@ -504,6 +504,17 @@ AREAS: tuple[Area, ...] = (
         ),
     ),
     Area(
+        "tcc_watch", "TCC dialog-watcher daemon (macOS)",
+        "Phase 1 (detection-only) defense-in-depth behind the eval-tool TCC deny-list (PR #488): "
+        "tails `log stream`'s com.apple.TCC subsystem and durably logs every permission-prompt-"
+        "shaped event, as a machine-wide boot LaunchAgent.",
+        (
+            _opt("tcc_watch.enabled", KIND_BOOL, True,
+                 "Provision the tcc-watch detection daemon. GLOBAL-only (one per machine) — "
+                 "never written to a repo rig.yaml. macOS-only (launchd)."),
+        ),
+    ),
+    Area(
         "linters", "linter / formatter config files", "Per-repo linter + formatter config files rig writes/reconciles (tool + content per repo).",
         (
             _opt("linters.enabled", KIND_BOOL, True,
@@ -597,7 +608,7 @@ def set_path(data: dict[str, Any], dotted: str, value: Any) -> None:
 # when the block is missing/empty, or requires `enabled` to be truthy), NOT as enabled-by-default:
 # `_build_harness`/`_build_models` bail on a missing block, and the git-hooks dispatcher only runs
 # when `dispatcher.enabled` is truthy. The other default-ON categories (skills, agent_hooks, ci,
-# mcp, agents_md, github, gitignore, tg_ctl) gate on `enabled is False`, so an absent block IS
+# mcp, agents_md, github, gitignore, tg_ctl, tcc_watch) gate on `enabled is False`, so an absent block IS
 # active for them and the registry default is the correct live value. Keeping this in lockstep
 # with plan.py is what stops `rig setup`/`config get` from claiming auto-mode, the schedule, or the
 # dispatcher are on when `rig apply` would skip them. (tmux defaults OFF, so it needs no entry.)

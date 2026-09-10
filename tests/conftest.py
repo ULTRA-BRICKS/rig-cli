@@ -79,6 +79,11 @@ def _isolate_scheduler(monkeypatch):
 
         return ActionResult(action, "skipped", "tg_ctl/boot: daemon provisioner stubbed in tests")
 
+    def _noop_tcc_watch(action, on_conflict):
+        from riglib.actions.runner import ActionResult
+
+        return ActionResult(action, "skipped", "tcc_watch/watch: daemon provisioner stubbed in tests")
+
     def _noop_tools(action, on_conflict):
         from riglib.actions.runner import ActionResult
 
@@ -105,6 +110,14 @@ def _isolate_scheduler(monkeypatch):
     # tmp dirs + stubbed launchctl seams, which override this stub for those tests.
     monkeypatch.setattr(runner, "_do_provision_tg_ctl", _noop_tg_ctl)
     monkeypatch.setitem(runner._HANDLERS, "provision_tg_ctl", _noop_tg_ctl)
+    # tcc_watch: is ALSO in the DEFAULT scaffold (default-on, mirrors tg_ctl), so an e2e
+    # `rig init --yes` would otherwise write a real
+    # ~/Library/LaunchAgents/ai.hyperide.tcc-watch.plist AND shell out to the real `launchctl
+    # bootstrap`. Neutralize it suite-wide exactly like tg_ctl; the dedicated tests
+    # (test_tcc_watch.py) call `_do_provision_tcc_watch` with their own HOME-isolated tmp dirs +
+    # stubbed launchctl seams, which override this stub for those tests.
+    monkeypatch.setattr(runner, "_do_provision_tcc_watch", _noop_tcc_watch)
+    monkeypatch.setitem(runner._HANDLERS, "provision_tcc_watch", _noop_tcc_watch)
     # tools: is DEFAULT-OFF (opt-in), so no default e2e plan emits a provision_tools action and
     # nothing here is strictly required. But a test that DOES enable a tools: block would otherwise
     # shell out to a real install.sh (clone/symlink/install-skill on the host). Neutralize it

@@ -87,6 +87,7 @@ github: { ... }               # repo settings: ruleset/merge/ghas/actions via gh
 tmux: { ... }                 # rig-managed tmux config (generate + migrate ~/.tmux.conf), opt-in
 gitignore: { ... }            # rig-managed block in the GLOBAL git excludesfile (ignores **/.claude/worktrees/ + the Spotlight sentinel in EVERY repo), default ON
 tg_ctl: { ... }               # tg-ctl inbound daemon as a macOS boot LaunchAgent, default ON (macOS-only)
+tcc_watch: { ... }            # TCC dialog-watcher daemon (Phase 1 detection-only), a macOS boot LaunchAgent, default ON (macOS-only)
 ```
 
 If `agent_tools_source` is omitted, rig resolves it from `$RIG_AGENT_TOOLS_SOURCE`, then
@@ -2447,6 +2448,60 @@ launchctl bootstrap (sandboxed run))`. To exercise the live path on purpose, run
 
 ---
 
+## `tcc_watch`
+
+rig provisions the **tcc-watch dialog-watcher daemon** — Phase 1 (detection-only) of a
+defense-in-depth follow-up behind the eval-tool's TCC deny-list (`riglib/permissions.py`, PR
+#488) — as a **macOS boot LaunchAgent**, exactly like `tg_ctl`. The daemon tails macOS's own
+`log stream --predicate 'subsystem == "com.apple.TCC"'` (Apple's own sanctioned mechanism for
+observing TCC activity — no private API, no `TCC.db` access) and durably appends every
+permission-request-shaped event it observes to `<config_dir>/events.jsonl`. It does **not**
+touch the live system dialog, read/write `TCC.db`, attribute the event to an agent, or send any
+notification yet — those are Phases 2-4 of the phased ticket (rig-cli, see
+`riglib/tcc_watch.py`'s module docstring), explicitly deferred pending their own design review.
+**Default ON** (an absent or empty `tcc_watch:` block still provisions it, mirroring `tg_ctl`).
+This is a **per-MACHINE** concern (one watcher daemon per machine), so the block belongs in the
+**GLOBAL** layer (`~/.config/rig/config.yaml`) — never a committed repo `rig.yaml`.
+**macOS-only** (launchd); off darwin it is a no-op.
+
+```yaml
+tcc_watch:
+  enabled: true                          # provision the tcc-watch LaunchAgent (default true; false = off)
+  # everything below is auto-discovered per-machine — override only if non-standard:
+  label: ai.hyperide.tcc-watch           # launchd Label / plist filename stem (advanced)
+  config_dir: ~/.config/rig/tcc-watch    # watcher config + events.jsonl + launchd logs
+  python_bin: /usr/bin/python3           # the python3 binary (default: `which python3` → system fallback)
+```
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `enabled` | bool | `true` | `false` = don't touch tcc-watch at all — rig emits no action |
+| `label` | str | `ai.hyperide.tcc-watch` | launchd Label / plist filename stem |
+| `config_dir` | str | `~/.config/rig/tcc-watch` | where the watcher script, `events.jsonl`, and the launchd out/err logs live |
+| `python_bin` | str | discovered | the python3 binary; default `which python3`, else the first of `/usr/bin/python3`, `/opt/homebrew/bin/python3`, `/usr/local/bin/python3` |
+
+**What rig writes.** `~/Library/LaunchAgents/ai.hyperide.tcc-watch.plist` — a `RunAtLoad` +
+`KeepAlive` agent that runs `python3 <config_dir>/watch.py <config_dir>/events.jsonl` — plus the
+watcher script itself, copied byte-for-byte from `riglib/tcc_watch_daemon.py` (the SAME module
+the unit suite exercises directly), so the deployed daemon and the tested detection logic can
+never drift apart.
+
+**(Re)load mechanism.** Like `tg_ctl`, rig **(re)loads** the agent via `launchctl
+bootout`/`bootstrap` in the per-user `gui/<uid>` domain, so a clean `rig init` starts the daemon
+without a reboot, and a changed plist/script is picked up on the next `apply`.
+
+**Dry-run seam.** `RIG_TCC_WATCH_DRY_RUN=1` writes the managed plist + watcher script into the
+configured (HOME-isolated) path but skips the live `launchctl bootstrap`/`bootout` mutation — so
+tests/smoke never touch the real launchd domain. Also engages automatically under a sandboxed
+HOME (rig-cli#116), same as every other launchd-backed daemon this repo provisions.
+
+**Testing without a live TCC dialog.** `riglib/tcc_watch_daemon.py`'s detection logic
+(`parse_tcc_log_line`) is a pure function over one `log stream --style ndjson` text line; its
+`run()` loop accepts an injectable `stream_factory` and a `max_reconnects` bound. The unit suite
+replays canned/sample log lines — it never needs (or triggers) a real macOS permission prompt.
+
+---
+
 ## `task`
 
 **task-cli's per-repo ticket-tracker routing** (CTO decision #4136.4: hyperide → Linear/HYP,
@@ -2529,7 +2584,7 @@ there is one emitter and the schema is never maintained in parallel (see "The JS
 - **REPO** options (`skills`, `agent_hooks`, `git_hooks`, `ci`, `mcp`, `harness`, `scripts`,
   `dev`, `models`, `github`, `agents_md`, `linters`, `project_tools`, `ecosystem_readme`) are
   written to the repo's `./rig.yaml` — the values the default scaffold commits.
-- **GLOBAL-only** options (`gitignore`, `tg_ctl`, `tmux`, `mode`) are machine-wide blocks the
+- **GLOBAL-only** options (`gitignore`, `tg_ctl`, `tcc_watch`, `tmux`, `mode`) are machine-wide blocks the
   scaffold never writes into a committed repo file; the wizard writes them to
   `~/.config/rig/config.yaml` only — it never lands a global-only block in a committed repo
   `rig.yaml`.
@@ -2596,7 +2651,7 @@ rig config set harness.auto_mode false --no-apply        # write only, print the
 strict**: an unknown FIXED key in *any* block — `defaults`, `skills`, `agent_hooks`, `git_hooks`
 (+ `dispatcher`), `ci`, `mcp`, `harness` (+ `hook_bridge` / `web_search`), `permissions`, `models` (+ `schedule`),
 `agents_md`, `scripts`, `dev` (+ `server` / `e2e`), `github` (+ `ruleset` / `merge` / `ghas` / `actions` / `browser`), `tmux` (+ every
-sub-block), `gitignore`, `tg_ctl`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`),
+sub-block), `gitignore`, `tg_ctl`, `tcc_watch`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`),
 `ecosystem_readme` — is rejected with the schema path of the offender, not silently ignored. (The open maps are
 top-level `scripts:`, the catalog-keyed `items:` / `fragments:` maps, plus `dev.e2e.jobs:` — see
 "Strict by default" above.) Bad-value rejections
