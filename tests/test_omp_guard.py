@@ -77,6 +77,7 @@ def test_guard_registry_covers_the_baseline_intents():
     assert "screencapture" in deny_ids
     assert "osascript" in deny_ids
     assert "git-worktree-add" in deny_ids
+    assert "eval-osascript-spawn" in deny_ids
     # the ask baseline
     assert "pkill" in ask_ids
     assert "killall" in ask_ids
@@ -750,6 +751,12 @@ const cases: Case[] = [
   // and still caught HERE (because --pre itself is also on argv) — the true blind spot is a
   // config file supplying --pre with NO flag on the command line at all, not this shape.
   ["RIPGREP_CONFIG_PATH inline with --pre still denied (env-assignment stripped, but --pre itself is on argv)", { toolName: "bash", input: { command: "RIPGREP_CONFIG_PATH=/tmp/cfg rg --pre cat pattern" } }, noUI, "rg-pre"],
+  ["deny eval osascript via execSync", { toolName: "eval", input: { code: 'const { execSync } = require("child_process"); execSync("osascript -e something");' } }, noUI, "eval-osascript-spawn"],
+  ["deny eval osascript via Bun.spawn array", { toolName: "eval", input: { code: 'await Bun.spawn(["osascript", "-e", "x"]);' } }, noUI, "eval-osascript-spawn"],
+  ["eval computer.ax helpers ok (the sanctioned path)", { toolName: "eval", input: { code: 'const win = await computer.window({app:"Finder"}); await win.ax();' } }, noUI, "allow"],
+  ["eval bare mention in comment ok (no quoted invocation)", { toolName: "eval", input: { code: '// avoid osascript, use computer instead\nconst y = 1;' } }, noUI, "allow"],
+  ["eval missing code field ok", { toolName: "eval", input: {} }, noUI, "allow"],
+  ["eval osascript ask-confirm-no still blocks", { toolName: "eval", input: { code: 'execSync("osascript -e x");' } }, uiNo, "eval-osascript-spawn"],
 ];
 let failures = 0;
 for (const [name, event, ctx, expect] of cases) {
@@ -1075,7 +1082,7 @@ def test_guard_rules_cover_the_same_intents_as_the_glob_belts():
     ask_intents = {"pkill": "pkill", "killall": "killall", "git-reset-hard": "--hard"}
     # belt intents are the shared subset; argv-precision EXTRAS the glob dialects cannot
     # express are listed explicitly (adding one still requires touching this map).
-    guard_extras = {"git-config-injection"}
+    guard_extras = {"git-config-injection", "eval-osascript-spawn"}
     assert {r.id for r in OMP_GUARD_DENY_RULES} == set(deny_intents) | guard_extras
     assert {r.id for r in OMP_GUARD_ASK_RULES} == set(ask_intents)
     for marker in (*deny_intents.values(), *ask_intents.values()):

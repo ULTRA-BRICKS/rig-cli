@@ -1332,6 +1332,100 @@ def test_autosave_freshness_disabled_when_saver_off():
     assert h.state == "disabled"
 
 
+# ── pty pressure (macOS kern.tty.ptmx_max ceiling, the zpty/spaceship-crash observability) ──────
+def test_pty_pressure_ok_comfortably_under_ratio():
+    v = tmux.assess_pty_pressure(100, 511)
+    assert v.state == "ok"
+
+
+def test_pty_pressure_high_at_or_above_ratio():
+    v = tmux.assess_pty_pressure(400, 511)
+    assert v.state == "high"
+
+
+def test_pty_pressure_boundary_exactly_at_warn_ratio_is_high():
+    """358/511 == 0.700587... >= 70% — the >= boundary must read `high`, not `ok`."""
+    v = tmux.assess_pty_pressure(358, 511)
+    assert v.state == "high"
+
+
+def test_pty_pressure_unavailable_when_pty_count_missing():
+    v = tmux.assess_pty_pressure(None, 511)
+    assert v.state == "unavailable"
+
+
+def test_pty_pressure_unavailable_when_ptmx_max_missing():
+    v = tmux.assess_pty_pressure(100, None)
+    assert v.state == "unavailable"
+
+
+def test_pty_pressure_unavailable_when_ptmx_max_zero():
+    """A zero ceiling must never divide-by-zero — treated as unreadable, not a 100%+ ratio."""
+    v = tmux.assess_pty_pressure(100, 0)
+    assert v.state == "unavailable"
+
+
+def test_pty_pressure_detail_contains_raw_counts():
+    v = tmux.assess_pty_pressure(100, 511)
+    assert "100" in v.detail
+    assert "511" in v.detail
+
+
+def _tmux_pty_pressure_status_line(
+    monkeypatch, *, pty_count=100, ptmx_max=511, on_darwin=True, has_tmux_action=True
+):
+    """Render the `rig status` pty-pressure line for a one-action tmux plan (or a plan with no
+    tmux action at all, to prove silence). The counts are a kernel sysctl reading and a live
+    `/dev/ttys*` scan, not an on-disk fixture like the autosave health file, so the I/O seams
+    (`cli._live_pty_count`/`cli._ptmx_max`) and the platform gate (`riglib.drift._on_darwin`) are
+    mocked directly rather than faked via `tmp_path`."""
+    from riglib import cli
+    from riglib.plan import Action, InstallPlan
+
+    monkeypatch.setattr(cli, "_live_pty_count", lambda: pty_count)
+    monkeypatch.setattr(cli, "_ptmx_max", lambda: ptmx_max)
+    monkeypatch.setattr("riglib.drift._on_darwin", lambda: on_darwin)
+    actions = []
+    if has_tmux_action:
+        actions.append(
+            Action(kind="provision_tmux", category="tmux", item="config",
+                   source=Path("/x"), target=Path("/x/.tmux.conf"), options={})
+        )
+    plan = InstallPlan(actions=actions)
+    captured: list[str] = []
+    monkeypatch.setattr("builtins.print", lambda *a, **k: captured.append(" ".join(str(x) for x in a)))
+    cli._print_tmux_pty_pressure_status(plan)
+    return "\n".join(captured)
+
+
+def test_status_pty_pressure_line_ok(monkeypatch):
+    line = _tmux_pty_pressure_status_line(monkeypatch, pty_count=40, ptmx_max=511)
+    assert "tmux pty pressure" in line and "40/511" in line
+    assert "HIGH" not in line
+
+
+def test_status_pty_pressure_line_high(monkeypatch):
+    line = _tmux_pty_pressure_status_line(monkeypatch, pty_count=400, ptmx_max=511)
+    assert "HIGH" in line
+
+
+def test_status_pty_pressure_silent_when_unavailable(monkeypatch):
+    """An unreadable count (e.g. non-darwin or a failed sysctl call) prints nothing — no noise
+    for a machine/repo where the reading can't be trusted."""
+    line = _tmux_pty_pressure_status_line(monkeypatch, pty_count=None, ptmx_max=511)
+    assert line == ""
+
+
+def test_status_pty_pressure_silent_when_no_tmux_action(monkeypatch):
+    line = _tmux_pty_pressure_status_line(monkeypatch, has_tmux_action=False)
+    assert line == ""
+
+
+def test_status_pty_pressure_silent_off_darwin(monkeypatch):
+    line = _tmux_pty_pressure_status_line(monkeypatch, on_darwin=False)
+    assert line == ""
+
+
 def _tmux_autosave_status_line(monkeypatch, tmp_path, *, autosave=None, health=None, age_min=0, installed=True):
     """Render the `rig status` autosave-freshness line for a one-action tmux plan. Simulates an
     INSTALLED agent (its plist on disk) unless `installed=False`, and writes an optional health file
