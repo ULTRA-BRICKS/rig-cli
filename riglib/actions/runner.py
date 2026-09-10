@@ -76,6 +76,7 @@ from ..review_gate import (
 )
 from ..paths import expand_user_path
 from ..plan import SHIP_TASK_CODE_PREFIX_RE, Action, InstallPlan
+from ..hook_blurb_sync import sync_agent_hook_blurbs
 from .. import ecosystem_readme
 from .. import project_tools
 from . import fsutil
@@ -417,6 +418,24 @@ def _do_install_agent_hook(action: Action, on_conflict: str) -> ActionResult:
     target_descriptor = action.target / descriptor_name
     out = fsutil.write_file(target_descriptor, descriptor_text(spec), on_conflict)
     return ActionResult(action, out.status, f"hook descriptor {out.detail}{note}", out.backup)
+
+
+def _do_sync_hook_blurbs(action: Action, on_conflict: str) -> ActionResult:
+    """Mirror every ``agent-hooks/<name>/blurb.md`` under the agent-tools checkout into the
+    SessionStart ``.blurbs`` aggregator dir (agent-tools#504).
+
+    Delegates the actual diff+copy to :func:`riglib.hook_blurb_sync.sync_agent_hook_blurbs`,
+    which is already idempotent (skips a target whose content matches) — never consults
+    ``on_conflict``: a hook blurb is rig-mirrored content sourced from the hook's own
+    ``blurb.md``, not user data a backup would protect.
+    """
+    existed_before = set(action.target.glob("*.md")) if action.target.is_dir() else set()
+    changed = sync_agent_hook_blurbs(action.source, action.target)
+    if not changed:
+        return ActionResult(action, "skipped", "hook-blurbs: up to date")
+    names = ", ".join(sorted(p.stem for p in changed))
+    status = "created" if any(p not in existed_before for p in changed) else "updated"
+    return ActionResult(action, status, f"hook-blurbs: synced {names}")
 
 
 def _do_install_dispatcher(action: Action, on_conflict: str) -> ActionResult:
@@ -8541,6 +8560,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "copy_skill": _do_copy_skill,
     "link_skill_harness": _do_link_skill_harness,
     "install_agent_hook": _do_install_agent_hook,
+    "sync_hook_blurbs": _do_sync_hook_blurbs,
     "install_dispatcher": _do_install_dispatcher,
     "install_ci": _do_install_ci,
     "register_mcp": _do_register_mcp,

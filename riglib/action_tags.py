@@ -97,6 +97,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Writes an agent-hook descriptor into the harness hooks dir (e.g. ~/.claude/hooks) that "
         "intercepts a tool call before/after it runs.",
     ),
+    "sync_hook_blurbs": _tag(
+        "sync_hook_blurbs", "creates_file", AUDIENCE_AGENT,
+        "Mirrors each agent-hooks/<name>/blurb.md into the SessionStart .blurbs aggregator dir "
+        "so the agent learns installed hook policies upfront.",
+    ),
     "install_dispatcher": _tag(
         "install_dispatcher", "creates_file", AUDIENCE_HUMAN,
         "Installs the global git-hook dispatcher + fragments (e.g. secret-scan) and points "
