@@ -1,0 +1,3735 @@
+{
+  "schema_version": 1,
+  "source_pdf": "alex-requests-export-2026-09-10.json.pdf",
+  "source_sha256": "6f4539c9ba882d38814d7ad43fb594c30ddc52d4e77bb3171e977719c6b1c944",
+  "extraction": "Native PDF text; layout wraps reconstructed. Not byte-identical original JSON/transcript.",
+  "export_records": 374,
+  "records": [
+    {
+      "id": "002",
+      "original": "правил оркестратора и почини",
+      "edited": "Правила оркестратора — почини.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        1
+      ],
+      "claimed_task_refs": [
+        "rig-cli#427"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "020",
+      "original": "omp похоже не подчинается хуку оркестратора",
+      "edited": "OMP, похоже, не подчиняется хуку оркестратора.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        1
+      ],
+      "claimed_task_refs": [
+        "rig-cli#342",
+        "agent-tools#637"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "162",
+      "original": "запрет на монитор для субагентов",
+      "edited": "Запрет Monitor для субагентов.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        2
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "191",
+      "original": "принимая субагентов за оркестратора",
+      "edited": "Принимая субагентов за оркестратора.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        2
+      ],
+      "claimed_task_refs": [
+        "agent-tools#637"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "039",
+      "original": "почему плодятся ворктри",
+      "edited": "Почему плодятся worktree?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct",
+      "pages": [
+        3
+      ],
+      "claimed_task_refs": [
+        "task-cli#135"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "050",
+      "original": "работу оттуда надо вынести в ворктри",
+      "edited": "Работу оттуда нужно вынести в worktree.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        3
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "055",
+      "original": "субагентов перейти в ворктри",
+      "edited": "Субагентам перейти в worktree.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        4
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "082",
+      "original": "требовать испоьзвоать rig worktree",
+      "edited": "Требовать использовать rig worktree.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        4
+      ],
+      "claimed_task_refs": [
+        "rig-cli#420"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "092",
+      "original": "а зачем EnterWorktree",
+      "edited": "А зачем EnterWorktree?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        4
+      ],
+      "claimed_task_refs": [
+        "rig-cli#420"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "001",
+      "original": "доделаем все что не доделано",
+      "edited": "Доделаем всё, что не доделано.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, QuorumPad, ResultReport",
+      "pages": [
+        5
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "029",
+      "original": "нужно несклоько ролей",
+      "edited": "Нужно несколько ролей.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, Implement433Pad",
+      "pages": [
+        5
+      ],
+      "claimed_task_refs": [
+        "review-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "032",
+      "original": "начни исправление всех найденных",
+      "edited": "Начни исправление всех найденных проблем.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, HarnessTask, ResultReport",
+      "pages": [
+        6
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "033",
+      "original": "чинить наиболее критичное",
+      "edited": "Чинить наиболее критичное.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, ThinNotSub",
+      "pages": [
+        6
+      ],
+      "claimed_task_refs": [
+        "review-cli#433",
+        "agent-tools#637"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "041",
+      "original": "Review uncommitted -- гарантированный no task",
+      "edited": "Review uncommitted — гарантированный no task.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct",
+      "pages": [
+        6
+      ],
+      "claimed_task_refs": [
+        "task-cli#135"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "045",
+      "original": "роли должны автоматом выставляться",
+      "edited": "Роли должны выставляться автоматически.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, Implement433Pad, TaskCliOnly",
+      "pages": [
+        7
+      ],
+      "claimed_task_refs": [
+        "review-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "046",
+      "original": "восстанови агентов",
+      "edited": "Восстанови агентов.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, QuorumPad, ThinNotSub",
+      "pages": [
+        8
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "048",
+      "original": "когда ты уже субагентов поднимишь",
+      "edited": "Когда ты уже поднимешь субагентов?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, Implement433Pad",
+      "pages": [
+        8
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "057",
+      "original": "просто набирать роли и все",
+      "edited": "Просто набирать роли, и всё.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, Implement433Pad",
+      "pages": [
+        8
+      ],
+      "claimed_task_refs": [
+        "review-cli#409",
+        "rig-cli#298"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "058",
+      "original": "одна модель доступна она должна заполнить все роли",
+      "edited": "Если доступна одна модель, она должна заполнить все роли.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, Implement433Pad",
+      "pages": [
+        9
+      ],
+      "claimed_task_refs": [
+        "review-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "059",
+      "original": "no blockers",
+      "edited": "no blockers",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad",
+      "pages": [
+        9
+      ],
+      "claimed_task_refs": [
+        "review-cli#419"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "066",
+      "original": "all substantive work for PR",
+      "edited": "all substantive work for PR",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad",
+      "pages": [
+        10
+      ],
+      "claimed_task_refs": [
+        "review-cli#419"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "070",
+      "original": "поясни о чем речь",
+      "edited": "Поясни, о чём речь.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=TaskCliOnly, QuorumPad",
+      "pages": [
+        10
+      ],
+      "claimed_task_refs": [
+        "task-cli#135",
+        "review-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "075",
+      "original": "другие твои ОЖИДАНИЯ",
+      "edited": "Какие ещё у тебя ожидания?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, QuorumPad",
+      "pages": [
+        10
+      ],
+      "claimed_task_refs": [
+        "review-cli#433"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "090",
+      "original": "агентов только 7 максимум",
+      "edited": "Агентов только семь максимум.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, QuorumPad, ThinNotSub",
+      "pages": [
+        11
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "104",
+      "original": "разобрать все то что уже накопилось",
+      "edited": "Разобрать всё, что уже накопилось.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, HarnessTask, ProcessNoProduct",
+      "pages": [
+        11
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "107",
+      "original": "Все в In Review",
+      "edited": "Всё — в In Review.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        12
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "113",
+      "original": "сделать мошную штуку напоминания",
+      "edited": "Сделать мощный механизм напоминаний.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumBrainstorm",
+      "pages": [
+        12
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "114",
+      "original": "исследование spec-web и review dashboard",
+      "edited": "Исследование spec-web и review dashboard.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        12
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "115",
+      "original": "выключи SHIP_EXTERNAL_REVIEW глобально",
+      "edited": "Выключи SHIP_EXTERNAL_REVIEW глобально.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        13
+      ],
+      "claimed_task_refs": [
+        "agent-tools#609"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "118",
+      "original": "все это надо разгрести",
+      "edited": "Всё это нужно разгрести.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad",
+      "pages": [
+        13
+      ],
+      "claimed_task_refs": [
+        "review-cli#419"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "122",
+      "original": "не примеряется к сессиям внутри review-cli",
+      "edited": "Не применяется к сессиям внутри review-cli.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        13
+      ],
+      "claimed_task_refs": [
+        "agent-tools#637",
+        "rig-cli#337"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "142",
+      "original": "проверял что там делают агенты",
+      "edited": "Проверял, что делают агенты?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumBrainstorm",
+      "pages": [
+        14
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "158",
+      "original": "подними заново упавших агентов",
+      "edited": "Подними заново упавших агентов.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, QuorumPad, OmpKeepAlive",
+      "pages": [
+        14
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "164",
+      "original": "в тех же ворктри",
+      "edited": "В тех же worktree.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=OmpKeepAlive, HarnessTask, QuorumPad",
+      "pages": [
+        15
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "168",
+      "original": "список моделей фолбеков",
+      "edited": "Список fallback-моделей.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, Implement433Pad",
+      "pages": [
+        15
+      ],
+      "claimed_task_refs": [
+        "review-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "169",
+      "original": "есть же fable и astra",
+      "edited": "Есть же Fable и Astra.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad",
+      "pages": [
+        16
+      ],
+      "claimed_task_refs": [
+        "review-cli#433"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "170",
+      "original": "в ролях модели а не харнесы",
+      "edited": "В ролях — модели, а не харнесы.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad",
+      "pages": [
+        16
+      ],
+      "claimed_task_refs": [
+        "review-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "171",
+      "original": "не потеряешь новые вводные",
+      "edited": "Не потеряешь новые вводные?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, HarnessTask, Full175Report",
+      "pages": [
+        16
+      ],
+      "claimed_task_refs": [
+        "review-cli#433",
+        "harness-cli#2"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "172",
+      "original": "Го",
+      "edited": "Продолжай.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=QuorumPad, HarnessTask",
+      "pages": [
+        17
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "186",
+      "original": "какие реальные изменения я увижу",
+      "edited": "Какие реальные изменения я увижу?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, QuorumPad, ResultReport",
+      "pages": [
+        17
+      ],
+      "claimed_task_refs": [
+        "rig-cli#439",
+        "harness-cli#2",
+        "review-cli#433"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "195",
+      "original": "возобновляй и продолжай работу",
+      "edited": "Возобновляй и продолжай работу.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, QuorumPad, OmpKeepAlive",
+      "pages": [
+        18
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "044",
+      "original": "должны поддерживаться и без него",
+      "edited": "Должны поддерживаться и без него.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ReplyOmpNoTmux",
+      "pages": [
+        18
+      ],
+      "claimed_task_refs": [
+        "tg-cli#325"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "094",
+      "original": "почини все что сломано",
+      "edited": "Почини всё, что сломано.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, QuorumPad, ThinNotSub, ReplyOmpNoTmux",
+      "pages": [
+        19
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "108",
+      "original": "не вдиит агентов landing, rig-fable",
+      "edited": "Не видит агентов landing и rig-fable.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ReplyOmpNoTmux",
+      "pages": [
+        19
+      ],
+      "claimed_task_refs": [
+        "tg-cli#325"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "109",
+      "original": "они не в тмукс",
+      "edited": "Они не в tmux.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ReplyOmpNoTmux",
+      "pages": [
+        20
+      ],
+      "claimed_task_refs": [
+        "tg-cli#325"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "125",
+      "original": "ты запстил ultracode",
+      "edited": "Ты запустил ultracode?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HatchRoles",
+      "pages": [
+        20
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "126",
+      "original": "сорри продолжай",
+      "edited": "Извини, продолжай.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HatchRoles",
+      "pages": [
+        20
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "127",
+      "original": "сделай чтобы ultra code работало",
+      "edited": "Сделай, чтобы ultracode работал.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HatchRoles",
+      "pages": [
+        21
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "129",
+      "original": "что если Workflow пытется чтото опасное",
+      "edited": "Что, если Workflow пытается сделать что-то опасное?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HatchRoles",
+      "pages": [
+        21
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "151",
+      "original": "она была не в тмуксе",
+      "edited": "Она была не в tmux.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ReplyOmpNoTmux",
+      "pages": [
+        21
+      ],
+      "claimed_task_refs": [
+        "tg-cli#325"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "156",
+      "original": "codex все еще жалуется",
+      "edited": "Codex всё ещё жалуется.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub, HatchRoles",
+      "pages": [
+        22
+      ],
+      "claimed_task_refs": [
+        "rig-cli#404",
+        "agent-tools#637"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "006",
+      "original": "harness limits --all/--current",
+      "edited": "harness limits --all/--current",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        23
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "013",
+      "original": "не про продукт а про туду агента",
+      "edited": "Не про продукт, а про задачи самого агента.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct, HarnessTask",
+      "pages": [
+        23
+      ],
+      "claimed_task_refs": [
+        "task-cli#135",
+        "harness-cli#2"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "016",
+      "original": "не забывай заводить задачи",
+      "edited": "Не забывай заводить задачи.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, ProcessNoProduct",
+      "pages": [
+        23
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "021",
+      "original": "когда будут готовы все исправления",
+      "edited": "Когда будут готовы все исправления?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=TaskCliOnly, ProcessNoProduct, HarnessTask",
+      "pages": [
+        24
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "031",
+      "original": "чтобы такого не повторялось",
+      "edited": "Чтобы такого не повторялось.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct, HarnessTask",
+      "pages": [
+        24
+      ],
+      "claimed_task_refs": [
+        "task-cli#135"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "035",
+      "original": "не путало продуктовые и процессные задачи",
+      "edited": "Чтобы не путало продуктовые и процессные задачи.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, ImplementHarnessTask, ProcessNoProduct",
+      "pages": [
+        25
+      ],
+      "claimed_task_refs": [
+        "harness-cli#2"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "036",
+      "original": "записывать в задачи то что нужно",
+      "edited": "Записывать в задачи то, что нужно.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, ProcessNoProduct",
+      "pages": [
+        26
+      ],
+      "claimed_task_refs": [
+        "harness-cli#2"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "042",
+      "original": "пусть дергает harness task",
+      "edited": "пусть дергает harness task",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, ImplementHarnessTask",
+      "pages": [
+        26
+      ],
+      "claimed_task_refs": [
+        "harness-cli#2"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "047",
+      "original": "когда поднимишь субагентов обратно",
+      "edited": "Когда поднимешь субагентов обратно?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, ImplementHarnessTask",
+      "pages": [
+        26
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "074",
+      "original": "какой прогресс с harness-cli",
+      "edited": "Какой прогресс с harness-cli?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, ImplementHarnessTask",
+      "pages": [
+        27
+      ],
+      "claimed_task_refs": [
+        "harness-cli#2"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "076",
+      "original": "почему ты забываешь все",
+      "edited": "Почему ты всё забываешь?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, ImplementHarnessTask",
+      "pages": [
+        27
+      ],
+      "claimed_task_refs": [
+        "harness-cli#2"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "078",
+      "original": "найди все что ты еще забыл",
+      "edited": "Найди всё, что ты ещё забыл.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report, HarnessTask",
+      "pages": [
+        28
+      ],
+      "claimed_task_refs": [
+        "harness-cli#2",
+        "rig-cli#429"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "084",
+      "original": "когда обновишь burn chart",
+      "edited": "Когда обновишь burndown chart?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=HarnessTask, ResultReport, Full175Report",
+      "pages": [
+        28
+      ],
+      "claimed_task_refs": [
+        "harness-cli#2",
+        "rig-cli#429"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "085",
+      "original": "их надо поудалять",
+      "edited": "Их нужно удалить.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct, HarnessTask",
+      "pages": [
+        29
+      ],
+      "claimed_task_refs": [
+        "task-cli#135",
+        "harness-cli#2"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "099",
+      "original": "агентов на починку запускай",
+      "edited": "Запускай агентов на исправление.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ImplementHarnessTask, Implement433Pad, ThinNotSub",
+      "pages": [
+        29
+      ],
+      "claimed_task_refs": [
+        "harness-cli#2",
+        "review-cli#433"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "155",
+      "original": "го",
+      "edited": "Продолжай.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub, HarnessTask",
+      "pages": [
+        29
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "159",
+      "original": "сам не делай, ты координатор",
+      "edited": "Сам не делай: ты координатор.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ImplementHarnessTask, Implement433Pad, ThinNotSub",
+      "pages": [
+        30
+      ],
+      "claimed_task_refs": [
+        "rig-cli#427",
+        "agent-tools#637"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "196",
+      "original": "восстанвои агентов",
+      "edited": "Восстанови агентов.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ImplementHarnessTask, Implement433Pad, ThinNotSub",
+      "pages": [
+        30
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "010",
+      "original": "burn chart диаграмму с задачами",
+      "edited": "Диаграмму burndown с задачами.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct",
+      "pages": [
+        31
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "037",
+      "original": "task web run/start/status/...",
+      "edited": "task web run/start/status/...",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        31
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "061",
+      "original": "task-cli#144",
+      "edited": "task-cli#144",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        32
+      ],
+      "claimed_task_refs": [
+        "task-cli#144",
+        "agent-tools#603"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "079",
+      "original": "добавить task link команду",
+      "edited": "Добавить команду task link.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        32
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "128",
+      "original": "на машине не хватает памяти",
+      "edited": "На машине не хватает памяти.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        33
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "132",
+      "original": "чтото придемать с памятью",
+      "edited": "Нужно что-то придумать с памятью.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        33
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "065",
+      "original": "blocked on remote-write permission",
+      "edited": "blocked on remote-write permission",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        34
+      ],
+      "claimed_task_refs": [
+        "task-cli#143",
+        "agent-tools#605",
+        "rig-cli#404"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "005",
+      "original": "быть протестированными в контейнере",
+      "edited": "Должно быть протестировано в контейнере.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        34
+      ],
+      "claimed_task_refs": [
+        "rig-cli#337"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "152",
+      "original": "полноенное исследование и контейнеризированные тесты",
+      "edited": "Полноценное исследование и контейнеризированные тесты.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        35
+      ],
+      "claimed_task_refs": [
+        "rig-cli#337"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "174",
+      "original": "разбор + план контейнерных тестов",
+      "edited": "Разбор и план контейнерных тестов.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        35
+      ],
+      "claimed_task_refs": [
+        "rig-cli#337",
+        "agent-tools#556"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "177",
+      "original": "нужно использовать контейнерный тесты",
+      "edited": "Нужно использовать контейнерные тесты.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        36
+      ],
+      "claimed_task_refs": [
+        "rig-cli#337"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "004",
+      "original": "отчет за прошлые 3 дня",
+      "edited": "отчет за прошлые 3 дня",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report, ResultReport",
+      "pages": [
+        36
+      ],
+      "claimed_task_refs": [
+        "rig-cli#429"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "007",
+      "original": "перенесен из hyperide в rig",
+      "edited": "перенесен из hyperide в rig",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ResultReport",
+      "pages": [
+        37
+      ],
+      "claimed_task_refs": [
+        "rig-cli#429"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "011",
+      "original": "вот этот роудмеп имел ввиду",
+      "edited": "Вот этот roadmap я имел в виду.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ResultReport",
+      "pages": [
+        37
+      ],
+      "claimed_task_refs": [
+        "rig-cli#429"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "012",
+      "original": "через /result-report и показать мне",
+      "edited": "через /result-report и показать мне",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ResultReport, Full175Report",
+      "pages": [
+        38
+      ],
+      "claimed_task_refs": [
+        "rig-cli#429"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "024",
+      "original": "сомнительно что так мало",
+      "edited": "Сомнительно, что так мало.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report",
+      "pages": [
+        38
+      ],
+      "claimed_task_refs": [
+        "rig-cli#429"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "026",
+      "original": "ответ только на один запрос/вопрос",
+      "edited": "Ответ только на один запрос или вопрос.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub, Full175Report",
+      "pages": [
+        38
+      ],
+      "claimed_task_refs": [
+        "agent-tools#637",
+        "rig-cli#337"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "028",
+      "original": "все пруфы должны быть проверяемы",
+      "edited": "Все доказательства должны быть проверяемыми.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report, ResultReport",
+      "pages": [
+        39
+      ],
+      "claimed_task_refs": [
+        "rig-cli#429"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "052",
+      "original": "какой прогресс по всему",
+      "edited": "Какой прогресс по всему?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report",
+      "pages": [
+        39
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "101",
+      "original": "проверь что с агентами",
+      "edited": "Проверь, что с агентами.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report",
+      "pages": [
+        40
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "143",
+      "original": "на этой машине раскатывать и проверять",
+      "edited": "Раскатывать и проверять на этой машине.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub, Full175Report",
+      "pages": [
+        40
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "161",
+      "original": "дай в цифрах понятных",
+      "edited": "Дай в понятных цифрах.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report, ResultReport",
+      "pages": [
+        41
+      ],
+      "claimed_task_refs": [
+        "rig-cli#429"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "163",
+      "original": "какой статус?",
+      "edited": "Какой статус?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=Full175Report",
+      "pages": [
+        41
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "003",
+      "original": "регулируй это число",
+      "edited": "регулируй это число",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        42
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "008",
+      "original": "исправить причины",
+      "edited": "Исправить причины.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct",
+      "pages": [
+        42
+      ],
+      "claimed_task_refs": [
+        "conloca/landing#263"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "014",
+      "original": "когда в сообщении несклько задач",
+      "edited": "Когда в сообщении несколько задач…",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        42
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "015",
+      "original": "запрещать прямую работу с gh issues и linear",
+      "edited": "Запрещать прямую работу с GitHub Issues и Linear.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        43
+      ],
+      "claimed_task_refs": [
+        "agent-tools#636"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "017",
+      "original": "для добавления скриншотов",
+      "edited": "для добавления скриншотов",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        43
+      ],
+      "claimed_task_refs": [
+        "agent-tools#641"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "018",
+      "original": "в белых списках всех агентов",
+      "edited": "В белых списках всех агентов.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        43
+      ],
+      "claimed_task_refs": [
+        "rig-cli#404"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "019",
+      "original": "риг сам делал все что нужно",
+      "edited": "Чтобы rig сам делал всё, что нужно.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        44
+      ],
+      "claimed_task_refs": [
+        "rig-cli#404"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "025",
+      "original": "повис на 40+ минут",
+      "edited": "повис на 40+ минут",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        44
+      ],
+      "claimed_task_refs": [
+        "review-cli#409"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "027",
+      "original": "не логирует попытки",
+      "edited": "Не логирует попытки.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        45
+      ],
+      "claimed_task_refs": [
+        "review-cli#409"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "030",
+      "original": "дубликаты консолидировать",
+      "edited": "Дубликаты — консолидировать.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct",
+      "pages": [
+        45
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "034",
+      "original": "работа над отслеживанием лимитов",
+      "edited": "работа над отслеживанием лимитов",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        45
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "038",
+      "original": "agents подкоманду и agents web",
+      "edited": "Подкоманду agents и agents web.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        46
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "040",
+      "original": "с тасками проблема все еще не решена",
+      "edited": "Проблема с задачами всё ещё не решена.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct",
+      "pages": [
+        46
+      ],
+      "claimed_task_refs": [
+        "task-cli#135"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "043",
+      "original": "основная директория только для main",
+      "edited": "Основная директория — только для main.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        47
+      ],
+      "claimed_task_refs": [
+        "rig-cli#420"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "049",
+      "original": "не трогать грязные основные директории",
+      "edited": "Не трогать грязные основные директории.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        47
+      ],
+      "claimed_task_refs": [
+        "rig-cli#420"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "051",
+      "original": "почему github все еще требует ревью",
+      "edited": "Почему GitHub всё ещё требует review?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        47
+      ],
+      "claimed_task_refs": [
+        "agent-tools#600"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "053",
+      "original": "основная директория все еще не чистая",
+      "edited": "Основная директория всё ещё не чистая.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        48
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "054",
+      "original": "а что с остальными репозиториями",
+      "edited": "А что с остальными репозиториями?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        48
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "056",
+      "original": "ну проверь статус",
+      "edited": "Ну проверь статус.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        49
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "060",
+      "original": "нет роста закрытых тикетов сегодня",
+      "edited": "Сегодня нет роста числа закрытых тикетов.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct",
+      "pages": [
+        49
+      ],
+      "claimed_task_refs": [
+        "task-cli#135"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "062",
+      "original": "unknown/typo'd role strings",
+      "edited": "unknown/typo'd role strings",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        50
+      ],
+      "claimed_task_refs": [
+        "review-cli#419"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "064",
+      "original": "dashboard все еще очень медленный",
+      "edited": "Dashboard всё ещё очень медленный.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        50
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "067",
+      "original": "confirmed present on origin",
+      "edited": "confirmed present on origin",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07",
+      "pages": [
+        50
+      ],
+      "claimed_task_refs": [
+        "review-cli#419"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "068",
+      "original": "нет скачка в закрытии тупых тасков",
+      "edited": "Нет скачка числа закрытых лишних задач.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        51
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "069",
+      "original": "все тулколы наших инструментов",
+      "edited": "Все вызовы наших инструментов.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        51
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "071",
+      "original": "rig stats больше про agent-tools",
+      "edited": "rig stats больше про agent-tools.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        51
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "072",
+      "original": "ready for you to push and open the PR",
+      "edited": "ready for you to push and open the PR",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        52
+      ],
+      "claimed_task_refs": [
+        "task-cli#143",
+        "agent-tools#605"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "073",
+      "original": "для чего нужен демон",
+      "edited": "Для чего нужен демон?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        52
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "077",
+      "original": "поле не должно быть обязательным",
+      "edited": "Поле не должно быть обязательным.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        53
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "080",
+      "original": "не бывает таких кодов тасок",
+      "edited": "Таких кодов задач не бывает.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        53
+      ],
+      "claimed_task_refs": [
+        "agent-tools#612",
+        "rig-cli#217"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "081",
+      "original": "библиотека валидации с учетом настроек репы",
+      "edited": "Библиотека валидации с учётом настроек репозитория.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        53
+      ],
+      "claimed_task_refs": [
+        "agent-tools#612"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "083",
+      "original": "если такого гейта нет его надо сделать",
+      "edited": "Если такого gate нет, его нужно сделать.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        54
+      ],
+      "claimed_task_refs": [
+        "rig-cli#420"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "086",
+      "original": "пунктирные сегменты линий",
+      "edited": "Пунктирные сегменты линий.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        54
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "087",
+      "original": "сам автономно все пофиксить",
+      "edited": "Самостоятельно и автономно всё исправить.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        54
+      ],
+      "claimed_task_refs": [
+        "agent-tools#611"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "088",
+      "original": "завести тикет на нее",
+      "edited": "Завести на неё тикет.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        55
+      ],
+      "claimed_task_refs": [
+        "agent-tools#611"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "089",
+      "original": "мы же его выклчили давно",
+      "edited": "Мы же его давно выключили.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        55
+      ],
+      "claimed_task_refs": [
+        "agent-tools#600"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "091",
+      "original": "когда починишь",
+      "edited": "Когда починишь?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        56
+      ],
+      "claimed_task_refs": [
+        "rig-cli#298"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "095",
+      "original": "работает отдельный агент",
+      "edited": "Работает отдельный агент.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        56
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "096",
+      "original": "аксептансы не прочеканы",
+      "edited": "Критерии приёмки не проверены.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        57
+      ],
+      "claimed_task_refs": [
+        "agent-tools#641"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "097",
+      "original": "принятой системы типирования сообщений",
+      "edited": "Принятой системы типирования сообщений.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        57
+      ],
+      "claimed_task_refs": [
+        "tg-cli#305"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "098",
+      "original": "вместо question у нас есть decision",
+      "edited": "Вместо question у нас есть decision.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        57
+      ],
+      "claimed_task_refs": [
+        "tg-cli#305"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "100",
+      "original": "DICT.json",
+      "edited": "DICT.json",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        58
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "102",
+      "original": "висит еще вопрос или нет",
+      "edited": "Остался ещё вопрос или нет?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        58
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "103",
+      "original": "бамп версии при merge вместо PR",
+      "edited": "Повышение версии при merge, а не в каждом PR.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        58
+      ],
+      "claimed_task_refs": [
+        "agent-tools#518"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "105",
+      "original": "что такое тред Codex",
+      "edited": "Что такое тред Codex?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07",
+      "pages": [
+        59
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "106",
+      "original": "их тоже надо разгребать",
+      "edited": "Их тоже нужно разбирать.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        59
+      ],
+      "claimed_task_refs": [
+        "rig-cli#419"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "110",
+      "original": "2 давай прикольно",
+      "edited": "Вариант 2 — давай, прикольно.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07",
+      "pages": [
+        60
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "112",
+      "original": "хорошо",
+      "edited": "Хорошо.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07",
+      "pages": [
+        60
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "116",
+      "original": "если в пр есть замечания не дает вливать",
+      "edited": "Если в PR есть замечания, не даёт вливать.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        60
+      ],
+      "claimed_task_refs": [
+        "agent-tools#609"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "117",
+      "original": "включи codex astra 6",
+      "edited": "Включи Codex Astra 6.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        61
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "119",
+      "original": "у этого наприпер пр нет аксептансов",
+      "edited": "У этого PR, например, нет критериев приёмки.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        61
+      ],
+      "claimed_task_refs": [
+        "tg-cli#305",
+        "agent-tools#641"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "120",
+      "original": "пруфы, скриншоты и план по проверке",
+      "edited": "Доказательства, скриншоты и план проверки.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        61
+      ],
+      "claimed_task_refs": [
+        "agent-tools#641"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "121",
+      "original": "можешь и сам разобраться",
+      "edited": "Можешь разобраться и сам.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07",
+      "pages": [
+        62
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "123",
+      "original": "три \"утёкших\" процесса",
+      "edited": "Три «утёкших» процесса.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        62
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "124",
+      "original": "Относительный путь ложно блокировался",
+      "edited": "Относительный путь ложно блокировался.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        63
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "130",
+      "original": "надо комменты писать",
+      "edited": "Нужно писать комментарии.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        63
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "131",
+      "original": "разгреби зомби если есть",
+      "edited": "Разбери зомби-процессы, если они есть.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        63
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "133",
+      "original": "мб своп расширить",
+      "edited": "Может, расширить swap?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        64
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "134",
+      "original": "почему так выходит и почини",
+      "edited": "Разберись, почему так происходит, и почини.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        64
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "135",
+      "original": "сказал \"остановлен\", но PID 29636 всё ещё жив",
+      "edited": "Сказал «остановлен», но PID 29636 всё ещё жив.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        64
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "136",
+      "original": "риск гонки",
+      "edited": "Риск гонки.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        65
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "138",
+      "original": "системно чтобы такое не повторялось",
+      "edited": "Системно, чтобы такое не повторялось.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        65
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "139",
+      "original": "а uv?",
+      "edited": "А uv?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        65
+      ],
+      "claimed_task_refs": [
+        "rig-cli#416"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "140",
+      "original": "с этой проблемой тоже системно",
+      "edited": "С этой проблемой тоже нужно разобраться системно.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        66
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "141",
+      "original": "какой статус со стоп хуком",
+      "edited": "Какой статус со Stop hook?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        66
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "144",
+      "original": "статистика собирается?",
+      "edited": "Статистика собирается?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        67
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "145",
+      "original": "сессиия никак не может сдвинуться",
+      "edited": "Сессия никак не может сдвинуться.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct",
+      "pages": [
+        67
+      ],
+      "claimed_task_refs": [
+        "conloca/landing#263"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "146",
+      "original": "у меня форк этого проекта есть",
+      "edited": "У меня есть fork этого проекта.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        67
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "147",
+      "original": "она работала тут",
+      "edited": "Она работала здесь.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07",
+      "pages": [
+        68
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "148",
+      "original": "codex все еще жалуетсяя",
+      "edited": "Codex всё ещё жалуется.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        68
+      ],
+      "claimed_task_refs": [
+        "rig-cli#337",
+        "agent-tools#637"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "149",
+      "original": "вклчи везде",
+      "edited": "Включи везде.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        68
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "150",
+      "original": "причины проблем сессии landing",
+      "edited": "Причины проблем сессии landing.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ProcessNoProduct",
+      "pages": [
+        69
+      ],
+      "claimed_task_refs": [
+        "conloca/landing#263"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "153",
+      "original": "с ними тоже надо системно разораться",
+      "edited": "С ними тоже нужно разобраться системно.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        69
+      ],
+      "claimed_task_refs": [
+        "rig-cli#337"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "154",
+      "original": "почини haft",
+      "edited": "Почини Haft.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        70
+      ],
+      "claimed_task_refs": [
+        "rig-cli#337"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "157",
+      "original": "без предварительного чтения",
+      "edited": "Без предварительного чтения.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        70
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "160",
+      "original": "что не так с мониторами этими",
+      "edited": "Что не так с этими мониторами?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        70
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "165",
+      "original": "он опять жалуется на всякое",
+      "edited": "Он опять жалуется на разные проблемы.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        71
+      ],
+      "claimed_task_refs": [
+        "rig-cli#337",
+        "agent-tools#637"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "166",
+      "original": "это для него я не для тебя",
+      "edited": "Это для него, а не для тебя.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07",
+      "pages": [
+        71
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "167",
+      "original": "разберись с этим раз и на всегда",
+      "edited": "Разберись с этим раз и навсегда.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        71
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "175",
+      "original": "held until #556 merges",
+      "edited": "held until #556 merges",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        72
+      ],
+      "claimed_task_refs": [
+        "agent-tools#556",
+        "rig-cli#342"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "176",
+      "original": "строю полноценный мост",
+      "edited": "строю полноценный мост",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        72
+      ],
+      "claimed_task_refs": [
+        "agent-tools#556",
+        "rig-cli#342"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "192",
+      "original": "его сессия в ~/work/private",
+      "edited": "Его сессия в ~/work/private.",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=нет",
+      "pages": [
+        73
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "193",
+      "original": "зачем исключен",
+      "edited": "Зачем исключён?",
+      "source_kind": "compiled-fragment-attribution",
+      "context": "rig-zerobug/rig-fable session 2026-09-04..07; agent=ThinNotSub",
+      "pages": [
+        73
+      ],
+      "claimed_task_refs": [
+        "agent-tools#637"
+      ],
+      "context_incomplete": true
+    },
+    {
+      "id": "201",
+      "original": "и реплаи в телеге все еще не работают для omp сессий вне tmux, я ж сказал надо все сценарии проработать",
+      "edited": "Ответы в Telegram всё ещё не работают для OMP-сессий вне tmux. Я же сказал: нужно проработать все сценарии.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Telegram must see every live agent; every reply route must land",
+      "pages": [
+        74
+      ],
+      "claimed_task_refs": [
+        "tg-cli#323"
+      ],
+      "context_incomplete": false
+    },
+    {
+      "id": "202",
+      "original": "надо еще проверить что это на машине работает и в отчете приложить пруфы проверяемые",
+      "edited": "Нужно ещё проверить, что это работает на машине, и приложить к отчёту проверяемые доказательства.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Merge is not this machine; on disk is not PATH",
+      "pages": [
+        74
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "203",
+      "original": "а то ведь нихуя не понятно в твоем выдуманном языке",
+      "edited": "В твоём выдуманном языке совершенно ничего не понятно.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Reports: his quote + ticket/PR link, never invented jargon",
+      "pages": [
+        75
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "204",
+      "original": "Ничего не понял, какую проблему мы решаем? Всегда приводи мои исходные цитаты во\nвсех сообщения в тг, запомни это",
+      "edited": "Ничего не понял: какую проблему мы решаем? Всегда приводи мои исходные цитаты во всех сообщениях в Telegram. Запомни это.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Reports: his quote + ticket/PR link, never invented jargon",
+      "pages": [
+        75
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "205",
+      "original": "ну и какого хуя ты опять нарушаешь правила отчетов? … review just-ask с astra (в данный момент там достаточно токенов в отличии от fable), принятие мер и отчет проактивно",
+      "edited": "Почему ты опять нарушаешь правила отчётов? … review just-ask с Astra (в данный момент там достаточно токенов, в отличие от Fable), принятие мер и проактивный отчёт.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Reports: measure first, then `review just-ask -m astra`, then tg",
+      "pages": [
+        75
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "206",
+      "original": "так и здесь тоже с десяток запросов, а их под сотню уже",
+      "edited": "Здесь тоже около десяти запросов, а их уже под сотню.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Full inventory, not a sample; answer every question",
+      "pages": [
+        76
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "207",
+      "original": "я не прошу только про harness-cli я просто привожу доказательство того что ты почти все забыл и пропустил, сделай полный отчет",
+      "edited": "Я не прошу только про harness-cli: я привожу доказательство того, что ты почти всё забыл и пропустил. Сделай полный отчёт.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Full inventory, not a sample; answer every question",
+      "pages": [
+        76
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "208",
+      "original": "ты обновляешь память и TodoList походу моих замечаний?! запомни что это надо всегда делать",
+      "edited": "Ты обновляешь память и TodoList по ходу моих замечаний? Запомни: это нужно делать всегда.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Every Alex remark → MEMORY.md + TodoList the same turn",
+      "pages": [
+        77
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "209",
+      "original": "все запоминай что я прошу всегда делать, что бы мне не требовалось постоянно тебе напоминать что нужно запоминать, запомни что надо запоминать",
+      "edited": "Запоминай всё, что я прошу делать всегда, чтобы мне не приходилось постоянно напоминать. Запомни, что нужно запоминать.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Every Alex remark → MEMORY.md + TodoList the same turn",
+      "pages": [
+        77
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "210",
+      "original": "видишь проблему, сразу спавнишь агентов на исправление и в отчете уже проактивно пишешь о принимаемых прямо сейчас мерах",
+      "edited": "Видишь проблему — сразу запускаешь агентов на исправление и проактивно пишешь в отчёте о мерах, которые принимаются прямо сейчас.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: See a problem → spawn now → name the live agent and PR",
+      "pages": [
+        77
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "211",
+      "original": "так субагента ты запустил блядь или нет? в TodoList добавил? … надо не просто говорить что есть проблема но и спохватываться ее решать и отчитываться об этом а не говорить о теоретической возможность решения в будущем",
+      "edited": "Ты запустил субагента или нет? В TodoList добавил? … Нужно не просто говорить, что есть проблема, а сразу решать её и отчитываться об этом, а не о теоретической возможности решения в будущем.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: See a problem → spawn now → name the live agent and PR",
+      "pages": [
+        78
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "212",
+      "original": "я вижу у тебя один субагент остался а было очень много, как так вышло? разве все работы сделаны? и проверены?",
+      "edited": "Я вижу, у тебя остался один субагент, хотя было очень много. Как так вышло? Разве все работы сделаны и проверены?",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Done means live proof of the original ask, not a PR or a park",
+      "pages": [
+        78
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "213",
+      "original": "ты так не ответил куда делись все агенты",
+      "edited": "Ты так и не ответил, куда делись все агенты.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Done means live proof of the original ask, not a PR or a park",
+      "pages": [
+        79
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "214",
+      "original": "нужно прикладывать выдержки из дополнительных сообщений которые были до если вопрос вырван из контекста",
+      "edited": "Если вопрос вырван из контекста, нужно прикладывать выдержки из предыдущих сообщений.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Don't quote a question without the lines before it",
+      "pages": [
+        79
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "215",
+      "original": "это дублирование, все цитаты про одно и тоже надо группировать и отвечать разом",
+      "edited": "Это дублирование: все цитаты об одном и том же нужно группировать и отвечать на них вместе.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Group quotes on the same topic; answer once",
+      "pages": [
+        80
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "216",
+      "original": "а что с другими харнесами? изучи какие там есть тулы и настройки для работы с ворктри, oc, omp, codex",
+      "edited": "А что с другими харнесами? Изучи, какие у них есть инструменты и настройки для работы с worktree: OpenCode, OMP, Codex.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: EnterWorktree is one harness; ban the equivalent on all",
+      "pages": [
+        80
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "217",
+      "original": "#404 + apply: param false. Это GET, не пользователь нажал и прошло",
+      "edited": "#404 + apply: param false. Это GET, не пользователь нажал и прошло",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Don't say GET when you mean the GitHub setting",
+      "pages": [
+        80
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "218",
+      "original": "что это значит? ничего не понял",
+      "edited": "Что это значит? Ничего не понял.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Don't say GET when you mean the GitHub setting",
+      "pages": [
+        81
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "219",
+      "original": "это вообще не тебе, ало",
+      "edited": "Это вообще не тебе.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Don't treat every quote in the dump as this agent's job",
+      "pages": [
+        81
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "220",
+      "original": "для отчета можоешь использовать /result-report, он должен быть перенесен из hyperide в rig уже давно",
+      "edited": "Для отчёта можешь использовать /result-report: его уже давно нужно было перенести из HyperIDE в rig.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: /result-report is a product to finish, not a status footnote",
+      "pages": [
+        81
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "221",
+      "original": "Нужно писать не просто do not edit, а подсказывать что делать вместо этого, например дать rig config set команду … и проверить выполняет ли она apply сразу сама по умолчанию",
+      "edited": "Нужно писать не просто «do not edit», а подсказывать, что делать вместо этого: например, дать команду rig config set. … И проверить, выполняет ли она apply автоматически по умолчанию.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Managed-file comments must name the command, not only \"do not edit\"",
+      "pages": [
+        82
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "222",
+      "original": "https://github.com/conloca/landing/issues/263--почему процессные таски все еще заводятся в продуктовый тасктрекер через task-cli?! … ты помнишь насколько давно я просил это починить? … что с harnesses-cli? в частности harnesses task для процессных тасков",
+      "edited": "Почему процессные задачи всё ещё заводятся в продуктовый трекер через task-cli? … Ты помнишь, как давно я просил это починить? … Что с harness-cli, в частности с harness task для процессных задач? Пример: https://github.com/conloca/landing/issues/263.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Process tasks must not land in the product tracker",
+      "pages": [
+        82
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "223",
+      "original": "Worker — это подпроцесс, который выполняет конкретную задачу (например, запуск тестов…) — сфига ли это воркер, если это субагент, или о чем ты?",
+      "edited": "«Worker — это подпроцесс, который выполняет конкретную задачу, например запуск тестов». Почему это worker, если это субагент? Или о чём ты?",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Do not call a subagent a worker; do not say parked / 109 / X / collapsed",
+      "pages": [
+        83
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "224",
+      "original": "что за паркед? что за 109? что за Х? что значит схлопнулся? сделай чтобы такого не повторялось и верни субагентов которые не доделали свою работу",
+      "edited": "Что значит parked? Что за 109 и X? Что значит «схлопнулся»? Сделай так, чтобы это не повторялось, и верни субагентов, которые не доделали работу.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Do not call a subagent a worker; do not say parked / 109 / X / collapsed",
+      "pages": [
+        83
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "225",
+      "original": "что за воркер? как починить эту херню системно через rig чтобы omp не вытворял такие фокусы",
+      "edited": "Что за worker? Как исправить это системно через rig, чтобы OMP не вытворял такие вещи?",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Fix subagent sleep through rig; idle TTL 0 is not enough",
+      "pages": [
+        84
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "226",
+      "original": "куда опять субагенты подевались?! верни всех обратно пусть доделывают работу! ты должен был починить этот баг когда субагенты засыпают",
+      "edited": "Куда опять подевались субагенты? Верни всех обратно: пусть доделывают работу. Ты должен был исправить баг, из-за которого субагенты засыпают.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Fix subagent sleep through rig; idle TTL 0 is not enough",
+      "pages": [
+        84
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "227",
+      "original": "очень много таких запросов [ship-review-quorum Approve]--но какого хрена? сколько раз объяснять даже если одна модель только есть она должна уметь заполнять собой все роли для любого режима review, полная ортогональность / когда мы уже это доделаем? используй review brainstorm с astra high",
+      "edited": "Очень много запросов ship-review-quorum Approve. Почему? Сколько раз объяснять: даже если доступна только одна модель, она должна уметь заполнять собой все роли в любом режиме review. Полная ортогональность. Когда мы это доделаем? Используй review brainstorm с Astra high.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: One model must fill every review role, every mode",
+      "pages": [
+        85
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "228",
+      "original": "astra-report.pdf и почему ты не расписал какие меры ты принял на основе этого отчета? и где мой полный отчет про все 100+ моих запросов/вопросов?!",
+      "edited": "Почему ты не расписал, какие меры принял на основе astra-report.pdf? И где полный отчёт по всем моим 100+ запросам и вопросам?",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Two reports, not one: astra clusters ≠ 175 inventory",
+      "pages": [
+        85
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "229",
+      "original": "Где полный отчёт на 100+? Его нет. … CountAsks насчитал 175. Собирает Full175Report: astra just-ask по всем 175--это разные отчеты совершенно один от астра я недавно попросил а другой я ранее просил про все мои вопросы и запросы",
+      "edited": "Где полный отчёт на 100+ запросов? Его нет. … Это совершенно разные отчёты: один от Astra я попросил недавно, а другой, по всем моим вопросам и запросам, — раньше.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Two reports, not one: astra clusters ≠ 175 inventory",
+      "pages": [
+        86
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "230",
+      "original": "добавь в rig stats анализ escape hatches, у меня сегодня очень много их в телегу летит, надо собирать статистики и разбираться что в rig экосистеме сломано изза чего агенты пользуются хетчами или в каких то случаях они ленятся просто",
+      "edited": "Добавь в rig stats анализ escape hatches. Сегодня их очень много приходит в Telegram. Нужно собирать статистику и разбираться, что сломано в экосистеме rig и почему агенты используют hatches; в некоторых случаях они, возможно, просто ленятся.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: rig stats must analyze escape hatches",
+      "pages": [
+        86
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "231",
+      "original": "harness limits --all сейчас чтото возвращает вроде и интересное но совершенно не про лимиты, это скорее про usage, и все это абсолютно нечитаемое, не раскрашенное и без ascii графики, rig stats красиво сделано например, должно быть чтото-то такое как на этом скриншоте, и вообще найди все мои сообщеня про лимиты за все время в omp и cc, я писал про скорость и ускорение и аналитику и нужно писать про все аккаунты всех моделей и провайдеров во всех харнесах … z.ai/glm, 3 claudes, codex, ранее было kimi, x.ai/grok",
+      "edited": "harness limits --all возвращает что-то интересное, но это скорее usage, а не лимиты. Всё нечитаемо: без цветов и ASCII-графики. rig stats, например, сделан красиво; нужно что-то похожее на скриншот. Найди все мои сообщения о лимитах за всё время в OMP и Claude Code: я писал о скорости, ускорении и аналитике. Нужно показывать все аккаунты всех моделей и провайдеров во всех харнесах: z.ai/GLM, три Claude, Codex, ранее Kimi, x.ai/Grok.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: harness limits must show real limits, all accounts, like the screenshot",
+      "pages": [
+        86
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "232",
+      "original": "почему у меня клиент телеги на компе сейчса постоянно сам открывается?!",
+      "edited": "Почему у меня сейчас постоянно сам открывается Telegram на компьютере?",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Telegram desktop must not auto-open",
+      "pages": [
+        87
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "233",
+      "original": "/agent 44897 PING-339-LIVE-PROOF вот такое сейчас само написалось в телегу)) это точно какие-то тесты",
+      "edited": "В Telegram само отправилось «/agent 44897 PING-339-LIVE-PROOF». Это явно какие-то тесты.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Telegram tests: headless Web + QR, never the real chat",
+      "pages": [
+        87
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "234",
+      "original": "запомни используй модель mimo для простых\nсубагентов",
+      "edited": "Запомни: используй MiMo для простых субагентов.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Use mimo (cheap seat) for simple/mechanical subagent work",
+      "pages": [
+        88
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "235",
+      "original": "queued ",
+      "edited": "queued",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Hatch/Telegram approval: an expired request must not lose a real yes",
+      "pages": [
+        88
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "236",
+      "original": "все ответы в тг! запомни",
+      "edited": "Все ответы — в Telegram. Запомни.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: ALL responses go to Telegram, not just key reports (broadened 2026-09-09)",
+      "pages": [
+        89
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "237",
+      "original": "найден и зарепорчен реальный gap: hook-bypass (agent-tools#692) — git\ncommit через Eval tool обходит pre-commit AI review.--нельзя просто писать про проблему\nнадо трекать, принимать меры и сразу добавлять это в отчет, запомни",
+      "edited": "Обнаружен обход хуков в agent-tools#692: git commit через Eval обходит pre-commit AI review. Нельзя просто писать о проблеме: нужно её отслеживать, принимать меры и сразу добавлять это в отчёт. Запомни.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Found a real gap → track + take measures + report immediately, not just write about it",
+      "pages": [
+        89
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "238",
+      "original": "закрыт 1 superseded PR (#321).--всегда когда чтото удаляется надо\nделать перед удалением проверку точно ли оттуда нечего спасать полезного и отчитывать\nоб этом",
+      "edited": "Закрыт superseded PR #321. Перед любым удалением нужно проверить, нет ли там полезной работы, которую нужно сохранить, и отчитаться об этой проверке.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Before deleting/closing anything, verify nothing salvageable is lost, and report the check",
+      "pages": [
+        89
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "239",
+      "original": "у бота есть таймер безопасного перезапуска (tg-ctl:4940, 8\nсекунд).--опять какая-то хуйня, никаких сука таймеров не должно быть! и\nобъясни что это за хрень и делай брейншторм в будущем чтобы не затягивать\nтакие костыли, запомни, и таймеры это 99% костыль всегда кроме случаев когда\nпользователь просит таймер",
+      "edited": "У бота есть таймер безопасного перезапуска на восемь секунд? Никаких таких таймеров быть не должно. Объясни, что это, и проводи brainstorm заранее, чтобы не добавлять такие обходные решения. Таймеры почти всегда являются обходным решением, кроме случаев, когда пользователь сам просит таймер.",
+      "source_kind": "compiled-memory-attribution",
+      "context": "MEMORY.md standing lesson: Timers are almost always a kludge - find the event-driven fix instead",
+      "pages": [
+        90
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "240",
+      "original": "Так что тебе мешает запустить субагента чтобы он выполнил это?",
+      "edited": "Что тебе мешает запустить субагента, чтобы он это выполнил?",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16105 2026-09-08T20:00:53+00:00",
+      "pages": [
+        91
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "242",
+      "original": "Do not run gh (list/view/pr/api/run--нашел такое, это какая-то глупость. Нет смысла запрещать это оркестратору\nhttps://github.com/alex-mextner/dev-cli/commit/e09ec2b50a53cd8284a8cc7338f6e87082afe80a",
+      "edited": "Нашёл запрет «Do not run gh (list/view/pr/api/run…)». Это глупость: нет смысла запрещать оркестратору такие команды. https://github.com/alex-mextner/dev-cli/commit/e09ec2b50a53cd8284a8cc7338f6e87082afe80a",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16113 2026-09-08T20:11:17+00:00",
+      "pages": [
+        91
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "252",
+      "original": "Разберись и сделай баг репорты в review-cli issues \nнайди открытые существующие если есть  и дополни деталями",
+      "edited": "Разберись и создай bug reports в review-cli Issues. Найди существующие открытые задачи, если они есть, и дополни деталями.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16156 2026-09-09T06:26:44+00:00",
+      "pages": [
+        96
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "255",
+      "original": "Думаю надо чтобы ревью не молча падали зависал сообщал что нужно попробовать позже в общем он должен внимательно изучать и анализировать ошибку которую агенты отправляют\nИмею в виду алгоритмически то есть нужны маппинги детальные\nА если ошибка неизвестно её нужно просто показывать в Output при завершении",
+      "edited": "Review не должен молча падать или зависать. Нужно алгоритмически анализировать ошибки, которые возвращают агенты: нужны подробные mappings. Если ошибка неизвестна, нужно показывать её в output при завершении.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16165 2026-09-09T06:31:50+00:00",
+      "pages": [
+        98
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "257",
+      "original": "Это не вина review \nТам просто лимиты кончились. Проблема в том видимо что ревью кли плохо понимает в чем там дело. Тикет надо про это завести а не этот дуоацкий \nНо я только название посмотрел",
+      "edited": "Это не вина review: там просто закончились лимиты. Проблема, видимо, в том, что review-cli плохо понимает причину. Тикет нужно завести об этом, а не прежний. Но я пока посмотрел только название.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16170 2026-09-09T06:34:25+00:00",
+      "pages": [
+        98
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "258",
+      "original": "Ты изучи ситуацию по детальнее что конкретно у тебя происходило и как скорее всего нужно исправлять и уже побольше деталей в Ticket напиши",
+      "edited": "Изучи ситуацию подробнее: что конкретно происходило и как, вероятнее всего, это нужно исправлять. Затем добавь больше деталей в тикет.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16172 2026-09-09T06:35:14+00:00",
+      "pages": [
+        99
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "259",
+      "original": "Так ты автономно должен всё делать",
+      "edited": "Ты должен делать всё автономно.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16178 2026-09-09T06:54:11+00:00",
+      "pages": [
+        99
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "260",
+      "original": "Ну что какой статус? С мимо блин разобрался или нет? Какого хрена игноришь вопрос?\nПогугли как пользоваться omp",
+      "edited": "Какой статус? С MiMo разобрался или нет? Почему игнорируешь вопрос? Поищи, как пользоваться OMP.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16221 2026-09-09T08:41:17+00:00",
+      "pages": [
+        100
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "261",
+      "original": "Gh ship должен уметь сам запускать проверки локально, если что-то не выходит резберись как должно работать и почини",
+      "edited": "gh ship должен уметь сам запускать проверки локально. Если что-то не получается, разберись, как это должно работать, и почини.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16230 2026-09-09T09:07:14+00:00",
+      "pages": [
+        100
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "262",
+      "original": "В accounts-0 cc есть сейчас залогиненный аккаунт, разберись почему он не работает если review сейчас и правда не работает",
+      "edited": "В accounts-0 Claude Code сейчас есть авторизованный аккаунт. Разберись, почему он не работает, если review действительно сейчас не работает.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16244 2026-09-09T09:27:25+00:00",
+      "pages": [
+        100
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "263",
+      "original": "Какой биллинг ты ждешь и зачем?! Я ж сказал gh ship должен если с ci проблемы сам локально все прогонять и разрешить мержить несмотря на си ай",
+      "edited": "Какого биллинга ты ждёшь и зачем? Я же сказал: если с CI проблемы, gh ship должен сам прогнать всё локально и разрешить merge, несмотря на CI.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16245 2026-09-09T09:27:57+00:00",
+      "pages": [
+        101
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "264",
+      "original": "Проверь и оживи его скорее",
+      "edited": "Проверь и скорее восстанови его работу.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16275 2026-09-09T09:55:59+00:00",
+      "pages": [
+        101
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": true
+    },
+    {
+      "id": "265",
+      "original": "И почини чтобы review могло понимать что модель ожила",
+      "edited": "И почини, чтобы review понимал, что модель снова работает.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16282 2026-09-09T09:56:40+00:00",
+      "pages": [
+        101
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "266",
+      "original": "Не неси пургу. Запомни \ngh ship умеет сам запускать ci локально. На ci вообще не нужно обращать внимание \nЗАПОМНИ! И подумай как так вышло что мне приходится это повторять \n\nЕсли же у gh ship проблемы просто почини",
+      "edited": "gh ship умеет сам запускать CI локально. На CI вообще не нужно обращать внимания. Запомни и разберись, почему мне приходится это повторять. Если проблема в gh ship — просто почини.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16416 2026-09-09T12:58:15+00:00",
+      "pages": [
+        102
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "267",
+      "original": "Сначала сделай review brainstorm, скорее все вопросы сами отпадут. А потом уже задавай свои вопросы нормально через tg decision",
+      "edited": "Сначала сделай review brainstorm: скорее всего, вопросы сами отпадут. Затем задай оставшиеся вопросы нормально через tg decision.",
+      "source_kind": "telegram-export",
+      "context": "Telegram tg#16417 2026-09-09T12:59:05+00:00",
+      "pages": [
+        102
+      ],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    },
+    {
+      "id": "current-2026-09-10",
+      "original": "выполни полную работу по грумингу всех тасков, консолидация, связи, исправление и улучшение описаний\nво все тикеты добавь мои исходные запросы цитатами с испоаврелеием стилистики и орфографии и пунктуации\nвсе влитое и сделанное надо перепроверить, там скорее всего много багов потому что почти ничего из того что делалось за 10 дней так и не заработало как надо или вообще не заработало",
+      "edited": "Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами с исправлением стилистики, орфографии и пунктуации. Всё влитое и сделанное нужно перепроверить: за последние десять дней почти ничего не заработало как надо или вообще не заработало.",
+      "source_kind": "current-user-message",
+      "context": "Current ChatGPT conversation, 2026-09-10; recovery mandate, not the original feature request for every issue.",
+      "pages": [],
+      "claimed_task_refs": [],
+      "context_incomplete": false
+    }
+  ],
+  "excluded_records": [
+    {
+      "id": "241",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "243",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "244",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "245",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "246",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "247",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "248",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "249",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "250",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "251",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "253",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "254",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "256",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "268",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "269",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "270",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "271",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "272",
+      "group": "telegram-post-175",
+      "reason": "other project or unresolved external context; not published in rig corpus"
+    },
+    {
+      "id": "390",
+      "group": "this-chat-extra",
+      "reason": "agent summary, not established verbatim speech"
+    },
+    {
+      "id": "391",
+      "group": "this-chat-extra",
+      "reason": "agent summary, not established verbatim speech"
+    },
+    {
+      "id": "392",
+      "group": "this-chat-extra",
+      "reason": "agent summary, not established verbatim speech"
+    },
+    {
+      "id": "393",
+      "group": "this-chat-extra",
+      "reason": "agent summary, not established verbatim speech"
+    },
+    {
+      "id": "394",
+      "group": "this-chat-extra",
+      "reason": "agent summary, not established verbatim speech"
+    },
+    {
+      "id": "395",
+      "group": "this-chat-extra",
+      "reason": "agent summary, not established verbatim speech"
+    },
+    {
+      "id": "396",
+      "group": "this-chat-extra",
+      "reason": "agent summary, not established verbatim speech"
+    },
+    {
+      "id": "397",
+      "group": "this-chat-extra",
+      "reason": "agent summary, not established verbatim speech"
+    },
+    {
+      "id": "398",
+      "group": "this-chat-extra",
+      "reason": "agent summary, not established verbatim speech"
+    },
+    {
+      "id": "399",
+      "group": "this-chat-extra",
+      "reason": "agent summary, not established verbatim speech"
+    },
+    {
+      "id": "273",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "274",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "275",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "276",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "277",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "278",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "279",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "280",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "281",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "282",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "283",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "284",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "285",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "286",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "287",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "288",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "289",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "290",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "291",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "292",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "293",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "294",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "295",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "296",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "297",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "298",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "299",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "300",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "301",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "302",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "303",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "304",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "305",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "306",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "307",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "308",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "309",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "310",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "311",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "312",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "313",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "314",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "315",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "316",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "317",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "318",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "319",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "320",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "321",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "322",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "323",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "324",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "325",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "326",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "327",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "328",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "329",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "330",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "331",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "332",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "333",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "334",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "335",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "336",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "337",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "338",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "339",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "340",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "341",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "342",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "343",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "344",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "345",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "346",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "347",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "348",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "349",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "350",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "351",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "352",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "353",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "354",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "355",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "356",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "357",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "358",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "359",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "360",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "361",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "362",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "363",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "364",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "365",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "366",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "367",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "368",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "369",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "370",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "371",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "372",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "373",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "374",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "375",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "376",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "377",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "378",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "379",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "380",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "381",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "382",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "383",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "384",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "385",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "386",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "387",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "388",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    },
+    {
+      "id": "389",
+      "group": "ecosystem-tickets",
+      "reason": "generated issue title, not an original user quotation"
+    }
+  ]
+}
