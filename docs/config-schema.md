@@ -677,8 +677,15 @@ agent-hooks are inert. So when a supported harness block is present (and `agent_
 enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
 
 - `kind: claude-code` writes `cc_hook_bridge` into `settings.json`: `PreToolUse` matchers
-  `Bash`, `Edit|Write|MultiEdit|NotebookEdit`, `Agent|Task`, `Skill`, `Monitor`, and
-  `EnterWorktree`; `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`; and `Stop`.
+  `Bash`, `Edit|Write|MultiEdit|NotebookEdit`, `Agent|Task`, `Skill`, `Monitor`,
+  `EnterWorktree`, and `Workflow`; `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`;
+  and `Stop`. The `Workflow` matcher is what makes the agent-tools `workflow-danger-gate`
+  (`pre-workflow`) hook actually fire. rig does not itself provision a bare `Workflow`
+  `permissions.allow` entry (that stays an operator/config-layer choice); but when one is
+  configured so ultracode is never prompted on spawn, this matcher is the enforcement half —
+  it denies a script whose executable JS runs a raw `gh pr merge`, `git reset --hard`, a
+  force-push, `sudo rm`, `--no-verify`, `git clean -f`, or `screencapture`, while leaving
+  comments and ultracode's own `agent(...)` dispatch untouched.
   The `Monitor` matcher is the rig half of the **subagent Monitor ban**
   ([rig-cli#463](https://github.com/alex-mextner/rig-cli/issues/463)): Claude Code only
   fires `PreToolUse` for tools with an explicit matcher, so without this entry the

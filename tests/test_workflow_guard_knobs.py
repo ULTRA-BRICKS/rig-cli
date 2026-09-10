@@ -88,6 +88,7 @@ def test_pretooluse_matchers_cover_the_full_managed_set():
         "Skill",
         "Monitor",
         "EnterWorktree",
+        "Workflow",
     }
 
 
