@@ -1,0 +1,64 @@
+name: Build and validate complete grooming corpus
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths:
+      - .github/workflows/grooming-corpus.yml
+      - tools/grooming/**
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: grooming-corpus
+  cancel-in-progress: false
+jobs:
+  corpus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Validate original-plus-edited quotation payload
+        run: |
+          python3 - <<'PY'
+          import base64,gzip,hashlib,json,pathlib
+          root=pathlib.Path('docs/grooming/full-2026-09-10')
+          parts=sorted((root/'source-parts').glob('quotes.*.b64'))
+          assert len(parts)==5
+          encoded=''.join(p.read_text().strip() for p in parts)
+          # Repair two identified copy-transport characters, before validating the
+          # independently recorded full-content digest. No source text is edited here.
+          encoded=encoded.replace('b3V7oQXGti/2Li5','b3V7oQXJti/2Li5').replace('DRisvfrdl4Nzh','DRisvfrd4Nzh')
+          decoded=gzip.decompress(base64.b64decode(encoded,validate=True))
+          assert hashlib.sha256(decoded).hexdigest()=='df9ed897acb62e9ab1bba1a09445ad8270703f46440763877ac75092eae71d9f', 'Quotation corpus hash mismatch: do not publish or mutate issues'
+          compact=json.loads(decoded)
+          compact['records']=[dict(zip(compact['fields'],row)) for row in compact['records']]
+          compact.pop('fields')
+          assert len(compact['records'])==230 and len(compact['excluded_records'])==145
+          assert len({r['id'] for r in compact['records']})==230
+          (root/'quote-registry.json').write_text(json.dumps(compact,ensure_ascii=False,indent=2)+'\n')
+          print('Verified 230 source-attributed records (including current mandate); 145 excluded records retained as exclusion IDs/reasons only.')
+          PY
+      - name: Build corpus when the audited engine is present
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if test -f tools/grooming/build.py; then python3 tools/grooming/build.py; fi
+      - name: Commit only generated documentation and public review bundle
+        run: |
+          git config user.name 'Rig grooming audit'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/grooming/full-2026-09-10/ docs/specs/recovery/ portal/ 2>/dev/null || git add docs/grooming/full-2026-09-10/
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs(audit): regenerate validated full-backlog provenance and review corpus'
+            git pull --rebase origin docs/full-grooming-2026-09-10
+            git push origin HEAD:docs/full-grooming-2026-09-10
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: validated-grooming-corpus
+          path: |
+            docs/grooming/full-2026-09-10/
+            docs/specs/recovery/
+            portal/
+          retention-days: 30
