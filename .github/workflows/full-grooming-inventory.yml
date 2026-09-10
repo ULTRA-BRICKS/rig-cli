@@ -1,0 +1,71 @@
+name: Full grooming inventory (read-only issues)
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/full-grooming-inventory.yml]
+permissions:
+  contents: write
+  issues: read
+concurrency:
+  group: full-grooming-inventory
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Snapshot all twelve repositories without modifying issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTPUT_REPO: ${{ github.repository }}
+          OUTPUT_BRANCH: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import base64, datetime, hashlib, json, os, pathlib, time, urllib.request
+          root = pathlib.Path('grooming-inventory'); root.mkdir()
+          repos = ['rig-cli','agent-tools','harness-cli','review-cli','task-cli','tg-cli','qa-cli','draw-cli','stt-cli','research-cli','dev-cli','pm-cli']
+          api = 'https://api.github.com'
+          def request(path, method='GET', data=None):
+              payload = None if data is None else json.dumps(data).encode()
+              req = urllib.request.Request(api+path, data=payload, method=method, headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'], 'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'rig-authorized-grooming-audit'})
+              with urllib.request.urlopen(req, timeout=40) as response: return json.load(response)
+          summary={'generated_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'scope':'all issues, all states, no historical cutoff; PRs inventoried separately','repositories':{},'issue_mutations':0}
+          for name in repos:
+              full='alex-mextner/'+name
+              meta=request('/repos/'+full)
+              if meta.get('private'): raise RuntimeError('Refusing public snapshot of a private repository: '+full)
+              rows=[]; page=1
+              while True:
+                  batch=request('/repos/'+full+'/issues?state=all&sort=created&direction=asc&per_page=100&page='+str(page))
+                  rows.extend(batch)
+                  if len(batch)<100: break
+                  page+=1
+              issues=[r for r in rows if 'pull_request' not in r]
+              prs=[r for r in rows if 'pull_request' in r]
+              clean=[{k:r.get(k) for k in ('number','node_id','title','body','state','state_reason','created_at','updated_at','closed_at','html_url','labels','comments','pull_request')} for r in rows]
+              raw=json.dumps(clean,ensure_ascii=False,indent=2).encode()
+              (root/(name+'.json')).write_bytes(raw)
+              summary['repositories'][name]={'default_branch':meta['default_branch'],'issues':len(issues),'open':sum(r['state']=='open' for r in issues),'closed':sum(r['state']=='closed' for r in issues),'prs':len(prs),'recent_issues':sum(r['updated_at']>='2026-08-31' for r in issues),'snapshot_sha256':hashlib.sha256(raw).hexdigest()}
+              print(name,json.dumps(summary['repositories'][name]),flush=True)
+          summary['total_issues']=sum(r['issues'] for r in summary['repositories'].values())
+          summary['total_prs']=sum(r['prs'] for r in summary['repositories'].values())
+          path='docs/grooming/full-2026-09-10/inventory-summary.json'
+          content=json.dumps(summary,ensure_ascii=False,indent=2).encode()
+          payload={'message':'docs(audit): record complete issue inventory counts','content':base64.b64encode(content).decode(),'branch':os.environ['OUTPUT_BRANCH']}
+          try:
+              prior=request('/repos/'+os.environ['OUTPUT_REPO']+'/contents/'+path+'?ref='+os.environ['OUTPUT_BRANCH'])
+              payload['sha']=prior['sha']
+          except urllib.error.HTTPError as e:
+              if e.code!=404: raise
+          request('/repos/'+os.environ['OUTPUT_REPO']+'/contents/'+path,'PUT',payload)
+          (root/'summary.json').write_bytes(content)
+          print(json.dumps(summary,ensure_ascii=False,indent=2))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('# Complete inventory\n\n'+str(summary['total_issues'])+' issues and '+str(summary['total_prs'])+' PR records. No issue mutations.\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: complete-grooming-inventory
+          path: grooming-inventory/
+          retention-days: 30
