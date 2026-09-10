@@ -1231,6 +1231,18 @@ _TG_CTL_BLOCK = Block(
     },
 )
 
+_TCC_WATCH_BLOCK = Block(
+    doc="the TCC dialog-watcher daemon (Phase 1: detection-only), a per-machine boot LaunchAgent "
+    "(macOS) that tails `log stream`'s com.apple.TCC subsystem and logs every permission-prompt-"
+    "shaped event — defense-in-depth behind the eval-tool TCC deny-list (PR #488).",
+    leaves={
+        "enabled": Leaf("boolean", "provision the tcc-watch LaunchAgent", default=True),
+        "label": Leaf("string", "launchd Label / plist filename stem", default="ai.hyperide.tcc-watch"),
+        "config_dir": Leaf("string", "watcher config + events.jsonl + launchd logs dir", default="~/.config/rig/tcc-watch"),
+        "python_bin": Leaf("string", "the python3 binary the daemon runs under"),
+    },
+)
+
 
 # The top-level shape: the scalar top keys + every block, in the order config.py validates them.
 _TOP_LEAVES: dict[str, Leaf] = {
@@ -1273,6 +1285,7 @@ BLOCKS: dict[str, Block] = {
     "spotlight": _SPOTLIGHT_BLOCK,
     "tools": _TOOLS_BLOCK,
     "tg_ctl": _TG_CTL_BLOCK,
+    "tcc_watch": _TCC_WATCH_BLOCK,
     "ship_delegator": _SHIP_DELEGATOR_BLOCK,
     "linters": _LINTERS_BLOCK,
     "project_tools": _PROJECT_TOOLS_BLOCK,

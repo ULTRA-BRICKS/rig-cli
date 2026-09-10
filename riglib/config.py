@@ -68,6 +68,7 @@ _VALID_TOP_KEYS = {
     "spotlight",
     "tools",
     "tg_ctl",
+    "tcc_watch",
     "ship_delegator",
     "linters",
     "project_tools",
@@ -638,6 +639,7 @@ def validate(data: dict[str, Any]) -> None:
     _validate_spotlight(data.get("spotlight", {}))
     _validate_tools(data.get("tools", {}))
     _validate_tg_ctl(data.get("tg_ctl", {}))
+    _validate_tcc_watch(data.get("tcc_watch", {}))
     _validate_ship_delegator(data.get("ship_delegator", {}))
     _validate_linters(data.get("linters", {}))
     _validate_project_tools(data.get("project_tools", {}))
@@ -2732,6 +2734,45 @@ def _validate_tg_ctl(t: dict[str, Any]) -> None:
             raise ConfigError(
                 f"tg_ctl.{strkey} must be a string, got {value!r}",
                 schema_path=f"tg_ctl.{strkey}",
+            )
+
+
+# The keys the tcc_watch block accepts. Listed once so the validator rejects a typo (fail-closed,
+# consistent with every other block).
+_TCC_WATCH_KEYS = {
+    "enabled",
+    "label",
+    "config_dir",
+    "python_bin",
+}
+
+
+def _validate_tcc_watch(t: dict[str, Any]) -> None:
+    """Validate the ``tcc_watch`` block — rig-managed TCC-dialog-watcher LaunchAgent (Phase 1
+    detection-only defense-in-depth behind the eval-tool deny-list, PR #488; see
+    :mod:`riglib.tcc_watch`'s module docstring for the full phased design).
+
+    This is a per-MACHINE concern (one watcher daemon per machine), so it belongs in the GLOBAL
+    layer (``~/.config/rig/config.yaml``), like ``tg_ctl``/``tmux``/``git_hooks`` — NOT a
+    committed repo ``rig.yaml``. Default **ON**: an EMPTY/absent block still provisions the
+    daemon (a present block with ``enabled`` not false opts in) — mirrors ``tg_ctl``. Fail-closed,
+    consistent with every other block, on: a non-mapping block, an unknown key (typo guard), a
+    non-bool ``enabled``, and a non-string ``label``/``config_dir``/``python_bin``.
+    """
+    if not isinstance(t, dict):
+        raise ConfigError("tcc_watch must be a mapping", schema_path="tcc_watch")
+    if not t:
+        return
+    _reject_unknown_keys(t, "tcc_watch")
+    value = t.get("enabled")
+    if value is not None and not isinstance(value, bool):
+        raise ConfigError(f"tcc_watch.enabled must be a bool, got {value!r}", schema_path="tcc_watch.enabled")
+    for strkey in ("label", "config_dir", "python_bin"):
+        value = t.get(strkey)
+        if value is not None and not isinstance(value, str):
+            raise ConfigError(
+                f"tcc_watch.{strkey} must be a string, got {value!r}",
+                schema_path=f"tcc_watch.{strkey}",
             )
 
 

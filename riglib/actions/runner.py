@@ -5205,6 +5205,170 @@ def _do_provision_tg_ctl(action: Action, on_conflict: str) -> ActionResult:
     return ActionResult(action, status, f"tg_ctl/boot: {'; '.join(details)}", headline_backup)
 
 
+# ── tcc-watch dialog-watcher LaunchAgent provisioning (macOS) ───────────────────────
+def _tcc_watch_dry_run() -> bool:
+    """Honor RIG_TCC_WATCH_DRY_RUN — write the managed plist + watcher script but make NO
+    live/destructive change. Mirrors :func:`_tg_ctl_dry_run`: under dry-run the managed
+    artifacts still land under the (HOME-isolated) path, but the gui-domain (re)load is skipped.
+    ALSO true automatically under a sandboxed HOME (:func:`_home_is_sandboxed`, rig-cli#116).
+    """
+    return _env_flag("RIG_TCC_WATCH_DRY_RUN") or _home_is_sandboxed()
+
+
+def tcc_watch_plan_from_action(action: Action):
+    """Rebuild the pure :class:`~riglib.tcc_watch.TccWatchPlan` an action describes.
+
+    Shared by the install handler (and, in a follow-up, drift detection) so both agree on the
+    exact desired plist/script from the action's options. ``Path.home()`` is the resolved HOME
+    at apply time (a test monkeypatches it to a tmp HOME). Lazy import keeps the actions package
+    import-light.
+    """
+    from ..tcc_watch import DEFAULT_LABEL, build_tcc_watch
+
+    opts = action.options
+    return build_tcc_watch(
+        home=Path.home(),
+        label=str(opts.get("label") or DEFAULT_LABEL),
+        config_dir=opts.get("config_dir") or "~/.config/rig/tcc-watch",
+        python_bin=opts.get("python_bin") or None,
+    )
+
+
+def _do_provision_tcc_watch(action: Action, on_conflict: str) -> ActionResult:
+    """Provision the tcc-watch dialog-watcher daemon as a macOS LaunchAgent (idempotent).
+
+    Phase 1 (detection-only) of the defense-in-depth design behind the eval-tool TCC deny-list
+    (PR #488) — see :mod:`riglib.tcc_watch`'s module docstring. Mirrors
+    :func:`_do_provision_tg_ctl`'s shape (render -> backup-differing -> write -> (re)load), minus
+    the stale-predecessor teardown (tcc-watch has no predecessor to replace) and minus any
+    Codex-hook fold-in (tcc-watch is not a Codex Stop-hook source):
+
+      - render ``~/Library/LaunchAgents/ai.hyperide.tcc-watch.plist``;
+      - copy the watcher script (``riglib/tcc_watch_daemon.py``, byte-for-byte) to
+        ``<config_dir>/watch.py`` so the installed daemon runs the SAME code the unit suite
+        exercises directly;
+      - back up any existing DIFFERING plist/script (on_conflict=backup) before rewrite;
+      - ensure the config dir exists so launchd can open the logs and the daemon can append events;
+      - (re)load via ``launchctl bootout``/``bootstrap`` in the per-user gui domain.
+
+    macOS-only (launchd). Off darwin it is a ``skipped`` no-op (no Linux equivalent yet).
+    A re-apply that finds both artifacts byte-identical AND the agent loaded is a ``skipped``
+    no-op. ``RIG_TCC_WATCH_DRY_RUN`` writes the artifacts but skips every live launchd mutation.
+    """
+    plan = tcc_watch_plan_from_action(action)
+
+    if sys.platform != "darwin":
+        return ActionResult(
+            action, "skipped",
+            "tcc_watch/watch: skipped (launchd is macOS-only; no Linux equivalent yet)",
+        )
+
+    details: list[str] = []
+    changed = False
+    headline_backup: Path | None = None
+    dry = _tcc_watch_dry_run()
+
+    # 1) ensure the config dir exists so launchd can open StandardOut/ErrorPath and the daemon
+    # can append to events.jsonl.
+    plan.config_dir.mkdir(parents=True, exist_ok=True)
+
+    # 2) write the watcher script (idempotent on identical bytes; honors on_conflict).
+    desired_script = plan.render_watcher_script()
+    script_already = plan.watcher_script_path.is_file()
+    current_script = plan.watcher_script_path.read_text(encoding="utf-8") if script_already else ""
+    if not (script_already and current_script == desired_script):
+        script_out = fsutil.write_file(plan.watcher_script_path, desired_script, on_conflict)
+        if script_out.status == "error":
+            return ActionResult(action, "error", f"tcc_watch/watch: {script_out.detail}", script_out.backup)
+        if script_out.backup:
+            headline_backup = headline_backup or script_out.backup
+            details.append(f"backed up prior watcher script → {script_out.backup.name}")
+        if script_out.status != "skipped":
+            changed = True
+            details.append(f"wrote {plan.watcher_script_path.name}")
+        plan.watcher_script_path.chmod(0o755)
+
+    # 3) write the plist (idempotent on identical bytes; honors on_conflict for a differing one).
+    plan.plist_path.parent.mkdir(parents=True, exist_ok=True)
+    desired_plist = plan.render_plist()
+    plist_already = plan.plist_path.is_file()
+    current_plist = plan.plist_path.read_text(encoding="utf-8") if plist_already else ""
+
+    # The install-if-missing no-op: both artifacts present AND byte-identical → nothing left to
+    # do. Under dry-run / a sandboxed HOME (rig-cli#116) this is the WHOLE no-op — never probe
+    # the real launchd domain, and say so (mirrors tg_ctl's no-op path).
+    if plist_already and current_plist == desired_plist and not changed:
+        if dry:
+            return ActionResult(
+                action, "skipped",
+                f"tcc_watch/watch: plist {plan.plist_path} already current "
+                f"({_live_skip_reason('RIG_TCC_WATCH_DRY_RUN', 'launchctl loaded-probe')})",
+            )
+        if _launchctl_gui_loaded(plan.label):
+            return ActionResult(
+                action, "skipped",
+                f"tcc_watch/watch: launchd agent '{plan.label}' already installed and loaded",
+            )
+
+    plist_out = fsutil.write_file(plan.plist_path, desired_plist, on_conflict)
+    if plist_out.status == "error":
+        return ActionResult(action, "error", f"tcc_watch/watch: {plist_out.detail}", plist_out.backup)
+    if plist_out.backup:
+        headline_backup = headline_backup or plist_out.backup
+        details.append(f"backed up prior plist → {plist_out.backup.name}")
+    # Conflict-skip: the existing plist DIFFERS but on_conflict=skip said don't write it. The
+    # desired agent never hit disk, so we must NOT (re)load the stale plist and must NOT report a
+    # change — surface the unresolved drift instead (mirrors the tg_ctl conflict-skip path).
+    if plist_out.status == "skipped" and plist_already and current_plist != desired_plist:
+        if changed:  # the watcher script still changed — report it, plus the plist skip.
+            details.append(
+                f"{plan.plist_path.name} differs but on_conflict=skip — left unchanged "
+                f"(drift NOT reconciled; re-run with on_conflict=backup/overwrite)"
+            )
+            return ActionResult(action, "backed_up" if headline_backup else "created",
+                                f"tcc_watch/watch: {'; '.join(details)}", headline_backup)
+        return ActionResult(
+            action, "skipped",
+            f"tcc_watch/watch: launchd plist {plan.plist_path} differs but on_conflict=skip — "
+            f"left unchanged (drift NOT reconciled; re-run with on_conflict=backup/overwrite)",
+        )
+    if plist_out.status != "skipped":
+        changed = True
+        details.append(f"wrote {plan.plist_path.name}")
+
+    if dry:
+        return ActionResult(
+            action,
+            "backed_up" if headline_backup else ("created" if changed else "skipped"),
+            f"tcc_watch/watch: {'; '.join(details) or 'artifacts already current'} "
+            f"({_live_skip_reason('RIG_TCC_WATCH_DRY_RUN', 'launchctl bootstrap')})",
+            headline_backup,
+        )
+
+    # 4) (re)load via the per-user gui domain so a changed plist is picked up without a reboot.
+    needs_load = changed or not _launchctl_gui_loaded(plan.label)
+    if needs_load:
+        _launchctl_bootout(str(plan.plist_path))
+        rc = _launchctl_bootstrap(str(plan.plist_path))
+        if rc != 0:
+            return ActionResult(
+                action, "error",
+                f"tcc_watch/watch: wrote artifacts but `launchctl bootstrap` failed (rc={rc})",
+                headline_backup,
+            )
+        if not changed:  # artifacts byte-identical but the agent wasn't loaded → loading IS the change.
+            changed = True
+            details.append(f"loaded launchd agent '{plan.label}'")
+        else:
+            details.append(f"(re)loaded launchd agent '{plan.label}'")
+
+    if not changed:
+        return ActionResult(action, "skipped",
+                            f"tcc_watch/watch: launchd agent '{plan.label}' already installed and loaded")
+    status = "backed_up" if headline_backup else "created"
+    return ActionResult(action, status, f"tcc_watch/watch: {'; '.join(details)}", headline_backup)
+
+
 # ── AGENTS.md / CLAUDE.md canonical + symlink ─────────────────────────────────────
 # One file is the real source of truth; the other is a relative symlink to it, so every
 # agent harness (Claude Code reads CLAUDE.md; Codex/others read AGENTS.md) sees identical
@@ -8169,4 +8333,5 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_spotlight": _do_provision_spotlight,
     "provision_tools": _do_provision_tools,
     "provision_tg_ctl": _do_provision_tg_ctl,
+    "provision_tcc_watch": _do_provision_tcc_watch,
 }

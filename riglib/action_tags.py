@@ -262,6 +262,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Installs + (re)loads the tg-ctl inbound Telegram daemon's launchd LaunchAgent — a "
         "live machine-wide service, not scoped to one repo.",
     ),
+    "provision_tcc_watch": _tag(
+        "provision_tcc_watch", "starts_reloads_service", AUDIENCE_HUMAN,
+        "Installs + (re)loads the tcc-watch TCC-dialog-watcher daemon's launchd LaunchAgent "
+        "(Phase 1 detection-only) — a live machine-wide service, not scoped to one repo.",
+    ),
 }
 
 # A defensive fallback for a kind this registry doesn't (yet) know — should never be hit once
