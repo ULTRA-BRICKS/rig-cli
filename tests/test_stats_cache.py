@@ -5,19 +5,38 @@ cache in ``_cache.py`` makes a REPEAT run skip re-parsing/re-categorizing any se
 whose ``(mtime_ns, size)`` are unchanged since the last run. These tests exercise the real
 production path (``collect`` -> each source's ``iter_invocations`` -> ``SessionFileCache``),
 never the cache class in isolation, so a regression in the wiring (not just the cache
-class itself) would fail them.
+class itself) would fail them -- except where a test's whole point is inspecting the raw
+on-disk row (retention, no-accumulation, gzip), which necessarily reaches into the SQLite
+file directly.
 """
 
 from __future__ import annotations
 
-import json
+import gzip
+import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 from riglib.stats.command import collect
+from riglib.stats.model import ToolInvocation
 from riglib.stats.sources._cache import SessionFileCache
 
 from test_stats import write_claude_session, _cc_event
 from test_stats_omp_source import write_omp_session, _omp_session_event, _omp_tool_event
+
+
+def _db_path(home: Path, source: str) -> Path:
+    return home / ".cache" / "rig" / "stats" / f"{source}.sqlite3"
+
+
+def _row_count(db_path: Path, path: Path) -> int:
+    conn = sqlite3.connect(str(db_path))
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM entries WHERE path = ?", (str(path),)
+        ).fetchone()[0]
+    finally:
+        conn.close()
 
 
 def test_warm_cache_run_matches_cold_run_exactly(tmp_path):
@@ -81,7 +100,7 @@ def test_cache_entry_is_reusable_across_different_repo_filters(tmp_path):
 
 
 def test_corrupted_cache_file_degrades_to_a_full_reparse(tmp_path):
-    """A cache file must be a pure perf optimization: if it's corrupted (partial write,
+    """A cache db must be a pure perf optimization: if it's corrupted (partial write,
     disk issue, hand-edited), `rig stats` still returns correct data -- it just misses the
     cache and reparses, exactly like a cold run."""
     home = tmp_path / "home"
@@ -90,10 +109,10 @@ def test_corrupted_cache_file_degrades_to_a_full_reparse(tmp_path):
         [_omp_session_event("/r"),
          _omp_tool_event("2026-07-29T10:01:00Z", [{"name": "bash", "arguments": {"command": "ls"}}])],
     )
-    collect(home=home)  # writes a real cache file
-    cache_file = home / ".cache" / "rig" / "stats" / "omp.json"
+    collect(home=home)  # writes a real cache db
+    cache_file = _db_path(home, "omp")
     assert cache_file.is_file()
-    cache_file.write_text("not json {", encoding="utf-8")
+    cache_file.write_bytes(b"not a sqlite database at all, just garbage bytes")
 
     result = collect(home=home)
     assert len(result.invocations) == 1
@@ -101,9 +120,6 @@ def test_corrupted_cache_file_degrades_to_a_full_reparse(tmp_path):
 
 def test_cache_get_put_round_trip_preserves_invocation_fields(tmp_path):
     """Direct unit coverage of the (de)serialization boundary the sources rely on."""
-    from riglib.stats.model import ToolInvocation
-    from datetime import datetime, timezone
-
     home = tmp_path / "home"
     session_file = home / "fake-session.jsonl"
     session_file.parent.mkdir(parents=True, exist_ok=True)
@@ -122,8 +138,77 @@ def test_cache_get_put_round_trip_preserves_invocation_fields(tmp_path):
     cache = SessionFileCache(home, "fake")
     assert cache.get(session_file) is None
     cache.put(session_file, [inv])
-    cache.flush()
 
     reloaded = SessionFileCache(home, "fake")
     got = reloaded.get(session_file)
     assert got == [inv]
+
+
+def test_deleted_session_file_row_is_retained_not_pruned(tmp_path):
+    """Issue #505's original ask was to PRUNE rows for deleted session files. Alex's
+    review correction rejected that: logs are kept to be used, not discarded. This proves
+    the corrected behavior -- a session file removed from disk keeps its cached row in the
+    database (retrievable by direct inspection), even though `get()` correctly still
+    misses (there is no live file left to validate freshness against)."""
+    home = tmp_path / "home"
+    session_file = write_omp_session(
+        home, "-x", "s1",
+        [_omp_session_event("/r"),
+         _omp_tool_event("2026-07-29T10:01:00Z", [{"name": "bash", "arguments": {"command": "ls"}}])],
+    )
+    collect(home=home)  # warms the cache
+
+    session_file.unlink()
+
+    assert _row_count(_db_path(home, "omp"), session_file) == 1, (
+        "the row for a deleted session file must be retained, not pruned"
+    )
+
+    cache = SessionFileCache(home, "omp")
+    assert cache.get(session_file) is None  # correct miss: no file left to validate against
+
+
+def test_reparsing_a_grown_file_replaces_its_row_not_accumulates(tmp_path):
+    """A genuine re-parse of the SAME path (mtime/size changed) must upsert its row, never
+    accumulate a second row for that path -- the cache stays bounded by "one row per file
+    that ever existed", not "one row per parse"."""
+    home = tmp_path / "home"
+    session_file = write_omp_session(
+        home, "-x", "s1",
+        [_omp_session_event("/r"),
+         _omp_tool_event("2026-07-29T10:01:00Z", [{"name": "bash", "arguments": {"command": "ls"}}])],
+    )
+    collect(home=home)
+    with session_file.open("a", encoding="utf-8") as fh:
+        fh.write(_omp_tool_event("2026-07-29T10:02:00Z", [{"name": "read", "arguments": {}}]) + "\n")
+    collect(home=home)  # re-parses the grown file
+
+    assert _row_count(_db_path(home, "omp"), session_file) == 1
+
+
+def test_cache_row_payload_is_gzip_compressed(tmp_path):
+    """The stored payload must actually be gzip -- the whole point of switching off the
+    per-file-JSON design (issue #505's SQLite + gz correction) is compressing what lands
+    on disk, not just moving the same raw JSON into a different container."""
+    home = tmp_path / "home"
+    session_file = home / "fake-session.jsonl"
+    session_file.parent.mkdir(parents=True, exist_ok=True)
+    session_file.write_text("irrelevant\n", encoding="utf-8")
+
+    inv = ToolInvocation(
+        timestamp=datetime(2026, 7, 29, 10, 1, tzinfo=timezone.utc),
+        harness="omp", repo="/repo/a", session="s1",
+        tool_name="Bash", category="baseline", raw_tool="bash", detail="ls",
+    )
+    cache = SessionFileCache(home, "fake")
+    cache.put(session_file, [inv])
+
+    conn = sqlite3.connect(str(_db_path(home, "fake")))
+    try:
+        blob = conn.execute(
+            "SELECT data FROM entries WHERE path = ?", (str(session_file),)
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert blob[:2] == b"\x1f\x8b", "row payload must be gzip-compressed"
+    assert gzip.decompress(blob)  # round-trips back to valid bytes

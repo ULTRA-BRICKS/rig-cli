@@ -184,11 +184,14 @@ source), Codex (`~/.codex/sessions/.../rollout-*.jsonl`, or
 (`~/.local/share/opencode/storage/`). The supported-harness list is data-driven: each
 parser self-registers, and a harness whose logs aren't on the machine is reported as
 "not found" rather than failing. Adding a harness is one file in `riglib/stats/sources/`.
-Parsed session files are cached per-source under `~/.cache/rig/stats/<harness>.json`,
-keyed by each file's `(mtime, size)`: a closed session (the overwhelming majority) is never
-re-parsed once cached, so a repeat `rig stats show` only pays for genuinely new/changed
+Parsed session files are cached per-source under `~/.cache/rig/stats/<harness>.sqlite3`
+(SQLite, gzip-compressed rows — the same on-disk pattern review-cli's own parsed-log cache
+uses), keyed by each file's `(mtime, size)`: a closed session (the overwhelming majority) is
+never re-parsed once cached, so a repeat `rig stats show` only pays for genuinely new/changed
 session activity — the cache is purely an optimization and is transparent to every filter
-(`--repo`/`--harness`/`--since`); delete the directory any time to force a full rescan.
+(`--repo`/`--harness`/`--since`). A session file removed or rotated off disk keeps its
+cached row (logs are kept to be used, not silently discarded); delete the cache directory
+any time to force a full rescan.
 
 **Outputs:** `json` is the canonical shape every other renderer draws from; `tui` (default)
 is a rich table-and-bar-chart report that degrades to plain text if `rich` isn't installed;
