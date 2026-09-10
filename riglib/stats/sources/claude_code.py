@@ -23,6 +23,7 @@ from pathlib import Path
 
 from ..model import ToolInvocation
 from ..taxonomy import categorize
+from ._cache import SessionFileCache
 from ._shellutil import detail_of
 from .base import LogSource, parse_iso, register
 
@@ -45,12 +46,22 @@ class ClaudeCodeSource(LogSource):
         root = self.root()
         if not root.exists():
             return
+        # cache holds the FULL unfiltered per-file parse (see _cache.py) so it serves any
+        # --repo query; only unchanged (mtime+size) files hit the cache.
+        cache = SessionFileCache(self.home, self.name)
         for proj_dir in sorted(root.iterdir()):
             if not proj_dir.is_dir():
                 continue
             decoded = self._decode_dir(proj_dir.name)
             for session_file in sorted(proj_dir.glob("*.jsonl")):
-                yield from self._iter_session(session_file, decoded, repos)
+                invocations = cache.get(session_file)
+                if invocations is None:
+                    invocations = list(self._iter_session(session_file, decoded, None))
+                    cache.put(session_file, invocations)
+                for inv in invocations:
+                    if repos is None or inv.repo in repos:
+                        yield inv
+        cache.flush()
 
     def _iter_session(
         self, session_file: Path, decoded_dir: str, repos: frozenset[str] | None
