@@ -1,0 +1,8 @@
+{
+  "description_rows": 1519,
+  "ready": 1519,
+  "outcome_checklists_recovered": 1341,
+  "master_spec": "docs/specs/recovery/00-master.md",
+  "followup_run": "https://github.com/alex-mextner/rig-cli/actions/runs/34478551966",
+  "issue_mutations": 0
+}

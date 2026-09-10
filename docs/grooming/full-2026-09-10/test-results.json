@@ -104,7 +104,100 @@
     },
     "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
     "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance.",
-    "qualification": "First pytest run omitted ImageMagick 7: visual failures require the dependency-correct follow-up. Declared smoke runner passed with its visual suite skipped. One effort/board test also failed; do not count all 66 as product bugs."
+    "qualification": "With ImageMagick 7.1.2-31 installed: 2625 passed, 1 failed, 12 skipped. The same effort/board test fails when run alone (24 passed, 1 failed). It patches backend_available but leaves another availability path dependent on installed CLIs. This is a reproducible test-isolation/contract gap, not evidence of 66 independent product regressions. Suite invocation/count differences are retained instead of silently summed. Follow-up: https://github.com/alex-mextner/rig-cli/actions/runs/34478551966",
+    "followup": {
+      "effort_isolated": {
+        "counts": {
+          "passed": 24,
+          "failed": 1
+        },
+        "failed": [
+          {
+            "module": "tests.test_effort_run_flag",
+            "name": "test_overridden_board_flows_into_panel_jobs_once",
+            "status": "failed"
+          }
+        ],
+        "skipped": []
+      },
+      "image_magick_version": "Version: ImageMagick 7.1.2-31 Q16-HDRI x86_64 8309dc92a:20260903 https://imagemagick.org",
+      "full": {
+        "counts": {
+          "passed": 2625,
+          "skipped": 12,
+          "failed": 1
+        },
+        "failed": [
+          {
+            "module": "tests.test_effort_run_flag",
+            "name": "test_overridden_board_flows_into_panel_jobs_once",
+            "status": "failed"
+          }
+        ],
+        "skipped": [
+          {
+            "module": "tests.test_dashboard_service",
+            "name": "test_dashboard_service_descriptor_shape",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_dashboard_service",
+            "name": "test_dashboard_service_honors_explicit_port_and_host",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_install_commit_hook_rig_delegate",
+            "name": "test_install_commit_hook_delegates_scoped_and_rig_owns_the_gate",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_install_commit_hook_rig_delegate",
+            "name": "test_install_commit_hook_falls_back_when_rig_succeeds_but_provisions_no_gate",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_install_commit_hook_rig_delegate",
+            "name": "test_install_commit_hook_falls_back_when_rig_leaves_only_an_unrelated_hook",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_install_commit_hook_rig_delegate",
+            "name": "test_install_commit_hook_surfaces_a_failing_rigs_exit_code_without_falling_back",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_env",
+            "name": "test_docker_compose_bringup_and_teardown_live",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_executor",
+            "name": "test_dod_live_buggy_and_good",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_ext",
+            "name": "test_live_vscode_dod_good_passes",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_ext",
+            "name": "test_live_vscode_dod_buggy_fails",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_web",
+            "name": "test_live_browser_dod_good_passes",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_web",
+            "name": "test_live_browser_dod_buggy_fails",
+            "status": "skipped"
+          }
+        ]
+      }
+    }
   },
   "task-cli": {
     "repository": "task-cli",
@@ -171,7 +264,26 @@
     },
     "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
     "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance.",
-    "qualification": "Two failing assertions: durable late-answer callback ordering and a watermark warning under a rewritten Python PATH. Repeat/cause analysis is separate from the full-suite result."
+    "qualification": "The durable-question file fails once and passes twice across three isolated repeats; the repeated failure is a reconnect/callback scenario, different from the first full-suite late-delivery assertion. Watermark tests pass 27/27 with both system and venv interpreter setups after installing system Pillow. Do not declare the original watermark failure a confirmed product regression. Follow-up: https://github.com/alex-mextner/rig-cli/actions/runs/34478551966",
+    "followup": {
+      "exit_codes": {
+        "durable-1.exit": 1,
+        "durable-2.exit": 0,
+        "durable-3.exit": 0,
+        "watermark-system.exit": 0,
+        "watermark-venv.exit": 0
+      },
+      "repeat_failures": {
+        "durable-2.log": [],
+        "durable-1.log": [
+          "RECONNECT: a daemon bounce mid-block re-attaches the card (no duplicate) and the answer flows [15105.77ms]",
+          "RECONNECT: a daemon bounce mid-block re-attaches the card (no duplicate) and the answer flows [15105.77ms]"
+        ],
+        "durable-3.log": [],
+        "watermark-system.log": [],
+        "watermark-venv.log": []
+      }
+    }
   },
   "qa-cli": {
     "repository": "qa-cli",

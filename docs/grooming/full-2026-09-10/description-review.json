@@ -1,0 +1,9116 @@
+[
+  {
+    "key": "review-cli#24",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#25",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#26",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#30",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#40",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#45",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#54",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#56",
+    "criteria_recovered": 8,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#57",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#58",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#60",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#61",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#63",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#65",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#67",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#69",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#71",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#73",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#75",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#76",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#78",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#82",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#84",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#86",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#88",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#91",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#92",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#94",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#96",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#97",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#101",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#103",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#105",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#107",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#108",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#109",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#112",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#115",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#118",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#119",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#121",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#122",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#123",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#124",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#126",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#128",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#129",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#130",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#131",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#134",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#136",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#137",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#139",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#142",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#143",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#144",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#146",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#147",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#149",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#151",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#153",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#155",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#156",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#159",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#160",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#161",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#162",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#163",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#165",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#166",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#168",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#169",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#170",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#171",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#172",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#173",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#174",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#175",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#176",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#177",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#179",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#180",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#181",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#182",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#183",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#185",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#186",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#187",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#188",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#189",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#190",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#191",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#192",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#193",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#195",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#196",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#197",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#198",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#199",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#201",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#202",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#204",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#205",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#206",
+    "criteria_recovered": 14,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#208",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#209",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#210",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#212",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#213",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#214",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#215",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#216",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#217",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#218",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#219",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#221",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#223",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#224",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#225",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#226",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#227",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#229",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#231",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#232",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#234",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#235",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#236",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#237",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#238",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#239",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#240",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#241",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#242",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#243",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#244",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#245",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#248",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#250",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#251",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#253",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#254",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#255",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#256",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#257",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#258",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#259",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#260",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#261",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#262",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#263",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#264",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#265",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#266",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#267",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#268",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#269",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#271",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#272",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#273",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#275",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#276",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#277",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#280",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#281",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#282",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#283",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#284",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#285",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#286",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#287",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#288",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#289",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#291",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#292",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#293",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#294",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#295",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#296",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#297",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#298",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#299",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#300",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#301",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#302",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#304",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#305",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#306",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#307",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#308",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#309",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#311",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#312",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#313",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#314",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#315",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#316",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#317",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#318",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#319",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#320",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#321",
+    "criteria_recovered": 8,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#322",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#323",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#325",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#326",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#327",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#328",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#330",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#331",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#332",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#333",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#334",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#335",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#337",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#338",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#339",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#340",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#341",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#342",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#343",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#344",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#345",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#346",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#347",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#348",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#349",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#350",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#351",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#352",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#353",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#354",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#355",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#357",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#358",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#360",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#361",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#362",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#363",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#364",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#365",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#366",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#367",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#368",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#369",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#370",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#371",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#372",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#373",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#375",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#376",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#377",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#379",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#380",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#381",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#382",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#383",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#384",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#385",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#387",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#388",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#389",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#390",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#391",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#392",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#393",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#394",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#395",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#396",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#397",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#399",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#400",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#401",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#402",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#403",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#404",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#405",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#406",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#407",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#408",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#410",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#411",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#412",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#413",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#414",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#415",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#417",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#418",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#421",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#422",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#423",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#425",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#427",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#428",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#433",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#434",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#435",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#437",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#439",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#440",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#441",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#442",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#443",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#444",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#445",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#446",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#447",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#450",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#454",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#455",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#457",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#459",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#460",
+    "criteria_recovered": 7,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#465",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#466",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#467",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#468",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#469",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#472",
+    "criteria_recovered": 8,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#474",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#476",
+    "criteria_recovered": 9,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#479",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#480",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#483",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#484",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#486",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#487",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#492",
+    "criteria_recovered": 17,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#493",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#494",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#495",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "review-cli#496",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#1",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#2",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#3",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#4",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#8",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#9",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#10",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#12",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#13",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#15",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#16",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#19",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#20",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#22",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#24",
+    "criteria_recovered": 8,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#25",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#27",
+    "criteria_recovered": 7,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#29",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#32",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#36",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#38",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#42",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#43",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#45",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#47",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#50",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#52",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#54",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#57",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#59",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#60",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#61",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#62",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#63",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#64",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#65",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#66",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#67",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#68",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#69",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#70",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#73",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#74",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#75",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#76",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#77",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#78",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#79",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#80",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#81",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#82",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#83",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#85",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#86",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#87",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#88",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#91",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#92",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#93",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#97",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#98",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#99",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#100",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#102",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#104",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#105",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#106",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#108",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#110",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#111",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#112",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#114",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#115",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#116",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#117",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#119",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#120",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#122",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#123",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#124",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#125",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#126",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#127",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#128",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#130",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#131",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#132",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#133",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#134",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#137",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#138",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#139",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#140",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#141",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#143",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#144",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#145",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#146",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#147",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#148",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#149",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#150",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#151",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#152",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#153",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#154",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#155",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#156",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#157",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#158",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#160",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#162",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#165",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#166",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#167",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#168",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#169",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#170",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#172",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#173",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#174",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#175",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#178",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#181",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "task-cli#183",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "draw-cli#5",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "draw-cli#7",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "draw-cli#10",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "draw-cli#11",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "draw-cli#13",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "draw-cli#15",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "draw-cli#17",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "draw-cli#21",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "draw-cli#22",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "draw-cli#23",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#2",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#3",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#4",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#5",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#7",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#8",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#9",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#10",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#11",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#13",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#14",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#16",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#17",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#19",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#21",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#22",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#25",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#26",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "pm-cli#28",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#1",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#2",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#3",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#4",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#6",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#9",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#11",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#12",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#14",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#16",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "research-cli#18",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "qa-cli#1",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "qa-cli#3",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "qa-cli#5",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "qa-cli#6",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "qa-cli#8",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "qa-cli#9",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "qa-cli#11",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#26",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#27",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#28",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#29",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#30",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#31",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#32",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#52",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#53",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#56",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#57",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#58",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#59",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#63",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#65",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#67",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#68",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#70",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#72",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#74",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#75",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#78",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#80",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#82",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#84",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#86",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#88",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#93",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#95",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#97",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#99",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#100",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#102",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#103",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#104",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#106",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#113",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#114",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#115",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#116",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#117",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#118",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#121",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#123",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#124",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#126",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#127",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#128",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#130",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#132",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#134",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#136",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#138",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#140",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#142",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#143",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#149",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#150",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#151",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#152",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#154",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#159",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#160",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#161",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#163",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#164",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#167",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#168",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#171",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#172",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#173",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#176",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#178",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#181",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#182",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#183",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#185",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#186",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#188",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#190",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#191",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#194",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#197",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#201",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#203",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#205",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#207",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#208",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#209",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#210",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#211",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#212",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#213",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#214",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#215",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#216",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#217",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#218",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#219",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#220",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#221",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#222",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#223",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#224",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#225",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#226",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#227",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#228",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#230",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#231",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#233",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#235",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#236",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#237",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#238",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#239",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#240",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#242",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#243",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#244",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#246",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#248",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#249",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#250",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#251",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#252",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#253",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#254",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#255",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#256",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#257",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#258",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#259",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#260",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#261",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#263",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#264",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#265",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#267",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#268",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#270",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#271",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#272",
+    "criteria_recovered": 9,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#273",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#274",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#275",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#277",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#279",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#280",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#281",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#282",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#283",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#284",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#287",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#288",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#289",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#290",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#291",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#293",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#294",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#295",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#296",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#297",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#298",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#299",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#300",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#301",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#302",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#303",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#304",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#306",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#307",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#308",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#309",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#310",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#311",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#312",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#314",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#316",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#317",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#318",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#319",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#323",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#326",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#327",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#329",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#331",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#332",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#333",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#334",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#336",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#337",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#339",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#341",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#342",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#343",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#344",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#347",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#349",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#353",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#354",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#355",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#356",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#357",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#358",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#360",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#363",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#367",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#369",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#372",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#373",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#374",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#375",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#377",
+    "criteria_recovered": 8,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#379",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "tg-cli#380",
+    "criteria_recovered": 17,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#5",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#6",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#7",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#8",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#9",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#10",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#57",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#59",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#61",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#63",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#65",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#66",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#68",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#70",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#73",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#75",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#77",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#79",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#81",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#83",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#86",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#87",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#90",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#91",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#92",
+    "criteria_recovered": 8,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#93",
+    "criteria_recovered": 8,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#96",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#98",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#100",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#105",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#107",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#108",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#110",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#111",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#113",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#116",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#117",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#118",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#119",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#121",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#123",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#127",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#128",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#130",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#132",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#134",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#135",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#136",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#137",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#138",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#142",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#145",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#146",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#147",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#150",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#152",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#153",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#154",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#156",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#158",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#160",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#161",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#166",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#167",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#168",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#170",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#172",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#174",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#176",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#177",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#178",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#180",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#181",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#182",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#183",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#184",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#185",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#186",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#187",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#188",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#189",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#190",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#191",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#192",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#193",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#194",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#195",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#196",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#197",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#198",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#199",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#200",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#201",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#202",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#204",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#206",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#207",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#208",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#209",
+    "criteria_recovered": 8,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#212",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#213",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#214",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#215",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#216",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#218",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#219",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#222",
+    "criteria_recovered": 9,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#223",
+    "criteria_recovered": 8,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#224",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#225",
+    "criteria_recovered": 8,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#226",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#227",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#228",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#229",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#230",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#231",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#232",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#233",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#234",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#235",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#236",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#237",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#238",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#239",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#240",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#241",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#242",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#243",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#244",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#245",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#246",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#247",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#248",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#249",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#250",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#251",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#252",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#253",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#254",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#255",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#256",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#257",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#258",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#259",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#261",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#262",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#263",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#265",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#270",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#271",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#272",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#273",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#275",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#277",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#278",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#279",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#280",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#281",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#282",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#284",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#285",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#286",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#287",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#289",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#290",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#292",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#293",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#294",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#295",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#297",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#299",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#300",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#301",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#302",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#303",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#304",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#305",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#307",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#308",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#309",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#310",
+    "criteria_recovered": 7,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#311",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#312",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#313",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#314",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#316",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#317",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#319",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#320",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#321",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#322",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#323",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#324",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#325",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#326",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#327",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#328",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#329",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#330",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#331",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#332",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#335",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#337",
+    "criteria_recovered": 7,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#338",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#339",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#340",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#341",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#342",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#343",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#344",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#345",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#346",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#348",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#350",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#351",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#353",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#354",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#355",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#357",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#358",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#359",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#360",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#361",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#362",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#363",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#364",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#365",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#366",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#367",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#368",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#371",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#372",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#373",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#375",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#376",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#377",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#379",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#380",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#381",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#382",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#383",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#384",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#385",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#388",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#389",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#390",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#391",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#392",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#393",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#394",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#395",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#396",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#398",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#399",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#400",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#401",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#402",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#403",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#405",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#406",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#407",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#409",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#410",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#411",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#413",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#414",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#415",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#416",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#417",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#418",
+    "criteria_recovered": 10,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#419",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#421",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#422",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#423",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#424",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#425",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#426",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#428",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#429",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#430",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#431",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#432",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#433",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#434",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#435",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#436",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#442",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#443",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#444",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#445",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#446",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#447",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#449",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#453",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#454",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#455",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#457",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#459",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#460",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#461",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#462",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#463",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#464",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#465",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#466",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#468",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#470",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#473",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#474",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#475",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#477",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#479",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#480",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#481",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#489",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#490",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#491",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#492",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#493",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#494",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#495",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#496",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#497",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#499",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#500",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#501",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#502",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#505",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#507",
+    "criteria_recovered": 7,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#508",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#510",
+    "criteria_recovered": 9,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#512",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#514",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#515",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#516",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#517",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#518",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "rig-cli#519",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#12",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#13",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#14",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#15",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#18",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#19",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#21",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#22",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#24",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#39",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#80",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#81",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#84",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#86",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#87",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#89",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#91",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#92",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#94",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#97",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#98",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#101",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#104",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#106",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#109",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#112",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#113",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#114",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#115",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#120",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#121",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#125",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#126",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#129",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#130",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#139",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#146",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#147",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#149",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#154",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#155",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#158",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#159",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#160",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#163",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#165",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#166",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#168",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#169",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#170",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#172",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#173",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#174",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#175",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#177",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#178",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#180",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#181",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#182",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#184",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#185",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#186",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#187",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#188",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#190",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#191",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#193",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#194",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#195",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#196",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#198",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#199",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#201",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#202",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#203",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#204",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#205",
+    "criteria_recovered": 7,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#207",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#208",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#209",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#210",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#213",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#214",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#215",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#219",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#220",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#222",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#224",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#226",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#227",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#228",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#229",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#234",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#235",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#236",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#237",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#242",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#243",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#246",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#248",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#250",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#251",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#252",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#253",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#254",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#255",
+    "criteria_recovered": 15,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#256",
+    "criteria_recovered": 7,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#257",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#260",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#262",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#263",
+    "criteria_recovered": 7,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#265",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#266",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#267",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#268",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#269",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#270",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#271",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#273",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#274",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#275",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#276",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#277",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#278",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#279",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#284",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#285",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#287",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#288",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#289",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#293",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#296",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#298",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#299",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#300",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#302",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#305",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#306",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#307",
+    "criteria_recovered": 7,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#308",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#309",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#310",
+    "criteria_recovered": 10,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#313",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#315",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#316",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#318",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#319",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#320",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#321",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#322",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#323",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#325",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#326",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#327",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#328",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#329",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#330",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#331",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#332",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#333",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#336",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#337",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#338",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#339",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#341",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#343",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#345",
+    "criteria_recovered": 0,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#346",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#347",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#348",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#351",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#353",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#354",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#355",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#357",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#359",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#360",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#361",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#362",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#364",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#370",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#374",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#375",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#376",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#379",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#381",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#382",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#384",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#385",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#388",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#389",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#391",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#392",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#394",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#395",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#397",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#399",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#400",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#401",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#402",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#404",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#405",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#406",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#408",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#409",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#410",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#411",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#412",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#413",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#414",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#415",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#418",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#419",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#420",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#421",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#425",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#427",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#428",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#429",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#430",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#431",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#432",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#434",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#436",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#437",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#438",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#441",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#442",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#444",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#446",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#447",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#448",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#449",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#450",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#452",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#453",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#454",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#456",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#457",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#459",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#461",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#462",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#463",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#464",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#465",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#466",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#467",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#468",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#471",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#472",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#473",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#475",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#476",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#478",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#479",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#480",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#481",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#482",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#483",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#485",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#486",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#487",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#488",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#489",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#490",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#491",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#492",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#493",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#494",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#495",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#496",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#498",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#500",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#502",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#503",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#504",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#505",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#506",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#507",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#508",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#509",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#512",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#514",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#515",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#516",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#517",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#518",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#519",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#520",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#521",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#522",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#523",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#524",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#525",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#526",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#529",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#531",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#533",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#535",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#537",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#539",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#541",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#542",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#543",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#545",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#546",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#547",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#548",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#550",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#551",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#552",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#553",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#554",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#557",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#558",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#559",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#561",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#562",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#564",
+    "criteria_recovered": 7,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#565",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#568",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#569",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#570",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#571",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#572",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#573",
+    "criteria_recovered": 8,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#574",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#575",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#578",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#579",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#580",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#581",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#582",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#583",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#584",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#585",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#586",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#591",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#592",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#593",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#596",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#600",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#601",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#604",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#606",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#607",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#608",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#613",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#614",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#615",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#616",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#622",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#623",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#624",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#626",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#627",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#628",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#630",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#631",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#632",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#634",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#635",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#639",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#640",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#642",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#644",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#646",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#647",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#648",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#649",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#651",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#652",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#653",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#654",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#655",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#656",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#659",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#661",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#665",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#673",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#674",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#675",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#676",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#678",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#679",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#680",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#682",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#683",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#684",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#685",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#686",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#687",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#692",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#693",
+    "criteria_recovered": 4,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#697",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#698",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#699",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#700",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#701",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#702",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#703",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#705",
+    "criteria_recovered": 7,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#707",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#712",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#713",
+    "criteria_recovered": 6,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#716",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#717",
+    "criteria_recovered": 1,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#718",
+    "criteria_recovered": 16,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#719",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "agent-tools#720",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#1",
+    "criteria_recovered": 6,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#2",
+    "criteria_recovered": 0,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#3",
+    "criteria_recovered": 1,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#4",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#6",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#7",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#9",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#10",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#11",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#13",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#14",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#15",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#16",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#19",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#20",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#21",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#22",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#23",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#25",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "dev-cli#27",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#1",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#2",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#3",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#4",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#6",
+    "criteria_recovered": 5,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#7",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#8",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#9",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#10",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#11",
+    "criteria_recovered": 3,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#12",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#13",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#14",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#15",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#16",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#17",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#18",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#19",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#20",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#21",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#22",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#23",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#24",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#25",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#27",
+    "criteria_recovered": 5,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#28",
+    "criteria_recovered": 4,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#30",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#31",
+    "criteria_recovered": 3,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#34",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#35",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#37",
+    "criteria_recovered": 2,
+    "own_problem_context": true,
+    "body_ready": true
+  },
+  {
+    "key": "stt-cli#38",
+    "criteria_recovered": 2,
+    "own_problem_context": false,
+    "body_ready": true
+  }
+]
