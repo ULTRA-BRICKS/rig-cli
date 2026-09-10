@@ -164,6 +164,7 @@ def test_validate_rejects_non_mapping_project_dev_blocks(key):
         ({"version": 1, "tmux": {"continuum": {"save_intervall": 5}}}, "tmux.continuum.save_intervall", "unknown tmux.continuum key"),
         ({"version": 1, "tmux": {"boot": {"labl": "x"}}}, "tmux.boot.labl", "unknown tmux.boot key"),
         ({"version": 1, "tmux": {"clipboard": {"comand": "pbcopy"}}}, "tmux.clipboard.comand", "unknown tmux.clipboard key"),
+        ({"version": 1, "tmux": {"copy_mode": {"mdoe_kys": "vi"}}}, "tmux.copy_mode.mdoe_kys", "unknown tmux.copy_mode key"),
         ({"version": 1, "permissions": {"tols": []}}, "permissions.tols", "unknown permissions key"),
         ({"version": 1, "gitignore": {"entres": []}}, "gitignore.entres", "unknown gitignore key"),
         ({"version": 1, "tg_ctl": {"labl": "x"}}, "tg_ctl.labl", "unknown tg_ctl key"),
@@ -212,6 +213,18 @@ def test_validate_rejects_non_string_tmux_clipboard_command():
     with pytest.raises(config.ConfigError) as ei:
         config.validate({"version": 1, "tmux": {"clipboard": {"command": 5}}})
     assert "tmux.clipboard.command must be a string" in ei.value.what
+
+
+def test_validate_rejects_bad_tmux_copy_mode_keys_at_boundary():
+    """The schema-boundary counterpart to riglib/tmux.py's render-time clamp: a bad
+    `tmux.copy_mode.mode_keys` must be REJECTED here (config.validate), not silently swallowed
+    downstream — the clamp in tmux.py is defense-in-depth for a replayed/stored plan that
+    bypasses validate(), not the primary guard."""
+    with pytest.raises(config.ConfigError) as ei:
+        config.validate({"version": 1, "tmux": {"copy_mode": {"mode_keys": "nonsense"}}})
+    assert ei.value.schema_path == "tmux.copy_mode.mode_keys"
+    config.validate({"version": 1, "tmux": {"copy_mode": {"mode_keys": "vi"}}})  # valid
+    config.validate({"version": 1, "tmux": {"copy_mode": {"mode_keys": "emacs"}}})  # valid
 
 
 def test_render_config_error_is_three_part_with_pointer():

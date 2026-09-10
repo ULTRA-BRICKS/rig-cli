@@ -2685,6 +2685,7 @@ def _build_tmux(config: LoadedConfig, plan: InstallPlan) -> None:
                 "pane_titles": dict(t.get("pane_titles", {}) or {}),
                 "focus_events": dict(t.get("focus_events", {}) or {}),
                 "clipboard": dict(t.get("clipboard", {}) or {}),
+                "copy_mode": dict(t.get("copy_mode", {}) or {}),
             },
         )
         )
