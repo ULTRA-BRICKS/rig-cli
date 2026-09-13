@@ -1,0 +1,18 @@
+advisors:
+  - name: default
+    tools:
+      - read
+      - debug
+      - glob
+      - grep
+      - lsp
+      - web_search
+  - name: Astra
+    model: openai-codex/gpt-6-astra:high
+    tools:
+      - read
+      - ast_grep
+      - glob
+      - grep
+      - lsp
+      - web_search
