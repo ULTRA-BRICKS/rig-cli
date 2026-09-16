@@ -1833,7 +1833,12 @@ def _permission_revocation_context(action: Action, specs: list[PermissionSpec]) 
     from ..permissions import DEFAULT_GIT_HOSTING_TOOLS, desired_entries
 
     kind = str(action.options.get("kind", "claude-code"))
-    allow_spec = next(ps for ps in specs if ps.role == "allow")
+    allow_spec = next((ps for ps in specs if ps.role == "allow"), None)
+    if allow_spec is None:
+        raise RuntimeError(
+            f"provision_permissions for kind={kind!r} produced no allow-role PermissionSpec — "
+            "desired_permission_specs() should always emit one for a supported harness kind"
+        )
     receipt_file = permissions_receipt_file(action)
     prior_granted = receipt_granted_entries(read_permissions_grant_receipt(receipt_file), kind)
     explicit_revoke = explicit_git_hosting_revocation_entries(action)
@@ -2000,16 +2005,18 @@ def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
     # above, so that case is already excluded.
     #
     # This exact spot has regressed three times across this branch's own history (a fresh
-    # reviewer catching a subtly-wrong backup condition each time) — the assert below is a fail-
-    # LOUD local guard for the cross-function invariant the comment above only states in prose
+    # reviewer catching a subtly-wrong backup condition each time) — the guard below is a fail-
+    # LOUD local check (an explicit exception, not `assert`, so it still fires under `-O`/
+    # `PYTHONOPTIMIZE`) for the cross-function invariant the comment above only states in prose
     # (review finding, rig-cli#333 round 15), so a future edit to `_load_permissions_settings`'s
     # early-return logic that silently breaks the coupling trips a test immediately here, not a
     # quiet re-introduction of "malformed file backed up even under on_conflict=skip".
     if was_malformed:
-        assert on_conflict != "skip", (
-            "was_malformed implies on_conflict != 'skip' — _load_permissions_settings should "
-            "have short-circuited before this point"
-        )
+        if on_conflict == "skip":
+            raise RuntimeError(
+                "was_malformed implies on_conflict != 'skip' — _load_permissions_settings should "
+                "have short-circuited before this point"
+            )
         bak = fsutil.backup_path(ctx.config_file)
         shutil.copy2(str(ctx.config_file), str(bak))
         backup_note = f" (backed up malformed config → {bak})"

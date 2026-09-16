@@ -1228,10 +1228,6 @@ def _build_harness_claude_code(config: LoadedConfig, plan: InstallPlan, h: dict[
         )
 
 
-
-
-
-
 def _claude_settings_targets(config: LoadedConfig, kind: str, primary: Path) -> list[SettingsTarget]:
     """The settings files a claude-code user-scope write must reach (primary + account dirs).
 
@@ -1251,6 +1247,7 @@ def _claude_settings_targets(config: LoadedConfig, kind: str, primary: Path) -> 
     # writer (or the doctor inventory) as a cwd-dependent path
     harness = resolve_settings_paths(h if isinstance(h, dict) else {}, config.repo_root)
     return fan_out_settings(primary, harness)
+
 
 def _resolved_permission_tools(p: dict) -> list[str]:
     """The effective ``permissions`` tool list, folding ``allow_gh: false`` into ``disable``.
