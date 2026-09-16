@@ -124,8 +124,9 @@ instruction file is **deferred** (Phase 3) — it is advisory prose only and the
 can't load a callable agent from it, so capability parity is not 1:1 regardless.
 
 ## 4. Open questions to resolve before Phase 2/3 (NOT blocking Phase 1)
-- **pi path**: registry says `~/.config/pi/AGENTS.md`; pi docs say `~/.pi/agent/`. pi not
-  installed — verify against pi source before relying on either. (Phase 3, pi-touching.)
+- **pi path**: RESOLVED (rig-cli#171) — the registry's `~/.config/pi/AGENTS.md` was wrong; pi
+  actually reads `~/.pi/agent/AGENTS.md` (or `$PI_CODING_AGENT_DIR/AGENTS.md` when set),
+  verified against pi source and fixed in `HARNESS_INSTRUCTION_FILES`/`instruction_file_for`.
 - **commandcode**: is its global instruction file really `~/.commandcode/AGENTS.md`, and
   does it have a native `~/.commandcode/skills/` worth re-classifying to a skills-dir
   harness? Not installed — defer to Phase 3.

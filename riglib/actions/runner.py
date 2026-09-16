@@ -87,6 +87,11 @@ class ActionResult:
     action: Action
     status: str  # created | updated | skipped | backed_up | error
     detail: str
+    # SINGLE backup slot — a handler that backs up TWO independently-conflicting artifacts (e.g.
+    # ``_do_provision_pi_extension``'s extension dir + policy file) can only surface ONE of the two
+    # paths here; carry the other in ``detail``'s free text instead of losing it. Do not widen this
+    # to a list without also auditing every caller/test that assumes ``backup`` is a single
+    # ``Path | None`` (the dispatcher/mcp/workflow handlers all read it that way today).
     backup: Path | None = None
 
     @property
@@ -186,15 +191,9 @@ def _do_record_mode(action: Action, on_conflict: str) -> ActionResult:
 
 def _skill_backup_dir(skill_target: Path) -> Path:
     """Where a conflict-backup of an installed skill goes — a sibling ``.rig-backups/`` OUTSIDE
-    the scanned skills dir.
-
-    ``skill_target`` is ``<skills_target>/<name>`` (e.g. ``~/.agents/skills/naming``), so its
-    parent is the natively-scanned skills dir. A same-parent ``<name>.rig-bak-*/`` backup still
-    holds a ``SKILL.md`` and opencode (which auto-scans ``~/.agents/skills``) re-discovers it as
-    a duplicate skill (rig-cli#57). Putting the backup one level up — next to the skills dir,
-    not inside it — keeps the restore point without it ever being scanned as a skill.
-    """
-    return skill_target.parent.parent / ".rig-backups"
+    the scanned skills dir (``skill_target`` = ``<skills_target>/<name>``, e.g.
+    ``~/.agents/skills/naming``) — see :func:`fsutil.sibling_backup_dir` for why."""
+    return fsutil.sibling_backup_dir(skill_target)
 
 
 def _do_copy_skill(action: Action, on_conflict: str) -> ActionResult:
@@ -8555,6 +8554,77 @@ def _do_install_dev_reload_hook(action: Action, on_conflict: str) -> ActionResul
 
     return ActionResult(action, status, "; ".join(notes), backup)
 
+
+
+def pi_extension_policy_json(action: Action) -> str:
+    """The exact JSON bytes rig writes for the pi permission policy (shared with drift).
+
+    Canonical serialization (sorted keys, 2-space indent, trailing newline) so the install and the
+    drift read-back agree byte-for-byte and a re-apply is a true no-op. Reads ``options["policy"]``
+    strictly (KeyError on a malformed action, matching ``options["policy_file"]``) — the plan
+    always populates both, so a missing key is a bug, not a silent empty policy.
+    """
+    return json.dumps(action.options["policy"], indent=2, sort_keys=True) + "\n"
+
+
+def _pi_extension_backup_dir(ext_target: Path) -> Path:
+    """Where a conflict-backup of the pi permission-guard extension goes — a sibling
+    ``.rig-backups/`` OUTSIDE the ``extensions/`` dir pi auto-scans (``ext_target`` =
+    ``<pi agent root>/extensions/<name>``) — same rationale as :func:`_skill_backup_dir`, see
+    :func:`fsutil.sibling_backup_dir`."""
+    return fsutil.sibling_backup_dir(ext_target)
+
+
+def _do_provision_pi_extension(action: Action, on_conflict: str) -> ActionResult:
+    """Install the pi ``permission-guard`` extension + write the rig-owned policy it reads.
+
+    Two idempotent, backup-noted steps (rig-cli pi permission parity):
+
+    1. copy the extension dir (``pi-extensions/<name>/``) → pi's ``extensions/<name>/`` so pi
+       auto-discovers it. ``fsutil.copy_tree`` skips when identical, backs up on conflict — the
+       backup lands OUTSIDE ``extensions/`` (:func:`_pi_extension_backup_dir`) so a stale/tampered
+       extension backup is never itself re-discovered as a duplicate extension.
+    2. write the policy JSON → ``~/.pi/agent/rig-permission-policy.json`` (the file the extension
+       loads; a missing/broken file makes the extension fall back to its baked baseline, so the
+       dangerous denies fire either way).
+
+    pi has NO built-in permission system, so this extension IS pi's permission belt — the deny/ask
+    effect the other harnesses get from their config allowlists. Fail-explicit on IO.
+    """
+    policy_file = Path(action.options["policy_file"])
+    notes: list[str] = []
+    backup: Path | None = None
+    statuses: list[str] = []
+
+    ext_out = fsutil.copy_tree(
+        action.source, action.target, on_conflict, backup_dir=_pi_extension_backup_dir(action.target)
+    )
+    statuses.append(ext_out.status)
+    notes.append(f"extension {ext_out.detail}")
+    if ext_out.backup:
+        backup = ext_out.backup
+
+    policy_out = fsutil.write_file(policy_file, pi_extension_policy_json(action), on_conflict)
+    statuses.append(policy_out.status)
+    notes.append(f"policy {policy_out.detail}")
+    # ActionResult carries ONE structured backup slot; when BOTH artifacts back up, the second
+    # backup path is not lost — each WriteOutcome.detail (joined into notes above) already carries
+    # its own "backed up prior → <path>", so both restore paths are in the result detail.
+    if policy_out.backup and backup is None:
+        backup = policy_out.backup
+
+    # overall status precedence: backed_up > updated > created > skipped (any real change is not a
+    # skip). `WriteOutcome.status` (fsutil.py) is only ever "created"|"updated"|"skipped"|
+    # "backed_up" — never "error" (copy_tree/write_file raise on IO failure instead; caught by
+    # run_plan's outer exception handler, which reports "error" itself). "error" is kept first in
+    # this precedence tuple anyway as defense-in-depth: if a future status value is ever added
+    # without updating this tuple, an unrecognized value still falls safe into the explicit
+    # "skipped" default below rather than raising a raw, uninformative `StopIteration`.
+    overall = next((s for s in ("error", "backed_up", "updated", "created", "skipped") if s in statuses), "skipped")
+    return ActionResult(
+        action, overall, f"permissions/pi-extension {action.options.get('extension')}: " + "; ".join(notes), backup
+    )
+
 _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "record_mode": _do_record_mode,
     "copy_skill": _do_copy_skill,
@@ -8571,6 +8641,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_harness_approval": _do_provision_harness_approval,
     "provision_omp_web_search": _do_provision_omp_web_search,
     "provision_instruction_policy": _do_provision_instruction_policy,
+    "provision_pi_extension": _do_provision_pi_extension,
     "register_hook_bridge": _do_register_hook_bridge,
     "provision_omp_idle_ttl": _do_provision_omp_idle_ttl,
     "provision_schedule": _do_provision_schedule,

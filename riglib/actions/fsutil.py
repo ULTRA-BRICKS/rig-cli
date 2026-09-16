@@ -41,6 +41,22 @@ def backup_path(target: Path, *, backup_dir: Path | None = None) -> Path:
     return bak
 
 
+def sibling_backup_dir(target: Path) -> Path:
+    """Where a conflict-backup of a natively-auto-scanned item goes — a ``.rig-backups/``
+    sibling of ``target``'s PARENT, never inside it.
+
+    ``target`` is ``<scanned_dir>/<name>`` (e.g. an installed skill under
+    ``~/.agents/skills``, or the pi permission-guard extension under
+    ``<pi agent root>/extensions/``). A same-parent ``<name>.rig-bak-*/`` backup still carries
+    the item's own marker file (``SKILL.md``, ``index.ts``) and gets re-discovered by the
+    harness that natively scans that directory as a duplicate item (rig-cli#57, first hit by
+    opencode's ``~/.agents/skills`` scan; the identical shape recurs for any auto-scanned
+    install target). Putting the backup one level up — next to the scanned dir, not inside it
+    — keeps the restore point without it ever being auto-loaded.
+    """
+    return target.parent.parent / ".rig-backups"
+
+
 # backwards-compatible private alias (used internally before this was made public).
 _backup_path = backup_path
 

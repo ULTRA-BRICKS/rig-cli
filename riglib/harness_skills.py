@@ -52,7 +52,10 @@ Harnesses split into three families by HOW they surface skills:
       Codex CLI reads ``AGENTS.md``-style global instructions
       IN ADDITION to its ``~/.codex/skills`` dir above — dual membership).
     - **commandcode** → ``~/.commandcode/AGENTS.md`` (its global instruction dir, AGENTS.md-style).
-    - **pi** → ``~/.config/pi/AGENTS.md`` (AGENTS.md-style global instructions).
+    - **pi** → ``~/.pi/agent/AGENTS.md`` (or ``$PI_CODING_AGENT_DIR/AGENTS.md`` when explicitly
+      set, resolved dynamically via :func:`pi_agent_dir`/:func:`instruction_file_for` — NOT the
+      static :data:`HARNESS_INSTRUCTION_FILES` literal the other rows above use, since pi's root
+      is overridable and the static value would go stale under an override (rig-cli#171).
 
 Stdlib-only (the repo import rule): this is a pure registry; callers expand/serialize.
 """
@@ -102,9 +105,25 @@ HARNESS_NATIVE_SKILLS: dict[str, str] = {
 # links each skill into Codex's skills dir (the skill mechanism) and records the global instruction
 # file path for status notes. Skills-dir membership takes precedence for the link decision, so no
 # "uses AGENTS.md instead of skills" note is emitted for codex.
+#
+# NOTE: ``pi`` reads its global ``AGENTS.md`` from its agent config root ``~/.pi/agent`` (override
+# ``PI_CODING_AGENT_DIR``) — NOT ``~/.config/pi`` (verified against the pi docs, 2026-07). Resolved
+# dynamically in :func:`instruction_file_for` so the ``PI_CODING_AGENT_DIR`` override is honored,
+# mirroring how codex resolves through ``RIG_CODEX_HOME``.
 HARNESS_INSTRUCTION_FILES: dict[str, str] = {
-    "pi": "~/.config/pi/AGENTS.md",
+    "pi": "~/.pi/agent/AGENTS.md",
     "commandcode": "~/.commandcode/AGENTS.md",
+}
+
+# Stale locations a PAST rig-cli release wrote the instruction-policy block to, before the
+# location became dynamic (``instruction_file_for``) or was otherwise corrected. A machine
+# provisioned under an older release can still carry a live managed block here even though the
+# CURRENT resolver never targets it again — the disabled-state leftover check needs to know about
+# it too, or a "still active" warning silently disappears for anyone on that history. Keyed by
+# kind so a future migration adds one entry here rather than an ad-hoc local constant at the call
+# site.
+LEGACY_INSTRUCTION_FILES: dict[str, str] = {
+    "pi": "~/.config/pi/AGENTS.md",
 }
 
 # Every harness kind rig knows a skill/instruction discovery convention for — the union of the
@@ -147,6 +166,22 @@ def omp_config_root(home: Path | None = None) -> Path:
     return expand_user_path(omp_agent_root())
 
 
+def _normalize_agent_dir_override(override: str) -> str:
+    """Normalize a raw ``PI_CODING_AGENT_DIR`` override to an absolute/``~``-anchored form.
+
+    Shared by :func:`omp_agent_root` and :func:`pi_agent_dir` — both read the SAME env var, so a
+    relative override (e.g. ``my-agent-dir``, or a traversal like ``../../tmp/x``) must resolve
+    to the SAME location for both, and must never be interpreted as repo-relative by
+    :func:`riglib.plan._expand` (which repo-anchors any non-``~``/non-absolute path). Anchoring a
+    relative value at ``~`` here means every consumer (plan ``_expand``, runner fallback
+    ``expand_user_path``) resolves the same absolute path regardless of the caller's cwd/repo.
+    """
+    p = expand_user_path(override)
+    if p.is_absolute():
+        return str(p)
+    return f"~/{override}"
+
+
 def omp_agent_root() -> str:
     """omp's agent dir (unexpanded), honoring ``PI_CODING_AGENT_DIR`` / ``PI_CONFIG_DIR``.
 
@@ -154,13 +189,7 @@ def omp_agent_root() -> str:
     :func:`omp_config_root`."""
     override = os.environ.get("PI_CODING_AGENT_DIR")
     if override:
-        # normalize to an absolute/~-anchored form so every consumer (plan ``_expand``,
-        # runner fallback ``expand_user_path``) resolves the SAME path — a relative value
-        # must not diverge between them.
-        p = expand_user_path(override)
-        if p.is_absolute():
-            return str(p)
-        return f"~/{override}"
+        return _normalize_agent_dir_override(override)
     config_dir = os.environ.get("PI_CONFIG_DIR")
     if config_dir:
         # documented as a DIRNAME under home, but tolerate ~/absolute forms (a raw join
@@ -199,6 +228,27 @@ def codex_user_path(name: str) -> str:
     return f"{codex_home().rstrip('/')}/{name.lstrip('/')}"
 
 
+def pi_agent_dir() -> str:
+    """pi's agent config root — ``PI_CODING_AGENT_DIR`` override, else ``~/.pi/agent``.
+
+    This is the base dir pi resolves everything against (extensions/, AGENTS.md, and the
+    rig-written permission policy). Honoring the env var means rig installs where pi actually
+    looks, mirroring :func:`codex_home` / ``RIG_CODEX_HOME``. A relative override is normalized
+    the SAME way :func:`omp_agent_root` normalizes it (both read this exact env var) — else a
+    relative value would resolve under the repo root via :func:`riglib.plan._expand` instead of
+    home, diverging from omp's resolution of the identical override. Unexpanded — callers expand.
+    """
+    override = os.environ.get("PI_CODING_AGENT_DIR")
+    if override:
+        return _normalize_agent_dir_override(override)
+    return "~/.pi/agent"
+
+
+def pi_user_path(name: str) -> str:
+    """Return an unexpanded path under pi's agent config root."""
+    return f"{pi_agent_dir().rstrip('/')}/{name.lstrip('/')}"
+
+
 def skill_dir_for(kind: str) -> str | None:
     """The harness skill-discovery dir to symlink installed skills into, or ``None`` for a
     native-discovery / instruction-file / unknown kind. Unexpanded — callers expand."""
@@ -223,6 +273,8 @@ def instruction_file_for(kind: str) -> str | None:
     native / unknown kind). Used to render the "N/A — uses <file>" status note. Unexpanded."""
     if kind == "codex":
         return codex_user_path("AGENTS.md")
+    if kind == "pi":
+        return pi_user_path("AGENTS.md")
     return HARNESS_INSTRUCTION_FILES.get(kind)
 
 

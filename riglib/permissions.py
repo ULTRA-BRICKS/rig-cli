@@ -46,8 +46,9 @@ Stdlib-only (the repo import rule): no yaml/json here; callers serialize.
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Literal, TypedDict
 
 from .harness_skills import HARNESS_INSTRUCTION_FILES, omp_agent_root
 
@@ -177,13 +178,149 @@ HARNESS_ALLOWLIST_NA: dict[str, str] = {
         "approval_policy/sandbox_mode (coarse) and Starlark execpolicy .rules files, a separate "
         "mechanism rig does not additively merge"
     ),
-    "pi": "no documented command-allowlist mechanism",
+    "pi": (
+        "no config command-allowlist — but pi permissions ARE provisioned via the "
+        "`permission-guard` extension (deny/ask enforced on the bash tool); see "
+        "HARNESS_PERMISSION_EXTENSIONS / harness_permission_extension()"
+    ),
     "omp": (
         "approval is per-tool (tools.approval.<tool> in ~/.omp/agent/config.yml), not a "
         "per-command allowlist — no command-token list to merge"
     ),
     "commandcode": "no documented command-allowlist mechanism",
 }
+
+
+# ── pi: permissions provisioned via an EXTENSION, not a config allowlist ──────────────────────
+# pi ships no built-in permission system (it runs bash with the user's own privileges). Its
+# extension API CAN intercept the bash tool pre-execution, so rig provisions the
+# ``permission-guard`` extension (in agent-tools ``pi-extensions/``) + a rig-owned policy file it
+# reads. That delivers the SAME deny-dangerous / ask-risky effect the other harnesses get — so pi
+# is NO LONGER an N/A skip; it is handled on a dedicated path (:func:`harness_permission_extension`).
+HARNESS_PERMISSION_EXTENSIONS: dict[str, str] = {
+    "pi": "permission-guard",
+}
+
+
+class _PiPolicyRuleRequired(TypedDict):
+    """The fields present on EVERY baked rule (verified: all 8 entries across ``PI_DENY_RULES``/
+    ``PI_ASK_RULES`` carry every one of these) — split out so :class:`PiPolicyRule` can require
+    them while still leaving the match-criteria fields optional (a plain ``total=False`` TypedDict
+    would let a dict missing any of them type-check, defeating the point of documenting the shape
+    at all)."""
+
+    id: str
+    action: Literal["deny", "ask"]
+    command: str
+    reason: str
+
+
+class PiPolicyRule(_PiPolicyRuleRequired, total=False):
+    """One rule in the pi ``permission-guard`` extension's policy JSON (``rig-permission-policy.json``).
+
+    Mirrors the extension's own rule shape (agent-tools ``pi-extensions/permission-guard/policy.ts``):
+    ``id``/``action``/``command``/``reason`` are always present on a baked rule (required, via
+    :class:`_PiPolicyRuleRequired`); ``argvAll`` (every listed token must appear, in any position)
+    and ``flagsAny`` (at least one listed flag must appear) are the only genuinely OPTIONAL match
+    criteria — a rule may carry either, both, or neither (matching on ``command`` alone).
+    """
+
+    argvAll: list[str]
+    flagsAny: list[str]
+
+
+# The pi policy dialect is argv-intent / flag-ANYWHERE (what the extension's matcher enforces), NOT
+# claude-code's prefix globs — so it can catch e.g. `git commit -m "..." --no-verify` that prefix
+# rules miss. SYNC: keep in step with the extension's baked DEFAULT_POLICY in agent-tools
+# ``pi-extensions/permission-guard/policy.ts`` (rig writes these rules into the policy file the
+# extension reads; the extension embeds the same set as its fail-closed fallback).
+PI_DENY_RULES: tuple[PiPolicyRule, ...] = (
+    {
+        "id": "gh-pr-merge",
+        "action": "deny",
+        "command": "gh",
+        "argvAll": ["pr", "merge"],
+        "reason": "raw `gh pr merge` is banned — PR merges go through the gated `gh ship` delegator",
+    },
+    {
+        "id": "git-force-push",
+        "action": "deny",
+        "command": "git",
+        "argvAll": ["push"],
+        "flagsAny": ["--force", "-f"],
+        "reason": "force-push rewrites shared history; use --force-with-lease if you truly must",
+    },
+    {
+        "id": "git-no-verify",
+        "action": "deny",
+        "command": "git",
+        "flagsAny": ["--no-verify"],
+        "reason": "--no-verify bypasses the commit/push guard hooks; run the hooks",
+    },
+    {
+        "id": "sudo-rm",
+        "action": "deny",
+        "command": "sudo",
+        "argvAll": ["rm"],
+        "reason": "no legitimate agent flow removes files as root",
+    },
+    {
+        "id": "screencapture",
+        "action": "deny",
+        "command": "screencapture",
+        "reason": "screenshots go through Playwright/CDP; screencapture black-frames off-Space windows",
+    },
+)
+PI_ASK_RULES: tuple[PiPolicyRule, ...] = (
+    {
+        "id": "pkill",
+        "action": "ask",
+        "command": "pkill",
+        "reason": "broad pattern-kills have nuked other sessions' work — confirm the target",
+    },
+    {
+        "id": "killall",
+        "action": "ask",
+        "command": "killall",
+        "reason": "broad pattern-kills have nuked other sessions' work — confirm the target",
+    },
+    {
+        "id": "git-reset-hard",
+        "action": "ask",
+        "command": "git",
+        "argvAll": ["reset"],
+        "flagsAny": ["--hard"],
+        "reason": "git reset --hard destroys uncommitted work — confirm first",
+    },
+)
+
+
+def harness_permission_extension(kind: str) -> str | None:
+    """The pi-extension name rig provisions to deliver permissions for ``kind``, or ``None``.
+
+    Non-``None`` means the harness gets its permission belt via an installed extension + a
+    rig-written policy file (pi today), NOT the config-allowlist merge (claude-code/opencode).
+    """
+    return HARNESS_PERMISSION_EXTENSIONS.get(kind)
+
+
+def pi_policy_document(
+    deny_override: list[PiPolicyRule] | None = None,
+    ask_override: list[PiPolicyRule] | None = None,
+) -> dict[str, object]:
+    """The policy JSON rig writes for the pi ``permission-guard`` extension to read.
+
+    ``deny_override`` / ``ask_override`` REPLACE the baked baseline wholesale (lists are atomic
+    decisions, mirroring ``permissions.tools``/``deny``); ``None`` selects the baseline. deny rules
+    precede ask rules, but the extension takes the STRONGEST decision across matches regardless of
+    order, so a deny always wins over an ask on the same command.
+    """
+    # deepcopy so the returned document owns its nested argvAll/flagsAny lists — a shallow dict(r)
+    # would alias the module-level PI_DENY_RULES/PI_ASK_RULES lists, and any in-place mutation of the
+    # returned rules would corrupt the baseline for every subsequent call in the process.
+    deny = list(deny_override) if deny_override is not None else copy.deepcopy(list(PI_DENY_RULES))
+    ask = list(ask_override) if ask_override is not None else copy.deepcopy(list(PI_ASK_RULES))
+    return {"version": 1, "default": "allow", "rules": [*deny, *ask]}
 
 
 def harness_supported(kind: str) -> bool:
@@ -872,8 +1009,8 @@ def execpolicy_rule_lines(kind: str, tools: list[str]) -> list[str]:
 def _derive_permission_tiers() -> dict[str, int]:
     """The tier of every known kind, DERIVED from registry membership (never hand-maintained —
     a kind listed tier 1 without a real enforcement surface would be a silent lie):
-    allowlist / execpolicy / guard surfaces → 1; approval posture WITHOUT a guard → 2;
-    advisory instruction policy → 3."""
+    allowlist / execpolicy / guard / permission-extension surfaces → 1; approval posture
+    WITHOUT a guard → 2; advisory instruction policy → 3."""
     tiers: dict[str, int] = {}
     for kind in (*HARNESS_ALLOWLISTS, *HARNESS_EXECPOLICY, *HARNESS_GUARD):
         tiers[kind] = 1
@@ -881,6 +1018,12 @@ def _derive_permission_tiers() -> dict[str, int]:
         tiers.setdefault(kind, 2)  # tool-granular only when no command-granular guard
     for kind in HARNESS_INSTRUCTION_POLICY:
         tiers[kind] = 3
+    for kind in HARNESS_PERMISSION_EXTENSIONS:
+        # A provisioned extension (pi's permission-guard) IS command-granular enforcement, not
+        # advisory — overrides the tier-3 default a kind also gets from HARNESS_INSTRUCTION_POLICY
+        # (pi carries both: the extension enforces, the AGENTS.md block is a belt-and-suspenders
+        # advisory note; the extension is the real mechanism and must win the tier).
+        tiers[kind] = 1
     return tiers
 
 

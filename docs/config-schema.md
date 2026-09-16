@@ -223,7 +223,7 @@ and harnesses split into three families by *how* they discover skills:
   invents a directory) and `rig status` reports the kind as *N/A — uses `<file>`* so the empty
   link area is explained, not silent. The [`agents_md`](#agents_md) area is repo-local
   AGENTS.md/CLAUDE.md provisioning, not a writer for these global files:
-  - **pi** → `~/.config/pi/AGENTS.md`
+  - **pi** → `~/.pi/agent/AGENTS.md` (or `$PI_CODING_AGENT_DIR/AGENTS.md` when set)
   - **commandcode** → `~/.commandcode/AGENTS.md`
 
 A skill copied into `~/.agents/skills` (the default `target`) is invisible to a skills-dir
@@ -987,8 +987,19 @@ block.
   IS delivered: rig writes a managed `prefix_rule(...)` block into `~/.codex/rules/rig-managed.rules`
   (a `provision_execpolicy` action; codex auto-scans that dir at startup). Flag-position denies stay
   in the PreToolUse hook bridge.
-- **pi** — **N/A**. No documented per-command auto-approve allowlist that leaves the toolset
-  intact, so it is recorded N/A, never written.
+- **pi** — **N/A** for a per-command config allowlist (no documented mechanism that leaves the
+  toolset intact), but the deny/ask EFFECT is delivered via a DIFFERENT surface: rig installs the
+  `permission-guard` extension into `<pi agent root>/extensions/` and writes the rig-owned policy
+  file it reads (`rig-permission-policy.json`, the SAME deny/ask baseline as the other harnesses'
+  belts, in the extension's flag-anywhere/argv rule dialect). `permissions.deny`/`ask` overrides
+  (claude-code's rule-string dialect) do not translate into that structured dialect, so a
+  non-empty override is either dropped with a note (at least one OTHER configured permissions
+  target — in practice, claude-code — can still consume it) or a config-time error (NO configured
+  target can consume it — not just "pi is the sole target": `harness.kind: pi` with
+  `harness.kinds: [opencode]` is equally an error, since opencode also does not consume the raw
+  dialect — the override would otherwise be accepted then enforced nowhere). See
+  `riglib/permissions.py`'s `HARNESS_PERMISSION_EXTENSIONS`, `CONFIG_RULE_DIALECT_KINDS`, and
+  `pi_policy_document`.
 
 The write is **idempotent** (a re-apply with the same config is a no-op) and **backup-noted** (the
 prior file is backed up per `defaults.on_conflict` before converging; a file that fails to parse as

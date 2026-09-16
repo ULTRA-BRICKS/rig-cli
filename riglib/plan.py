@@ -141,7 +141,7 @@ def _agent_hooks_target_for_kind(kind: str) -> str | None:
 class Action:
     """A single planned install step. ``kind`` selects the runner in ``actions/``."""
 
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | sync_hook_blurbs | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight | provision_ship_task_prefix
+    kind: str  # copy_skill | link_skill_harness | install_agent_hook | sync_hook_blurbs | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | provision_pi_extension | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight | provision_ship_task_prefix
     category: str
     item: str
     source: Path  # carrier path in the agent-tools checkout
@@ -921,7 +921,7 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
 
     # ── permissions (per-harness command allowlist) ───────────────────────────────
     _build_mode(config, plan)
-    _build_permissions(config, plan)
+    _build_permissions(config, catalog, plan)
     _build_execpolicy(config, plan)
     _build_guard_policy(config, plan)
     _build_harness_delegated_notes(config, plan)
@@ -1249,7 +1249,7 @@ def _claude_settings_targets(config: LoadedConfig, kind: str, primary: Path) -> 
     return fan_out_settings(primary, harness)
 
 
-def _build_permissions(config: LoadedConfig, plan: InstallPlan) -> None:
+def _build_permissions(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> None:
     """Plan the per-harness permissions provisioning (allow + deny/ask), unless ``enabled: false``.
 
     Default **ON** (like ``agents_md``/``github``/``tg_ctl``): an ABSENT or empty ``permissions:``
@@ -1289,14 +1289,20 @@ def _build_permissions(config: LoadedConfig, plan: InstallPlan) -> None:
     )
     kinds = _permissions_kinds(config, p)
     if p.get("settings_path") and len(kinds) > 1:
-        original = list(kinds)
-        supported = [kind for kind in kinds if harness_supported(kind)]
-        if supported:
-            kinds = [supported[0]]
-            skipped = [kind for kind in original if kind != kinds[0]]
+        # settings_path picks ONE settings file, which is only meaningful for kinds that write a
+        # config-array allowlist to it (HARNESS_ALLOWLISTS). A kind with an INDEPENDENT
+        # provisioning mechanism (pi's extension, codex's execpolicy, omp's guard) never reads
+        # settings_path at all, so it must never be dropped from `kinds` by this narrowing — doing
+        # so used to silently skip pi's entire permission-guard extension whenever settings_path
+        # was combined with e.g. `kinds: [claude-code, pi]`.
+        allowlist_kinds = [kind for kind in kinds if harness_supported(kind)]
+        if len(allowlist_kinds) > 1:
+            keep = allowlist_kinds[0]
+            skipped = [kind for kind in allowlist_kinds if kind != keep]
+            kinds = [kind for kind in kinds if kind not in skipped]
             plan.notes.append(
                 "permissions: settings_path override with multiple harnesses targets the first "
-                f"supported harness only ({kinds[0]}); skipped {', '.join(skipped)}"
+                f"supported harness only ({keep}); skipped {', '.join(skipped)}"
             )
 
     from .permissions import (
@@ -1313,7 +1319,9 @@ def _build_permissions(config: LoadedConfig, plan: InstallPlan) -> None:
             # TIER and the effect is delivered by another surface, so describe what IS
             # achieved (and its tier) rather than a bare "skipped". codex: execpolicy .rules +
             # hook bridge. omp: the generated guard extension + approval posture (planned
-            # separately below). pi/commandcode: the advisory instruction policy.
+            # separately below). pi gets its permission belt via a provisioned EXTENSION
+            # instead of a config allowlist — no longer a silent N/A skip. commandcode (and
+            # any kind with neither mechanism): the advisory instruction policy, or N/A.
             tier = HARNESS_PERMISSION_TIERS.get(kind)
             tier_note = f" (tier {tier}: {TIER_LABELS[tier]})" if tier else ""
             if execpolicy_supported(kind):
@@ -1328,6 +1336,14 @@ def _build_permissions(config: LoadedConfig, plan: InstallPlan) -> None:
                     "deny/ask are enforced by the generated guard extension (tool_call block) "
                     "plus the declarative approval posture"
                 )
+            elif _build_pi_extension(config, catalog, kind, p, plan, kinds):
+                # pi's REAL enforcement surface (the provisioned permission-guard extension) takes
+                # precedence over the generic advisory instruction-policy branch below — checked
+                # BEFORE instruction_policy_supported so pi never falls through to the weaker
+                # advisory-only note while its own extension mechanism is available. _build_pi_extension
+                # itself returns True (having already appended a note) even when the extension carrier
+                # is missing from the catalog, so this is never silently skipped either way.
+                continue
             elif instruction_policy_supported(kind):
                 plan.notes.append(
                     f"permissions: harness '{kind}' has no enforcement mechanism{tier_note} — "
@@ -1459,6 +1475,7 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
         approval_supported,
         guard_extension_path_for,
         guard_supported,
+        harness_permission_extension,
         instruction_policy_supported,
     )
 
@@ -1471,10 +1488,12 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
         # rig-managed permissions artifacts are left in place (rig never auto-deletes), but
         # a relaxed posture with the feature OFF must not be silent — note ONLY when there
         # is evidence something was actually provisioned (no noise on fresh machines).
+        from .harness_skills import LEGACY_INSTRUCTION_FILES, pi_user_path as _pi_user_path
         from .permissions import (
             HARNESS_APPROVAL,
             HARNESS_INSTRUCTION_POLICY,
             guard_extension_path_for,
+            harness_permission_extension,
         )
 
         for kind in _permissions_kinds(config, p):
@@ -1486,7 +1505,45 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
                             config.repo_root)
                 )
             if kind in HARNESS_INSTRUCTION_POLICY:
-                leftovers.append(_expand(HARNESS_INSTRUCTION_POLICY[kind], config.repo_root))
+                # route through the DYNAMIC resolver (honors PI_CODING_AGENT_DIR for pi), not the
+                # static HARNESS_INSTRUCTION_POLICY[kind] snapshot — see the identical fix + note
+                # at the actual provisioning site below.
+                instr_target = _instruction_file_for(kind)
+                if instr_target:
+                    leftovers.append(_expand(instr_target, config.repo_root))
+                # ALSO check known-historical locations that differ from the resolved one: a
+                # machine that ran an OLDER rig-cli can carry a stale managed block at a location
+                # this release no longer targets. Checking only the current dynamic target would
+                # miss it: the leftover note (and thus the visible "still active" warning)
+                # silently disappears, even though the legacy file remains a LIVE managed block
+                # pi would read again the moment nothing overrides it.
+                legacy_candidates = {HARNESS_INSTRUCTION_POLICY.get(kind), LEGACY_INSTRUCTION_FILES.get(kind)}
+                for legacy_target in legacy_candidates:
+                    if legacy_target and legacy_target != instr_target:
+                        leftovers.append(_expand(legacy_target, config.repo_root))
+            if kind == "pi":
+                # The extension + JSON policy file are pi's OTHER enforcement artifacts
+                # (_build_pi_extension below) — the disabled-state check must cover them too, or
+                # a machine with a live guard extension but a since-deleted/never-provisioned
+                # AGENTS.md advisory block gets no leftover warning at all even though pi still
+                # auto-loads and enforces the extension.
+                ext_name = harness_permission_extension(kind)
+                if ext_name:
+                    dynamic_ext = _expand(_pi_user_path(f"extensions/{ext_name}"), config.repo_root)
+                    dynamic_policy = _expand(_pi_user_path("rig-permission-policy.json"), config.repo_root)
+                    leftovers.append(dynamic_ext)
+                    leftovers.append(dynamic_policy)
+                    # ALSO check the static default root (~/.pi/agent), mirroring the AGENTS.md
+                    # legacy-candidate treatment above: provision at the default root, THEN set
+                    # PI_CODING_AGENT_DIR to move pi elsewhere, and the dynamic-only check above
+                    # would only look at the NEW root — missing a still-live guard extension +
+                    # policy file left behind at the OLD (default) root.
+                    static_ext = _expand(f"~/.pi/agent/extensions/{ext_name}", config.repo_root)
+                    static_policy = _expand("~/.pi/agent/rig-permission-policy.json", config.repo_root)
+                    if static_ext != dynamic_ext:
+                        leftovers.append(static_ext)
+                    if static_policy != dynamic_policy:
+                        leftovers.append(static_policy)
             if any(p_.exists() for p_ in leftovers):
                 plan.notes.append(
                     f"permissions: disabled — rig-managed guard/approval artifacts for '{kind}' "
@@ -1512,7 +1569,16 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
                     options={"kind": kind},
                 )
             )
-        if (guard_supported(kind) or instruction_policy_supported(kind)) and configured_knobs:
+        # A kind with its OWN permission extension (pi) gets specific, accurate drop notes from
+        # `_build_pi_extension` for these same keys (its structured rule dialect vs. these raw
+        # claude-code-style strings) — this generic "no allowlist surface" note would otherwise
+        # duplicate it and, for deny/ask specifically, contradict it (pi DOES have an enforcement
+        # surface; the strings just don't translate into it).
+        if (
+            (guard_supported(kind) or instruction_policy_supported(kind))
+            and not harness_permission_extension(kind)
+            and configured_knobs
+        ):
             plan.notes.append(
                 f"permissions: {', '.join(configured_knobs)} "
                 f"{'is' if len(configured_knobs) == 1 else 'are'} inert for harness '{kind}' "
@@ -1539,13 +1605,27 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
                 )
             )
         if instruction_policy_supported(kind):
+            # DYNAMIC resolver, not the static HARNESS_INSTRUCTION_POLICY[kind] dict value: the
+            # dict is a module-import-time snapshot that never re-derives, so for "pi" specifically
+            # it silently ignores a PI_CODING_AGENT_DIR override at plan-build time — the SAME
+            # override the pi permission-guard extension (_build_pi_extension, via pi_user_path)
+            # already honors. Without this, the advisory instruction-policy block would be written
+            # to the default ~/.pi/agent/AGENTS.md even when pi is actually rooted elsewhere,
+            # silently invisible to the running pi instance.
+            instr_target = _instruction_file_for(kind)
+            if instr_target is None:
+                # `instruction_policy_supported(kind)` guards this branch, so a `None` here means
+                # the two registries have fallen out of sync — an internal invariant, not a user
+                # config error. `assert` would vanish under `python -O`; raise explicitly so this
+                # production invariant is checked unconditionally (fail-explicit on IO/state).
+                raise PlanError(f"instruction_policy_supported({kind!r}) but no instruction file")
             plan.actions.append(
                 Action(
                     kind="provision_instruction_policy",
                     category="permissions",
                     item=kind,
                     source=config.repo_root,
-                    target=_expand(HARNESS_INSTRUCTION_POLICY[kind], config.repo_root),
+                    target=_expand(instr_target, config.repo_root),
                     options={"kind": kind},
                 )
             )
@@ -1563,6 +1643,110 @@ def _approval_mode_value(config: LoadedConfig, kind: str) -> str:
     intent = harness_auto_intent(h, primary)
     # a primary omp's own pinned mode (``write``) is honoured verbatim, like every primary kind
     return resolved_mode_value(kind, primary, h.get("mode"), intent, legacy_intent=True)
+
+
+def _build_pi_extension(
+    config: LoadedConfig,
+    catalog: Catalog,
+    kind: str,
+    p: dict[str, Any],
+    plan: InstallPlan,
+    kinds: list[str],
+) -> bool:
+    """Emit the pi ``permission-guard`` extension provisioning, if ``kind`` uses that path.
+
+    Returns True when it handled ``kind`` (an action was emitted OR a note explains why it could
+    not), so the caller skips the generic N/A note. pi's permissions are delivered by installing
+    the extension into pi's ``extensions/`` dir and writing the rig-owned policy file it reads —
+    the SAME baseline (deny gh-pr-merge / force-push / --no-verify / sudo-rm / screencapture; ask
+    pkill / killall / git reset --hard) the claude-code allowlist encodes, in the extension's
+    flag-anywhere dialect. Idempotent + backup-on-conflict + drift are handled in the runner.
+
+    ``kinds`` is the FULL resolved list of harness kinds ``permissions`` targets this apply (not
+    just ``kind``): a non-empty ``deny``/``ask`` override is claude-code's rule-string dialect
+    (``Bash(x:*)``), which doesn't translate into pi's structured argvAll/flagsAny rule dicts, so
+    it can only take effect when claude-code (the one kind in ``CONFIG_RULE_DIALECT_KINDS``) is
+    ALSO among ``kinds`` — pi plus any other non-claude-code target (opencode, codex, omp,
+    commandcode) is equally dead, not just pi alone. When no configured target can consume it, the
+    override is a config-time :class:`PlanError`, not a silently-dropped plan note.
+    """
+    from .harness_skills import pi_user_path
+    from .permissions import CONFIG_RULE_DIALECT_KINDS, harness_permission_extension, pi_policy_document
+
+    ext_name = harness_permission_extension(kind)
+    if ext_name is None:
+        return False
+    # Checked BEFORE the catalog lookup below, unconditionally: a missing extension carrier must
+    # not short-circuit past this validation — the override is exactly as unenforceable either way.
+    overridden_roles = [r for r in ("deny", "ask") if p.get(r) not in (None, [])]
+    override_enforced_nowhere = not any(k in CONFIG_RULE_DIALECT_KINDS for k in kinds)
+    if overridden_roles and override_enforced_nowhere:
+        # Report EVERY offending role in one error, not just the first — a config with both
+        # deny and ask set would otherwise make the user fix one, rerun, and only then discover
+        # the other is equally broken. One `plural` flag drives every pronoun/verb choice below
+        # so they can't drift out of agreement with each other (as a "them"-vs-"it" split once did).
+        plural = len(overridden_roles) > 1
+        roles = "/".join(f"permissions.{r}" for r in overridden_roles)
+        it_them = "them" if plural else "it"
+        raise PlanError(
+            f"{roles} {'are' if plural else 'is'} set, but no configured "
+            f"permissions target ({', '.join(kinds)}) can consume {it_them} — pi's policy rules "
+            "are argvAll/flagsAny dicts, not claude-code's Bash(...) rule strings, and none of the "
+            f"other configured kinds use that dialect either, so this override would be accepted "
+            f"then enforced nowhere. Remove {roles} to keep pi's baked baseline, or set {it_them} "
+            f"to [] to explicitly disable {it_them} (rig has no durable way to add a custom pi "
+            "rule through config yet)."
+        )
+    item = catalog.get("pi_extensions", ext_name)
+    if item is None:
+        plan.notes.append(
+            f"permissions: harness '{kind}' extension '{ext_name}' not found in the agent-tools "
+            "catalog (pi-extensions/); permission enforcement NOT provisioned"
+        )
+        return True
+    install_dir = _expand(pi_user_path(f"extensions/{ext_name}"), config.repo_root)
+    policy_file = _expand(pi_user_path("rig-permission-policy.json"), config.repo_root)
+    # `deny`/`ask` REPLACE the baked baseline wholesale ("[] disables it", same as the claude-code
+    # allowlist path). override_enforced_nowhere would have already raised above, so reaching here
+    # with a non-empty override means at least one other configured target still consumes it — pi
+    # alone drops it with a note (partial application, same precedent as opencode's dialect drop
+    # in _resolve_permission_rules). Neither the raise nor the note suggests hand-editing the
+    # policy file as a workaround: the next `rig apply` reconciles it back to the baked/declared
+    # policy regardless, so that "fix" would silently revert.
+    deny_override = [] if p.get("deny") == [] else None
+    ask_override = [] if p.get("ask") == [] else None
+    for role in overridden_roles:
+        plan.notes.append(
+            f"permissions: raw {role} entries dropped for harness '{kind}' — pi's policy rules "
+            "are structured (not the claude-code rule-string dialect) and rig has no durable way "
+            "to add a custom pi rule through config yet"
+        )
+    # tools/extra/disable/allow are the config-allowlist keys — pi has no additively-mergeable
+    # allowlist (see harness_permission_extension), so they're inert for this kind. Note it,
+    # rather than a silent no-op, so a user setting them for pi gets visible feedback.
+    dropped_allowlist_keys = [k for k in ("tools", "extra", "disable", "allow") if p.get(k) is not None]
+    if dropped_allowlist_keys:
+        plan.notes.append(
+            f"permissions: {'/'.join(dropped_allowlist_keys)} ignored for harness '{kind}' — pi has "
+            "no additively-mergeable command allowlist (only deny/ask policy rules)"
+        )
+    policy = pi_policy_document(deny_override=deny_override, ask_override=ask_override)
+    plan.actions.append(
+        Action(
+            kind="provision_pi_extension",
+            category="permissions",
+            item=kind,
+            source=item.path,
+            target=install_dir,
+            options={
+                "kind": kind,
+                "extension": ext_name,
+                "policy_file": str(policy_file),
+                "policy": policy,
+            },
+        )
+    )
+    return True
 
 
 def _permissions_kinds(config: LoadedConfig, p: dict[str, Any]) -> list[str]:

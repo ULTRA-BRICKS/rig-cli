@@ -140,9 +140,11 @@ def test_permission_tiers_cover_every_known_kind():
     from riglib.harness_skills import KNOWN_HARNESS_KINDS
 
     assert set(HARNESS_PERMISSION_TIERS) == set(KNOWN_HARNESS_KINDS)
-    # tier 1 = command-granular enforced; tier 3 = advisory. omp is tier 1 via the guard.
+    # tier 1 = command-granular enforced; tier 3 = advisory. omp is tier 1 via the guard;
+    # pi is tier 1 via the provisioned permission-guard extension (not the advisory AGENTS.md
+    # block it also carries).
     assert HARNESS_PERMISSION_TIERS["omp"] == 1
-    assert HARNESS_PERMISSION_TIERS["pi"] == 3
+    assert HARNESS_PERMISSION_TIERS["pi"] == 1
     assert HARNESS_PERMISSION_TIERS["commandcode"] == 3
     assert HARNESS_PERMISSION_TIERS["claude-code"] == 1
 
@@ -179,14 +181,23 @@ def test_plan_instruction_file_kinds_get_advisory_policy(fake_agent_tools, tmp_p
     home = tmp_path / "home"
     _pin_home(monkeypatch, home)
     repo = tmp_path / "repo"; repo.mkdir(exist_ok=True)
-    for kind, rel in (("pi", ".config/pi/AGENTS.md"), ("commandcode", ".commandcode/AGENTS.md")):
+    for kind, rel in (("pi", ".pi/agent/AGENTS.md"), ("commandcode", ".commandcode/AGENTS.md")):
         plan = build(_instr_cfg(repo, fake_agent_tools, kind),
                      Catalog.scan(str(fake_agent_tools)), project_type="unknown")
         acts = _actions(plan, "provision_instruction_policy")
         assert [a.options["kind"] for a in acts] == [kind], f"{kind}: no advisory action"
         assert acts[0].target == home / rel
         assert not _actions(plan, "install_harness_guard")
-        assert any("tier 3" in n and kind in n for n in plan.notes), plan.notes
+        if kind == "pi":
+            # pi ALSO gets the real permission-guard extension (rig-cli#171) — its enforcement
+            # is no longer merely advisory, so the generic "tier 3 / not enforced" note from
+            # `_build_permissions`'s instruction-policy fallback branch is correctly SKIPPED for
+            # pi (that branch never fires: `_build_pi_extension` intercepts pi first and, with
+            # the extension present in the catalog here, emits an action with no note at all —
+            # see `_build_pi_extension`'s docstring). Assert the real extension action instead.
+            assert _actions(plan, "provision_pi_extension"), plan.notes
+        else:
+            assert any("tier 3" in n and kind in n for n in plan.notes), plan.notes
 
 
 def test_plan_permissions_disabled_emits_no_guard_actions(fake_agent_tools, tmp_path, monkeypatch):
@@ -390,7 +401,7 @@ def _apply_policy(fake_agent_tools, tmp_path, monkeypatch, kind="pi", on_conflic
 
 
 def _policy_path(home: Path, kind: str) -> Path:
-    rel = ".config/pi/AGENTS.md" if kind == "pi" else ".commandcode/AGENTS.md"
+    rel = ".pi/agent/AGENTS.md" if kind == "pi" else ".commandcode/AGENTS.md"
     return home / rel
 
 
@@ -943,7 +954,7 @@ def test_plan_pinned_pi_and_commandcode_get_advisory(fake_agent_tools, tmp_path,
     home = tmp_path / "home"
     _pin_home(monkeypatch, home)
     repo = tmp_path / "repo"; repo.mkdir(exist_ok=True)
-    for kind, rel in (("pi", ".config/pi/AGENTS.md"), ("commandcode", ".commandcode/AGENTS.md")):
+    for kind, rel in (("pi", ".pi/agent/AGENTS.md"), ("commandcode", ".commandcode/AGENTS.md")):
         cfg = _instr_cfg(repo, fake_agent_tools, "claude-code")
         cfg.data["permissions"] = {"kind": kind}
         plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
@@ -1152,6 +1163,136 @@ def test_plan_notes_leftover_artifacts_when_permissions_disabled(fake_agent_tool
     guard.write_text("// rig guard\n", encoding="utf-8")
     plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
     assert any("disabled" in n and "never auto-deletes" in n for n in plan.notes), plan.notes
+
+
+def test_plan_notes_legacy_pi_instruction_leftover_under_override(fake_agent_tools, tmp_path, monkeypatch):
+    """A machine that ran an OLDER rig-cli — before the pi
+    instruction-policy target was resolved dynamically — could carry a stale managed block at
+    the static default path (~/.pi/agent/AGENTS.md) even while PI_CODING_AGENT_DIR now points
+    pi somewhere else. Disabling permissions must still surface that legacy leftover, not just
+    the current override-resolved target (which correctly has nothing at it)."""
+    home = tmp_path / "home"
+    _pin_home(monkeypatch, home)
+    custom_root = tmp_path / "custom-pi"
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(custom_root))
+    repo = tmp_path / "repo"; repo.mkdir(exist_ok=True)
+    cfg = _instr_cfg(repo, fake_agent_tools, "pi")
+    cfg.data["permissions"] = {"enabled": False}
+    # nothing at either location yet — no noise
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert not any("never auto-deletes" in n for n in plan.notes), plan.notes
+    # seed ONLY the legacy static path (simulating a pre-dynamic-resolver rig-cli's leftover) —
+    # the current override target (custom_root/AGENTS.md) stays absent.
+    legacy = home / ".pi" / "agent" / "AGENTS.md"
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text("<!-- rig:permissions-policy -->\nold advisory block\n", encoding="utf-8")
+    assert not (custom_root / "AGENTS.md").exists()
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert any("disabled" in n and "pi" in n and "never auto-deletes" in n for n in plan.notes), plan.notes
+
+
+def test_plan_notes_true_historical_pi_instruction_leftover(fake_agent_tools, tmp_path, monkeypatch):
+    """The TRUE pre-rig-cli#171 default was
+    ~/.config/pi/AGENTS.md (the wrong path HARNESS_INSTRUCTION_FILES["pi"] held before that fix)
+    — not ~/.pi/agent/AGENTS.md, which is already the CURRENT (fixed) default and so is only a
+    meaningful 'legacy' candidate when an override is set (covered by the sibling test above).
+    A machine that ran a pre-#171 rig-cli, then upgrades and disables permissions with NO
+    override at all, must still get the leftover warning for the actual old wrong path."""
+    home = tmp_path / "home"
+    _pin_home(monkeypatch, home)
+    monkeypatch.delenv("PI_CODING_AGENT_DIR", raising=False)
+    repo = tmp_path / "repo"; repo.mkdir(exist_ok=True)
+    cfg = _instr_cfg(repo, fake_agent_tools, "pi")
+    cfg.data["permissions"] = {"enabled": False}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert not any("never auto-deletes" in n for n in plan.notes), plan.notes
+    # seed ONLY the true historical wrong-path location — the current (fixed) default stays absent.
+    true_legacy = home / ".config" / "pi" / "AGENTS.md"
+    true_legacy.parent.mkdir(parents=True, exist_ok=True)
+    true_legacy.write_text("<!-- rig:permissions-policy -->\nold advisory block\n", encoding="utf-8")
+    assert not (home / ".pi" / "agent" / "AGENTS.md").exists()
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert any("disabled" in n and "pi" in n and "never auto-deletes" in n for n in plan.notes), plan.notes
+
+
+def test_plan_notes_pi_extension_leftover_when_instruction_file_absent(fake_agent_tools, tmp_path, monkeypatch):
+    """pi's OTHER enforcement artifact — the installed
+    permission-guard extension + its JSON policy file — must ALSO be checked when permissions
+    are disabled, not just the advisory AGENTS.md block. Without this, a live guard extension
+    with a since-deleted/never-provisioned AGENTS.md gets no leftover warning at all, even
+    though pi still auto-loads and enforces the extension."""
+    home = tmp_path / "home"
+    _pin_home(monkeypatch, home)
+    monkeypatch.delenv("PI_CODING_AGENT_DIR", raising=False)
+    repo = tmp_path / "repo"; repo.mkdir(exist_ok=True)
+    cfg = _instr_cfg(repo, fake_agent_tools, "pi")
+    cfg.data["permissions"] = {"enabled": False}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert not any("never auto-deletes" in n for n in plan.notes), plan.notes
+    # seed ONLY the extension dir — no AGENTS.md anywhere.
+    ext_dir = home / ".pi" / "agent" / "extensions" / "permission-guard"
+    ext_dir.mkdir(parents=True, exist_ok=True)
+    (ext_dir / "index.ts").write_text("export default function () {}\n", encoding="utf-8")
+    assert not (home / ".pi" / "agent" / "AGENTS.md").exists()
+    assert not (home / ".config" / "pi" / "AGENTS.md").exists()
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert any("disabled" in n and "pi" in n and "never auto-deletes" in n for n in plan.notes), plan.notes
+
+
+def test_plan_notes_pi_extension_leftover_at_default_root_under_override(fake_agent_tools, tmp_path, monkeypatch):
+    # Regression: a machine that provisioned pi at the DEFAULT root (~/.pi/agent), then later set
+    # PI_CODING_AGENT_DIR to move pi elsewhere, must still get a leftover warning for the
+    # still-live guard extension left behind at the OLD (default) root — checking only the
+    # dynamic (override-resolved) root would miss it, mirroring the AGENTS.md legacy-candidate
+    # fix above but for the extension + policy file artifacts.
+    home = tmp_path / "home"
+    _pin_home(monkeypatch, home)
+    custom_root = tmp_path / "custom-pi"
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(custom_root))
+    repo = tmp_path / "repo"; repo.mkdir(exist_ok=True)
+    cfg = _instr_cfg(repo, fake_agent_tools, "pi")
+    cfg.data["permissions"] = {"enabled": False}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert not any("never auto-deletes" in n for n in plan.notes), plan.notes
+    # seed ONLY the stale extension at the DEFAULT root — nothing at the custom (current) root.
+    ext_dir = home / ".pi" / "agent" / "extensions" / "permission-guard"
+    ext_dir.mkdir(parents=True, exist_ok=True)
+    (ext_dir / "index.ts").write_text("export default function () {}\n", encoding="utf-8")
+    assert not (custom_root / "extensions" / "permission-guard").exists()
+    assert not (custom_root / "rig-permission-policy.json").exists()
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert any("disabled" in n and "pi" in n and "never auto-deletes" in n for n in plan.notes), plan.notes
+
+
+def test_plan_notes_pi_policy_file_leftover_at_default_root_under_override(fake_agent_tools, tmp_path, monkeypatch):
+    # Sibling of the extension-only case above: seeds ONLY the stale policy file at the default
+    # root (no extension dir anywhere) — exercises the independent `static_policy != dynamic_policy`
+    # branch as its own code path, distinct from the extension-dir branch above. NOTE: like its
+    # sibling, this hand-seeds the file at the SAME literal path the check looks for (matching
+    # this file's existing `test_plan_notes_legacy_pi_instruction_leftover_under_override`
+    # convention) — it does not run real provisioning first, so it does NOT independently confirm
+    # that `~/.pi/agent` is where provisioning actually writes by default; only that the check
+    # looks in the right place given that assumption. That assumption is pinned separately by
+    # `test_pi_agent_dir_honors_env` (asserts the unset-env default) in tests/test_pi_extension.py.
+    home = tmp_path / "home"
+    _pin_home(monkeypatch, home)
+    custom_root = tmp_path / "custom-pi"
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(custom_root))
+    repo = tmp_path / "repo"; repo.mkdir(exist_ok=True)
+    cfg = _instr_cfg(repo, fake_agent_tools, "pi")
+    cfg.data["permissions"] = {"enabled": False}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert not any("never auto-deletes" in n for n in plan.notes), plan.notes
+    # seed ONLY the stale policy file at the DEFAULT root — no extension dir anywhere, nothing at
+    # the custom (current) root.
+    default_root = home / ".pi" / "agent"
+    default_root.mkdir(parents=True, exist_ok=True)
+    (default_root / "rig-permission-policy.json").write_text('{"version":1,"default":"allow","rules":[]}\n')
+    assert not (default_root / "extensions" / "permission-guard").exists()
+    assert not (custom_root / "extensions" / "permission-guard").exists()
+    assert not (custom_root / "rig-permission-policy.json").exists()
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert any("disabled" in n and "pi" in n and "never auto-deletes" in n for n in plan.notes), plan.notes
 
 
 def test_render_guard_ts_bakes_marker_dir_safely():

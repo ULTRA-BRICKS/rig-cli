@@ -1336,7 +1336,12 @@ _PERMISSIONS_KEYS = {"enabled", "kind", "tools", "extra", "disable", "settings_p
 # and the advisory instruction-policy kinds (pi/commandcode). Derived from
 # :mod:`riglib.permissions` (the single source of truth) so the validator and the plan's
 # fan-out can never drift. A kind with NO surface at all lands in the (currently empty) N/A
-# set — rejected with a clear message rather than silently writing nothing.
+# set — rejected with a clear message rather than silently writing nothing. NOTE: `pi` also
+# carries a STRONGER, real-enforcement surface beyond the advisory instruction-policy block
+# already counted here — the `permission-guard` extension + rig-written policy file (see
+# `HARNESS_PERMISSION_EXTENSIONS` / `harness_permission_extension()` in `riglib.permissions`) —
+# but that does not change `pi`'s membership in this set, since it was already valid via
+# `HARNESS_INSTRUCTION_POLICY` before the extension existed.
 _VALID_PERMISSIONS_KINDS = (
     set(HARNESS_ALLOWLISTS) | set(HARNESS_EXECPOLICY)
     | set(HARNESS_GUARD) | set(HARNESS_INSTRUCTION_POLICY)
