@@ -1,0 +1,79 @@
+[
+  {
+    "repo": "agent-tools",
+    "archived_issues": 436,
+    "historically_open": 249,
+    "archive_sha256": "6585e7f27b547fccece98b516298d4389e423c5d489cdce027e61b061bbe0980",
+    "manifest_matches": true
+  },
+  {
+    "repo": "dev-cli",
+    "archived_issues": 21,
+    "historically_open": 6,
+    "archive_sha256": "d583dc348ac72f1bf3624dc3c899d34ed13a34932cac7118973f3b6b11d5d564",
+    "manifest_matches": true
+  },
+  {
+    "repo": "harness-cli",
+    "archived_issues": 21,
+    "historically_open": 10,
+    "archive_sha256": "b561c157942ccd8edcb216a88269d39355e821a66a065749b7696724764f2098",
+    "manifest_matches": true
+  },
+  {
+    "repo": "pm-cli",
+    "archived_issues": 20,
+    "historically_open": 9,
+    "archive_sha256": "134fdf09a09162cee1770bc54fbdf4dad477e506a53a2695b606fee749a9c3f7",
+    "manifest_matches": true
+  },
+  {
+    "repo": "qa-cli",
+    "archived_issues": 8,
+    "historically_open": 1,
+    "archive_sha256": "59759aac16230525a9ac5b1c0d510accd0c405c2d550b2b1c77b82b93a9156ee",
+    "manifest_matches": true
+  },
+  {
+    "repo": "research-cli",
+    "archived_issues": 12,
+    "historically_open": 3,
+    "archive_sha256": "34e7d26600da2b287ca95c8280dc772c895631ceccd3c0d29e6deeb6d2153245",
+    "manifest_matches": true
+  },
+  {
+    "repo": "review-cli",
+    "archived_issues": 349,
+    "historically_open": 216,
+    "archive_sha256": "b8e2db59f5497b4b2a65a1d96e19eef2ce4f8df0db16b5f9d713ce50bfd63707",
+    "manifest_matches": true
+  },
+  {
+    "repo": "rig-cli",
+    "archived_issues": 360,
+    "historically_open": 189,
+    "archive_sha256": "bc82f4c9cdff25853d51db1747e30023871f911c5bd61cb6db4010bc76c6e5b8",
+    "manifest_matches": true
+  },
+  {
+    "repo": "stt-cli",
+    "archived_issues": 33,
+    "historically_open": 24,
+    "archive_sha256": "95b31d45edaad68fdd3ccbfcc00ec690ba0eca7c2422268e8cff62c6699a8ccd",
+    "manifest_matches": true
+  },
+  {
+    "repo": "task-cli",
+    "archived_issues": 136,
+    "historically_open": 75,
+    "archive_sha256": "144b7936b32213cb3d3bf2cc85bf13866c4784f3f20559593e819aa6b0ff5487",
+    "manifest_matches": true
+  },
+  {
+    "repo": "tg-cli",
+    "archived_issues": 235,
+    "historically_open": 127,
+    "archive_sha256": "af1749c802711067bff8fae6fb176cda2a7254cad6541850eec0b8bd4875d4e6",
+    "manifest_matches": true
+  }
+]
