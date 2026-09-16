@@ -9,8 +9,8 @@ each raw tool name + (for shells) the command string through :func:`categorize`.
 Why a shell command needs inspecting: every harness exposes ONE shell tool (Bash /
 exec_command / run_shell_command / bash). A bare count of that tool tells us nothing about
 adoption — the signal is *what the agent ran inside it*. So a Bash call whose command
-invokes ``tg`` / ``rig`` / ``draw`` / ``3d`` / ``task`` / ``dev`` is re-labelled as an
-"ours" CLI invocation and pulled OUT of the baseline shell count. A Bash call that
+invokes ``tg`` / ``rig`` / ``draw`` / ``3d`` / ``task`` / ``dev`` / ``harness`` / ``qa`` /
+``stt`` is re-labelled as an "ours" CLI invocation and pulled OUT of the baseline shell count. A Bash call that
 invokes ``review`` is re-labelled ``review-cycles`` so review volume does not inflate
 agent-tools adoption. That re-labelling is the core measurement this whole command exists to produce.
 """
@@ -91,7 +91,7 @@ BASELINE_ALIASES: dict[str, str] = {
 # could exist on some machine and be miscounted as ours) — the same accepted tradeoff, a knob the
 # CTO can drop here if it ever skews a real number. The remaining names are unambiguous.
 OUR_CLIS: frozenset[str] = frozenset(
-    {"rig", "tg", "draw", "3d", "task", "dev", "pm", "research"}
+    {"rig", "tg", "draw", "3d", "task", "dev", "pm", "research", "harness", "qa", "stt"}
 )
 REVIEW_CLIS: frozenset[str] = frozenset({"review"})
 

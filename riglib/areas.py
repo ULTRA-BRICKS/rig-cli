@@ -65,6 +65,7 @@ AREAS: tuple[Area, ...] = (
     Area("git_hooks", "git-hooks dispatcher", GLOBAL, ("git_hooks",)),
     Area("gitignore", "global gitignore excludes", GLOBAL, ("gitignore",)),
     Area("spotlight", "Spotlight-exclude sweep + agent (macOS)", GLOBAL, ("spotlight",)),
+    Area("bun", "bun isolated linker + global store (~/.bunfig.toml)", GLOBAL, ("bun",)),
     Area("mcp", "MCP servers", GLOBAL, ("mcp",)),
     # the harness area spans both the auto/permission-mode write AND the cc-hook-bridge wiring —
     # both emit category="harness" (plan.py: apply_harness + register_hook_bridge), so the label
@@ -96,9 +97,11 @@ AREAS: tuple[Area, ...] = (
     Area("ci", "CI gates", REPO, ("ci",), ship_slot=False),
     Area("ship", "ship / `gh ship` merge gate", REPO, ("ci",), ship_slot=True),
     Area("ship_delegator", "`gh ship` delegator (.claude/scripts/pr-ship.sh)", REPO, ("ship_delegator",)),
+    Area("internal_dev", "internal-dev daemon auto-reload hook", REPO, ("internal_dev",)),
     Area("linters", "linter / formatter config files", REPO, ("linters",)),
     Area("project_tools", "project tools (Haft / Serena / Sverklo)", REPO, ("project_tools",)),
     Area("ecosystem_readme", "README ecosystem block", REPO, ("ecosystem_readme",)),
+    Area("task", "task-cli code prefix (.ship-config SHIP_TASK_CODE_PREFIX)", REPO, ("task",)),
     Area("agents_md", "AGENTS.md / CLAUDE.md symlinks", REPO, ("agents_md",)),
     Area("github", "repo settings (branch protection / GHAS / merge / actions, gh api + agent-browser)", REPO, ("github",)),
 )

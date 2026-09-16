@@ -1396,6 +1396,115 @@ detection would need a managed manifest (a tracked follow-up).
 
 ---
 
+## `task`
+
+Two unrelated concerns share this one top-level block: **`code_prefix`**, which `rig apply`
+DOES materialize to disk, and **task-cli's ticket-tracker routing** (`backend`/`team`/`project`/
+`repo`/`attachment_mode`, plus nested `github:`/`linear:`), which rig only validates — it writes
+nothing to disk for those keys.
+
+### `code_prefix`
+
+A repo-unique **task-code prefix**, consumed by `ci/ship/ship.sh`'s review-quorum gate. That
+gate only recognizes `HYP-123`/`XX-123` style task codes out of the box — a repo whose task-cli
+backend is GitHub Issues (bare `#NNN`, no ticket-code convention of its own) can never derive a
+task code and is permanently refused by the gate. Setting `code_prefix` fixes that: `rig apply`
+writes it into the repo's `.ship-config` as `SHIP_TASK_CODE_PREFIX=<PREFIX>`, and `ship.sh`
+synthesizes `<PREFIX>-NNN` from a bare `#NNN` found in the branch name or PR body — **never**
+the bare `#NNN` itself.
+
+```yaml
+task:
+  code_prefix: RIG   # 1-40 uppercase letters/digits; unset = feature off
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `code_prefix` | string | *(unset)* | the repo-unique prefix spliced in front of a bare issue number (`<PREFIX>-NNN`); must be 1-40 uppercase letters/digits |
+
+**Why a prefix, not the bare number.** review-cli's review-quorum store is a single **global**
+file keyed only by the task-code string, with no per-repo scoping. Two different repos both
+deriving bare `#346` (e.g. `agent-tools#346` and `rig-cli#346`) would silently share — and
+falsely satisfy — each other's review-iteration count. The prefix is what keeps the synthesized
+code collision-free per repo.
+
+**Merge, not overwrite.** `rig apply` merges the `SHIP_TASK_CODE_PREFIX=` line into any existing
+`.ship-config` content — a hand-committed `SHIP_LOCAL_TEST_DIR`/`SHIP_LOCAL_TEST_CMD` override is
+never clobbered.
+
+**Fail-closed on a malformed prefix.** `ship.sh` validates `SHIP_TASK_CODE_PREFIX` itself at
+read time (1-40 uppercase letters/digits) and ignores the **whole** `.ship-config` file if it
+doesn't match — same policy as an unsafe `SHIP_LOCAL_TEST_DIR`. `HYP-`/`XX-` style codes are
+unaffected either way and still take precedence when present.
+
+**One-way drift (a known limit, same as `linters` above).** Removing `code_prefix` from
+`rig.yaml` does not remove the `SHIP_TASK_CODE_PREFIX=` line it previously wrote — `rig apply`
+emits no action for an unset prefix, so the stale line is never revisited, and `rig status`
+reports clean. Delete the line from `.ship-config` by hand if you turn the feature off.
+
+### Ticket-tracker routing
+
+**task-cli's per-repo ticket-tracker routing** (CTO decision #4136.4: hyperide → Linear/HYP,
+every other repo → GitHub Issues by default). Unlike `code_prefix` above, rig itself **writes
+nothing to disk** for these keys — task-cli reads this block **directly** at runtime
+(`tasklib.config.rig_task_overlay`, in the [task-cli
+repo](https://github.com/alex-mextner/task-cli)), with LOWER precedence than a repo's own
+native `task.yaml`. A repo that already keeps a `task.yaml` is unaffected by anything set here.
+rig only validates the key set + enum values so a typo fails fast at `rig status`/`rig apply`
+time, with rig's own error format, instead of only surfacing later as a task-cli error.
+
+```yaml
+task:
+  backend: linear          # github-issues (default) | linear
+  team: HYP                # flat shorthand for linear.team
+  attachment_mode: link    # link (never re-host a local file) | native (default; real upload)
+  # equivalently, nested form (both may be combined; task-cli rejects a genuine collision):
+  # linear:
+  #   team: HYP
+  #   project: ""           # optional Linear project id to scope create/list/search to
+  #   attachment_mode: link
+  # github:
+  #   repo: owner/name       # or 'auto' to detect from the git remote
+```
+
+All keys below (flat and nested, scalar and container) tolerate an explicit `null` the same as
+absent — rig's `_validate_task` guards every one of them with `is not None`, an early `None`
+return (the three enum leaves: `backend`, `attachment_mode`, `linear.attachment_mode`), or a
+null-specific `{} if x is None else x` normalization (the two nested sections; not a plain
+`or {}`, which would also swallow other falsy-but-invalid values), matching task-cli's own
+tolerant reads. The one exception is the top-level `task:` header itself, which stays rejected
+(matches every other
+block's convention).
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `backend` | str or null | `github-issues` | the tracker backend: `github-issues` or `linear` |
+| `team` | str or null | — | flat shorthand for `linear.team` (e.g. `HYP`) |
+| `project` | str or null | — | flat shorthand for `linear.project` |
+| `repo` | str or null | — | flat shorthand for `github.repo` (`owner/name`, or `auto`) |
+| `attachment_mode` | str or null | `native` (task-cli's own default) | how a screenshot/file gets attached to a Linear ticket — see below |
+| `github.repo` | str or null | — | nested form of the `repo` shorthand |
+| `linear.team` | str or null | — | nested form of the `team` shorthand |
+| `linear.project` | str or null | — | nested form of the `project` shorthand |
+| `linear.attachment_mode` | str or null | — | nested form of the `attachment_mode` shorthand |
+| `github`, `linear` | object or null | — | nested sections; an explicit `null` (a bare `github:`/`linear:` header) is tolerated the same as absent |
+| `projects` | array or null | — | task-cli's cross-project registry (a LIST of entries, not a mapping — see task-cli's `tasklib/projects.py`); rig only checks it's a list; an explicit `null` is tolerated the same as absent |
+| `enforce`, `classify`, `session` | object or null | — | task-cli's own nested shapes (each with their own defaults); rig only checks they're mappings — task-cli's own `tasklib.config.validate` is the runtime authority on their contents; an explicit `null` is tolerated the same as absent |
+
+**`attachment_mode` — `link` vs `native` (tg#11652).** How task-cli attaches a screenshot/file
+to a Linear ticket:
+- **`native`** (task-cli's own default): uploads the bytes through Linear's authenticated
+  `fileUpload` + signed-URL PUT + `attachmentCreate` API sequence, so the ticket carries a real
+  Linear attachment object with an inline preview.
+- **`link`**: never uploads a local file — only registers an already-hosted URL (e.g. a GitHub
+  PR asset, or a PR's `#screenshots` anchor) as an external-link attachment. hyperide pins this
+  mode (HYP-1248): a raw pasted-image `uploads.linear.app` URL is session-scoped and 401s for a
+  non-browser viewer, so hyperide's mitigation is to link out to the PR instead of embedding an
+  image. A bare local path in this mode has nothing to link to and the attach fails cleanly
+  (best-effort — the local ref stays visible in the ticket body regardless).
+
+---
+
 ## `project_tools`
 
 Provisions repo-local carriers for the project-intelligence tools used by the agent ecosystem:
@@ -2234,6 +2343,72 @@ reconciles. Shown in the **global** section of status (not the repo section).
 
 ---
 
+## `bun`
+
+Turns on bun's [global virtual store](https://bun.sh/docs/pm/global-store) for this
+machine. The store is a **no-op under the hoisted linker**, so `rig apply` writes
+**both** keys:
+
+```toml
+[install]
+linker = "isolated"
+globalStore = true
+```
+
+Packages then live once under `~/.bun/install/cache/links/`, and each project's
+`node_modules` is a few megabytes of symlinks. A warm
+`rm -rf node_modules && bun install` is symlink-only (~7× faster on bun's fixture).
+
+This is **GLOBAL, opt-in** — `~/.config/rig/config.yaml`, **default OFF**. Isolated
+linking can surface phantom deps in previously-hoisted projects, so the flag stays
+off until you set `bun.enabled: true`.
+
+Requires a bun that implements `install.globalStore` (1.4+; check `bun --version`).
+
+**uv** already uses a global cache (`~/.cache/uv`). macOS default link-mode is
+clone (APFS CoW; `nlink=1` so `du` still looks like copies).
+`link-mode = hardlink` in `~/.config/uv/uv.toml` shares inodes. rig does **not**
+provision `uv.toml`.
+
+```yaml
+bun:
+  enabled: true                 # splice isolated linker + globalStore into ~/.bunfig.toml (default OFF)
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | splice a managed `[install] linker = "isolated"` + `globalStore = true` block into the global bunfig |
+
+**What apply splices** (markers included; everything outside the markers is left
+byte-for-byte):
+
+```toml
+# >>> rig-managed bun (do not edit) >>>
+# bun install: isolated linker + globalStore — packages live once under ~/.bun/install/cache/links/.
+# Replace via `rig config set bun.enabled true --global --commit` (off: `rig config set bun.enabled false --global --commit`).
+[install]
+linker = "isolated"
+globalStore = true
+# <<< rig-managed bun (do not edit) <<<
+```
+
+Path: `$HOME/.bunfig.toml`, or `$XDG_CONFIG_HOME/.bunfig.toml` when that env is set.
+A project `bunfig.toml` still overrides the same keys.
+
+**Hand-written bunfig.** If the file already has extra user keys **and** both
+required values (`linker = "isolated"` and `globalStore = true`), apply leaves it
+(no markers added). If it has no `[install]` table, apply **appends** the block.
+If it already has `[install]` without those keys, that is a **conflict** (a second
+`[install]` header is invalid TOML): add the keys by hand. Unbalanced markers are
+also a conflict. Apply never writes on conflict.
+
+**Drift / verify.** Missing or stale managed block → apply splices. Conflict stays.
+Verify checks both `[install]` keys.
+
+---
+
+
+
 ## `spotlight`
 
 Keeps **macOS Spotlight** (`mds_stores`) from indexing **dependency/build dirs** — the gigabytes of
@@ -2566,6 +2741,118 @@ to a Linear ticket:
   non-browser viewer, so hyperide's mitigation is to link out to the PR instead of embedding an
   image. A bare local path in this mode has nothing to link to and the attach fails cleanly
   (best-effort — the local ref stays visible in the ticket body regardless).
+
+---
+
+||||||| parent of a530cf2 (feat(task): add task.code_prefix, reconciled into .ship-config)
+## `task`
+
+**task-cli's per-repo ticket-tracker routing** (CTO decision #4136.4: hyperide → Linear/HYP,
+every other repo → GitHub Issues by default). Unlike every other block above, rig itself
+**writes nothing to disk** for `task:` — task-cli reads this block **directly** at runtime
+(`tasklib.config.rig_task_overlay`, in the [task-cli
+repo](https://github.com/alex-mextner/task-cli)), with LOWER precedence than a repo's own
+native `task.yaml`. A repo that already keeps a `task.yaml` is unaffected by anything set here.
+rig only validates the key set + enum values so a typo fails fast at `rig status`/`rig apply`
+time, with rig's own error format, instead of only surfacing later as a task-cli error.
+
+```yaml
+task:
+  backend: linear          # github-issues (default) | linear
+  team: HYP                # flat shorthand for linear.team
+  attachment_mode: link    # link (never re-host a local file) | native (default; real upload)
+  # equivalently, nested form (both may be combined; task-cli rejects a genuine collision):
+  # linear:
+  #   team: HYP
+  #   project: ""           # optional Linear project id to scope create/list/search to
+  #   attachment_mode: link
+  # github:
+  #   repo: owner/name       # or 'auto' to detect from the git remote
+```
+
+All keys below (flat and nested, scalar and container) tolerate an explicit `null` the same as
+absent — rig's `_validate_task` guards every one of them with `is not None`, an early `None`
+return (the three enum leaves: `backend`, `attachment_mode`, `linear.attachment_mode`), or a
+null-specific `{} if x is None else x` normalization (the two nested sections; not a plain
+`or {}`, which would also swallow other falsy-but-invalid values), matching task-cli's own
+tolerant reads. The one exception is the top-level `task:` header itself, which stays rejected
+(matches every other
+block's convention).
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `backend` | str or null | `github-issues` | the tracker backend: `github-issues` or `linear` |
+| `team` | str or null | — | flat shorthand for `linear.team` (e.g. `HYP`) |
+| `project` | str or null | — | flat shorthand for `linear.project` |
+| `repo` | str or null | — | flat shorthand for `github.repo` (`owner/name`, or `auto`) |
+| `attachment_mode` | str or null | `native` (task-cli's own default) | how a screenshot/file gets attached to a Linear ticket — see below |
+| `github.repo` | str or null | — | nested form of the `repo` shorthand |
+| `linear.team` | str or null | — | nested form of the `team` shorthand |
+| `linear.project` | str or null | — | nested form of the `project` shorthand |
+| `linear.attachment_mode` | str or null | — | nested form of the `attachment_mode` shorthand |
+| `github`, `linear` | object or null | — | nested sections; an explicit `null` (a bare `github:`/`linear:` header) is tolerated the same as absent |
+| `projects` | array or null | — | task-cli's cross-project registry (a LIST of entries, not a mapping — see task-cli's `tasklib/projects.py`); rig only checks it's a list; an explicit `null` is tolerated the same as absent |
+| `enforce`, `classify`, `session` | object or null | — | task-cli's own nested shapes (each with their own defaults); rig only checks they're mappings — task-cli's own `tasklib.config.validate` is the runtime authority on their contents; an explicit `null` is tolerated the same as absent |
+
+**`attachment_mode` — `link` vs `native` (tg#11652).** How task-cli attaches a screenshot/file
+to a Linear ticket:
+- **`native`** (task-cli's own default): uploads the bytes through Linear's authenticated
+  `fileUpload` + signed-URL PUT + `attachmentCreate` API sequence, so the ticket carries a real
+  Linear attachment object with an inline preview.
+- **`link`**: never uploads a local file — only registers an already-hosted URL (e.g. a GitHub
+  PR asset, or a PR's `#screenshots` anchor) as an external-link attachment. hyperide pins this
+  mode (HYP-1248): a raw pasted-image `uploads.linear.app` URL is session-scoped and 401s for a
+  non-browser viewer, so hyperide's mitigation is to link out to the PR instead of embedding an
+  image. A bare local path in this mode has nothing to link to and the attach fails cleanly
+  (best-effort — the local ref stays visible in the ticket body regardless).
+
+---
+
+## `internal_dev`
+
+For internal development of the rig-ecosystem tools themselves (rig, tg-cli, review-cli, …): when a
+repo is developed IN PLACE — the checked-out files ARE the running binary (a live symlink) or a
+long-running daemon reads them — a code change only takes effect after the daemon is restarted. This
+block wires that restart to the commit: an opt-in `post-commit` git hook that, when a commit touches
+the configured daemon-source paths, runs a graceful reload command (`tg-ctl restart` by default).
+This is a per-REPO, **committed** concern (the enablement + source paths travel with the repo's
+`rig.yaml`, exactly like `agent_hooks.worktree_only`) — **not** the global config. **Default OFF**
+(an absent or empty `internal_dev:` block installs nothing).
+
+```yaml
+internal_dev:
+  auto_reload_on_commit: true                       # opt-in; default false
+  daemon_source_paths: ["src/daemon/*", "bin/tg-ctl"] # POSIX `case` globs, repo-relative
+  reload_command: "tg-ctl restart"                   # default shown; any shell command
+```
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `auto_reload_on_commit` | bool | `false` | install a `post-commit` hook that reloads the daemon when a commit touches a daemon-source path |
+| `daemon_source_paths` | array of str | `[]` | repo-relative shell-glob patterns (POSIX `case`, a `*` spans `/`) whose change in a commit triggers the reload |
+| `reload_command` | str | `tg-ctl restart` | the graceful reload command the hook runs on a match |
+
+**What rig writes.** The repo-local `<git-dir>/hooks/post-commit` (worktree-correct — resolved via
+`git rev-parse --git-common-dir`, not assumed to be `<repo>/.git`; a linked worktree's hooks live in
+the repo's COMMON dir, not its private per-worktree admin dir). When a global `core.hooksPath`
+composer shadows repo-local hooks (the rig global-hook dispatcher sets one machine-wide), rig also
+writes a generic `post-commit` COMPOSER trampoline into that composer dir — the agent-tools
+dispatcher ships no `post-commit` of its own, so without the trampoline a composer-shadowed
+repo-local hook would never fire.
+
+**The reload never blocks a commit.** `post-commit` runs after the commit is recorded; a failed
+reload is reported and swallowed — a broken daemon must never wedge a developer's commit.
+
+**Idempotent, marker-keyed, backup-on-conflict** — like every other rig-managed artifact
+(`on_conflict` applies to both the hook and the composer).
+
+**Drift.** `rig status` flags a missing or modified `post-commit` hook under the `internal_dev`
+category (REPO layer).
+
+**Dry-run seam.** `RIG_DEV_RELOAD_DRY_RUN=1` (mirrors `RIG_TG_CTL_DRY_RUN` / `RIG_TMUX_DRY_RUN`):
+the hook reads it at FIRE time and skips the real reload; the runner reads it at APPLY time and
+skips writing the machine-global composer (the one live/global mutation) — so tests/CI never fire a
+real reload nor touch the real global hooks dir.
 
 ---
 

@@ -16,6 +16,7 @@ An :class:`Action` is a small dataclass describing the change; the *execution* l
 from __future__ import annotations
 
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -139,7 +140,7 @@ def _agent_hooks_target_for_kind(kind: str) -> str | None:
 class Action:
     """A single planned install step. ``kind`` selects the runner in ``actions/``."""
 
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight
+    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight | provision_ship_task_prefix
     category: str
     item: str
     source: Path  # carrier path in the agent-tools checkout
@@ -913,6 +914,9 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     # ── ship_delegator (per-repo .claude/scripts/pr-ship.sh so `gh ship` works here) ─
     _build_ship_delegator(config, catalog, plan)
 
+    # ── task.code_prefix → .ship-config's SHIP_TASK_CODE_PREFIX ────────────────────
+    _build_ship_task_prefix(config, plan)
+
     # ── linters (per-repo linter/formatter config files) ──────────────────────────
     _build_linters(config, catalog, plan)
 
@@ -946,6 +950,9 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     # ── spotlight (macOS: keep Spotlight from indexing dependency/build dirs) ───────
     _build_spotlight(config, plan)
 
+    # ── bun (isolated linker + global virtual store in ~/.bunfig.toml) ────────────
+    _build_bun(config, plan)
+
     # ── tools (the personal CLI ecosystem: tg/review/task/draw/…) ──────────────────
     _build_tools(config, plan)
 
@@ -955,6 +962,8 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     # ── tcc_watch (rig-managed TCC dialog-watcher daemon LaunchAgent, Phase 1 detection) ──
     _build_tcc_watch(config, plan)
 
+# ── internal_dev (per-repo daemon auto-reload post-commit hook) ────────────────
+    _build_internal_dev(config, plan)
     return plan
 
 
@@ -2083,6 +2092,81 @@ def _build_ship_delegator(config: LoadedConfig, catalog: Catalog, plan: InstallP
     )
 
 
+# The task.code_prefix / SHIP_TASK_CODE_PREFIX contract, encoded ONCE and shared with
+# actions/runner.py's re-check before writing the line to disk (a shell-sourced file, so the
+# runner is the last gate) — the JSON Schema's not_pattern (config_schema.py) is a THIRD,
+# necessarily-separate encoding (regex syntax the schema generator emits), kept in sync by hand.
+SHIP_TASK_CODE_PREFIX_RE = re.compile(r"[A-Z0-9]{1,40}")
+
+
+def _build_ship_task_prefix(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan ``.ship-config``'s ``SHIP_TASK_CODE_PREFIX`` line from ``task.code_prefix``.
+
+    Unset (the default) emits NOTHING — the action is only added when a prefix is actually
+    configured, so a repo that never touches the ``task`` block never gets a ``.ship-config``
+    conjured out of nothing. See ``_do_provision_ship_task_prefix`` (actions/runner.py) for why
+    this is a merge into any existing file rather than a whole-file write, and
+    ``ci/ship/ship.sh``'s header doc for why the prefix exists: review-cli's review-quorum
+    store is a single GLOBAL file keyed only by the task-code string, with no per-repo scoping —
+    a repo whose task-cli backend is GitHub Issues (bare ``#NNN``, no code convention of its
+    own) needs a repo-unique prefix synthesized in front of the issue number, or two repos both
+    deriving bare ``#346`` would silently share (and falsely satisfy) each other's count.
+    """
+    task = config.data.get("task")
+    if task is None:
+        task = {}
+    if not isinstance(task, dict):
+        # validate() (config.py's _validate_task) already raises ConfigError for a non-mapping
+        # `task` block in the normal production path (rig apply / rig config set always call
+        # validate() first) — this branch is bypass-only defense-in-depth for a caller that
+        # constructs a LoadedConfig directly (see test_build_notes_non_mapping_task_block_
+        # when_validate_is_bypassed). Note it anyway, for the same reason a malformed
+        # code_prefix gets a note below: silence here would look identical to "no task block
+        # configured" and a caller that DID bypass validate() would never learn why nothing
+        # was written.
+        plan.notes.append(f"task {task!r} is not a mapping — not writing .ship-config")
+        return
+    prefix = task.get("code_prefix")
+    if prefix is None or prefix == "":
+        return  # genuinely unset — no note, this is the expected default
+    if not isinstance(prefix, str):
+        # validate() checks block/scalar STRUCTURE, not a leaf's declared type (see the
+        # not_pattern comment in config_schema.py) — a non-string value reaches here
+        # undetected. Deliberately NOT coerced (e.g. an unquoted `code_prefix: 12345` parses
+        # as a YAML int): the JSON schema declares `"type": "string"`, so a coercing builder
+        # would silently accept a value every schema-aware editor already flags as invalid —
+        # the same string/schema disagreement the config_schema.py:870 comment warns against.
+        # Note it, same as a malformed string below, and tell the author how to fix it.
+        plan.notes.append(
+            f"task.code_prefix {prefix!r} is not a string (quote it, e.g. code_prefix: \"12345\") "
+            "— not writing .ship-config"
+        )
+        return
+    # Re-validate the SAME 1-40-uppercase-letters/digits contract ship.sh enforces (see
+    # ci/ship/ship.sh's SHIP_TASK_CODE_PREFIX parsing) here too, at plan-build time — not just
+    # in the JSON schema's `not_pattern`. Catching a malformed value HERE means `rig apply`
+    # refuses to even attempt the write, rather than writing a value ship.sh will later read and
+    # discard by ignoring the WHOLE .ship-config file (silently dropping any hand-committed
+    # SHIP_LOCAL_TEST_DIR/SHIP_LOCAL_TEST_CMD override too — exactly what the merge-not-overwrite
+    # design in _do_provision_ship_task_prefix exists to protect).
+    if not SHIP_TASK_CODE_PREFIX_RE.fullmatch(prefix):
+        plan.notes.append(
+            f"task.code_prefix {prefix!r} is not 1-40 uppercase letters/digits — "
+            "not writing .ship-config (fix the value, or ship.sh would ignore the whole file)"
+        )
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_ship_task_prefix",
+            category="task",
+            item="code_prefix",
+            source=config.repo_root,
+            target=config.repo_root,
+            options={"code_prefix": prefix},
+        )
+    )
+
+
 def _build_linters(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> None:
     """Plan generic config carriers plus Rig-owned Oxc rule policy.
 
@@ -2837,6 +2921,33 @@ def _build_spotlight(config: LoadedConfig, plan: InstallPlan) -> None:
     )
 
 
+def _build_bun(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the global bunfig isolated-linker + globalStore splice.
+
+    Default **OFF** (opt-in): an absent, empty, or ``enabled: false`` block emits NO action.
+    GLOBAL-only. Writes both ``linker = "isolated"`` and ``globalStore = true`` because
+    bun's global store is a no-op under the hoisted linker.
+    """
+    from . import bunfig
+
+    block = config.data.get("bun")
+    if block is None or not isinstance(block, dict):
+        return
+    if not block.get("enabled"):
+        return
+    target = bunfig.bunfig_path()
+    plan.actions.append(
+        Action(
+            kind="provision_bunfig",
+            category="bun",
+            item="bunfig",
+            source=config.repo_root,
+            target=target,
+        )
+    )
+
+
+
 def _build_project_tools(config: LoadedConfig, plan: InstallPlan) -> None:
     """Plan repo-local integrations for Haft, Serena, and Sverklo.
 
@@ -3015,6 +3126,39 @@ def _build_tcc_watch(config: LoadedConfig, plan: InstallPlan) -> None:
                 "label": t.get("label"),
                 "config_dir": t.get("config_dir"),
                 "python_bin": t.get("python_bin"),
+            },
+        )
+    )
+
+
+def _build_internal_dev(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the per-repo daemon auto-reload post-commit hook, when ``auto_reload_on_commit`` is on.
+
+    Default **OFF** (opt-in): an ABSENT/empty/``false`` block emits NOTHING. When enabled, one
+    ``install_dev_reload_hook`` action carries the resolved daemon-source patterns + reload command;
+    the runner writes the repo-local ``<git-dir>/hooks/post-commit`` (and, under a global
+    ``core.hooksPath`` composer, a generic post-commit trampoline). REPO-owned: the enablement +
+    paths live in the committed ``rig.yaml``, exactly like ``agent_hooks.worktree_only``.
+    """
+    from .dev_reload import DEFAULT_RELOAD_COMMAND
+
+    d = config.data.get("internal_dev") or {}
+    if not d.get("auto_reload_on_commit"):
+        return
+
+    paths = list(d.get("daemon_source_paths") or [])
+    reload_command = d.get("reload_command") or DEFAULT_RELOAD_COMMAND
+    plan.actions.append(
+        Action(
+            kind="install_dev_reload_hook",
+            category="internal_dev",
+            item="post-commit",
+            source=config.repo_root,  # the repo whose commits trigger the reload
+            # display target — the runner re-resolves the real git dir (worktree-correct) at apply.
+            target=config.repo_root / ".git" / "hooks" / "post-commit",
+            options={
+                "daemon_source_paths": paths,
+                "reload_command": reload_command,
             },
         )
     )

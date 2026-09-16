@@ -63,7 +63,7 @@ _HARNESS_KIND_CHOICES: tuple[str, ...] = tuple(
 # ``mode`` (machine-wide agent policy).
 # Routing a GLOBAL-only value into a committed repo rig.yaml is the footgun this map prevents.
 # A category absent here defaults to REPO (the conservative "it lives in the committed file").
-_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "tg_ctl", "tcc_watch", "tmux", "mode"}
+_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tmux", "mode"}
 
 
 def writable_layer_for_category(category: str) -> str:
@@ -488,6 +488,16 @@ AREAS: tuple[Area, ...] = (
         ),
     ),
     Area(
+        "bun", "bun install isolated linker + global store",
+        "Splice [install] linker=isolated and globalStore=true into ~/.bunfig.toml.",
+        (
+            _opt("bun.enabled", KIND_BOOL, False,
+                 "Splice a managed [install] linker = \"isolated\" + globalStore = true "
+                 "block into the global bunfig. Opt-in (default OFF). GLOBAL-only — never "
+                 "written to a repo rig.yaml."),
+        ),
+    ),
+    Area(
         "tg_ctl", "tg-ctl inbound daemon", "The Telegram control daemon auto-started as a per-machine boot LaunchAgent (macOS).",
         (
             _opt("tg_ctl.enabled", KIND_BOOL, True,
@@ -515,12 +525,42 @@ AREAS: tuple[Area, ...] = (
         ),
     ),
     Area(
+        "internal_dev", "internal-dev daemon auto-reload",
+        "A per-repo committed post-commit hook that gracefully reloads the daemon when a commit touches its source.",
+        (
+            _opt("internal_dev.auto_reload_on_commit", KIND_BOOL, False,
+                 "Opt-IN: install a post-commit git hook (in THIS repo) that runs the reload "
+                 "command when a commit touches a daemon-source path, so a change to the "
+                 "rig-ecosystem tool's own daemon auto-reloads with no manual restart. Off by "
+                 "default. REPO-owned (committed rig.yaml), like agent_hooks — the enablement + "
+                 "paths travel with the repo. Reload / composer live-write gate: RIG_DEV_RELOAD_DRY_RUN."),
+        ),
+    ),
+    Area(
         "linters", "linter / formatter config files", "Per-repo linter + formatter config files rig writes/reconciles (tool + content per repo).",
         (
             _opt("linters.enabled", KIND_BOOL, True,
                  "Provision the declared linter/formatter config files (the `linters.items` map). "
                  "Per-item tool + path + content live in rig.yaml; this toggle gates the whole area. "
                  "Never clobbers a hand-written config — a conflict is backed up before overwrite."),
+        ),
+    ),
+    Area(
+        "task", "task-cli code prefix", "A repo-unique task-code prefix, consumed by ship.sh's review-quorum gate.",
+        (
+            _opt("task.code_prefix", KIND_STR, None,
+                 "Set when this repo's task-cli backend is GitHub Issues (bare #NNN, no ticket-"
+                 "code convention of its own). `rig apply` writes it into `.ship-config`'s "
+                 "SHIP_TASK_CODE_PREFIX line, which ship.sh's review-quorum gate uses to "
+                 "synthesize `<PREFIX>-NNN` from a bare #NNN found in the branch name/PR body — "
+                 "never the bare number itself. review-cli's review-quorum store is a single "
+                 "GLOBAL file keyed only by the task-code string with no per-repo scoping, so two "
+                 "repos both deriving bare \"#346\" would silently share (and falsely satisfy) "
+                 "each other's review-iteration count; the prefix is what keeps it unique per "
+                 "repo. Must be 1-40 uppercase letters/digits (no hyphen/whitespace/other "
+                 "punctuation — it is spliced directly in front of \"-<n>\"), or ship.sh ignores "
+                 "the whole .ship-config file. Unset (default) = bare issue numbers are never "
+                 "picked up as task codes (HYP-123/XX-123 codes are unaffected either way)."),
         ),
     ),
     Area(

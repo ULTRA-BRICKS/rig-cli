@@ -33,8 +33,8 @@ def test_registry_covers_every_status_area():
     expected = {
         "stack",
         "skills", "agent_hooks", "git_hooks", "ci", "mcp", "harness", "permissions",
-        "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "tg_ctl",
-        "tcc_watch", "linters", "project_tools", "ecosystem_readme",
+        "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "bun", "tg_ctl",
+        "tcc_watch", "linters", "project_tools", "ecosystem_readme", "task", "internal_dev",
     }
     assert cats == expected
 
@@ -42,7 +42,7 @@ def test_registry_covers_every_status_area():
 def test_global_only_categories_route_to_global_not_repo():
     # the footgun guard: a machine-wide, never-scaffolded block must NOT be writable into a
     # committed repo rig.yaml. These are documented global-only.
-    for cat in ("gitignore", "tg_ctl", "tmux", "mode"):
+    for cat in ("gitignore", "spotlight", "bun", "tg_ctl", "tmux", "mode"):
         assert schema.writable_layer_for_category(cat) == schema.GLOBAL
     # harness/models/git_hooks are status-grouped GLOBAL but the scaffold writes them into the
     # committed repo rig.yaml, so an EDIT of their value belongs in the repo file.
@@ -351,12 +351,15 @@ def test_writable_layer_agrees_with_the_scaffold():
     scaffolded = set(default_state())
     # REPO-writable areas that are default-ON at plan level and genuine repo artifacts, but carry NO
     # scaffolded default content (so the scaffold can't pre-write them): agents_md (a file IN the
-    # repo) and linters (config files declared per-repo — there is no sensible default item to seed).
+    # repo), linters (config files declared per-repo), and internal_dev (opt-in, off by default,
+    # with no universal daemon_source_paths to seed) — there is no sensible default item to seed.
     # stack: a REPO-writable preset that is only scaffolded when init detected/confirmed a stack;
     # a bare default_state() (undetected repo) legitimately omits it → soft-require warning.
     # ecosystem_readme: opt-in (default OFF, like `tools:`) — a clean scaffold must never rewrite a
     # repo's README unprompted, so it is deliberately absent from default_state() until a user opts in.
-    _repo_unscaffolded_ok = {"agents_md", "linters", "permissions", "stack", "ecosystem_readme"}
+    # task: code_prefix has no sensible default (it is a repo-specific ticket-code prefix the
+    # operator must choose) — unset is the correct default, so there is nothing to scaffold.
+    _repo_unscaffolded_ok = {"agents_md", "linters", "permissions", "stack", "ecosystem_readme", "task", "internal_dev"}
     for area in schema.AREAS:
         if schema.writable_layer_for_category(area.category) == schema.REPO:
             assert area.category in scaffolded or area.category in _repo_unscaffolded_ok, area.category

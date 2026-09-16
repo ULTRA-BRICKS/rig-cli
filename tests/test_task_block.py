@@ -230,8 +230,11 @@ def test_task_schema_pointer_resolves():
 
 
 def test_task_block_child_keys_include_flat_and_nested_forms():
+    # `code_prefix` (rig-cli#217) shares this top-level block with the ticket-tracker routing
+    # keys asserted below — see docs/config-schema.md's `task` section.
     keys = config_schema.block_child_keys("task")
     assert keys == {
+        "code_prefix",
         "backend",
         "team",
         "project",

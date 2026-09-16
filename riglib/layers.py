@@ -38,6 +38,7 @@ _CATEGORY_LAYER = {
     "git_hooks": GLOBAL,
     "gitignore": GLOBAL,
     "spotlight": GLOBAL,
+    "bun": GLOBAL,
     "tmux": GLOBAL,
     "env": GLOBAL,
     "tg_ctl": GLOBAL,
@@ -53,11 +54,13 @@ _CATEGORY_LAYER = {
     # REPO — this repo, from ./rig.yaml
     "ci": REPO,
     "ship_delegator": REPO,
+    "internal_dev": REPO,
     "linters": REPO,
     "project_tools": REPO,
     "ecosystem_readme": REPO,
     "agents_md": REPO,
     "github": REPO,
+    "task": REPO,
 }
 
 

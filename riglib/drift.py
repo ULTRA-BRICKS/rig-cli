@@ -96,6 +96,7 @@ from .plan import Action, InstallPlan
 from .provenance import (
     KIND_DISABLED_BASELINE,
     KIND_RETIRED_DEFAULT,
+    KIND_UNVERIFIED,
     KIND_USER_EXTRA,
     PERMISSION_KINDS,
     hook_provenance,
@@ -106,6 +107,7 @@ from .provenance import (
     workflow_provenance,
 )
 from . import project_tools
+from .review_gate import SOURCE_ORIGIN, composer_sources, unshipped_composers
 from .tg_ctl import STALE_PREDECESSOR_LABEL
 
 
@@ -432,6 +434,9 @@ def compute_drift_report(
             ),
             report,
         )
+    bun_cfg = loaded.data.get("bun")
+    if isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is False and not _restricted_out("bun"):
+        check_disabled_bunfig(report)
     # missing-target: a hook command in the harness settings.json that points at a file gone
     # from disk (the dead-rtk-hook case) surfaces PROACTIVELY here, before it bites at runtime
     # as a generic "PreToolUse error". This is independent of config↔disk drift. Scan the
@@ -576,7 +581,12 @@ def detect(
             _check_tg_ctl(action, report)
         elif action.kind == "provision_spotlight":
             _check_spotlight(action, report)
-
+        elif action.kind == "provision_bunfig":
+            _check_bunfig(action, report)
+        elif action.kind == "provision_ship_task_prefix":
+            _check_ship_task_prefix(action, report)
+        elif action.kind == "install_dev_reload_hook":
+            _check_internal_dev(action, report)
     _extras_skills(declared_skill_dirs, report, known.get("skills", set()), catalog.get("skills"))
     _extras_ci(declared_ci_dirs, report, known.get("ci", set()), catalog.get("ci"))
     _extras_mcp(declared_mcp, report, known.get("mcp", set()))
@@ -958,6 +968,44 @@ def _check_ship_env_file(canonical: Path, report: DriftReport) -> None:
                       "machine env file with AGENT_TOOLS_ROOT absent/stale (apply rewrites it; "
                       "a delegator with no $AGENT_TOOLS_ROOT and no repo-local ship.sh exits 127)")
         )
+
+
+def _check_ship_task_prefix(action: Action, report: DriftReport) -> None:
+    """Flag drift on ``.ship-config``'s ``SHIP_TASK_CODE_PREFIX=`` line.
+
+    Recomputes the expected line from ``action.options["code_prefix"]`` — the SAME value
+    :func:`_do_provision_ship_task_prefix` (actions/runner.py) merges in — so status and apply
+    read one classification, per the repo's "drift is surfaced both ways, never silently
+    reconciled" rule: a hand-edited or deleted line must not report clean.
+    """
+    prefix = str(action.options.get("code_prefix", "")).strip()
+    if not prefix:
+        return  # nothing to provision (mirrors the runner's own skip on an unset prefix)
+    path = action.target / ".ship-config"
+    expected = f"SHIP_TASK_CODE_PREFIX={prefix}"
+    if not path.is_file():
+        report.items.append(DriftItem("missing", "task", "code_prefix", path, f"{path} does not exist"))
+        return
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        report.items.append(DriftItem("modified", "task", "code_prefix", path, f"could not read {path}: {exc}"))
+        return
+    found = [line for line in lines if line.startswith("SHIP_TASK_CODE_PREFIX=")]
+    if not found:
+        report.items.append(DriftItem("missing", "task", "code_prefix", path, "SHIP_TASK_CODE_PREFIX= line is absent"))
+    elif found != [expected]:
+        # Anything OTHER than exactly one line matching `expected` is drift — not just a wrong
+        # value. `_do_provision_ship_task_prefix` (runner.py) collapses a pre-existing DUPLICATE
+        # managed line to one on the next apply, so `found == [expected, "SHIP_TASK_CODE_PREFIX=
+        # OLD"]` (the correct line present ALONGSIDE a stale extra one) must not report clean —
+        # `expected in found` alone would miss that apply is still about to rewrite the file.
+        detail = (
+            f"SHIP_TASK_CODE_PREFIX line is {found[0]!r}, expected {expected!r}"
+            if len(found) == 1
+            else f"found {len(found)} SHIP_TASK_CODE_PREFIX= lines {found!r}, expected exactly one {expected!r}"
+        )
+        report.items.append(DriftItem("modified", "task", "code_prefix", path, detail))
 
 
 def _check_ship_delegator(action: Action, report: DriftReport) -> None:
@@ -1387,6 +1435,39 @@ def check_disabled_dispatcher(repo_root: Path, report: DriftReport) -> None:
             )
 
 
+def _check_composers(src_hooks: Path, composer: Path, report: DriftReport) -> None:
+    """Compare every shipped composer against what apply would install.
+
+    Expected content comes from ``review_gate.composer_sources`` — the SAME helper apply
+    uses — so ``review-gate`` is compared against the installed review-cli's ``--print-gate``
+    output when available, else the agent-tools copy: a review-gate that still equals a
+    stale agent-tools copy is reported as drift instead of "clean" (rig-cli#382). The detail
+    names the source compared against and any fallback reason. A transient review-cli
+    failure leaves the expected content unknown — that file is not compared but is listed
+    as an informational ``unverified`` known item (never silently clean). Composers on
+    disk the source no longer ships are ``extra`` (git still runs them; never deleted).
+    """
+    sources = composer_sources(src_hooks)
+    for src in sources:
+        dst = composer / src.name
+        if not dst.exists():
+            report.items.append(DriftItem("missing", "git_hooks", src.name, dst, "composer hook not installed"))
+        elif src.expected is None:
+            report.known.append(KnownItem("git_hooks", src.name, dst, KIND_UNVERIFIED, f"{src.name}: {src.note}"))
+        elif dst.read_text(encoding="utf-8") != src.expected:
+            detail = f"composer hook differs from {src.origin}"
+            if src.note and src.origin == SOURCE_ORIGIN:
+                detail += f" ({src.note})"
+            report.items.append(DriftItem("modified", "git_hooks", src.name, dst, detail))
+    for leftover in unshipped_composers(composer, sources):
+        report.items.append(
+            DriftItem(
+                "extra", "git_hooks", leftover.name, leftover,
+                "composer hook on disk but not shipped by source (git still runs it)",
+            )
+        )
+
+
 def _check_dispatcher(action: Action, report: DriftReport) -> None:
     runner = Path(action.options["runner"])
     src_runner = action.source / "run-global-hooks"
@@ -1404,16 +1485,7 @@ def _check_dispatcher(action: Action, report: DriftReport) -> None:
     composer = runner.parent / "hooks"
     src_hooks = action.source / "hooks"
     if src_hooks.is_dir():
-        for src_composer in sorted(p for p in src_hooks.iterdir() if p.is_file()):
-            dst = composer / src_composer.name
-            if not dst.exists():
-                report.items.append(
-                    DriftItem("missing", "git_hooks", src_composer.name, dst, "composer hook not installed")
-                )
-            elif dst.read_text(encoding="utf-8") != src_composer.read_text(encoding="utf-8"):
-                report.items.append(
-                    DriftItem("modified", "git_hooks", src_composer.name, dst, "composer hook differs from source")
-                )
+        _check_composers(src_hooks, composer, report)
     # if the config wired core.hooksPath, verify git still points at the composer dir —
     # files can exist while git no longer invokes them (someone re-set core.hooksPath).
     if action.options.get("set_global_hooks_path"):
@@ -1508,6 +1580,59 @@ def _check_global_excludes(action: Action, report: DriftReport) -> None:
     elif r.state in ("conflict", "io_error"):
         report.items.append(
             DriftItem("modified", "gitignore", "block", target, r.detail)
+        )
+
+
+def _check_bunfig(action: Action, report: DriftReport) -> None:
+    """Flag drift in ``~/.bunfig.toml`` using the same :func:`bunfig.resolve` apply uses."""
+    from . import bunfig
+
+    r = bunfig.resolve(action.target)
+    if r.state == "ok":
+        return
+    if r.state == "create":
+        report.items.append(
+            DriftItem("missing", "bun", "bunfig", r.path,
+                      "~/.bunfig.toml missing isolated linker + globalStore (apply splices it)")
+        )
+        return
+    if r.state == "update":
+        report.items.append(
+            DriftItem("modified", "bun", "bunfig", r.path,
+                      "managed ~/.bunfig.toml is stale (apply rewrites it)")
+        )
+        return
+    report.items.append(
+        DriftItem("modified", "bun", "bunfig", r.path, r.detail)
+    )
+
+
+def check_disabled_bunfig(report: DriftReport) -> None:
+    """Flag a still-installed managed block when the config disables the ``bun`` category.
+
+    apply never deletes; so a machine that previously provisioned the bunfig block keeps it in
+    ``~/.bunfig.toml`` even after the config turns the category off. With the action gone from
+    the plan, ``_check_bunfig`` never runs — so without this scan the leftover block would
+    report as in sync (mirrors :func:`check_disabled_global_excludes`).
+    """
+    from . import bunfig
+
+    target = bunfig.bunfig_path()
+    if not target.is_file():
+        return
+    try:
+        content = target.read_text(encoding="utf-8")
+    except OSError:
+        return
+    if bunfig.BEGIN_MARKER in content:
+        report.items.append(
+            DriftItem(
+                "extra",
+                "bun",
+                "bunfig",
+                target,
+                "bun disabled in config but the rig-managed block is still in ~/.bunfig.toml",
+            )
         )
 
 
@@ -3135,6 +3260,37 @@ def _check_tg_ctl(action: Action, report: DriftReport) -> None:
         report.items.append(
             DriftItem("missing", "tg_ctl", action.item, plan.plist_path,
                       f"tg-ctl LaunchAgent '{plan.boot_label}' installed but not loaded")
+        )
+
+
+def _check_internal_dev(action: Action, report: DriftReport) -> None:
+    """Flag drift on the per-repo daemon auto-reload post-commit hook.
+
+    Compares the rendered hook against the file at the resolved (worktree-correct) git-hooks
+    path — the SAME rendering the runner writes, so status and apply can never disagree. The
+    machine-global composer trampoline is a live/global apply-time concern (mirrors tg_ctl's
+    boot plist) and is not checked here; a missing repo-local hook already surfaces the drift
+    that matters to the repo.
+    """
+    from . import dev_reload
+
+    repo_root = action.source
+    dplan = dev_reload.build_dev_reload(
+        repo_root=repo_root,
+        daemon_source_paths=action.options.get("daemon_source_paths", []),
+        reload_command=action.options.get("reload_command", dev_reload.DEFAULT_RELOAD_COMMAND),
+    )
+    target = dev_reload.post_commit_hook_path(repo_root)
+    if not target.is_file():
+        report.items.append(
+            DriftItem("missing", "internal_dev", action.item, target,
+                      "dev-reload post-commit hook not installed")
+        )
+        return
+    if target.read_text(encoding="utf-8") != dplan.render_hook():
+        report.items.append(
+            DriftItem("modified", "internal_dev", action.item, target,
+                      "post-commit hook differs from the rig-generated dev-reload hook")
         )
 
 

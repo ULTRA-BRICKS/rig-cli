@@ -1495,6 +1495,18 @@
       },
       "additionalProperties": false
     },
+    "bun": {
+      "type": "object",
+      "description": "GLOBAL bunfig: splice [install] linker=isolated and globalStore=true.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in)",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
     "tools": {
       "type": "object",
       "description": "the personal CLI tool ecosystem (tg/review/task/draw/…) rig installs + advertises at apply, by running each tool's own install.sh. rig also keeps a provisioned checkout FRESH: if a tool repo ships scripts/deploy.sh, apply runs it (ff-only git pull) even when already installed — opt-in per tool, non-fatal. Default OFF (opt-in): list tools under items. A per-MACHINE concern — belongs in the GLOBAL layer, not a committed rig.yaml.",
@@ -1602,6 +1614,30 @@
         "python_bin": {
           "type": "string",
           "description": "the python3 binary the daemon runs under"
+        }
+      },
+      "additionalProperties": false
+    },
+    "internal_dev": {
+      "type": "object",
+      "description": "internal development of the rig-ecosystem tools themselves (rig, tg-cli, review-cli, …): a per-repo COMMITTED opt-in that installs a post-commit git hook so a commit touching the daemon's source gracefully reloads the running daemon (tg-ctl restart) — zero manual restart.",
+      "properties": {
+        "auto_reload_on_commit": {
+          "type": "boolean",
+          "description": "install a post-commit hook that reloads the daemon when a commit touches a daemon-source path (opt-in)",
+          "default": false
+        },
+        "daemon_source_paths": {
+          "type": "array",
+          "description": "repo-relative shell-glob patterns (POSIX `case`, `*` spans `/`) whose change in a commit triggers the reload",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reload_command": {
+          "type": "string",
+          "description": "the graceful reload command the hook runs on a match",
+          "default": "tg-ctl restart"
         }
       },
       "additionalProperties": false
@@ -1912,8 +1948,15 @@
     },
     "task": {
       "type": "object",
-      "description": "task-cli ticket-tracker routing for THIS repo (CTO decision #4136.4: hyperide -> Linear/HYP, every other repo -> GitHub Issues by default). task-cli reads this block directly (tasklib/config.py's rig_task_overlay) with LOWER precedence than a repo's own native task.yaml, so a repo that already keeps one is unaffected. Flat shorthands (team/project/repo/attachment_mode) and the nested github:/linear: sections may be used together in the same block; task-cli itself rejects a genuine collision between the two forms (e.g. both `team: X` and `linear: {team: Y}` set to different values) — this schema only checks the KEY SET, not that kind of cross-field conflict.",
+      "description": "task-cli ticket-tracker routing for THIS repo (CTO decision #4136.4: hyperide -> Linear/HYP, every other repo -> GitHub Issues by default). task-cli reads this block directly (tasklib/config.py's rig_task_overlay) with LOWER precedence than a repo's own native task.yaml, so a repo that already keeps one is unaffected. Flat shorthands (team/project/repo/attachment_mode) and the nested github:/linear: sections may be used together in the same block; task-cli itself rejects a genuine collision between the two forms (e.g. both `team: X` and `linear: {team: Y}` set to different values) — this schema only checks the KEY SET, not that kind of cross-field conflict. `code_prefix` is a SEPARATE, unrelated concern folded into the same top-level `task:` block (rig-cli#217): a repo-unique task-code prefix consumed by ship.sh's review-quorum gate, reconciled by `rig apply` into `.ship-config` — see the leaf's own doc below.",
       "properties": {
+        "code_prefix": {
+          "type": "string",
+          "description": "set when this repo's task-cli backend is GitHub Issues (bare #NNN, no ticket-code convention of its own). `rig apply` writes it into .ship-config's SHIP_TASK_CODE_PREFIX line, which ship.sh synthesizes into <PREFIX>-NNN from a bare #NNN in the branch name/PR body — never the bare number itself (review-cli's review-quorum store is a single global file keyed only by the code string, with no per-repo scoping, so two repos both deriving bare \"#346\" would collide). Must be 1-40 uppercase letters/digits — ship.sh ignores the whole .ship-config file otherwise. Unset = bare issue numbers are never picked up as task codes.",
+          "not": {
+            "pattern": "[^A-Z0-9]|^.{41,}$"
+          }
+        },
         "backend": {
           "type": [
             "string",

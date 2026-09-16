@@ -68,8 +68,14 @@ from ..github_ruleset import (
     parse_github_remote,
 )
 from ..logging import log_event
+from ..review_gate import (
+    ComposerSource,
+    composer_sources,
+    gate_note,
+    unshipped_composers,
+)
 from ..paths import expand_user_path
-from ..plan import Action, InstallPlan
+from ..plan import SHIP_TASK_CODE_PREFIX_RE, Action, InstallPlan
 from .. import ecosystem_readme
 from .. import project_tools
 from . import fsutil
@@ -422,6 +428,8 @@ def _do_install_dispatcher(action: Action, on_conflict: str) -> ActionResult:
       - ``hooks/`` — the per-event COMPOSERS (pre-commit/commit-msg/pre-push + review-gate).
         **core.hooksPath must point HERE**, not at the runner's parent: git looks for an
         executable named after the event in core.hooksPath, and those live in hooks/.
+        ``review-gate`` is sourced from the installed review-cli (``review
+        install-commit-hook --print-gate``) with the agent-tools copy as fallback.
       - ``global-hooks.d/<event>/`` — the drop-in fragments the runner enumerates.
 
     Idempotent: every copy skips-if-identical; the ``core.hooksPath`` set checks the
@@ -445,25 +453,13 @@ def _do_install_dispatcher(action: Action, on_conflict: str) -> ActionResult:
         statuses.append(out.status)
         backup = backup or out.backup
 
-    # 2. the composers (core.hooksPath target). Git ignores a non-executable hook, so the
-    # exec bit must be set even when the content is already identical (else a re-apply
-    # leaves the dispatcher silently disabled). Only a CONFLICT-skip leaves them untouched.
-    # This relies on `fsutil.dirs_identical` being MODE-BLIND (compares file set + content
-    # only): the chmod below runs unconditionally on a content-"identical" skip too, so a
-    # source that (for whatever reason — a test fixture, a checkout that dropped the bit)
-    # isn't executable still converges the target to executable without that mode-only
-    # divergence being misread as drift on the next idempotent re-apply (rig-cli#175 review).
+    # 2. the composers (core.hooksPath target) — per file; review-gate comes from the
+    # installed review-cli when it can print it (see _install_composers).
     src_hooks = src / "hooks"
     if src_hooks.is_dir():
-        out = fsutil.copy_tree(src_hooks, composer_target, on_conflict)
-        chmod_ok = out.status in _CHANGED_STATUSES or (
-            out.status == "skipped" and "identical" in out.detail
-        )
-        if chmod_ok:
-            for f in composer_target.iterdir():
-                if f.is_file():
-                    f.chmod(f.stat().st_mode | 0o111)
+        out, composer_notes = _install_composers(src_hooks, composer_target, on_conflict)
         notes.append(f"composers {out.status}")
+        notes.extend(composer_notes)
         statuses.append(out.status)
         backup = backup or out.backup
 
@@ -521,6 +517,87 @@ def _do_install_dispatcher(action: Action, on_conflict: str) -> ActionResult:
     else:
         overall = "skipped"
     return ActionResult(action, overall, "; ".join(notes) or "dispatcher installed", backup)
+
+
+_COMPOSER_STATUS_RANK = {"skipped": 0, "created": 1, "updated": 1, "backed_up": 2}
+# fsutil says "updated" for an overwrite; the runner-level vocabulary folds it into "created".
+_COMPOSER_STATUS_ALIASES = {"updated": "created"}
+
+
+def _prepare_composer_dir(target: Path, on_conflict: str) -> fsutil.WriteOutcome | None:
+    """Make ``target`` a directory, honouring ``on_conflict`` when a stale FILE sits there.
+
+    Returns the outcome of clearing a stale file (``skipped`` on a conflict-skip means the
+    caller must not install anything), or None when the directory is ready.
+    """
+    if target.exists() and not target.is_dir():
+        if on_conflict == "skip":
+            return fsutil.WriteOutcome("skipped", f"exists (not a directory), on_conflict=skip: {target}")
+        if on_conflict == "backup":
+            bak = fsutil.backup_path(target)
+            shutil.move(str(target), str(bak))
+            target.mkdir(parents=True)
+            return fsutil.WriteOutcome("backed_up", f"backed up prior → {bak}", backup=bak)
+        target.unlink()
+    target.mkdir(parents=True, exist_ok=True)
+    return None
+
+
+def _install_one_composer(src: ComposerSource, dst: Path, on_conflict: str) -> fsutil.WriteOutcome:
+    """Write one composer; a transient review-cli failure leaves an installed gate FILE alone
+    (a directory or nothing at that path is not a hook — the fallback goes in per on_conflict)."""
+    if src.expected is None:
+        if dst.is_file():
+            return fsutil.WriteOutcome("skipped", f"left as-is ({src.note}): {dst}")
+        return fsutil.write_file(dst, src.fallback, on_conflict)
+    return fsutil.write_file(dst, src.expected, on_conflict)
+
+
+def _install_composers(
+    src_hooks: Path, target: Path, on_conflict: str
+) -> tuple[fsutil.WriteOutcome, list[str]]:
+    """Install the per-event COMPOSERS (pre-commit/commit-msg/pre-push/review-gate) PER FILE.
+
+    Expected content comes from ``review_gate.composer_sources`` (the same helper drift
+    uses): ``review-gate`` from the installed review-cli when it answers, else the
+    agent-tools copy; the provenance is the first of the returned notes (action detail).
+    Files the source no longer ships are left in place (git still runs them) and named in a
+    second note — drift reports them as ``extra``; rig never deletes them.
+
+    Git ignores a non-executable hook, so the exec bit must converge even when the content is
+    already identical (else a re-apply leaves the dispatcher silently disabled); only a
+    CONFLICT-skip leaves a file untouched — ``_chmod_x_if_changed`` encodes exactly that.
+
+    Returns the most-significant per-file outcome (``backed_up`` > ``created`` > ``skipped``)
+    carrying the FIRST backup path, mirroring ``_install_fragments``.
+    """
+    sources = composer_sources(src_hooks)
+    composer_notes = [gate_note(sources)]
+    prepared = _prepare_composer_dir(target, on_conflict)
+    if prepared is not None and prepared.status == "skipped":
+        return prepared, composer_notes
+    best = "skipped"
+    first_backup: Path | None = prepared.backup if prepared is not None else None
+    for src in sources:
+        dst = target / src.name
+        out = _install_one_composer(src, dst, on_conflict)
+        _chmod_x_if_changed(dst, out)
+        if _COMPOSER_STATUS_RANK.get(out.status, 0) > _COMPOSER_STATUS_RANK.get(best, 0):
+            best = out.status
+        if out.backup is not None and first_backup is None:
+            first_backup = out.backup
+    if prepared is not None:
+        best = prepared.status
+    detail = "per-file"
+    if first_backup is not None:
+        detail += f"; backed up → {first_backup}"
+    extra = unshipped_composers(target, sources)
+    if extra:
+        composer_notes.append(
+            "not shipped by source, left as-is: " + ", ".join(p.name for p in extra)
+        )
+    status = _COMPOSER_STATUS_ALIASES.get(best, best)
+    return fsutil.WriteOutcome(status, detail, first_backup), composer_notes
 
 
 def _install_fragments(
@@ -6578,6 +6655,85 @@ def _do_provision_ship_delegator(action: Action, on_conflict: str) -> ActionResu
     return ActionResult(action, status, f"ship-delegator: {file_note}; {exclude_note}{env_suffix}", backup)
 
 
+# ── .ship-config's SHIP_TASK_CODE_PREFIX line (from rig.yaml's task.code_prefix) ──────
+def _do_provision_ship_task_prefix(action: Action, on_conflict: str) -> ActionResult:
+    """Upsert the ``SHIP_TASK_CODE_PREFIX=<prefix>`` line into ``<repo>/.ship-config``.
+
+    Merges into any EXISTING ``.ship-config`` content (``SHIP_LOCAL_TEST_DIR``/
+    ``SHIP_LOCAL_TEST_CMD``, comments, ...) rather than replacing the file — this is the only
+    rig-managed key in a file whose other two keys are hand-committed per the header doc in
+    ``ci/ship/ship.sh``, so a whole-file overwrite would silently drop a human's local-test
+    override.
+
+    ``on_conflict`` semantics are KEYED, like :func:`_do_register_mcp`'s ``mcpServers.<name>``
+    merge — the conflict is "the managed LINE exists with a different value", never "the FILE
+    exists". A file with unrelated hand-committed content (or no managed line at all) is not a
+    conflict: the line is simply added, under EVERY ``on_conflict`` policy, exactly as a new
+    MCP server entry is added to an existing config. Routing this through
+    ``fsutil.write_file``'s whole-file comparison (as an earlier version of this function did)
+    would make ``on_conflict=skip`` silently refuse to EVER provision the prefix into any repo
+    that already has a hand-committed ``.ship-config`` — the precise repo shape the merge
+    design exists to support — leaving ``rig status`` reporting ``missing`` forever with no way
+    for ``rig apply`` to converge it.
+    """
+    prefix = str(action.options.get("code_prefix", "")).strip()
+    if not prefix:
+        return ActionResult(action, "skipped", "ship-task-prefix: task.code_prefix not set, .ship-config untouched")
+    # Defense-in-depth: plan.py's builder already refuses a malformed prefix before this action
+    # is ever created, but re-check the SAME shared pattern here too — this runner is the last
+    # gate before the value lands in a file ship.sh sources as shell, and a future caller could
+    # construct the action directly, bypassing the plan builder's check entirely.
+    if not SHIP_TASK_CODE_PREFIX_RE.fullmatch(prefix):
+        return ActionResult(action, "error", f"ship-task-prefix: {prefix!r} is not 1-40 uppercase letters/digits (malformed action)")
+    path = action.target / ".ship-config"
+    try:
+        existing = path.read_text(encoding="utf-8") if path.is_file() else ""
+    except OSError as exc:
+        return ActionResult(action, "error", f"ship-task-prefix: could not read {path}: {exc}")
+    new_line = f"SHIP_TASK_CODE_PREFIX={prefix}"
+    current = [line for line in existing.splitlines() if line.startswith("SHIP_TASK_CODE_PREFIX=")]
+    if current == [new_line]:
+        return ActionResult(action, "skipped", f"ship-task-prefix: identical: {path}")
+    if current and any(c != new_line for c in current) and on_conflict == "skip":
+        # The MANAGED LINE itself conflicts (not just "the file exists") — this is the one
+        # real conflict case skip should honor.
+        return ActionResult(
+            action, "skipped", f"ship-task-prefix: SHIP_TASK_CODE_PREFIX= line exists (on_conflict=skip), left untouched: {path}"
+        )
+    out_lines: list[str] = []
+    replaced = False
+    for line in existing.splitlines():
+        if line.startswith("SHIP_TASK_CODE_PREFIX="):
+            # Collapse to exactly ONE managed line — a pre-existing hand-committed duplicate
+            # (or one left over from an older rig version) must not accumulate; only the FIRST
+            # match is rewritten in place, every subsequent match is dropped rather than kept
+            # as a second copy shell sourcing would silently let win/lose depending on order.
+            if not replaced:
+                out_lines.append(new_line)
+                replaced = True
+        else:
+            out_lines.append(line)
+    if not replaced:
+        out_lines.append(new_line)
+    new_content = "\n".join(out_lines) + "\n"
+    backup: Path | None = None
+    detail_suffix = ""
+    if current and any(c != new_line for c in current) and on_conflict == "backup":
+        # ANY line other than the exact desired one — a differing value OR a stale duplicate
+        # alongside the correct line — is being rewritten/dropped, so back up the whole file
+        # first, same as every other conflict-backed action. Checking current[0] only (an
+        # earlier version of this fix) missed the case where the CORRECT line happens to be
+        # first and a stale duplicate follows it: the duplicate would be silently dropped with
+        # no backup, even though drift correctly flags that exact state as "modified".
+        backup = fsutil.backup_path(path)
+        shutil.copy2(str(path), str(backup))
+        detail_suffix = f" (backed up prior → {backup})"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(new_content, encoding="utf-8")
+    status = "backed_up" if backup is not None else ("created" if not existing else "updated")
+    return ActionResult(action, status, f"ship-task-prefix: wrote → {path}{detail_suffix}", backup)
+
+
 # ── machine-global `gh ship` alias (the entry point the delegator serves) ──────────
 def _do_provision_gh_ship_alias(action: Action, on_conflict: str) -> ActionResult:
     """Provision/reconcile the machine-global ``gh ship`` alias (idempotent, drift-parity).
@@ -8293,6 +8449,93 @@ def _do_provision_linter_bundle(action: Action, on_conflict: str) -> ActionResul
     out = apply_bundle(action.source, action.target, str(action.options.get("source_rel") or ""), str(action.options.get("target_rel") or ""), on_conflict)
     return ActionResult(action, out.status, out.detail, out.backup)
 
+
+def _do_provision_bunfig(action: Action, on_conflict: str) -> ActionResult:
+    """Splice the bun isolated-linker + globalStore managed block into ``~/.bunfig.toml``.
+
+    Additive ``create`` (append to an existing bunfig without a managed block) bypasses
+    :func:`fsutil.write_file`'s skip-on-exists rule so ``on_conflict=skip`` still appends
+    the block; skip only blocks rewriting a stale managed block (``update``). ``ok`` is a
+    no-op. ``conflict`` (unbalanced markers) is left untouched even when
+    ``on_conflict=backup``.
+    """
+    from .. import bunfig
+
+    target = action.target
+    result = bunfig.resolve(target)
+    if result.state == "ok":
+        return ActionResult(action, "skipped", f"already current: {target}")
+    if result.state == "conflict":
+        return ActionResult(action, "skipped", f"conflict: {result.detail}")
+    if result.state == "update" and on_conflict == "skip":
+        return ActionResult(
+            action,
+            "skipped",
+            f"stale managed block (on_conflict=skip), left untouched: {target}",
+        )
+    if result.state == "create":
+        existed = target.exists()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        backup = None
+        if existed and on_conflict == "backup":
+            backup = fsutil.backup_path(target)
+            shutil.move(str(target), str(backup))
+        target.write_text(result.new_content, encoding="utf-8")
+        if backup is not None:
+            return ActionResult(
+                action,
+                "backed_up",
+                f"backed up prior → {backup}; appended block to {target}",
+                backup=backup,
+            )
+        status = "updated" if existed else "created"
+        verb = "appended block to" if existed else "created"
+        return ActionResult(action, status, f"{verb} {target}")
+    out = fsutil.write_file(target, result.new_content, on_conflict)
+    return ActionResult(action, out.status, out.detail, out.backup)
+
+def _do_install_dev_reload_hook(action: Action, on_conflict: str) -> ActionResult:
+    """Install the per-repo post-commit daemon auto-reload hook (+ global composer trampoline).
+
+    Writes the repo-local ``<git-dir>/hooks/post-commit`` at the resolved (worktree-correct) path
+    unconditionally — it is the managed, reviewable artifact. Honors ``dev_reload.DRY_RUN_ENV``:
+    when set, the machine-global composer trampoline (the one live/global mutation, needed only
+    when a ``core.hooksPath`` composer shadows the repo-local hook) is skipped, mirroring
+    ``RIG_TG_CTL_DRY_RUN`` / ``RIG_TMUX_DRY_RUN``.
+    """
+    from .. import dev_reload
+
+    repo_root = action.source
+    dplan = dev_reload.build_dev_reload(
+        repo_root=repo_root,
+        daemon_source_paths=action.options.get("daemon_source_paths", []),
+        reload_command=action.options.get("reload_command", dev_reload.DEFAULT_RELOAD_COMMAND),
+    )
+    hook_target = dev_reload.post_commit_hook_path(repo_root)
+    out = fsutil.write_file(hook_target, dplan.render_hook(), on_conflict)
+    _chmod_x_if_changed(hook_target, out)
+    notes = [f"post-commit hook {out.detail}"]
+    status, backup = out.status, out.backup
+
+    if os.environ.get(dev_reload.DRY_RUN_ENV):
+        return ActionResult(action, status, "; ".join(notes), backup)
+
+    composer_target = dev_reload.composer_post_commit_path(repo_root)
+    if composer_target is not None:
+        c_out = fsutil.write_file(composer_target, dev_reload.render_post_commit_composer(), on_conflict)
+        _chmod_x_if_changed(composer_target, c_out)
+        notes.append(f"composer {c_out.detail}")
+        # Surface the composer's own outcome — it is the one machine-global mutation this
+        # action makes. A backup there must not be silently dropped (per the backup-on-conflict
+        # rule), and a composer-only change (hook unchanged, composer newly written/backed up)
+        # must not report "skipped" and hide that a real live/global write happened.
+        if c_out.backup is not None:
+            backup = c_out.backup
+        if c_out.status in _CHANGED_STATUSES and status == "skipped":
+            status = c_out.status
+
+    return ActionResult(action, status, "; ".join(notes), backup)
+
 _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "record_mode": _do_record_mode,
     "copy_skill": _do_copy_skill,
@@ -8315,6 +8558,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_agents_orchestrator": _do_provision_agents_orchestrator,
     "provision_agents_autonomous_mode": _do_provision_agents_autonomous_mode,
     "provision_ship_delegator": _do_provision_ship_delegator,
+    "provision_ship_task_prefix": _do_provision_ship_task_prefix,
     "provision_gh_ship_alias": _do_provision_gh_ship_alias,
     "lint_policy_blocked": _do_lint_policy_blocked,
     "format_policy_blocked": _do_format_policy_blocked,
@@ -8334,4 +8578,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_tools": _do_provision_tools,
     "provision_tg_ctl": _do_provision_tg_ctl,
     "provision_tcc_watch": _do_provision_tcc_watch,
+    "provision_bunfig": _do_provision_bunfig,
+
+    "install_dev_reload_hook": _do_install_dev_reload_hook,
 }

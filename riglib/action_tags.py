@@ -102,6 +102,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Installs the global git-hook dispatcher + fragments (e.g. secret-scan) and points "
         "core.hooksPath at it — runs on every git operation, not just for the agent.",
     ),
+    "install_dev_reload_hook": _tag(
+        "install_dev_reload_hook", "installs_hook", AUDIENCE_HUMAN,
+        "Writes a repo-local post-commit git hook that gracefully reloads a live-symlink/daemon "
+        "rig-ecosystem tool when a commit touches configured daemon-source paths.",
+    ),
     "install_ci": _tag(
         "install_ci", "creates_file", AUDIENCE_HUMAN,
         "Writes a GitHub Actions workflow file under .github/workflows — runs in CI, not locally.",
@@ -181,6 +186,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "provision_gh_ship_alias", "edits_file", AUDIENCE_HUMAN,
         "Installs the `gh ship` alias script + registers it with the gh CLI.",
     ),
+    "provision_ship_task_prefix": _tag(
+        "provision_ship_task_prefix", "edits_file", AUDIENCE_HUMAN,
+        "Upserts the SHIP_TASK_CODE_PREFIX= line into .ship-config from task.code_prefix, "
+        "consumed by ci/ship/ship.sh's review-quorum gate.",
+    ),
     "lint_policy_blocked": _tag(
         "lint_policy_blocked", "policy_only", AUDIENCE_BOTH,
         "Records that a linter policy could not be applied (e.g. no matching carrier); writes "
@@ -251,6 +261,10 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "provision_spotlight", "starts_reloads_service", AUDIENCE_HUMAN,
         "Drops Spotlight-exclude sentinels under dependency/build dirs and may install a launchd "
         "re-sweep agent — a macOS Finder/Spotlight setting, not agent-facing.",
+    ),
+    "provision_bunfig": _tag(
+        "provision_bunfig", "edits_file", AUDIENCE_HUMAN,
+        "Splices linker=isolated and globalStore=true into ~/.bunfig.toml.",
     ),
     "provision_tools": _tag(
         "provision_tools", "installs_system_tool", AUDIENCE_HUMAN,

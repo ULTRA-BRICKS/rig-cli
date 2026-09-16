@@ -978,6 +978,14 @@ _SPOTLIGHT_BLOCK = Block(
     },
 )
 
+_BUN_BLOCK = Block(
+    doc="GLOBAL bunfig: splice [install] linker=isolated and globalStore=true.",
+    leaves={
+        "enabled": Leaf("boolean", "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in)", default=False),
+    },
+)
+
+
 _SHIP_DELEGATOR_BLOCK = Block(
     doc="a per-repo .claude/scripts/pr-ship.sh delegator so `gh ship` works in this repo (ignored in .git/info/exclude).",
     leaves={
@@ -1143,7 +1151,10 @@ _TASK_BLOCK = Block(
         "(team/project/repo/attachment_mode) and the nested github:/linear: sections may be used "
         "together in the same block; task-cli itself rejects a genuine collision between the two "
         "forms (e.g. both `team: X` and `linear: {team: Y}` set to different values) — this "
-        "schema only checks the KEY SET, not that kind of cross-field conflict."
+        "schema only checks the KEY SET, not that kind of cross-field conflict. `code_prefix` is "
+        "a SEPARATE, unrelated concern folded into the same top-level `task:` block (rig-cli#217): "
+        "a repo-unique task-code prefix consumed by ship.sh's review-quorum gate, reconciled by "
+        "`rig apply` into `.ship-config` — see the leaf's own doc below."
     ),
     # review finding (tg#11652, P2): `_validate_task_enum` returns early on `None` (so
     # `backend`/`attachment_mode`/`linear.attachment_mode` tolerate null) and the flat/nested
@@ -1152,6 +1163,33 @@ _TASK_BLOCK = Block(
     # treatment as `permissions.kind` above; the three enum leaves (`backend`, `attachment_mode`,
     # `linear.attachment_mode`) also add `None` to their `enum` tuple (same house pattern).
     leaves={
+        "code_prefix": Leaf(
+            "string",
+            "set when this repo's task-cli backend is GitHub Issues (bare #NNN, no ticket-code "
+            "convention of its own). `rig apply` writes it into .ship-config's "
+            "SHIP_TASK_CODE_PREFIX line, which ship.sh synthesizes into <PREFIX>-NNN from a bare "
+            "#NNN in the branch name/PR body — never the bare number itself (review-cli's "
+            "review-quorum store is a single global file keyed only by the code string, with no "
+            "per-repo scoping, so two repos both deriving bare \"#346\" would collide). Must be "
+            "1-40 uppercase letters/digits — ship.sh ignores the whole .ship-config file "
+            "otherwise. Unset = bare issue numbers are never picked up as task codes.",
+            # Reject a non-uppercase-alnum character ANYWHERE, or 41+ characters — an empty
+            # string is deliberately NOT rejected here (it means "unset", same as omitting the
+            # key entirely; see _build_ship_task_prefix's `if not prefix` guard in plan.py,
+            # which treats "" identically to absent — the schema and the runtime check must
+            # agree on that or a user who writes `code_prefix: ""` to mean "off" gets an editor
+            # error the actual `rig apply` never raises). `not_pattern` is a single "reject if
+            # this matches anywhere" regex (see Leaf's docstring), so the length bound is folded
+            # in as an extra alternative rather than a separate maxLength knob (Leaf has none for
+            # strings). NOTE: this constraint is emitted into schema/rig.schema.json for editor
+            # tooling only — `riglib.config.validate()` does not currently re-derive leaf-level
+            # not_pattern/enum constraints from this registry for ANY block (a pre-existing gap,
+            # not introduced here). The actual runtime enforcement for `rig apply` is
+            # `_build_ship_task_prefix` (plan.py), which re-checks the character-class and
+            # length bound (though not "emptiness", which is the unset sentinel, not an error)
+            # in Python before ever emitting the write action.
+            not_pattern=r"[^A-Z0-9]|^.{41,}$",
+        ),
         "backend": Leaf(
             ("string", "null"), "the tracker backend", enum=("github-issues", "linear", None)
         ),
@@ -1257,6 +1295,33 @@ _TCC_WATCH_BLOCK = Block(
     },
 )
 
+_INTERNAL_DEV_BLOCK = Block(
+    doc=(
+        "internal development of the rig-ecosystem tools themselves (rig, tg-cli, review-cli, …): "
+        "a per-repo COMMITTED opt-in that installs a post-commit git hook so a commit touching the "
+        "daemon's source gracefully reloads the running daemon (tg-ctl restart) — zero manual restart."
+    ),
+    leaves={
+        "auto_reload_on_commit": Leaf(
+            "boolean",
+            "install a post-commit hook that reloads the daemon when a commit touches a "
+            "daemon-source path (opt-in)",
+            default=False,
+        ),
+        "daemon_source_paths": Leaf(
+            "array",
+            "repo-relative shell-glob patterns (POSIX `case`, `*` spans `/`) whose change in a "
+            "commit triggers the reload",
+            items_type="string",
+        ),
+        "reload_command": Leaf(
+            "string",
+            "the graceful reload command the hook runs on a match",
+            default="tg-ctl restart",
+        ),
+    },
+)
+
 
 # The top-level shape: the scalar top keys + every block, in the order config.py validates them.
 _TOP_LEAVES: dict[str, Leaf] = {
@@ -1297,10 +1362,12 @@ BLOCKS: dict[str, Block] = {
     "env": _ENV_BLOCK,
     "gitignore": _GITIGNORE_BLOCK,
     "spotlight": _SPOTLIGHT_BLOCK,
+    "bun": _BUN_BLOCK,
     "tools": _TOOLS_BLOCK,
     "tg_ctl": _TG_CTL_BLOCK,
     "tcc_watch": _TCC_WATCH_BLOCK,
-    "ship_delegator": _SHIP_DELEGATOR_BLOCK,
+
+"internal_dev": _INTERNAL_DEV_BLOCK,    "ship_delegator": _SHIP_DELEGATOR_BLOCK,
     "linters": _LINTERS_BLOCK,
     "project_tools": _PROJECT_TOOLS_BLOCK,
     "ecosystem_readme": _ECOSYSTEM_README_BLOCK,

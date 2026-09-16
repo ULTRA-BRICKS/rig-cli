@@ -66,9 +66,11 @@ _VALID_TOP_KEYS = {
     "env",
     "gitignore",
     "spotlight",
+    "bun",
     "tools",
     "tg_ctl",
     "tcc_watch",
+    "internal_dev",
     "ship_delegator",
     "linters",
     "project_tools",
@@ -530,6 +532,16 @@ def load(
                 fix=f"move mode to {global_config_path()} or run `rig config set mode.name ... --global`",
                 schema_path="mode",
             )
+        if label == "global" and data.get("internal_dev"):
+            raise ConfigError(
+                "internal_dev is a repo-only config block",
+                why=(
+                    f"{path} is the GLOBAL layer, but internal_dev.daemon_source_paths is "
+                    "repo-specific — a global block would silently cascade into every repo apply"
+                ),
+                fix="move internal_dev into this repo's committed ./rig.yaml",
+                schema_path="internal_dev",
+            )
         merged = _deep_merge(merged, data)
         for k in data:
             key_sources[k] = path
@@ -637,9 +649,11 @@ def validate(data: dict[str, Any]) -> None:
     _validate_env(data.get("env", {}))
     _validate_gitignore(data.get("gitignore", {}))
     _validate_spotlight(data.get("spotlight", {}))
+    _validate_bun(data.get("bun", {}))
     _validate_tools(data.get("tools", {}))
     _validate_tg_ctl(data.get("tg_ctl", {}))
     _validate_tcc_watch(data.get("tcc_watch", {}))
+    _validate_internal_dev(data.get("internal_dev", {}))
     _validate_ship_delegator(data.get("ship_delegator", {}))
     _validate_linters(data.get("linters", {}))
     _validate_project_tools(data.get("project_tools", {}))
@@ -1811,6 +1825,47 @@ WORKTREES_EXCLUDE_COMMENT = (
 )
 
 
+def _validate_internal_dev(d: dict[str, Any]) -> None:
+    """Validate the ``internal_dev`` block — the per-repo daemon auto-reload post-commit hook.
+
+    A per-repo COMMITTED concern (the enablement + source paths travel with the repo's rig.yaml,
+    like ``agent_hooks.worktree_only``), so it belongs in the REPO layer — NOT the global config.
+    Default **OFF** (opt-in): an EMPTY/absent block is a no-op. Fail-closed, consistent with every
+    other block, on: a non-mapping block, an unknown key (typo guard), a non-bool
+    ``auto_reload_on_commit``, a non-string-list ``daemon_source_paths``, a non-string
+    ``reload_command``, and (a review-caught gap) enabling with no paths at all — that would
+    install a hook that can never match anything, silently.
+    """
+    if not isinstance(d, dict):
+        raise ConfigError("internal_dev must be a mapping", schema_path="internal_dev")
+    if not d:
+        return
+    _reject_unknown_keys(d, "internal_dev")
+    _check_bool(d, "auto_reload_on_commit", "internal_dev.auto_reload_on_commit")
+    paths = d.get("daemon_source_paths")
+    if paths is not None and (not isinstance(paths, list) or not all(isinstance(e, str) for e in paths)):
+        raise ConfigError(
+            f"internal_dev.daemon_source_paths must be a list of strings, got {paths!r}",
+            schema_path="internal_dev.daemon_source_paths",
+        )
+    cmd = d.get("reload_command")
+    if cmd is not None and not isinstance(cmd, str):
+        raise ConfigError(
+            f"internal_dev.reload_command must be a string, got {cmd!r}",
+            schema_path="internal_dev.reload_command",
+        )
+    if d.get("auto_reload_on_commit") is True:
+        raw_paths = paths if paths is not None else []
+        effective = [p for p in raw_paths if p.strip()]
+        if not effective:
+            raise ConfigError(
+                "internal_dev.auto_reload_on_commit is enabled but daemon_source_paths is "
+                "empty or whitespace-only — that would install a post-commit hook that can "
+                "never match anything",
+                schema_path="internal_dev.daemon_source_paths",
+            )
+
+
 def _validate_ship_delegator(sd: dict[str, Any]) -> None:
     """Validate the ``ship_delegator`` block — rig's per-repo ``gh ship`` delegator.
 
@@ -2345,6 +2400,23 @@ def _validate_spotlight(s: dict[str, Any]) -> None:
             f"spotlight.max_depth must be a positive int, got {max_depth!r}",
             schema_path="spotlight.max_depth",
         )
+
+
+def _validate_bun(s: dict[str, Any]) -> None:
+    """Validate the ``bun`` block — GLOBAL bunfig isolated linker + globalStore splice.
+
+    Default **OFF** (opt-in). An absent/empty block is a no-op. Fail-closed on a non-mapping
+    block, a non-bool ``enabled``, and an unknown key.
+    """
+    if not isinstance(s, dict):
+        raise ConfigError("bun must be a mapping", schema_path="bun")
+    if not s:
+        return
+    _reject_unknown_keys(s, "bun")
+    enabled = s.get("enabled")
+    if enabled is not None and not isinstance(enabled, bool):
+        raise ConfigError(f"bun.enabled must be a bool, got {enabled!r}", schema_path="bun.enabled")
+
 
 
 # The ruleset knobs that are plain booleans (typo + type guard). Listed once so the
@@ -2910,14 +2982,21 @@ def _validate_tcc_watch(t: dict[str, Any]) -> None:
 
 
 def _validate_task(t: dict[str, Any]) -> None:
-    """Validate the ``task`` block — task-cli's per-repo ticket-tracker routing.
+    """Validate the ``task`` block — task-cli's per-repo ticket-tracker routing, PLUS the
+    unrelated ``code_prefix`` leaf folded into the same top-level block (rig-cli#217).
 
-    task-cli reads this block DIRECTLY (``tasklib.config.rig_task_overlay``) at runtime — rig
-    itself never materializes anything from it (no file gets written; unlike most other blocks,
-    there is no `rig apply` step for `task`). This validator exists so a typo fails FAST, at `rig
-    status`/`rig apply` time, with rig's own schema-pointer error format, rather than only
-    surfacing later as task-cli's own (differently-formatted) `ConfigError` the next time
-    someone happens to run a `task` command in the repo.
+    task-cli reads the routing keys DIRECTLY (``tasklib.config.rig_task_overlay``) at runtime —
+    rig itself never materializes anything from them (no file gets written for those; unlike
+    most other blocks, there is no `rig apply` step for them). This validator exists so a typo
+    fails FAST, at `rig status`/`rig apply` time, with rig's own schema-pointer error format,
+    rather than only surfacing later as task-cli's own (differently-formatted) `ConfigError` the
+    next time someone happens to run a `task` command in the repo. ``code_prefix`` is different:
+    `rig apply` DOES materialize it, into `.ship-config`'s `SHIP_TASK_CODE_PREFIX` line (see
+    `plan.py`'s `_build_ship_task_prefix`). Its own value/character-class contract is re-checked
+    there at plan-build time rather than here, matching every other leaf whose full contract
+    also lives at plan-build time (see the `config_schema.py:870` comment on why `validate()`
+    checks structure, not every leaf's declared type) — so this function only needs to accept it
+    as a known key via `_reject_unknown_keys` below, not type-check it itself.
 
     Deliberately shallow on ``projects``/``enforce``/``classify``/``session``: those are
     task-cli's own nested shapes (with their own defaults/validation task-cli already applies)
