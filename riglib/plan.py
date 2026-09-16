@@ -64,6 +64,7 @@ from .harness_mode import (
 )
 from .paths import expand_user_path as _expand_user_path
 from .provenance import KNOWN_CATEGORIES, known_names_from_config
+from .tools import BLURBS_SUBDIR
 from . import ecosystem_readme
 from . import project_tools
 
@@ -140,7 +141,7 @@ def _agent_hooks_target_for_kind(kind: str) -> str | None:
 class Action:
     """A single planned install step. ``kind`` selects the runner in ``actions/``."""
 
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight | provision_ship_task_prefix
+    kind: str  # copy_skill | link_skill_harness | install_agent_hook | sync_hook_blurbs | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight | provision_ship_task_prefix
     category: str
     item: str
     source: Path  # carrier path in the agent-tools checkout
@@ -691,6 +692,35 @@ def _plan_agent_hooks(plan: InstallPlan, config: LoadedConfig, catalog: Catalog)
                 )
 
 
+def _plan_hook_blurbs(plan: InstallPlan, config: LoadedConfig, catalog: Catalog, skills_target: Path) -> None:
+    """Emit one ``sync_hook_blurbs`` action mirroring every ``agent-hooks/<name>/blurb.md`` under
+    the resolved agent-tools checkout into ``<skills_target>/.blurbs/<name>.md`` (agent-tools#504).
+
+    ``<skills_target>/.blurbs`` is the SAME SessionStart aggregator dir the 7 per-tool CLI
+    installers already write their own ``.blurbs/<tool>.md`` into (:data:`riglib.tools.BLURBS_SUBDIR`)
+    — an agent-hook policy (orchestrator-stays-thin, background-subagent-gate, …) rides the exact
+    same upfront-discovery channel instead of only being learned reactively mid-task. A hook with
+    no ``blurb.md`` opts out silently (see :mod:`riglib.hook_blurb_sync`).
+
+    Gated on ``agent_hooks.enabled`` like :func:`_plan_agent_hooks`: no hook guards installed
+    means no hook policy worth advertising upfront. One action regardless of ``agent_hooks.all``/
+    per-item toggles — the sync walks agent-tools' own ``agent-hooks/`` dir directly (it is not
+    catalog-item-scoped), same as the source of truth the descriptors themselves come from.
+    """
+    ah = config.category("agent_hooks")
+    if ah.get("enabled") is False:
+        return
+    plan.actions.append(
+        Action(
+            kind="sync_hook_blurbs",
+            category="agent_hooks",
+            item="blurbs",
+            source=catalog.source,
+            target=skills_target / BLURBS_SUBDIR,
+        )
+    )
+
+
 def _catalog_by_leaf(catalog: Catalog, category: str) -> dict[str, tuple[Path, ...]]:
     """Catalog item source paths grouped by on-disk leaf name (see ``InstallPlan.catalog_items``)."""
     out: dict[str, list[Path]] = {}
@@ -750,6 +780,7 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
 
     # ── agent_hooks ──────────────────────────────────────────────────────────────
     _plan_agent_hooks(plan, config, catalog)
+    _plan_hook_blurbs(plan, config, catalog, skills_target)
 
     # ── git_hooks (dispatcher) ───────────────────────────────────────────────────
     gh = config.category("git_hooks")

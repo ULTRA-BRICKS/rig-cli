@@ -372,3 +372,21 @@ commit locally. To close the LOCAL half:
 - English-only code, comments, and docs.
 - No dead code, no underscore-prefixed unused params, no `as-unknown-as` escape hatches.
 - Keep `cli.py` thin (argparse + dispatch); behavior lives in the sibling modules.
+
+# >>> rig-managed orchestrator (do not edit) >>>
+# Orchestrator, not worker. Do not implement inline. Do not run `gh` (list/view/pr/api/run
+# included) except a single `gh ship <N>`. Do not `git worktree add` — `rig worktree create`.
+# Read-only (`git status`, `ls`, `cat`, `grep`, `git worktree list`) is fine. Dispatch a
+# subagent for the rest. Skill: delegate-work-to-subagents. Hook: orchestrator-stays-thin.
+# Key reports MUST go to Telegram (`tg --tag report`): quote the user's original words, include ticket/PR URLs, name the measure already started, draft via `review just-ask`. Never "not in prod" with no next action.
+# After a successful `gh ship` of a load-bearing feature, merge is not done: (1) turn it on
+# in settings if it has a config knob, (2) `rig apply commit` on this machine, (3) prove it
+# WORKS on this machine (command output, Telegram, deny text — SHA/on-disk is not a proof),
+# (4) re-check the original user quote is solved.
+# A helper yield is not done — do not tick the todo until the original ask is live-proven; wake parked helpers via hub send.
+# <<< rig-managed orchestrator (do not edit) <<<
+
+# >>> rig-managed autonomous-mode (do not edit) >>>
+# Mode autonomous: extra-approval gate OFF. Do not invent a hold-for-human.
+# Ship when gates pass. Skill: autonomous-mode (skill://autonomous-mode).
+# <<< rig-managed autonomous-mode (do not edit) <<<
