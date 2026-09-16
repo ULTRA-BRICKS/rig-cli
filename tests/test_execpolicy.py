@@ -96,6 +96,20 @@ def test_plan_emits_execpolicy_for_codex(fake_agent_tools, tmp_path, monkeypatch
     assert act.target == tmp_path / "home" / ".codex" / "rules" / "rig-managed.rules"
 
 
+def test_plan_execpolicy_allow_gh_false_drops_gh(fake_agent_tools, tmp_path, monkeypatch):
+    # `allow_gh: false` must be resolved identically by both permissions call sites (the
+    # allowlist builder and this execpolicy builder) — plan._resolved_permission_tools is the
+    # single funnel both go through.
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    repo = tmp_path / "repo"; repo.mkdir()
+    plan = build(_codex_cfg(repo, fake_agent_tools, allow_gh=False),
+                 Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    act = _execpolicy_action(plan)
+    assert "gh" not in act.options["tools"]
+    for t in ("tg", "rg", "dev"):
+        assert t in act.options["tools"]
+
+
 def test_plan_execpolicy_target_honors_rig_codex_home(fake_agent_tools, tmp_path, monkeypatch):
     # Codex skills/hooks/config all resolve through RIG_CODEX_HOME when set; the execpolicy
     # .rules target must use the same resolver, not a hard-coded ~/.codex.
@@ -251,6 +265,31 @@ def test_apply_git_extra_still_writes_worktree_add_forbid(fake_agent_tools, tmp_
     assert 'prefix_rule(pattern=["git", "worktree", "add"], decision="forbidden"' in body
 
 
+def test_apply_allow_gh_false_removes_the_gh_allow_rule_from_the_rendered_block(fake_agent_tools, tmp_path, monkeypatch):
+    # round-13 review finding: `test_plan_execpolicy_allow_gh_false_drops_gh` only ever asserted
+    # `act.options["tools"]` (the plan-side resolved list), never the actually-WRITTEN `.rules`
+    # text — so the PR's own acceptance criterion ("allow_gh: false drops gh from ... the codex
+    # execpolicy") had no execution-level proof. Confirms the whole-block-resync mechanism
+    # (`execpolicy_block_text` regenerates from `options["tools"]` and splices in place) really
+    # does remove a previously-written `gh` allow rule on a later apply — no receipt/revoke
+    # signal is needed here (unlike the additive-merge allow list) because this surface is a
+    # SYNC block, not an additive one.
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    repo = tmp_path / "repo"; repo.mkdir()
+    rules = tmp_path / "home" / ".codex" / "rules" / "rig-managed.rules"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    run_plan(build(_codex_cfg(repo, fake_agent_tools), cat, project_type="unknown"))
+    text = rules.read_text(encoding="utf-8")
+    assert 'prefix_rule(pattern=["gh"], decision="allow"' in text
+
+    run_plan(build(_codex_cfg(repo, fake_agent_tools, allow_gh=False), cat, project_type="unknown"))
+    text_after = rules.read_text(encoding="utf-8")
+    assert 'prefix_rule(pattern=["gh"], decision="allow"' not in text_after
+    # the coarse `gh pr merge` deny stays — it's part of the fixed baseline, not tool-gated
+    assert 'prefix_rule(pattern=["gh", "pr", "merge"], decision="forbidden"' in text_after
+
+
 def test_apply_preserves_user_lines_outside_markers(fake_agent_tools, tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     repo = tmp_path / "repo"; repo.mkdir()
@@ -366,6 +405,10 @@ def test_generated_block_passes_codex_execpolicy_check(fake_agent_tools, tmp_pat
         capture_output=True, text=True, timeout=30,
     )
     assert json.loads(verdict.stdout).get("decision") == "forbidden"
+    # `gh` itself is ALSO in the default allow set (`prefix_rule(["gh"], allow)`) — the assertion
+    # above already proves the more-specific `gh pr merge` forbidden rule wins over that broader
+    # allow, verified against the real codex CLI, not assumed (same overlap class as `rg`/`rg
+    # --pre` below).
     # …and pre-allows a safe ecosystem CLI
     allow = subprocess.run(
         ["codex", "execpolicy", "check", "--rules", str(rules), "tg", "hello"],
@@ -373,11 +416,12 @@ def test_generated_block_passes_codex_execpolicy_check(fake_agent_tools, tmp_pat
     )
     assert json.loads(allow.stdout).get("decision") == "allow"
     # rig-cli#187: `rg` is BOTH allowed (`prefix_rule(["rg"], allow)`) AND has a more-specific
-    # `prefix_rule(["rg", "--pre"], forbidden)` — this is the FIRST codex deny rule that overlaps
-    # an allow prefix (gh/sudo/screencapture never collide with the allow set), so nothing
-    # previously proved which decision wins. Verified here against the REAL codex CLI, not
-    # assumed: codex resolves the more-specific/forbidden match, so the mitigation is real, not
-    # dead code shadowed by the broader allow.
+    # `prefix_rule(["rg", "--pre"], forbidden)` — this was the FIRST codex deny rule that overlaps
+    # an allow prefix (`gh pr merge`/`gh` above is the second, now that `gh` joined the default
+    # allow set; sudo/screencapture still never collide), so nothing previously proved which
+    # decision wins. Verified here against the REAL codex CLI, not assumed: codex resolves the
+    # more-specific/forbidden match, so the mitigation is real, not dead code shadowed by the
+    # broader allow.
     rg_pre = subprocess.run(
         ["codex", "execpolicy", "check", "--rules", str(rules), "rg", "--pre", "cat", "x"],
         capture_output=True, text=True, timeout=30,

@@ -1450,7 +1450,10 @@ def _merge_permission_container(data: dict, ps: PermissionSpec) -> int:
     - array form: append each missing entry, order-stable — the user's entries stay first.
     - object form: set each missing entry KEY → ``ps.value`` only when the key is absent (never
       downgrade a user's ``"deny"``/``"ask"`` override on an allow entry — that is the user's
-      call, not rig's; drift surfaces it as ``modified`` instead).
+      call, not rig's; drift surfaces it as ``modified`` instead). For deny/ask roles, rig's OWN
+      desired entries are then re-anchored to the end of the object on every call (not just when
+      newly added) — opencode is last-match-wins, so a deny/ask key merged in an EARLIER apply
+      must never end up before an allow key merged in a LATER one.
 
     Raises ``ValueError`` on a shape mismatch (non-dict parent, non-array/non-object container);
     the caller turns that into an action error — never a blind overwrite of the user's data.
@@ -1482,54 +1485,398 @@ def _merge_permission_container(data: dict, ps: PermissionSpec) -> int:
             if entry not in existing:
                 existing[entry] = ps.value
                 added += 1
+        if ps.role in ("deny", "ask"):
+            # opencode is last-match-wins, and dict insertion order only grows at the tail — a
+            # deny/ask key MERGED IN A PRIOR APPLY can already sit BEFORE an allow key that is
+            # only newly merged in THIS apply (the exact shape rig-cli's gh default hit: `gh
+            # pr merge*: deny` provisioned before `gh` joined the default tool set, `gh *:
+            # allow` merged afterward → landed AFTER the existing deny key → later-key-wins
+            # silently un-denied the merge — same shape for any machine that opted into `gh`
+            # earlier via `permissions.extra: [gh]`, before it joined the default set). Re-anchor
+            # every one of rig's OWN desired deny/ask entries (``ps.entries`` — never a user's
+            # unrelated key) to the END of the container on EVERY apply, not just when freshly
+            # added, so this invariant holds on a fresh write, on an upgrade, AND on a machine
+            # that is ALREADY in the broken state (every desired key present, just misordered —
+            # ``added`` alone would be 0 there too). This is pure reordering with no value
+            # change, so the CALLER (``_do_provision_permissions``) is what decides whether it is
+            # write-worthy — it compares the container's serialized bytes before/after the merge
+            # loop rather than gating on ``added``, specifically so this repair is never silently
+            # discarded by an "already added everything" skip. NB: this also means a user's own
+            # key that sits AFTER one of rig's deny/ask entries — the only way to positionally
+            # override a baked deny in opencode's last-match-wins dialect — gets re-anchored past
+            # on the next apply too, defeating that override; the sanctioned way to relax a baked
+            # rule is `permissions.deny: [...]` (replaces the baseline), not key position.
+            _reanchor_rule_keys(existing, ps.entries)
     parent[leaf] = existing
     return added
 
 
-def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
-    """Merge the per-harness permissions layer into the harness settings JSON — ADDITIVE.
+def _reanchor_rule_keys(container: dict, entries: tuple[str, ...]) -> bool:
+    """Move every one of ``entries`` that is PRESENT in ``container`` to the tail, in ``entries``
+    order — returns whether the key ORDER actually changed.
 
-    One action reconciles EVERY container the plan resolved (rig-cli#100): the ``allow`` list
-    (tool-derived entries + adopted raw entries) and, for claude-code, the ``deny``/``ask`` rule
-    baselines. The invariant this enforces (and the tests assert): every existing entry in every
-    container is PRESERVED, the desired entries are MERGED IN, the result is DEDUPED, and a
-    re-apply with the same config is a true no-op. The accumulated ``permissions.allow`` in the
-    user's live settings (auto-mode, docker, psql, …) and the user's own deny/ask rules are
-    never clobbered — rig only ever ADDS what is missing (see :func:`_merge_permission_container`).
-
-    Backup-noted under ``on_conflict=backup`` when the file changes; ``skip`` leaves a malformed
-    file untouched; a non-dict settings root or a non-array/object container is a hard error
-    (never a blind overwrite of the user's data).
+    The one place that knows what "healed" means for opencode's last-match-wins ``permission.bash``
+    object. Shared by the writer (:func:`_merge_permission_container`, above) and by drift
+    (:func:`riglib.drift._check_permission_ordering`, which runs it on a throwaway ``dict`` copy to
+    detect the PRE-repair state without ever mutating the parsed file) — rig-cli#333 review finding:
+    ``run_plan`` already healed a misordered deny/ask key, but ``_check_permissions`` only compared
+    key membership and values, so ``rig status`` reported the insecure pre-repair state as clean.
+    Sharing this exact function means apply and drift can never diverge on the definition of "in
+    order" again.
     """
+    before = list(container.keys())
+    for entry in entries:
+        if entry in container:
+            container[entry] = container.pop(entry)
+    return list(container.keys()) != before
+
+
+# ── receipt-tracked revocation of a rig-GRANTED default allow entry (rig-cli#333 review finding) ──
+# The additive merge above never deletes anything — by design (rig-cli#100), a permission entry
+# beyond the baseline is always the USER's (or a former rig default, or a baseline the config
+# turned off), never something to silently remove. `allow_gh: false` breaks that assumption: it
+# is an explicit, config-level REQUEST to revoke a specific default grant, and leaving the entry
+# in place (merely reporting it as "kept") is a genuine security gap for a raw GitHub-write tool.
+#
+# The fix is NOT "rig deletes any allow entry it no longer desires" (that would also delete a
+# user's own hand-typed `permissions.allow`/`extra` entries the moment they're removed from
+# config, which rig-cli#100 explicitly rules out). It is narrower: a sidecar JSON receipt records
+# exactly which ALLOW entries rig itself granted as part of the config-driven DEFAULT tool set
+# (never `allow_rules`/raw config entries, which stay config-owned) — mirroring the omp approval
+# action's `.rig-permissions-receipt.json` sidecar (:func:`approval_receipt_file` above), the
+# established "rig's own receipt, not a marker inside the harness's file" pattern in this repo.
+# Only an entry the receipt names is ever removed; anything else beyond the desired set — a hand
+# add, or a grant that predates this feature and was therefore never receipted — is left alone and
+# reported as a kept "extra", exactly as before. Forward-only tracking fully closes the stated gap
+# for `gh`: it joins the default set in this SAME change, so no machine can have a rig-default
+# ``Bash(gh:*)``/``gh *`` without a receipt from the moment this ships.
+#
+# Known residual gap (round-4 review, accepted, not fixed here): two concurrent `rig apply`
+# invocations against the SAME shared settings file (e.g. two repos applied back-to-back on one
+# machine, overlapping in time) can race — no action in this file locks the settings file or the
+# receipt, so a revoking apply and a granting apply interleaved in just the wrong order could each
+# read a stale pre-write snapshot and one write could clobber the other's intent. Spelled out for
+# the revocation direction specifically (round-8 review): an opt-out apply (A) and an unrelated
+# apply from a sibling repo sharing the same file (B, adding some OTHER tool) racing in the wrong
+# order can have B's write — built from a snapshot taken before A's revoke — land LAST and silently
+# restore the just-revoked `gh` grant, with no error and no visible signal that the opt-out was
+# undone. This is a PRE-EXISTING characteristic of every additive-merge action here (nothing in
+# this file has ever locked a settings file; a plain add already races the same way), not something
+# the revocation feature introduces — `rig apply` is a single-machine, effectively-serial operator
+# command, not a concurrent service. Locking the whole family would be a separate, much larger
+# change; out of scope for this fix.
+GRANT_RECEIPT_SUFFIX = ".rig-permissions-grants.json"
+
+
+def permissions_receipt_file(action: Action) -> Path:
+    """The sidecar receipt a ``provision_permissions`` action reads/writes (shared with drift).
+
+    Named after the settings FILE itself (``<config_file>.rig-permissions-grants.json``), never a
+    fixed name in its parent directory. Review finding (rig-cli#333, round 2): a fixed per-directory
+    name let two DIFFERENTLY NAMED settings files sharing one directory (``permissions.settings_path``
+    lets a repo point anywhere) share one receipt too — repo A's grant on ``~/.claude/a.json`` could
+    then authorize revoking a hand-added, unrelated entry from ``~/.claude/b.json``. Suffixing the
+    settings file's own name makes receipt identity 1:1 with settings-file identity; two different
+    filenames in the same directory can never collide.
+
+    Known residual gap (round-3 review, accepted, not fixed here): the identity is the RAW target
+    path, never ``.resolve()``d — matching every OTHER action target in this file
+    (:func:`riglib.plan._expand` only resolves a RELATIVE path; an absolute one, the common case
+    for a per-machine settings path, is used as-is). Two `settings_path` values that are really the
+    same file via a symlink/hard-link would get two receipts and could, in principle, disagree on
+    ownership. This is a pre-existing, codebase-wide characteristic of path identity here (backups
+    and drift comparisons share it), not something specific to the receipt — fixing it only for the
+    receipt would make it the one canonicalized path in an otherwise-unresolved file.
+
+    Known residual gap (round-6 review, accepted, not fixed here): identity by PATH says nothing
+    about CONTENT continuity — if the settings file at this exact path is wholesale REPLACED by
+    something outside rig's own apply (not a hand-edit of the existing file, a full swap) while
+    this receipt is left in place untouched, and the replacement happens to independently contain
+    a string that renders identically to the git-hosting default, a later revoke would delete that
+    coincidentally-identical entry, believing it is the original grant. Detecting "this file was
+    swapped, not edited" would need a content fingerprint the receipt tracks across every apply —
+    a real design (and one a naive version of would itself break the "hand edits keep working"
+    goal, since a LEGITIMATE hand edit changes the file's content too, indistinguishable from a
+    swap by a bytes-changed test alone). Requires a genuinely unusual operational sequence (an
+    external process replacing the settings file while never touching its adjacent, rig-owned
+    receipt); left as a known, documented limitation rather than adding fingerprint machinery for
+    it here.
+
+    The SAME root cause (entry ownership is decided by rendered-string match against a receipt
+    that outlives any single apply, never by a per-grant fingerprint) also covers a narrower and
+    more plausible variant flagged in round 8: the user hand-removes just the rig-granted `gh`
+    entry, then — in a separate hand edit, no `rig apply` in between — hand-re-adds the identical
+    string back, without ever touching the receipt (only `rig apply` itself syncs it). The next
+    apply's revocation logic cannot distinguish that from the original, still-live grant and would
+    delete the user's re-added entry on a later `allow_gh: false`. This is the same accepted
+    trade-off as the wholesale-replacement case above, reached by a more ordinary path (a targeted
+    hand edit, not a full file swap) — fixing it needs the same per-grant fingerprint machinery,
+    judged out of proportion to this change's scope; not fixed here.
+
+    The filename also carries the harness ``kind`` (review finding, rig-cli#333 round 11): the
+    round-2 fix separated receipts by settings-FILE identity, but two DIFFERENT harness kinds can
+    still be configured to point their OWN, independent ``permissions.settings_path`` at the exact
+    SAME file (the "multiple kinds + one explicit override" case where the plan itself picks only
+    one kind and skips the rest is a different, single-repo scenario — this is two SEPARATE repos,
+    each configuring only one kind, that happen to target one shared path). Without ``kind`` in the
+    name, a later apply for the second kind would overwrite the first kind's receipt wholesale
+    (:func:`_sync_permissions_receipt` always replaces the file's content), and ``receipt_granted_
+    entries``'s kind-match guard would then see the WRONG kind and treat the first kind's real
+    grant as unreceipted — the same fail-open (never fail-dangerous) shape as every gap above.
+
+    No migration is needed for the filename rename itself: this entire receipt mechanism —
+    including the pre-round-11 filename it replaces — is new IN THIS SAME, still-unmerged PR
+    (rig-cli#333). It has never shipped, so no real machine can hold a receipt in the old
+    (kind-less) shape to migrate away from; the round-11 diff simply lands the final filename
+    before this ever reaches `main`.
+    """
+    settings_file = permissions_settings_file(action)
+    kind = str(action.options.get("kind", "claude-code"))
+    return settings_file.parent / f"{settings_file.name}.{kind}{GRANT_RECEIPT_SUFFIX}"
+
+
+def read_permissions_grant_receipt(receipt_file: Path) -> dict:
+    """rig's default-grant receipt as written (``{}`` when absent, unreadable or malformed — every
+    entry then counts as not-rig-owned, so nothing is ever revoked from an unreadable receipt)."""
     try:
-        specs = desired_permission_specs(action)
-    except ValueError as exc:
-        return ActionResult(action, "error", f"permissions/{action.item}: {exc}")
-    config_file = permissions_settings_file(action)
-    config_file.parent.mkdir(parents=True, exist_ok=True)
+        loaded = json.loads(receipt_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
 
-    data: dict = {}
-    backup_note = ""
-    existed = config_file.is_file()
-    if existed:
-        try:
-            data = json.loads(config_file.read_text(encoding="utf-8"))
-        except ValueError:
-            if on_conflict == "skip":
-                return ActionResult(
-                    action, "skipped",
-                    f"permissions/{action.item}: existing {config_file} is malformed JSON "
-                    "(on_conflict=skip), left untouched",
-                )
-            bak = fsutil.backup_path(config_file)
-            shutil.copy2(str(config_file), str(bak))
-            data = {}
-            backup_note = f" (backed up malformed config → {bak})"
-    if not isinstance(data, dict):
-        return ActionResult(action, "error", f"permissions/{action.item}: {config_file} is not a JSON object")
 
+def _valid_git_hosting_entries(kind: str) -> frozenset[str]:
+    """Every entry a receipt could LEGITIMATELY name for ``kind`` — the rendering of every member
+    of :data:`riglib.permissions.DEFAULT_GIT_HOSTING_TOOLS`, regardless of what is desired THIS
+    apply. The fixed universe :func:`receipt_granted_entries` clamps against."""
+    from ..permissions import DEFAULT_GIT_HOSTING_TOOLS, desired_entries
+
+    return frozenset(desired_entries(kind, list(DEFAULT_GIT_HOSTING_TOOLS)))
+
+
+def receipt_granted_entries(receipt: dict, kind: str) -> frozenset[str]:
+    """The allow entries the receipt says rig itself granted as DEFAULTS for this exact ``kind``.
+
+    Scoped to a matching ``kind`` on purpose — a receipt is never trusted across a kind mismatch
+    (a hand-edited or foreign receipt), fail-safe to "nothing is rig-owned". Also CLAMPED to
+    :func:`_valid_git_hosting_entries` (review finding, rig-cli#333 round 2): a syntactically valid
+    but corrupted/adversarial/hand-edited receipt (``{"granted": ["Bash(kubectl:*)"]}``) must never
+    be able to authorize revoking anything outside the tiny, fixed git-hosting-default universe —
+    defense in depth on top of the write path only ever recording valid entries in the first place.
+    """
+    if receipt.get("kind") != kind:
+        return frozenset()
+    granted = receipt.get("granted")
+    if not isinstance(granted, list):
+        return frozenset()
+    valid = _valid_git_hosting_entries(kind)
+    return frozenset(e for e in granted if isinstance(e, str) and e in valid)
+
+
+def desired_default_allow_entries(action: Action) -> frozenset[str]:
+    """The git-hosting-default ALLOW entries this apply's resolved tool set actually wants —
+    i.e. the rendering of whichever :data:`riglib.permissions.DEFAULT_GIT_HOSTING_TOOLS` members
+    are in ``action.options["tools"]``. Used only for the POSITIVE/grant side of the receipt (did
+    THIS apply just add the entry) — never for deciding what to revoke (see
+    :func:`explicit_git_hosting_revocation_entries` for that; round-2 review finding: an entry
+    merely being absent from one repo's resolved ``tools`` is not the same as an explicit opt-out,
+    see that function's docstring for the full incident).
+    """
+    from ..permissions import DEFAULT_GIT_HOSTING_TOOLS, desired_entries
+
+    kind = str(action.options.get("kind", "claude-code"))
+    tools = [str(t) for t in action.options.get("tools", []) if str(t) in DEFAULT_GIT_HOSTING_TOOLS]
+    return frozenset(desired_entries(kind, tools))
+
+
+def explicit_git_hosting_revocation_entries(action: Action) -> frozenset[str]:
+    """The allow entries this apply is EXPLICITLY, deliberately opting out of — the receipt's only
+    valid revocation trigger.
+
+    Review finding (rig-cli#333, round 2): revocation used to trigger off ``gh`` being absent from
+    ``desired_default_allow_entries`` — but that is also exactly what an UNRELATED
+    ``permissions.tools: [tg]`` override produces on a repo that never mentioned ``gh``/``allow_gh``
+    at all. On the machine-wide shared settings file, that repo's apply would then revoke a sibling
+    repo's `gh` grant as a pure side effect of picking its own narrower tool list. The plan resolves
+    the ACTUAL by-name opt-out (:func:`riglib.plan._explicit_git_hosting_opt_out` — ``allow_gh:
+    false`` or ``gh`` named directly in ``permissions.disable``) into ``action.options
+    ["revoke_git_hosting"]``; this is the one signal the runner is ever allowed to revoke on.
+    """
+    from ..permissions import desired_entries
+
+    kind = str(action.options.get("kind", "claude-code"))
+    tools = [str(t) for t in action.options.get("revoke_git_hosting", [])]
+    return frozenset(desired_entries(kind, tools))
+
+
+def _read_only_container(data: dict, key_path: tuple[str, ...]) -> tuple[dict | None, str | None]:
+    """Read-only walk to the PARENT of a container — never creates missing intermediates (unlike
+    :func:`_container_at`, which the writer uses and which scaffolds empty dicts as a side effect).
+    Returns ``(None, None)`` when any segment along the way is absent or not a dict, so a caller
+    can tell "nothing here to revoke from" without ever mutating ``data``."""
+    cur = data
+    for seg in key_path[:-1]:
+        if not isinstance(cur, dict):
+            return None, None
+        cur = cur.get(seg)
+        if cur is None:
+            return None, None
+    if not isinstance(cur, dict):
+        return None, None
+    return cur, key_path[-1]
+
+
+def _revoke_stale_default_grants(
+    data: dict, allow_spec: PermissionSpec, to_revoke: frozenset[str],
+) -> list[str]:
+    """Remove every entry in ``to_revoke`` that is STILL PRESENT with rig's own value in the allow
+    container — never scaffolding a missing container (nothing to revoke from one that isn't
+    there), never touching an entry the user has since repurposed (object form: a differing value
+    means it is no longer rig's to take back). Returns the entries actually removed.
+
+    Array form: removes at most ONE occurrence per revoked entry string (review finding, rig-cli#333
+    round 5) — the receipt proves rig granted the entry ONCE, never that every occurrence of an
+    identical string is rig's. A hand-duplicated array entry (``["Bash(gh:*)", ..., "Bash(gh:*)"]``,
+    a JSON array tolerates duplicates even though rig's own additive merge never creates one) keeps
+    its extra hand-added copy — only the one rig can prove it wrote is taken back.
+    """
+    if not to_revoke:
+        return []
+    parent, leaf = _read_only_container(data, allow_spec.key_path)
+    if parent is None:
+        return []
+    existing = parent.get(leaf)
+    removed: list[str] = []
+    if allow_spec.container == "array":
+        if not isinstance(existing, list):
+            return []
+        kept = []
+        removed_once: set[str] = set()
+        for entry in existing:
+            if isinstance(entry, str) and entry in to_revoke and entry not in removed_once:
+                removed.append(entry)
+                removed_once.add(entry)
+            else:
+                kept.append(entry)
+        if removed:
+            parent[leaf] = kept
+    else:
+        if not isinstance(existing, dict):
+            return []
+        for entry in list(existing):
+            if entry in to_revoke and existing.get(entry) == allow_spec.value:
+                del existing[entry]
+                removed.append(entry)
+    return removed
+
+
+def _default_allow_presence(data: dict, allow_spec: PermissionSpec) -> frozenset[str]:
+    """Which allow-container KEYS are currently present (any value) — used only to tell which
+    ``desired_default_allow_entries`` were ABSENT before this apply's merge (and are therefore
+    newly granted by rig just now, hence receipt-eligible). Key membership only, matching what
+    :func:`_merge_permission_container` itself treats as "already there" (it never touches an
+    object-form entry whose value differs — see the comment on that branch)."""
+    node, leaf = _read_only_container(data, allow_spec.key_path)
+    existing = node.get(leaf) if node is not None else None
+    if allow_spec.container == "array":
+        return frozenset(e for e in existing if isinstance(e, str)) if isinstance(existing, list) else frozenset()
+    return frozenset(existing) if isinstance(existing, dict) else frozenset()
+
+
+@dataclass(frozen=True)
+class _PermissionRevocationContext:
+    """Everything :func:`_do_provision_permissions` needs to decide what (if anything) to revoke —
+    computed once, read-only, before the settings file is even opened."""
+
+    kind: str
+    config_file: Path
+    allow_spec: PermissionSpec
+    receipt_file: Path
+    desired_default_allow: frozenset[str]
+    prior_granted: frozenset[str]
+    to_revoke: frozenset[str]
+    never_receipt: frozenset[str]
+
+
+def _permission_revocation_context(action: Action, specs: list[PermissionSpec]) -> _PermissionRevocationContext:
+    """Resolve the receipt/revocation bookkeeping for one apply.
+
+    ``to_revoke`` = entries the receipt says rig granted, that THIS apply explicitly opts out of
+    (:func:`explicit_git_hosting_revocation_entries` — never mere absence from a resolved tool
+    list, see that function's docstring), MINUS whatever the allow spec's own entries still want
+    present. That last subtraction is a review finding (rig-cli#333 round 2): a self-contradicting
+    config — ``allow_gh: false`` alongside an explicit ``permissions.allow: ['Bash(gh:*)']`` (or
+    an ``extra: [gh]`` that ends up back in ``allow_spec.entries`` some other way) — must not
+    revoke-then-immediately-re-add the same entry in one apply and report "revoked" over an entry
+    that is, in fact, still there; an explicit raw assertion wins over the default-toggle-driven
+    revocation.
+
+    ``never_receipt`` is carried through to :func:`_sync_permissions_receipt` so it can exclude
+    these entries from what gets receipted, however they happen to render — every USER-explicit
+    way of asking for an entry, as opposed to rig's own config-driven default:
+
+    - ``action.options["allow_rules"]`` — raw ``permissions.allow`` entries (review finding,
+      rig-cli#333 round 6): ``permissions.allow: ['Bash(gh:*)']`` renders identically to the
+      git-hosting default and, on a first apply before rig's own default merge would have added
+      it, was ALSO "absent before" — but it is the user's explicit assertion, documented as never
+      receipted.
+    - ``action.options["extra_tools"]`` rendered through :func:`riglib.permissions.desired_entries`,
+      restricted to :data:`riglib.permissions.DEFAULT_GIT_HOSTING_TOOLS` (review finding, rig-cli#333
+      round 7): ``permissions.extra: [gh]`` on top of a ``tools:`` override that would NOT otherwise
+      include ``gh`` is exactly as deliberate a user ask as raw ``allow`` — the SAME "looks newly
+      added by the default merge" trap, just via a different config knob.
+    - ``action.options["explicit_tools_git_hosting"]`` rendered the same way (review finding,
+      rig-cli#333 round 8): an explicit ``permissions.tools: [gh]`` REPLACES the whole default set
+      — naming ``gh`` there is exactly as deliberate a user ask as ``extra``/raw ``allow``, the
+      SAME trap again via yet another config knob (see :func:`riglib.plan._explicit_tools_git_hosting`).
+    """
+    from ..permissions import DEFAULT_GIT_HOSTING_TOOLS, desired_entries
+
+    kind = str(action.options.get("kind", "claude-code"))
+    allow_spec = next((ps for ps in specs if ps.role == "allow"), None)
+    if allow_spec is None:
+        raise RuntimeError(
+            f"provision_permissions for kind={kind!r} produced no allow-role PermissionSpec — "
+            "desired_permission_specs() should always emit one for a supported harness kind"
+        )
+    receipt_file = permissions_receipt_file(action)
+    prior_granted = receipt_granted_entries(read_permissions_grant_receipt(receipt_file), kind)
+    explicit_revoke = explicit_git_hosting_revocation_entries(action)
+    to_revoke = (prior_granted & explicit_revoke) - frozenset(allow_spec.entries)
+    never_receipt_tools = [
+        str(t)
+        for key in ("extra_tools", "explicit_tools_git_hosting")
+        for t in action.options.get(key, [])
+        if str(t) in DEFAULT_GIT_HOSTING_TOOLS
+    ]
+    never_receipt = frozenset(str(r) for r in action.options.get("allow_rules", [])) | frozenset(
+        desired_entries(kind, never_receipt_tools)
+    )
+    return _PermissionRevocationContext(
+        kind=kind,
+        config_file=permissions_settings_file(action),
+        allow_spec=allow_spec,
+        receipt_file=receipt_file,
+        desired_default_allow=desired_default_allow_entries(action),
+        prior_granted=prior_granted,
+        to_revoke=to_revoke,
+        never_receipt=never_receipt,
+    )
+
+
+def _merge_all_permission_specs(
+    action: Action, specs: list[PermissionSpec], data: dict, total_desired: int, config_file: Path,
+) -> tuple[list[str], int] | ActionResult:
+    """Run every spec's merge — skipped entirely when NOTHING across every spec is desired
+    (`total_desired == 0` can still hold with a non-empty deny/ask baseline alongside a disabled
+    tool set; only the fully-empty case skips, matching :func:`_merge_permission_container`'s own
+    scaffolding-avoidance comment). Returns ``(added_per_container, total_added)``, or an
+    ``ActionResult`` error on a container shape conflict.
+    """
     added_per_container: list[str] = []
     total_added = 0
+    if total_desired == 0:
+        return added_per_container, total_added
     for ps in specs:
         try:
             n = _merge_permission_container(data, ps)
@@ -1538,35 +1885,276 @@ def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
         if n:
             added_per_container.append(f"{n} to {'.'.join(ps.key_path)}")
             total_added += n
+    return added_per_container, total_added
 
-    total_desired = sum(len(ps.entries) for ps in specs)
-    if total_added == 0:
-        detail = (
-            f"permissions/{action.item}: no desired entries to provision (empty tool + rule sets)"
-            if total_desired == 0
-            else f"permissions/{action.item}: all {total_desired} entries already in {config_file}"
-        )
-        return ActionResult(action, "skipped", detail)
 
-    if _should_backup(on_conflict) and backup_note == "" and config_file.is_file():
+def _describe_permission_changes(added_per_container: list[str], total_added: int, revoked: list[str]) -> list[str]:
+    """The human-readable change list for the ActionResult detail (a fresh list — the caller's is
+    left untouched)."""
+    described = list(added_per_container)
+    if total_added == 0 and not revoked:
+        # Nothing NEW and nothing REVOKED, but the container changed shape anyway — the deny/ask
+        # re-anchor moved an already-present key. Still a write: the caller only reaches here when
+        # `after != before` already proved it.
+        described.append("re-anchored deny/ask key order")
+    if revoked:
+        described.append(f"revoked {', '.join(sorted(revoked))} (no longer desired)")
+    return described
+
+
+def _maybe_backup_permissions_file(config_file: Path, on_conflict: str) -> str:
+    """Back up the existing file under ``on_conflict=backup`` — "" if it didn't exist or the
+    policy doesn't call for it (the malformed-file backup, a separate always-unless-skip case,
+    is taken by the caller before this ever runs — see :func:`_do_provision_permissions`)."""
+    if _should_backup(on_conflict) and config_file.is_file():
         bak = fsutil.backup_path(config_file)
         shutil.copy2(str(config_file), str(bak))
-        backup_note = f" (backed up prior → {bak})"
+        return f" (backed up prior → {bak})"
+    return ""
+
+
+def _do_provision_permissions(action: Action, on_conflict: str) -> ActionResult:
+    """Merge the per-harness permissions layer into the harness settings JSON — ADDITIVE, with
+    receipt-tracked revocation of rig's own default git-hosting grant.
+
+    One action reconciles EVERY container the plan resolved (rig-cli#100): the ``allow`` list
+    (tool-derived entries + adopted raw entries) and, for claude-code, the ``deny``/``ask`` rule
+    baselines. Every existing entry in every container is PRESERVED, the desired entries are
+    MERGED IN, deduped, and a re-apply with the same config is a true no-op — rig only ever ADDS
+    what is missing (see :func:`_merge_permission_container`). The ONE exception is a
+    receipt-tracked default ``gh`` grant an EXPLICIT opt-out no longer wants
+    (:func:`_permission_revocation_context`): rig itself put that entry there, so rig itself takes
+    it back (:func:`_revoke_stale_default_grants`) — never an entry the receipt does not name.
+
+    Backup-noted under ``on_conflict=backup`` when the file changes; ``skip`` leaves a malformed
+    file untouched; a non-dict settings root or a non-array/object container is a hard error.
+    """
+    try:
+        specs = desired_permission_specs(action)
+    except ValueError as exc:
+        return ActionResult(action, "error", f"permissions/{action.item}: {exc}")
+    ctx = _permission_revocation_context(action, specs)
+
+    # Handle the fully-empty, nothing-to-revoke-either action BEFORE touching the file at all
+    # (rig-cli#333 review finding): with every list empty AND no stale rig-owned grant to take
+    # back, there is nothing to do — no read, no parse, no backup. The OLD ordering parsed first
+    # (which, against a MALFORMED file under `on_conflict=backup`, already copied it to a unique
+    # backup and reset `data` to `{}`) and only afterwards noticed there was nothing to merge — the
+    # empty-action skip fired AFTER the destructive side effect, so a malformed file got a fresh
+    # spurious backup on every single re-apply forever. Bailing out here, before `config_file` is
+    # even opened, keeps a truly empty action idempotent regardless of what is on disk.
+    total_desired = sum(len(ps.entries) for ps in specs)
+    if total_desired == 0 and not ctx.to_revoke:
+        return ActionResult(
+            action, "skipped",
+            f"permissions/{action.item}: no desired entries to provision (empty tool + rule sets)",
+        )
+
+    ctx.config_file.parent.mkdir(parents=True, exist_ok=True)
+    data, was_malformed, existed, early = _load_permissions_settings(action, ctx.config_file, on_conflict)
+    if early is not None:
+        return early
+
+    # Snapshot BEFORE any mutation so the write decision is driven by whether `data` actually
+    # CHANGED — not by "were any entries added" (the deny/ask re-anchor can reorder with zero new
+    # entries) and not by "was anything revoked" (a revoke can find nothing left to remove).
+    before = json.dumps(data, indent=2) + "\n"
+    present_before = _default_allow_presence(data, ctx.allow_spec)
+    revoked = _revoke_stale_default_grants(data, ctx.allow_spec, ctx.to_revoke)
+
+    merge_result = _merge_all_permission_specs(action, specs, data, total_desired, ctx.config_file)
+    if isinstance(merge_result, ActionResult):
+        return merge_result
+    added_per_container, total_added = merge_result
+
+    after = json.dumps(data, indent=2) + "\n"
+    if after == before:
+        # Nothing to WRITE, but the receipt can still be out of date (e.g. a stale grant that is
+        # no longer even present has nothing left to revoke, yet the receipt should stop naming
+        # it). Safe to sync here unconditionally: no write to `config_file` happens in this
+        # branch, so there is no failure window between "receipt says rig owns it" and "the file
+        # actually reflects that".
+        _sync_permissions_receipt(ctx, data, present_before, revoked)
+        return ActionResult(
+            action, "skipped",
+            f"permissions/{action.item}: all {total_desired} entries already in {ctx.config_file}",
+        )
+
+    added_per_container = _describe_permission_changes(added_per_container, total_added, revoked)
+    # The malformed-file backup is taken HERE — deferred all the way to the point a write is
+    # actually about to happen — never eagerly inside `_load_permissions_settings` (review
+    # finding, rig-cli#333 round 11): the original malformed bytes are still sitting untouched at
+    # `ctx.config_file` (this function never deletes/replaces them before this point), so backing
+    # up now is equivalent to backing up at parse time WHENEVER a write follows, but skips the
+    # backup entirely on the "parsed fine as {}, nothing ended up changing" branches above (the
+    # `total_desired == 0 and not ctx.to_revoke` bail-out, and the `after == before` no-op below a
+    # revoke-only action against a malformed file that resets to `{}` and then finds nothing left
+    # to revoke) — closing the SAME "spurious backup for an action that ends up writing nothing"
+    # class the fully-empty-action guard above (finding #3) closes, just reached via the
+    # revoke-only path that guard doesn't cover on its own.
+    #
+    # NEVER gated on `_should_backup` (review finding, rig-cli#333 round 13): `_should_backup` is
+    # the WELL-FORMED-file predicate (`on_conflict == "backup"` only — "overwrite" deliberately
+    # skips that ceremony for a file rig can already parse and safely re-merge into). A MALFORMED
+    # file is different: rig is about to blow away content it never parsed and can't merge into, a
+    # real, one-way information loss regardless of the well-formed-file policy — the round-11
+    # refactor accidentally reused `_should_backup` here and silently dropped the always-back-up-
+    # malformed-unless-skip guarantee for `on_conflict: overwrite`. No explicit `on_conflict !=
+    # "skip"` check needed here: `was_malformed` can only be True at this point if
+    # `_load_permissions_settings` did NOT already return its `on_conflict == "skip"` early result
+    # above, so that case is already excluded.
+    #
+    # This exact spot has regressed three times across this branch's own history (a fresh
+    # reviewer catching a subtly-wrong backup condition each time) — the guard below is a fail-
+    # LOUD local check (an explicit exception, not `assert`, so it still fires under `-O`/
+    # `PYTHONOPTIMIZE`) for the cross-function invariant the comment above only states in prose
+    # (review finding, rig-cli#333 round 15), so a future edit to `_load_permissions_settings`'s
+    # early-return logic that silently breaks the coupling trips a test immediately here, not a
+    # quiet re-introduction of "malformed file backed up even under on_conflict=skip".
+    if was_malformed:
+        if on_conflict == "skip":
+            raise RuntimeError(
+                "was_malformed implies on_conflict != 'skip' — _load_permissions_settings should "
+                "have short-circuited before this point"
+            )
+        bak = fsutil.backup_path(ctx.config_file)
+        shutil.copy2(str(ctx.config_file), str(bak))
+        backup_note = f" (backed up malformed config → {bak})"
+    else:
+        backup_note = _maybe_backup_permissions_file(ctx.config_file, on_conflict)
     # NEVER pass sort_keys=True here: opencode is last-match-wins, so its deny/ask keys in
     # permission.bash MUST serialize AFTER the allow keys / any user catch-all. Sorting (or otherwise
     # rebuilding the object) would silently reorder deny before allow and turn every deny into a
     # no-op — with no test failure unless the order assertion in test_opencode_deny_ask_written_
     # after_user_catch_all stays. Insertion order (the additive merge appends missing keys) is the
-    # invariant; json.dumps preserves dict order, so leave it be.
-    config_file.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    # invariant; json.dumps preserves dict order, so leave it be. Reuse `after` (already the exact
+    # bytes this same serialization would produce) rather than dumping a third time.
+    ctx.config_file.write_text(after, encoding="utf-8")
+    # Sync the receipt ONLY after the settings write above actually succeeded (review finding,
+    # rig-cli#333 round 2): syncing it BEFORE the write let a failed write (e.g. a read-only file)
+    # leave a receipt claiming rig granted an entry that was never actually written — a later
+    # hand-added entry with the same name would then be wrongly treated as rig's own and revoked
+    # on some future opt-out. `run_plan` turns a `write_text` exception into an "error"
+    # ActionResult (never a crash), and this ordering guarantees the receipt is untouched when that
+    # happens — it reflects reality, not intent.
+    #
+    # Residual gap (round-3 review, accepted, not fixed here): the INVERSE double-fault — the
+    # settings write above succeeds (gh really is granted) but THIS receipt write then fails (its
+    # own directory unwritable) — leaves gh granted with no receipt. A later `allow_gh: false` then
+    # can't prove ownership and does not revoke it. This fails OPEN for a security control (gh
+    # stays allowed), never fails DANGEROUS (nothing is ever wrongly deleted) — and it fails
+    # VISIBLY: `rig status` still shows the un-receipted `Bash(gh:*)`/`gh *` as a kept "extra" (not
+    # silently clean), so an operator auditing `gh` access sees it. Recovering automatically would
+    # mean adopting a present-but-unreceipted entry into the receipt on some later apply — exactly
+    # the pre-existing-grant adoption forward-only tracking deliberately rejects (see this file's
+    # receipt module comment) — so this is a deliberate trade, not an oversight: a rare double
+    # fault (two independent writes to two different files, one succeeding and one not) degrades
+    # to "fix it by hand" rather than reopening the adoption hole for a common case.
+    _sync_permissions_receipt(ctx, data, present_before, revoked)
     # "backed_up" when we preserved a prior copy; else "updated" if the file pre-existed (we merged
     # entries into it), or "created" if we wrote it fresh. Don't report "created" for a file we
     # actually modified under a non-backup policy (the review's misleading-status finding).
     status = "backed_up" if backup_note else ("updated" if existed else "created")
     return ActionResult(
         action, status,
-        f"permissions/{action.item}: added {', '.join(added_per_container)} in {config_file}{backup_note}",
+        f"permissions/{action.item}: added {', '.join(added_per_container)} in {ctx.config_file}{backup_note}",
     )
+
+
+def _load_permissions_settings(
+    action: Action, config_file: Path, on_conflict: str,
+) -> tuple[dict, bool, bool, ActionResult | None]:
+    """Parse ``config_file`` for :func:`_do_provision_permissions`.
+
+    Returns ``(data, was_malformed, existed, early_result)`` — when ``early_result`` is set the
+    caller must return it immediately (a malformed file under ``on_conflict=skip``, or a non-dict
+    root); ``data``/``was_malformed``/``existed`` are meaningless in that case.
+
+    Deliberately does NOT back up a malformed file itself (review finding, rig-cli#333 round 11):
+    it only reports ``was_malformed=True`` and resets ``data`` to ``{}`` for parsing purposes,
+    leaving the original bytes on disk untouched. The caller takes the actual backup copy only
+    once it knows a write is really about to happen — see the note at that call site.
+    """
+    data: dict = {}
+    was_malformed = False
+    existed = config_file.is_file()
+    if existed:
+        try:
+            data = json.loads(config_file.read_text(encoding="utf-8"))
+        except ValueError:
+            if on_conflict == "skip":
+                return {}, False, existed, ActionResult(
+                    action, "skipped",
+                    f"permissions/{action.item}: existing {config_file} is malformed JSON "
+                    "(on_conflict=skip), left untouched",
+                )
+            was_malformed = True
+            data = {}
+    if not isinstance(data, dict):
+        return {}, False, existed, ActionResult(
+            action, "error", f"permissions/{action.item}: {config_file} is not a JSON object",
+        )
+    return data, was_malformed, existed, None
+
+
+def _sync_permissions_receipt(
+    ctx: _PermissionRevocationContext, data: dict, present_before: frozenset[str],
+    revoked: list[str],
+) -> None:
+    """Write the sidecar receipt so it reflects what rig owns AFTER this apply.
+
+    ``granted`` = (previously receipted entries that are STILL ACTUALLY PRESENT after this apply)
+    ∪ (entries THIS apply's own desired set just added, i.e. were ABSENT before this run's merge).
+    Deliberately based on POST-MERGE PRESENCE (:func:`_default_allow_presence` on ``data``, which
+    already reflects the revoke + merge this same call made), never on
+    ``ctx.desired_default_allow`` alone (review finding, rig-cli#333 round 2): the settings file is
+    MACHINE-WIDE, so an UNRELATED sibling repo's apply — one that never mentions ``gh``/
+    ``allow_gh`` at all, just a narrower ``permissions.tools`` — must not reset the receipt to
+    "not granted" merely because ITS OWN resolved tool list happens to omit ``gh``; the entry is
+    still there, untouched, so it stays receipted. An entry that happens to match a rendering but
+    was ALREADY present before this run and was NEVER receipted (a hand add, or a grant that
+    predates this feature) is deliberately excluded from both sides — forward-only tracking, so
+    only a grant rig can prove it made is ever revocable. Writes nothing when there is nothing to
+    receipt (avoids a stray file on a machine that has never used the git-hosting default at all).
+
+    ``newly_added`` also excludes ``ctx.never_receipt`` (review findings, rig-cli#333 rounds 6-7):
+    an entry the user explicitly asked for by name — raw ``permissions.allow`` or
+    ``permissions.extra`` — renders identically to the git-hosting default and, on a first apply
+    before rig's own default merge would have added it, was ALSO "absent before" — but it is the
+    user's explicit, config-owned assertion (documented as never receipted), not something rig can
+    claim credit for granting.
+
+    ``revoked`` (the entries :func:`_revoke_stale_default_grants` actually removed THIS apply) is
+    also subtracted, unconditionally (review finding, rig-cli#333 round 13): array-form revocation
+    removes AT MOST ONE occurrence per string, so a hand-DUPLICATED entry (rig's receipted copy
+    plus an identical user-added copy) still shows up in ``present_after`` — the physical copy
+    left behind is the user's, not rig's, but ``present_after`` can't tell the copies apart by
+    string alone. Without this subtraction the receipt kept claiming the entry as granted after
+    rig's own copy was already taken back, so a SECOND identical apply would revoke the user's
+    surviving copy too — an idempotency violation (a re-apply of the same config must be a no-op)
+    and a silent violation of the "only one rig-proven copy is ever revoked" contract on the second
+    pass. Once rig has taken its copy back, it never again claims ownership of whatever remains.
+    """
+    present_after = _default_allow_presence(data, ctx.allow_spec)
+    newly_added = (ctx.desired_default_allow - present_before) - ctx.never_receipt
+    # ``never_receipt`` is subtracted from the UNION, not just from ``newly_added`` (review
+    # finding, rig-cli#333 round 9): an entry can already be sitting in ``ctx.prior_granted`` from
+    # an EARLIER apply that granted it as a plain default, before THIS apply's config explicitly
+    # re-declares it via `tools`/`extra`/raw `allow`. Excluding ``never_receipt`` only from
+    # ``newly_added`` left that old receipt entry untouched forever, so a later, unrelated
+    # `allow_gh: false` would still revoke it — contradicting the documented "an explicit
+    # declaration is never revoked" contract the moment ownership transitions mid-lifecycle rather
+    # than at the very first apply. Subtracting from the union means an explicit declaration
+    # ALWAYS drops the entry from the receipt, in every apply where it's present, regardless of
+    # which earlier apply originally granted it.
+    granted = ((ctx.prior_granted | newly_added) - ctx.never_receipt - frozenset(revoked)) & present_after
+    if not granted and not ctx.receipt_file.exists():
+        return
+    content = json.dumps({"template": 1, "kind": ctx.kind, "granted": sorted(granted)}, indent=2) + "\n"
+    if ctx.receipt_file.is_file() and ctx.receipt_file.read_text(encoding="utf-8") == content:
+        return  # already current — a true no-op re-apply must not even touch the receipt's mtime
+    ctx.receipt_file.write_text(content, encoding="utf-8")
+    ctx.receipt_file.chmod(0o600)
 
 
 # ── codex execpolicy .rules provisioning (~/.codex/rules/rig-managed.rules) ────────────────────

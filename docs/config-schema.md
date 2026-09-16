@@ -453,7 +453,7 @@ skills dir (`~/.agents/.skill-lock.json` for the default target) and names the s
 | any other agent-hook descriptor | `installed_by` key → shipped agent-tools ops-installer list → `agent_hooks.known` (by id or full `<id>.<point>` stem) | drift: unknown origin |
 | CI workflow | `ci.known` → a stem that is NOT a catalog CI slot (the repo's own workflow) | drift: a catalog gate on disk that this config does not enable (a rig orphan) |
 | MCP server | `mcp.known` | drift |
-| permission entry beyond the baseline | always "kept": a former rig default (`gh`/`git`/`uv`/`bun`, rig-cli#41 → #165), a baseline deny/ask rule the config turned off, or a hand-added entry — rig never removes any of them | — |
+| permission entry beyond the baseline | "kept": a former rig default (`git`/`uv`/`bun`, rig-cli#41 → #165 — `gh` was reinstated by rig-cli#332, see `allow_gh` below), a baseline deny/ask rule the config turned off, or a hand-added entry — rig removes none of these. The ONE exception: a `gh` grant rig itself receipted as its own default (never a hand-added or pre-existing one) is drift, and an explicit `allow_gh: false`/`disable: [gh]` revokes it — see `allow_gh` below | — (or `extra`, for the one revocable exception) |
 
 Real drift keeps its signal: an unknown-origin skill, an undeclared catalog gate workflow, or a
 hand-mangled permission container still exits with the drift code.
@@ -815,12 +815,32 @@ desired entries are merged in, deduped; a re-apply is a no-op.
 command-prefix level — for claude-code that is `Bash(<tool>:*)`, which covers every subcommand and
 flag of that tool. That is why the default set is deliberately narrow: lifecycle operations go
 through the standalone `dev` CLI (alex-mextner/dev-cli), and rig grants `Bash(dev:*)` as the
-single safe development surface. rig does **not** grant raw process-control, package-manager,
-git-hosting, or broad
-external-write tools by default: no `kill`, `lsof`, `ps`, `pgrep`, `pkill`, `docker`, `bun`, `npm`,
-`uv`, `gh`, or `git`. The safety boundary for those workflows belongs inside `dev`, where the CLI
+single safe development surface. rig does **not** grant raw process-control, package-manager, or
+broad external-write tools by default: no `kill`, `lsof`, `ps`, `pgrep`, `pkill`, `docker`, `bun`,
+`npm`, `uv`, or `git`. The safety boundary for those workflows belongs inside `dev`, where the CLI
 can validate project ownership and intent. If you need a repo-specific raw grant, opt into it
 explicitly with `tools`, `extra`, or a raw `allow` entry.
+
+**`gh` (the GitHub CLI) is the one exception** — it IS in the default set, because everyday agent
+use of it is read-heavy (`gh pr view`, `gh issue list`). Be honest about what that trades in: `gh`
+is a broad write transport, not just a merge tool. `gh api -X PUT/POST ...` reaches the same REST
+surface a merge would use, `gh api graphql` can run a merge mutation directly, and unrelated
+commands (`gh auth token` prints the OAuth token; `gh repo delete`, `gh secret set`) are just as
+reachable under a blanket `gh` grant. The baked `gh-pr-merge` deny/forbidden rule below covers ONLY
+the direct, argv-prefix `gh pr merge` form on every harness belt — a global flag ahead of the
+subcommand (`gh --repo o/r pr merge 5`) or the `gh api`/`gh api graphql` merge routes above are NOT
+caught by any of these prefix/glob rules. What DOES catch those, on claude-code and codex (where
+rig's `agent_hooks` hook-bridge feature is provisioned), is agent-tools' own argv-level
+`block-raw-pr-merge` hook — the same "coarse belt here, argv-parsing deep layer in the hook bridge"
+split this doc already uses for the force-push/`--no-verify` gaps below. That hook does not exist
+for opencode or omp, and even where it runs it targets merges specifically — the wider `gh auth
+token`/`gh repo delete`/`gh secret set` surface stays open under the default grant everywhere. Set
+`allow_gh: false` (or `disable: [gh]`) to opt back out of the `gh` grant entirely, closing all of
+the above at once — see `riglib/permissions.py` for the full accounting. One opencode-specific
+side effect worth knowing: rig now re-anchors its own deny/ask keys to the end of `permission.bash`
+on every apply (see the opencode deny/ask baseline note below), so a user's own key that
+positionally overrides a baked deny by sitting after it in the file stops working on the next
+apply. Use `permissions.deny: [...]` to relax a baked rule instead of relying on key position.
 
 The allowlist file itself is per-machine. `permissions` may live in the global config for
 machine-wide defaults, and repo-local `permissions:` remains accepted for compatibility with
@@ -830,9 +850,10 @@ existing committed configs.
 permissions:
   enabled: true                # provision the permissions layer (false → leave the harness config alone)
   # kind: opencode             # target one harness allowlist explicitly (default: supported harness.kind + harness.kinds)
-  # tools: [tg, review, draw, 3d, rig, task, dev, pm, research, rg, jq, gitleaks]  # REPLACES the default set
+  # tools: [tg, review, draw, 3d, rig, task, dev, pm, research, rg, jq, gitleaks, gh]  # REPLACES the default set
   # extra: [kubectl]           # ADD to the (default or explicit) set
   # disable: [gitleaks]        # drop from rig's desired set (won't ADD it; never removes a live entry)
+  # allow_gh: false            # opt out of the gh grant specifically (sugar over disable: [gh])
   # allow:                     # RAW rule entries asserted present in the allow list (on TOP of tools)
   #   - WebFetch
   #   - "Read(//private/tmp/reports/**)"
@@ -845,29 +866,31 @@ permissions:
 | --- | --- | --- | --- |
 | `enabled` | bool | `true` | provision the permissions layer (set `false` to leave the harness config untouched) |
 | `kind` | `claude-code` \| `opencode` \| `codex` \| `omp` \| `pi` \| `commandcode` \| `null` | supported `harness.kind` plus `harness.kinds`, else `claude-code` | which harness's permissions to provision. Every known harness has a surface, so every kind is pinnable: allowlist kinds get the additive merge, omp gets the generated guard extension + approval posture (tier 1), codex the execpolicy block (tier 1), pi/commandcode the advisory instruction policy (tier 3). When absent or `null`, rig fans out to every configured harness kind |
-| `tools` | str[] | the default set | the command names to pre-allow; **replaces** the default set wholesale |
-| `extra` | str[] | `[]` | command names to ADD on top of the (default or explicit) set |
-| `disable` | str[] | `[]` | command names to drop from rig's **desired** set, so rig won't ADD them. NB: this is additive-only — it does NOT delete an entry already in your allowlist (rig never removes the user's entries; that stays your call) |
+| `tools` | str[] | the default set | the command names to pre-allow; **replaces** the default set wholesale. Naming `gh` here explicitly is treated like a raw `permissions.allow` entry, not a rig default — never receipted, so a LATER `allow_gh: false` never revokes it (see `allow_gh` below) |
+| `extra` | str[] | `[]` | command names to ADD on top of the (default or explicit) set. A `gh` added THIS way is treated like a raw `permissions.allow` entry, not a rig default — never receipted, so a LATER `allow_gh: false` never revokes it (see `allow_gh` below) |
+| `disable` | str[] | `[]` | command names to drop from rig's **desired** set, so rig won't ADD them. NB: this is additive-only for every command EXCEPT `gh` — it does NOT delete an entry already in your allowlist (rig never removes the user's entries; that stays your call), UNLESS the entry is a `gh` grant rig itself receipted as its own default: `disable: [gh]` (like `allow_gh: false`) revokes that specific one — see `allow_gh` below |
+| `allow_gh` | bool | `true` | pre-allow the GitHub CLI (`gh`); `false` opts out (sugar over `disable: [gh]`, which also works) and REVOKES a `gh` entry rig itself granted as a default (tracked in a forward-only sidecar receipt, `<settings file>.<kind>.rig-permissions-grants.json` — rig-cli#333; the harness `kind` is part of the name so two different harnesses independently pointed at the same shared settings file never share a receipt). Forward-only means: a `gh` entry that predates this feature, or one you hand-typed via `permissions.allow`/`extra`/an explicit `tools` list naming `gh` (none of these are ever receipted), is left alone — `rig status` reports it as a kept "extra" instead. A `permissions.allow` entry that explicitly re-asserts `gh` wins over `allow_gh: false` (no revoke-then-re-add). The baked deny rule blocks the direct `gh pr merge` form on every harness either way — it does not cover `gh api`-based merge routes or `gh`'s other write surface, see the `gh` note above |
 | `allow` | str[] | `[]` | RAW permission-rule entries (`Tool` or `Tool(specifier)`, e.g. `WebFetch`, `Bash(kubectl get:*)`, `Read(//tmp/**)`) asserted present in the allow list, on TOP of the tool-derived entries — this is how a hand-grown allowlist is adopted as declared config. claude-code only — see below |
 | `deny` | str[] | the baked deny baseline | rule entries asserted present in the deny list; **replaces** the baseline wholesale (`[]` disables it). claude-code only — see below |
 | `ask` | str[] | the baked ask baseline | rule entries asserted present in the ask list; **replaces** the baseline wholesale (`[]` disables it). claude-code only — see below |
 | `settings_path` | path (JSON) | per-harness default | override the settings file to merge into (default: `~/.claude/settings.json` for claude-code, `~/.config/opencode/opencode.json` for opencode). A suffixed path is treated as the file; a suffixless path is treated as a directory. With multiple harnesses and no explicit `permissions.kind`, one override can only name one file, so rig targets the first supported harness and notes the skipped kinds |
 
 **Default tool set.** Our ecosystem CLIs — `tg`, `review`, `draw`, `3d`, `rig`, `task`, `dev`,
-`pm`, `research` — plus read-only helper tools: `rg`, `jq`, `gitleaks`. `pm` (pm-cli) and
-`research` (research-cli) are read-only ecosystem coordinators — an observing/reconciling project
-manager and a multi-provider research/panel CLI — that never edit code, so they share the safe
-profile of `review`/`task`. For claude-code, the `dev` entry is written as `Bash(dev:*)`, which is
-the provisioned `dev:*` permission surface for project-local development workflows. The `dev`
-implementation lives in agent-tools; rig provisions the harness permission for it but does not
-implement its runtime process-safety checks. Rig does **not** add raw process-control,
-package-manager, container, git-hosting, or VCS commands such as `kill`, `lsof`, `ps`, `pgrep`,
-`pkill`, `docker`, `bun`, `npm`, `uv`, `gh`, or `git`; those safety checks belong inside `dev`.
+`pm`, `research` — plus read-only helper tools: `rg`, `jq`, `gitleaks` — plus the GitHub CLI,
+`gh` (the one non-read-only exception; see below). `pm` (pm-cli) and `research` (research-cli) are
+read-only ecosystem coordinators — an observing/reconciling project manager and a multi-provider
+research/panel CLI — that never edit code, so they share the safe profile of `review`/`task`. For
+claude-code, the `dev` entry is written as `Bash(dev:*)`, which is the provisioned `dev:*`
+permission surface for project-local development workflows. The `dev` implementation lives in
+agent-tools; rig provisions the harness permission for it but does not implement its runtime
+process-safety checks. Rig does **not** add raw process-control, package-manager, container, or
+VCS commands such as `kill`, `lsof`, `ps`, `pgrep`, `pkill`, `docker`, `bun`, `npm`, `uv`, or `git`;
+those safety checks belong inside `dev`.
 
 This default is additive, not retroactive cleanup: if an older rig already added broad entries such
-as `Bash(git:*)`, `Bash(gh:*)`, `Bash(uv:*)`, or `Bash(bun:*)` to a local harness settings file,
-`rig apply` will not remove them. Prune those live entries manually after confirming `dev` covers
-the workflow, or adopt intentional repo-specific exceptions under `permissions.allow` / `extra`.
+as `Bash(git:*)`, `Bash(uv:*)`, or `Bash(bun:*)` to a local harness settings file, `rig apply` will
+not remove them. Prune those live entries manually after confirming `dev` covers the workflow, or
+adopt intentional repo-specific exceptions under `permissions.allow` / `extra`.
 
 **Multi-harness migration note.** When `permissions.kind` is absent or explicitly `null`,
 permissions fan out to every configured harness kind with an additive allowlist implementation
@@ -1105,7 +1128,7 @@ dev:
 | `dev.e2e.jobs.<name>.logs_root` | path | — | directory where this job writes logs |
 
 No raw process-control command belongs here. Do not add `kill`, `lsof`, `ps`, `pgrep`, `pkill`,
-`docker`, `bun`, `npm`, `uv`, `gh`, `git`, or similar commands to `permissions.tools` to support
+`docker`, `bun`, `npm`, `uv`, `git`, or similar commands to `permissions.tools` to support
 this flow; configure scripts and route lifecycle work through `dev`, whose implementation owns the
 safety boundary.
 
