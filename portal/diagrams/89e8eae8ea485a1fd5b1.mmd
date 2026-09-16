@@ -1,0 +1,16 @@
+sequenceDiagram
+  participant U as Пользователь
+  participant T as Telegram
+  participant D as Durable store
+  participant H as Harness adapter
+  U->>T: Ответ агенту
+  T->>D: Сохранить operation и scope
+  D-->>T: Долговечное принятие
+  T->>H: Передать сообщение
+  T-->>U: Принято, доставка отслеживается
+  Note over T,H: Остальные updates не ждут model turn
+  H-->>D: Delivery outcome или unknown
+  U->>T: Поздний Approve
+  T->>D: Сохранить решение для исходного scope
+  H->>D: Запрос повторной попытки с тем же scope
+  D-->>H: One-use decision либо scope mismatch

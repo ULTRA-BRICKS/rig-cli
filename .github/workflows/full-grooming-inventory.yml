@@ -1,0 +1,107 @@
+name: Full grooming inventory (read-only issues)
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/full-grooming-inventory.yml]
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+concurrency:
+  group: full-grooming-inventory
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Snapshot public repositories, with explicit private coverage gap
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTPUT_REPO: ${{ github.repository }}
+          OUTPUT_BRANCH: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import base64, datetime, hashlib, json, os, pathlib, subprocess, time, urllib.request, urllib.error, urllib.parse
+          root = pathlib.Path('grooming-inventory'); root.mkdir(exist_ok=True)
+          repos = ['rig-cli','agent-tools','review-cli','task-cli','tg-cli','qa-cli','draw-cli','stt-cli','research-cli','dev-cli','pm-cli']
+          api = 'https://api.github.com'
+          def request(path, method='GET', data=None):
+              payload = None if data is None else json.dumps(data).encode()
+              headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'rig-authorized-grooming-audit'}
+              for attempt in range(4):
+                  try:
+                      req=urllib.request.Request(api+path,data=payload,method=method,headers=headers)
+                      with urllib.request.urlopen(req,timeout=60) as response: return json.load(response)
+                  except urllib.error.HTTPError as exc:
+                      if exc.code not in (429,500,502,503,504) or attempt==3: raise
+                      time.sleep(min(60,int(exc.headers.get('Retry-After','5'))*(attempt+1)))
+          def pages(path):
+              rows=[]; page=1
+              while True:
+                  batch=request(path+('&' if '?' in path else '?')+'per_page=100&page='+str(page))
+                  if not isinstance(batch,list): raise ValueError('Expected collection: '+path)
+                  rows.extend(batch)
+                  if len(batch)<100: return rows
+                  page+=1
+          def save(name,obj):
+              raw=json.dumps(obj,ensure_ascii=False,indent=2).encode();(root/name).write_bytes(raw)
+              return hashlib.sha256(raw).hexdigest()
+          summary={'generated_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'scope':'all accessible public issues and PRs, all states, no historical cutoff; private harness-cli collected separately','repositories':{},'excluded':{'harness-cli':'private; use repository-local authorized workflow, not this public snapshot'},'issue_mutations':0}
+          for name in repos:
+              full='alex-mextner/'+name
+              try:
+                  meta=request('/repos/'+full)
+                  if meta.get('private'): raise RuntimeError('Refusing public snapshot of private repository')
+                  branch=meta['default_branch']; ref=request('/repos/'+full+'/commits/'+urllib.parse.quote(branch,safe=''))
+                  issues=pages('/repos/'+full+'/issues?state=all&sort=created&direction=asc')
+                  issues=[r for r in issues if 'pull_request' not in r]
+                  prs=pages('/repos/'+full+'/pulls?state=all&sort=created&direction=asc')
+                  comments=pages('/repos/'+full+'/issues/comments?sort=created&direction=asc')
+                  issue_sha=save(name+'.json',[{k:r.get(k) for k in ('id','number','node_id','title','body','state','state_reason','created_at','updated_at','closed_at','html_url','labels','comments')} for r in issues])
+                  save(name+'-prs.json',[{k:r.get(k) for k in ('number','node_id','title','body','state','created_at','updated_at','closed_at','merged_at','merge_commit_sha','html_url','head','base')} for r in prs])
+                  save(name+'-comments.json',[{'id':r['id'],'issue_url':r['issue_url'],'html_url':r['html_url'],'user':r['user']['login'],'created_at':r['created_at'],'updated_at':r['updated_at'],'body':r['body']} for r in comments])
+                  checkout=pathlib.Path('sources')/name
+                  subprocess.run(['git','clone','--depth=1','--branch',branch,'https://github.com/'+full+'.git',str(checkout)],check=True,timeout=180,stdout=subprocess.DEVNULL)
+                  sha=subprocess.check_output(['git','-C',str(checkout),'rev-parse','HEAD'],text=True).strip()
+                  subprocess.run(['git','-C',str(checkout),'archive','--format=tar.gz','--prefix='+name+'/','--output='+str((root/(name+'-source.tar.gz')).resolve()),'HEAD'],check=True)
+                  summary['repositories'][name]={'default_branch':branch,'source_sha':sha,'issues':len(issues),'open':sum(r['state']=='open' for r in issues),'closed':sum(r['state']=='closed' for r in issues),'prs':len(prs),'merged_prs':sum(bool(r.get('merged_at')) for r in prs),'recent_issues':sum(r['updated_at']>='2026-08-31' for r in issues),'comments':len(comments),'snapshot_sha256':issue_sha,'complete':True}
+                  print(name,json.dumps(summary['repositories'][name]),flush=True)
+              except Exception as exc:
+                  summary['repositories'][name]={'complete':False,'error':str(exc)}
+                  print(name,'COVERAGE GAP',type(exc).__name__,flush=True)
+          for name in ['rig-cli','agent-tools','review-cli','tg-cli']:
+              path={'rig-cli':'2026-09-10-ecosystem-reliability.md','agent-tools':'2026-09-10-guard-contracts.md','review-cli':'2026-09-10-review-contracts.md','tg-cli':'2026-09-10-telegram-control.md'}[name]
+              try:
+                  obj=request('/repos/alex-mextner/'+name+'/contents/docs/specs/'+path+'?ref=docs%2Fecosystem-grooming-2026-09-10')
+                  (root/path).write_bytes(base64.b64decode(obj['content']))
+              except Exception as exc: print('Prior spec gap',name,str(exc),flush=True)
+          summary['total_issues']=sum(r.get('issues',0) for r in summary['repositories'].values())
+          summary['total_prs']=sum(r.get('prs',0) for r in summary['repositories'].values())
+          summary['complete_public_scope']=all(r['complete'] for r in summary['repositories'].values())
+          try:
+              req=urllib.request.Request('https://spec-dev.hyperide.ai/spec/',headers={'User-Agent':'rig-authorized-spec-review'})
+              with urllib.request.urlopen(req,timeout=25) as response:
+                  html=response.read(500000); (root/'spec-dev-index.html').write_bytes(html)
+                  summary['spec_dev_probe']={'status':response.status,'url':response.url,'bytes':len(html)}
+          except Exception as exc: summary['spec_dev_probe']={'error':str(exc)}
+          save('summary.json',summary)
+          path='docs/grooming/full-2026-09-10/inventory-summary.json'
+          payload={'message':'docs(audit): record complete public inventory and explicit coverage gaps','content':base64.b64encode((root/'summary.json').read_bytes()).decode(),'branch':os.environ['OUTPUT_BRANCH']}
+          try:
+              prior=request('/repos/'+os.environ['OUTPUT_REPO']+'/contents/'+path+'?ref='+urllib.parse.quote(os.environ['OUTPUT_BRANCH'],safe=''))
+              payload['sha']=prior['sha']
+          except urllib.error.HTTPError as exc:
+              if exc.code!=404: raise
+          request('/repos/'+os.environ['OUTPUT_REPO']+'/contents/'+path,'PUT',payload)
+          print(json.dumps(summary,ensure_ascii=False,indent=2))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('# Public inventory\n\n'+str(summary['total_issues'])+' issues and '+str(summary['total_prs'])+' PR records. Private harness-cli is separate. No issue mutations.\n')
+          if not summary['complete_public_scope']: raise SystemExit('Incomplete public coverage; inspect summary')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: complete-grooming-inventory
+          path: grooming-inventory/
+          retention-days: 30

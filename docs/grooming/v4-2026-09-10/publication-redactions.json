@@ -1,0 +1,102 @@
+{
+  "new_publication_only": true,
+  "historical_git_objects_not_rewritten": true,
+  "reason": "Scanner-shaped values are withheld conservatively rather than republished as possible credentials. Some may be test fixtures; original hashes and source locations are retained.",
+  "matches": [
+    {
+      "rule": "generic-api-key",
+      "file": "/home/runner/work/rig-cli/rig-cli/docs/grooming/full-2026-09-10/before/tg-cli.json",
+      "line": 411
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "/home/runner/work/rig-cli/rig-cli/docs/grooming/v4-2026-09-10/plans/tg-cli.json",
+      "line": 1150
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "/home/runner/work/rig-cli/rig-cli/docs/grooming/full-2026-09-10/plans/tg-cli.json",
+      "line": 2573
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "/home/runner/work/rig-cli/rig-cli/docs/grooming/full-2026-09-10/plans/tg-cli.json",
+      "line": 2573
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "/home/runner/work/rig-cli/rig-cli/docs/grooming/v4-2026-09-10/before/tg-cli.json",
+      "line": 5239
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "/home/runner/work/rig-cli/rig-cli/docs/grooming/v4-2026-09-10/before/tg-cli.json",
+      "line": 5239
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "/home/runner/work/rig-cli/rig-cli/docs/grooming/v4-2026-09-10/tg-cli-current-issues.json",
+      "line": 2382
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "/home/runner/work/rig-cli/rig-cli/docs/grooming/v4-2026-09-10/tg-cli-current-issues.json",
+      "line": 2382
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "/home/runner/work/rig-cli/rig-cli/docs/grooming/full-2026-09-10/pull-requests.json",
+      "line": 11137
+    }
+  ],
+  "files": [
+    {
+      "path": "docs/grooming/full-2026-09-10/pull-requests.json",
+      "before_sha256": "5613d0da75ad99cd3999b635c302927a81034cc32be16e745ed894523808a9ef",
+      "after_sha256": "270fc5e3c757ed90737ae79bd164d477005f9dbc4d6d0a35f79a9e71ead5ba55",
+      "match_fingerprints": [
+        "73c9969a2fa2"
+      ]
+    },
+    {
+      "path": "docs/grooming/v4-2026-09-10/tg-cli-current-issues.json",
+      "before_sha256": "ab563d8963d9d11b1e2cc940ef75a7b9150ff9a21db0b17c4c9624036ad2bb7b",
+      "after_sha256": "e1c2e3a59240c94afaeb0154ec2dfec41a9a968725a881c91c677962f3f37482",
+      "match_fingerprints": [
+        "73c9969a2fa2"
+      ]
+    },
+    {
+      "path": "docs/grooming/full-2026-09-10/plans/tg-cli.json",
+      "before_sha256": "5941fe927289ccc67990ee2f31ae31e75964e28cd7253dd81b23027cff773374",
+      "after_sha256": "2a797237130eef53c3869ac9c253a151ebbab68c1cfd91e9d480d4f78088272b",
+      "match_fingerprints": [
+        "73c9969a2fa2"
+      ]
+    },
+    {
+      "path": "docs/grooming/full-2026-09-10/before/tg-cli.json",
+      "before_sha256": "d51edc13ee1e59ded30b32e7203c83c4c17bbbc4f89276dcfa4fbd65ed10390e",
+      "after_sha256": "83107682eeff52244f75e8f7003f74575cc95f067e7a9945964e319afafc1643",
+      "match_fingerprints": [
+        "73c9969a2fa2"
+      ]
+    },
+    {
+      "path": "docs/grooming/v4-2026-09-10/plans/tg-cli.json",
+      "before_sha256": "8bd621bcd360d4fff4fbcd0460d583cff5b85f5da2a6d447a0008268ff5c1ca6",
+      "after_sha256": "31b195f77c9d4a13a1569addd94f9f099700ede3517ea93b6fc5bc793a1911d8",
+      "match_fingerprints": [
+        "73c9969a2fa2"
+      ]
+    },
+    {
+      "path": "docs/grooming/v4-2026-09-10/before/tg-cli.json",
+      "before_sha256": "e0514d278a3646ab51d7cb86ad77dd396223c2570b5fd76c9f1aa43e7bdcb3b3",
+      "after_sha256": "c2bcfc55060d4722f5b6e8800b47591c7bd68b039b3715215c22259955906c62",
+      "match_fingerprints": [
+        "73c9969a2fa2"
+      ]
+    }
+  ]
+}

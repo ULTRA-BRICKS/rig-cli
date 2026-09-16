@@ -1,0 +1,35 @@
+name: Correct owned issue descriptions
+on:
+  workflow_call:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: editorial-correction-${{ github.repository_id }}
+  cancel-in-progress: false
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ultrabricks/rig-cli
+          ref: 5f610e5965df9a641dc8f4012f3b67dc6164532e
+          persist-credentials: false
+      - name: Verify preservation and scope regressions without third-party test dependencies
+        run: python3 tools/grooming/test_editorial_correction.py
+      - name: Correct only this pass's owned Russian prose and read every change back
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/grooming/fix_editorial_issues.py \
+            --repository "${GITHUB_REPOSITORY#*/}" \
+            --apply --journal editorial-result.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: editorial-correction-${{ github.repository_id }}
+          path: editorial-result.json
+          if-no-files-found: warn
+          retention-days: 30

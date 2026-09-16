@@ -1,0 +1,47 @@
+name: Replay historical v1 grooming corpus (read-only)
+# The v4/closeout corpus supersedes this compiler. Historical replay must not
+# rewrite current specs or publication when any tools/grooming file changes.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Validate historical quotation transport
+        run: |
+          python3 - <<'PY'
+          import base64,gzip,hashlib,json,pathlib
+          root=pathlib.Path('docs/grooming/full-2026-09-10')
+          parts=sorted((root/'source-parts').glob('quotes.*.b64'))
+          assert len(parts)==5
+          encoded=''.join(p.read_text().strip() for p in parts)
+          encoded=encoded.replace('b3V7oQXGti/2Li5','b3V7oQXJti/2Li5').replace('DRisvfrdl4Nzh','DRisvfrd4Nzh')
+          decoded=gzip.decompress(base64.b64decode(encoded,validate=True))
+          assert hashlib.sha256(decoded).hexdigest()=='df9ed897acb62e9ab1bba1a09445ad8270703f46440763877ac75092eae71d9f'
+          compact=json.loads(decoded)
+          compact['records']=[dict(zip(compact['fields'],row)) for row in compact['records']]
+          compact.pop('fields')
+          assert len(compact['records'])==230 and len(compact['excluded_records'])==145
+          (root/'quote-registry.json').write_text(json.dumps(compact,ensure_ascii=False,indent=2)+'\n')
+          PY
+      - run: python3 -m pip install --user 'markdown-it-py==3.0.0'
+      - name: Replay locally, without committing or publishing historical output
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/grooming/run.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: historical-v1-replay-not-current-publication
+          path: |
+            docs/grooming/full-2026-09-10/
+            docs/specs/recovery/
+            portal/
+          retention-days: 7

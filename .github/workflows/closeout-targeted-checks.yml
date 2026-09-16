@@ -1,0 +1,83 @@
+name: Closeout targeted verification
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/closeout-targeted-checks.yml]
+permissions:
+  contents: read
+jobs:
+  draw:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: alex-mextner/draw-cli
+          ref: 23a5caa17745be426bce1288bbef9a8ba4c90272
+          persist-credentials: false
+      - name: Test the actual canonical public repository, not an assumed transfer
+        run: |
+          python3 -m venv /tmp/draw-tests
+          /tmp/draw-tests/bin/pip install -e . 'pytest==9.0.2' pillow 'PyYAML==6.0.3'
+          mkdir -p result /tmp/draw-home
+          git rev-parse HEAD > result/source-sha.txt
+          HOME=/tmp/draw-home PYTHONNOUSERSITE=1 /tmp/draw-tests/bin/python -m pytest -q --junitxml=result/pytest.xml > result/pytest.log 2>&1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: closeout-draw-canonical-tests
+          path: result/
+          retention-days: 30
+  telegram:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ultrabricks/tg-cli
+          ref: b640b65e7b30321ec8c14259896212f1fe78626f
+          persist-credentials: false
+      - name: Install pinned Bun and isolated test dependencies
+        run: |
+          curl -fsSL https://bun.sh/install | bash -s 'bun-v1.3.10'
+          "$HOME/.bun/bin/bun" install --ignore-scripts
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+      - name: Repeat the failing files without changing deadlines or product code
+        run: |
+          python3 - <<'PY'
+          import datetime,json,os,pathlib,re,subprocess,signal
+          root=pathlib.Path('result');root.mkdir()
+          home=pathlib.Path(os.environ['RUNNER_TEMP'])/'isolated-tg-home';home.mkdir()
+          env=dict(os.environ)
+          for k in list(env):
+              if k.endswith(('TOKEN','API_KEY','SECRET')) or k.startswith(('TELEGRAM_','RIG_HATCH_REQUEST_')):env.pop(k,None)
+          env.update(HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),CI='1')
+          report={'source_sha':'b640b65e7b30321ec8c14259896212f1fe78626f','started_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'runs':[],'live_accounts_used':False,'deadlines_modified':False}
+          files=['tests/ctl-private-topics-integration.test.ts','tests/ctl-buttons-failure-integration.test.ts','tests/ctl-questions-durable-integration.test.ts']
+          for f in files:
+              if not pathlib.Path(f).exists():
+                  report['runs'].append({'file':f,'result':'file-not-found'});continue
+              for i in range(3):
+                  pth=root/(pathlib.Path(f).stem+'-'+str(i+1)+'.log')
+                  with pth.open('w') as log:
+                      p=subprocess.Popen(['bun','test',f],env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+                      try:code=p.wait(timeout=180)
+                      except subprocess.TimeoutExpired:
+                          os.killpg(p.pid,signal.SIGTERM)
+                          try:p.wait(timeout=5)
+                          except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait()
+                          code=124
+                  text=pth.read_text(errors='replace')
+                  row={'file':f,'repeat':i+1,'exit_code':code,'failures':list(dict.fromkeys(re.findall(r'(?m)^\(fail\) (.+)',text))),'log':pth.name}
+                  report['runs'].append(row);print(json.dumps(row),flush=True)
+                  (root/'report.json').write_text(json.dumps(report,indent=2)+'\n')
+          report['finished_at']=datetime.datetime.now(datetime.timezone.utc).isoformat();(root/'report.json').write_text(json.dumps(report,indent=2)+'\n')
+          # This investigative workflow records every failed repeat honestly.
+          # A successful artifact upload is not a green product test result.
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: closeout-telegram-repeat-evidence
+          path: result/
+          retention-days: 30

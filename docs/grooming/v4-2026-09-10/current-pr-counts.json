@@ -1,0 +1,57 @@
+{
+  "rig-cli": {
+    "records": 182,
+    "merged": 172,
+    "read_at": "2026-09-10T15:14:23Z"
+  },
+  "agent-tools": {
+    "records": 313,
+    "merged": 273,
+    "read_at": "2026-09-10T15:14:26Z"
+  },
+  "review-cli": {
+    "records": 167,
+    "merged": 149,
+    "read_at": "2026-09-10T15:14:27Z"
+  },
+  "task-cli": {
+    "records": 59,
+    "merged": 59,
+    "read_at": "2026-09-10T15:14:28Z"
+  },
+  "tg-cli": {
+    "records": 165,
+    "merged": 152,
+    "read_at": "2026-09-10T15:14:29Z"
+  },
+  "qa-cli": {
+    "records": 5,
+    "merged": 5,
+    "read_at": "2026-09-10T15:14:30Z"
+  },
+  "draw-cli": {
+    "records": 13,
+    "merged": 12,
+    "read_at": "2026-09-10T15:14:30Z"
+  },
+  "stt-cli": {
+    "records": 9,
+    "merged": 7,
+    "read_at": "2026-09-10T15:14:30Z"
+  },
+  "research-cli": {
+    "records": 7,
+    "merged": 7,
+    "read_at": "2026-09-10T15:14:31Z"
+  },
+  "dev-cli": {
+    "records": 9,
+    "merged": 7,
+    "read_at": "2026-09-10T15:14:31Z"
+  },
+  "pm-cli": {
+    "records": 9,
+    "merged": 8,
+    "read_at": "2026-09-10T15:14:32Z"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "publication_version": 4,
+  "scope": "The review portal itself, not all product workflows described in it",
+  "checks": {
+    "documents_rendered": 49,
+    "quotes": 505,
+    "issues": 1602,
+    "desktop": "1440x1000",
+    "mobile": "393x852",
+    "real_retrospective_svg": true,
+    "backlog_filter": true
+  },
+  "errors": [],
+  "passed": true
+}

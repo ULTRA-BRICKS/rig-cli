@@ -1,0 +1,864 @@
+{
+  "source_url": "https://spec-dev.hyperide.ai/spec/2026-07-01-agent-ecosystem-retrospective",
+  "html_sha256": "182287d5c292ed6e840e94c2cda504855e18388a58891d08cc293d091cfad3a1",
+  "headings": [
+    {
+      "index": 1,
+      "level": 1,
+      "title": "Agent Ecosystem Retrospective and Fix Strategy — 2026-07-01 #",
+      "source_id": "source-section-001",
+      "recovery_spec": "specs.md",
+      "review_disposition": "Версии, контекст цитат и сохранение истории",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 2,
+      "level": 2,
+      "title": "Table of contents #",
+      "source_id": "source-section-002",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 3,
+      "level": 1,
+      "title": "1. Executive summary #",
+      "source_id": "source-section-003",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 4,
+      "level": 2,
+      "title": "Finding A — The rulebook never reaches the agents #",
+      "source_id": "source-section-004",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 5,
+      "level": 2,
+      "title": "Finding B — Enforcement exists but has holes and friction #",
+      "source_id": "source-section-005",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 6,
+      "level": 2,
+      "title": "Finding C — E2E is a solvable problem measured by a broken instrument #",
+      "source_id": "source-section-006",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Реальный пользовательский сценарий, не один helper",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 7,
+      "level": 2,
+      "title": "Finding D — The tool ecosystem is less home-grown-madness than feared, but under-wired #",
+      "source_id": "source-section-007",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 8,
+      "level": 2,
+      "title": "Finding E — Throughput went to tooling while product backlog grows and hygiene decays #",
+      "source_id": "source-section-008",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 9,
+      "level": 2,
+      "title": "The strategy in one paragraph #",
+      "source_id": "source-section-009",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 10,
+      "level": 1,
+      "title": "2. Method #",
+      "source_id": "source-section-010",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 11,
+      "level": 1,
+      "title": "3. Broken-things catalog #",
+      "source_id": "source-section-011",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 12,
+      "level": 2,
+      "title": "3.1 Provisioning and context delivery #",
+      "source_id": "source-section-012",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 13,
+      "level": 2,
+      "title": "3.2 Guards and enforcement #",
+      "source_id": "source-section-013",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 14,
+      "level": 2,
+      "title": "3.3 Git / GitHub / CI #",
+      "source_id": "source-section-014",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 15,
+      "level": 2,
+      "title": "3.4 E2E infrastructure #",
+      "source_id": "source-section-015",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Реальный пользовательский сценарий, не один helper",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 16,
+      "level": 2,
+      "title": "3.5 E2E portal #",
+      "source_id": "source-section-016",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Реальный пользовательский сценарий, не один helper",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 17,
+      "level": 2,
+      "title": "3.6 Tools #",
+      "source_id": "source-section-017",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 18,
+      "level": 3,
+      "title": "3.6.1 rig #",
+      "source_id": "source-section-018",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 19,
+      "level": 3,
+      "title": "3.6.2 rtk #",
+      "source_id": "source-section-019",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 20,
+      "level": 3,
+      "title": "3.6.3 serena #",
+      "source_id": "source-section-020",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 21,
+      "level": 4,
+      "title": "Serena: worktree defect — upstream status, alternatives evaluated, chosen path (2026-07-02) #",
+      "source_id": "source-section-021",
+      "recovery_spec": "worktrees.md",
+      "review_disposition": "Изоляция checkout, effective cwd и сохранность работы",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 22,
+      "level": 4,
+      "title": "3.6.3.1 Part A — rig auto-provisions the TypeScript language server (native-LSP enablement, 2026-07-02) #",
+      "source_id": "source-section-022",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 23,
+      "level": 4,
+      "title": "3.6.3.2 Part B — own rename/refactor + structural-search CLI: alex-mextner/morph-cli (2026-07-02) #",
+      "source_id": "source-section-023",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 24,
+      "level": 3,
+      "title": "3.6.4 sverklo #",
+      "source_id": "source-section-024",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 25,
+      "level": 3,
+      "title": "3.6.5 haft #",
+      "source_id": "source-section-025",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 26,
+      "level": 3,
+      "title": "3.6.6 review-cli / review pool #",
+      "source_id": "source-section-026",
+      "recovery_spec": "roles.md",
+      "review_disposition": "Роли, модель, effort и независимые попытки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 27,
+      "level": 3,
+      "title": "3.6.7 tg #",
+      "source_id": "source-section-027",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 28,
+      "level": 3,
+      "title": "3.6.8 agent-browser #",
+      "source_id": "source-section-028",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 29,
+      "level": 3,
+      "title": "3.6.9 Ecosystem-level #",
+      "source_id": "source-section-029",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 30,
+      "level": 3,
+      "title": "3.6.10 Shared-lib consolidation (agent-tools/lib): built-but-unadopted #",
+      "source_id": "source-section-030",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 31,
+      "level": 2,
+      "title": "3.7 Process / tickets / PRs #",
+      "source_id": "source-section-031",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 32,
+      "level": 2,
+      "title": "3.8 Docs and memory #",
+      "source_id": "source-section-032",
+      "recovery_spec": "resources.md",
+      "review_disposition": "Контроль admission вместо письменного обещания",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 33,
+      "level": 2,
+      "title": "3.9 Working-diff findings (canvas-preview fork in client/App.tsx ) #",
+      "source_id": "source-section-033",
+      "recovery_spec": "roles.md",
+      "review_disposition": "Роли, модель, effort и независимые попытки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 34,
+      "level": 1,
+      "title": "4. Root-cause synthesis #",
+      "source_id": "source-section-034",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 35,
+      "level": 2,
+      "title": "4.1 Rules-as-prose vs rules-as-mechanism #",
+      "source_id": "source-section-035",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 36,
+      "level": 2,
+      "title": "4.2 Context economics: what actually reaches whom #",
+      "source_id": "source-section-036",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 37,
+      "level": 2,
+      "title": "4.3 Measurement before goal #",
+      "source_id": "source-section-037",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 38,
+      "level": 2,
+      "title": "4.4 Incumbent-vs-new-tool niche collisions #",
+      "source_id": "source-section-038",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 39,
+      "level": 2,
+      "title": "4.5 The July-1 KPI audit pattern: tooling exempted itself from its own rules #",
+      "source_id": "source-section-039",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 40,
+      "level": 1,
+      "title": "5. Strategy (phased) #",
+      "source_id": "source-section-040",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 41,
+      "level": 2,
+      "title": "5.0 Mapping to the CTO's stated goal priorities #",
+      "source_id": "source-section-041",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 42,
+      "level": 2,
+      "title": "5.1 Phase 0 — days (stop the bleeding) #",
+      "source_id": "source-section-042",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 43,
+      "level": 2,
+      "title": "5.2 Phase 1 — ~2 weeks (measurement program + context decomposition + enforcement wave 1) #",
+      "source_id": "source-section-043",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 44,
+      "level": 3,
+      "title": "5.2.1 The E2E measurement program (quorum-ratified) #",
+      "source_id": "source-section-044",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Реальный пользовательский сценарий, не один helper",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 45,
+      "level": 3,
+      "title": "5.2.2 AGENTS.md decomposition (context delivery fix) #",
+      "source_id": "source-section-045",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 46,
+      "level": 3,
+      "title": "5.2.3 Enforcement wave 1 #",
+      "source_id": "source-section-046",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 47,
+      "level": 3,
+      "title": "5.2.4 Repo/rig reconciliation #",
+      "source_id": "source-section-047",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 48,
+      "level": 3,
+      "title": "5.2.5 Communication upgrades (tg) #",
+      "source_id": "source-section-048",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 49,
+      "level": 3,
+      "title": "5.2.6 Linear triage #",
+      "source_id": "source-section-049",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 50,
+      "level": 3,
+      "title": "5.2.7 Code-intel remediation + reasoning-tool delineation (serena / native LSP / superpowers / haft) #",
+      "source_id": "source-section-050",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 51,
+      "level": 3,
+      "title": "5.2.8 2026-07-02 directive batch (knip, mergiraf, CLI-language policy) #",
+      "source_id": "source-section-051",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 52,
+      "level": 3,
+      "title": "5.2.9 docs/rules migration into rig provisioning (tg#5631) #",
+      "source_id": "source-section-052",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 53,
+      "level": 2,
+      "title": "5.3 Phase 2 — 2–4 weeks (distribution, rig UX, portal, decision discipline) #",
+      "source_id": "source-section-053",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 54,
+      "level": 3,
+      "title": "5.3.1 Distribution: global-source migration (quorum-unanimous Option B) #",
+      "source_id": "source-section-054",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 55,
+      "level": 3,
+      "title": "5.3.2 rig UX and scope #",
+      "source_id": "source-section-055",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 56,
+      "level": 3,
+      "title": "5.3.3 Portal productionization #",
+      "source_id": "source-section-056",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 57,
+      "level": 3,
+      "title": "5.3.4 Native-lite decision discipline (brainstorm Phase 1) #",
+      "source_id": "source-section-057",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 58,
+      "level": 2,
+      "title": "5.4 Phase 3 — month+ (autonomy on top of stable measurement) #",
+      "source_id": "source-section-058",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 59,
+      "level": 1,
+      "title": "6. Enforcement matrix #",
+      "source_id": "source-section-059",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 60,
+      "level": 1,
+      "title": "7. Tool verdicts #",
+      "source_id": "source-section-060",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 61,
+      "level": 2,
+      "title": "7.1 haft + sverklo: the two positions, presented for decision #",
+      "source_id": "source-section-061",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 62,
+      "level": 1,
+      "title": "8. Process and hygiene #",
+      "source_id": "source-section-062",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 63,
+      "level": 2,
+      "title": "8.1 Ticket discipline scorecard #",
+      "source_id": "source-section-063",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 64,
+      "level": 2,
+      "title": "8.2 PR–ticket linkage #",
+      "source_id": "source-section-064",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 65,
+      "level": 2,
+      "title": "8.3 Throughput and backlog #",
+      "source_id": "source-section-065",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 66,
+      "level": 2,
+      "title": "8.4 Linear triage plan #",
+      "source_id": "source-section-066",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 67,
+      "level": 2,
+      "title": "8.5 tg communication #",
+      "source_id": "source-section-067",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 68,
+      "level": 2,
+      "title": "8.6 Session-task hygiene (a meta-observation from this retrospective) #",
+      "source_id": "source-section-068",
+      "recovery_spec": "specs.md",
+      "review_disposition": "Версии, контекст цитат и сохранение истории",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 69,
+      "level": 1,
+      "title": "9. CTO instructions review #",
+      "source_id": "source-section-069",
+      "recovery_spec": "roles.md",
+      "review_disposition": "Роли, модель, effort и независимые попытки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 70,
+      "level": 2,
+      "title": "9.1 What is demonstrably working — keep, and say why #",
+      "source_id": "source-section-070",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 71,
+      "level": 2,
+      "title": "9.2 What is duplicated or misplaced — move, don't rewrite #",
+      "source_id": "source-section-071",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 72,
+      "level": 2,
+      "title": "9.3 What is stale or self-violating — fix #",
+      "source_id": "source-section-072",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 73,
+      "level": 2,
+      "title": "9.4 The proposed constitution: \"rule = hook, prose = pointer\" #",
+      "source_id": "source-section-073",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 74,
+      "level": 2,
+      "title": "9.5 Sonnet-proofing (the original framing, answered by the data) #",
+      "source_id": "source-section-074",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 75,
+      "level": 1,
+      "title": "10. In-flight fix tracks #",
+      "source_id": "source-section-075",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 76,
+      "level": 1,
+      "title": "11. Open decisions for the CTO #",
+      "source_id": "source-section-076",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 77,
+      "level": 2,
+      "title": "Decision #1 — haft + sverklo: integrate-thin trial vs native-lite retirement #",
+      "source_id": "source-section-077",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 78,
+      "level": 2,
+      "title": "Decision #2 — portal email provider and sending domain #",
+      "source_id": "source-section-078",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 79,
+      "level": 2,
+      "title": "Decision #3 — rig descoping list #",
+      "source_id": "source-section-079",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 80,
+      "level": 2,
+      "title": "Decision #4 — GitHub plan (recorded decision, no action needed) #",
+      "source_id": "source-section-080",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 81,
+      "level": 2,
+      "title": "Decision #5 — e2e scope freeze + Tier 0 core composition + merge-bracket batch size #",
+      "source_id": "source-section-081",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 82,
+      "level": 2,
+      "title": "Decision #6 — serena / sverklo MCP registration defaults #",
+      "source_id": "source-section-082",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 83,
+      "level": 2,
+      "title": "Decision #7 — Shared-lib distribution model (declared uv path/git dep vs PyPI vs vendor + drift-guard) #",
+      "source_id": "source-section-083",
+      "recovery_spec": "testing.md",
+      "review_disposition": "Раздельная приёмка fixture, integration и live",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 84,
+      "level": 1,
+      "title": "12. Appendix #",
+      "source_id": "source-section-084",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 85,
+      "level": 2,
+      "title": "12.1 Artifact paths #",
+      "source_id": "source-section-085",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 86,
+      "level": 2,
+      "title": "12.2 Agent report provenance #",
+      "source_id": "source-section-086",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 87,
+      "level": 2,
+      "title": "12.3 Glossary #",
+      "source_id": "source-section-087",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 88,
+      "level": 2,
+      "title": "12.4 Translated CTO quotes used in this spec #",
+      "source_id": "source-section-088",
+      "recovery_spec": "specs.md",
+      "review_disposition": "Версии, контекст цитат и сохранение истории",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 89,
+      "level": 1,
+      "title": "13. Execution status & handover (2026-07-02) #",
+      "source_id": "source-section-089",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 90,
+      "level": 2,
+      "title": "13.1 Shipped 2026-07-02 #",
+      "source_id": "source-section-090",
+      "recovery_spec": "shipping.md",
+      "review_disposition": "Локальная проверка, revision-bound evidence и release",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 91,
+      "level": 2,
+      "title": "13.2 In-flight tracks #",
+      "source_id": "source-section-091",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 92,
+      "level": 2,
+      "title": "13.3 Pending CTO actions #",
+      "source_id": "source-section-092",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 93,
+      "level": 2,
+      "title": "13.4 Resume protocol for the successor #",
+      "source_id": "source-section-093",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 94,
+      "level": 2,
+      "title": "13.5 Live-verification log (2026-07-02 ~09:30 CEST) #",
+      "source_id": "source-section-094",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    },
+    {
+      "index": 95,
+      "level": 2,
+      "title": "13.6 Status update — 2026-08-18 (five weeks post-ratification) #",
+      "source_id": "source-section-095",
+      "recovery_spec": "01-retrospective-v4.md",
+      "review_disposition": "Сохранить исторический контекст; применять уточнения v4 без подмены авторства и приёмки",
+      "explicit_issue_references": []
+    }
+  ],
+  "headings_count": 95,
+  "rule_tables_preserved": 13,
+  "claim": "Document coverage only; no blanket product acceptance."
+}

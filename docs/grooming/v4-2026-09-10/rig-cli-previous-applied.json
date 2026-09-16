@@ -1,0 +1,3826 @@
+{
+  "repository": "alex-mextner/rig-cli",
+  "plan_ref": "94a1825f2f9e611031dd6b74eb1de2d8b3130c56",
+  "plan_sha256": "a075526f0ebceb8fca56900ae7af9fd138c3d4ea39f1560961aa6bd4ca16bf1f",
+  "started_at": "2026-09-10T13:34:53.772108+00:00",
+  "mode": "apply",
+  "events": [
+    {
+      "number": 522,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/522"
+    },
+    {
+      "number": 523,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    {
+      "number": 524,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    {
+      "number": 525,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    {
+      "number": 526,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    {
+      "number": 527,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    {
+      "number": 528,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/528"
+    },
+    {
+      "number": 529,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    {
+      "number": 530,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    {
+      "number": 531,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    {
+      "number": 532,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    {
+      "number": 533,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    {
+      "number": 534,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    {
+      "number": 535,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/535"
+    },
+    {
+      "number": 536,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    {
+      "number": 537,
+      "result": "parent-created",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/537"
+    },
+    {
+      "number": 507,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "25b2a8c9a27211adf529cc69e3d2934a4fa06185c803ae99eb45a7c413323ff3",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/507"
+    },
+    {
+      "number": 5,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "891b8e83067711630ca65a889802b1f6c3d4331a1ce7769ef3eac93442bd3a04",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/5"
+    },
+    {
+      "number": 6,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b51f5828ebde60aeb062bd6cb7090de78f5bd850d54b056322ff75a58b5837ff",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/6"
+    },
+    {
+      "number": 7,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2d60688830fc82078a56587973d9ecf6638562c0f4bea8bd41b7a7a3b2250904",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/7"
+    },
+    {
+      "number": 8,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "da51d13e6a04346bd57bab67e1e362b34d2c7fd33d78fe1ceb87dca793ac0116",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/8"
+    },
+    {
+      "number": 9,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a3b7bf71b78f8c747f76ca0879f0cbf6831a966dfdb1dcd5f6e1ce41270e1dc8",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/9"
+    },
+    {
+      "number": 10,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7fab7c5f365e74d73f7cc9cd5f9971495f3fff2fe113842ffdcb273a09a26d85",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/10"
+    },
+    {
+      "number": 57,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "832c42a33bf6202adbb5ee08a58c0ca3ac943f1a70564025b98f2429d2ba5bd1",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/57"
+    },
+    {
+      "number": 59,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6c4d5ebc421897099c6d592cfd49704b0b3290e48a8319b6cee2600311537d5a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/59"
+    },
+    {
+      "number": 61,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5dafa6a2595140dcf8488fef8989bd15e0cc5dddf8a2660d64fdc644e6a123b6",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/61"
+    },
+    {
+      "number": 63,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "78efe5c6be8d53d4c9aeb5e8b61bdbc4f2894fc4f153b00796b6c8dd538cb851",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/63"
+    },
+    {
+      "number": 65,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "840e7d3904feb86a805e8e5987430fd3dcf164584af7c35871b862b8edb54f8d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/65"
+    },
+    {
+      "number": 66,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2f8558309775b881a19d1da72b53ae9d359776f69e2cd0ba913cce146cdd900b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/66"
+    },
+    {
+      "number": 68,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6392297ceeb03f87d0f7519c6a9d9c81917cfbe59642d31b7f0f9eb65cd04807",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/68"
+    },
+    {
+      "number": 70,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ce249e23bf83cfe181948b2264cce843344cce52582539c087b81ab3a2ba03af",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/70"
+    },
+    {
+      "number": 73,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8c4ba87c55640dcf6e876ad241efd21743fef4f88993342009d04b2f43c407da",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/73"
+    },
+    {
+      "number": 75,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "292a6ddef00c1d84fb981e2badc43ef13c71100fb0b4a2888d5ff2203e5d2943",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/75"
+    },
+    {
+      "number": 77,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bd5fa8300b40294975bfcd6568f11759f34fc6f0ab597c142d21cee513284fcf",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/77"
+    },
+    {
+      "number": 79,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "316d98dbc479e695f01a54c8c88dae3b652885ece32b4aecb5145e2db44891f5",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/79"
+    },
+    {
+      "number": 81,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ed4f4babfb7873772138e0736908b0dfb9dffe2d01f0b514d53c2204ff97bb9f",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/81"
+    },
+    {
+      "number": 83,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ff5f1c9439e66dad5c74db987e0c8d702f6b3985c58d48b725d5bd85fb89fc65",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/83"
+    },
+    {
+      "number": 86,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "638cb861c37cab4343e62e326e209f31d3fc7e827d19bab939bdc1587871d087",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/86"
+    },
+    {
+      "number": 87,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2bdb2292fd49e01839096d5f07161dd26ca2f0b9f66d35bbfbe4a5a8aca9f44d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/87"
+    },
+    {
+      "number": 90,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ce17c9ce949a007e5158c5932cf6e4cf2a285c9ecebe2afc16b04f825ca65e3f",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/90"
+    },
+    {
+      "number": 91,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "796490dba92a242c446931a3511021da59b590fa5575f31183cfe8e01ecb213b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/91"
+    },
+    {
+      "number": 92,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6bd255c0ce4d32884955cafde24c181221400c6157f86192945fb9ea3c115749",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/92"
+    },
+    {
+      "number": 93,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "118756c8ded1dd20a11d47304ec4ee996d3728d6344dc40323a97b3a3e58e5fd",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/93"
+    },
+    {
+      "number": 96,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ceb02a3eb94c6bf71c5481ac4181a226dd7460206a7c046aab6ada614b9460d5",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/96"
+    },
+    {
+      "number": 98,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "07e6e4b0d727196291cf27f0b28d7d8a3e3f4bad1a2f7f580585726ce70dc57e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/98"
+    },
+    {
+      "number": 100,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "45542616edc2b3d36c8f31d726fe634830021ab51e92dd4b115e7661ac682d67",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/100"
+    },
+    {
+      "number": 105,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bd2b95d3cce4572e36b8b5db8ab9b0f274a7baf8bb5a92f43257dfd2457a710d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/105"
+    },
+    {
+      "number": 107,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c415b3479b0f353146f9a0ba8fd3194fb27daed75c3bcce3c0309ec6111e8417",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/107"
+    },
+    {
+      "number": 108,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "49db126be758496201627e6566f6b16d27cfb3d9f916013e66a54f74d97eb468",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/108"
+    },
+    {
+      "number": 110,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "49423905c403f1014faceffa1a51d4af794f6387b70e89a0506a0937a7a3ae1e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/110"
+    },
+    {
+      "number": 111,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "db3bb63055ae355a2dde407fc81462287c489aa558e85a3f0ad648962a6c7710",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/111"
+    },
+    {
+      "number": 113,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "642a1c30bc3235c439713f752b73036dec5ec8de1f8b1b9c1703c935ec62fc11",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/113"
+    },
+    {
+      "number": 116,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "09b782e138034d5feccbb1636b9198b7dc2fa3578ec2a619fe2f45b05d4277dc",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/116"
+    },
+    {
+      "number": 117,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1133ccee5bcaa6d76174392a5d8a2674f4ee4722336cd080ac55c9eeffa358b1",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/117"
+    },
+    {
+      "number": 118,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "0996bfaca664ab985687554ca3e59eda68e7498a5406853619583e8ead99a37d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/118"
+    },
+    {
+      "number": 119,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ab00893188aee8179a4ca4bbaabc0beb80b2ca3c359c93a0c985c19c4320b865",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/119"
+    },
+    {
+      "number": 121,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f3e6fee37acb329c936a569aab74ba9156c4d406b5f3c99c0e853cb07d3be044",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/121"
+    },
+    {
+      "number": 123,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "806e63d6571bfd839cb7ead53736836bb9f385d7ca5206a2423d37adb2b29499",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/123"
+    },
+    {
+      "number": 127,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f3cbc4125b428bfca1dd979a65749b6a4abf888b99bfae42bdcd33befb183b9e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/127"
+    },
+    {
+      "number": 128,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fd055774ee882b91477d552b7912bf63bd9454b64bf9284cb998695f63e3e944",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/128"
+    },
+    {
+      "number": 130,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f500341a0f126c331ceb804683d0da4fcde320a02f7ffe10e5c22150f580aca7",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/130"
+    },
+    {
+      "number": 132,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "30cdee9f548d7df61f652300721333ffd0df977120c4e070d31db80a4cce4b70",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/132"
+    },
+    {
+      "number": 134,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6c717fe03d489ce34ee5073acdbf588a566464bd784dafcc7ed2e5d10be0b186",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/134"
+    },
+    {
+      "number": 135,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "40301d2f73dbe88abc4621c31a1004b083c720f81c3e2d12e946658c24d5bbb4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/135"
+    },
+    {
+      "number": 136,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "052630d3bed9e85f5c8a677a43e3626ed82efe9de4ea7743e98dab690dfd5f9f",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/136"
+    },
+    {
+      "number": 137,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d7f71d94972f771ea80d9796fdb3ace94994a4c35d853efacd6f6954330e5695",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/137"
+    },
+    {
+      "number": 138,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "db7c7db34e4e199538f7996532a05b7b13a297d0d270f2f00667cd9f455b1bfc",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/138"
+    },
+    {
+      "number": 142,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "23682247549b36d6f0495eb2479a9c7244a753345386112f300546af64795f0e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/142"
+    },
+    {
+      "number": 145,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b32d683b7b45b001135b1fe92c2aacdfa5144846173c4c1d531a044099b4e54e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/145"
+    },
+    {
+      "number": 146,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ef9d8d0f0091398d9650b8ff88bbaba4e7bb4a9d061e2a27ea9d42e6f39a2cee",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/146"
+    },
+    {
+      "number": 147,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ab16a064a4f7a135281975ca9bb721025e06a049b52e6133a4d846d1350eefcb",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/147"
+    },
+    {
+      "number": 150,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fa1182ddb2f6224dc8c8a2f387fc2c6f374dbaf19fe2cffcbfe961b1e27c12c5",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/150"
+    },
+    {
+      "number": 152,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9f3f9be84bf69037f57a1da392c0a8527bf51cfb05d8df4bfcf248ba589eb3d6",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/152"
+    },
+    {
+      "number": 153,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5f5461e21215cb756569d7ecca2f7d7b67f102c724f827d3e5036ac4baba860f",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/153"
+    },
+    {
+      "number": 154,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "95e3db48515655ba5cd7a4ff17b4729b51a5dc5f84c2e6b6e4c7e4c8f02ade49",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/154"
+    },
+    {
+      "number": 156,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "dd780fb5d4c4c895889abf46ac34d35d67cde064c31238b389586c5da171f758",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/156"
+    },
+    {
+      "number": 158,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f62c3bf4f5a743563c470aee1e91af890fad7a1c1d25add4a7674949f8831588",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/158"
+    },
+    {
+      "number": 160,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2b8139a2a0a4109cfd1fe061ff78bbd689c04ded449af4fcc58437e8407f2659",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/160"
+    },
+    {
+      "number": 161,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bca84ebb42dd5b033d95d5e3e77b503034cb1b006057964e639ef8416f1af9cf",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/161"
+    },
+    {
+      "number": 166,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bc6beff8db146aede928da55fe6ad5d30acd14e4ec20e83b9374708cb9febbe0",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/166"
+    },
+    {
+      "number": 167,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1521ec86dcd8befcd01ee5bbaae11cbf764b92960c68344c28c1271166ecda16",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/167"
+    },
+    {
+      "number": 168,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "66232fdb442634d7356f7e751ad22b89b7f628e2c0321420e19330c75b5aa49e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/168"
+    },
+    {
+      "number": 170,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2cc32c4a0ec37c69d7f0ec57df911c097a1bb8bdebe4a06770806cb36ed4318d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/170"
+    },
+    {
+      "number": 172,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d962523195a96ca63eefdb0c3b5c41020914c778eeabfa6558806f09834f2516",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/172"
+    },
+    {
+      "number": 174,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b1d62fe46c9eaffffce7c14a32af32e4705fa612398d50f85bb58e412d7e8b95",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/174"
+    },
+    {
+      "number": 176,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7a99aa92b10e628e0379f464d13506bdb31bb1c7fe70c692be6ce983c6154aa1",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/176"
+    },
+    {
+      "number": 177,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6cf4b3a7d90a9448af5f2c029c7cb9aaf66d6f188155f53fbfeabda25a723e13",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/177"
+    },
+    {
+      "number": 178,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "39c7cb887e6570cafece5208d27a96d135e76507e20867e476ad8b19074b37d9",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/178"
+    },
+    {
+      "number": 180,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "de390daa7a2a1d3deb5477654fa0bbdf5774a28231dcc932a6a79f794e5ca59a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/180"
+    },
+    {
+      "number": 181,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6c7270f39c7d4f3ac40680dabdd2dbcd409f5a2b6e086d00e0dec166ecee24ac",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/181"
+    },
+    {
+      "number": 182,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2fbb84a9b0b5ff0da03dae13feb3f2270da097b27dd8a329c91db7db7090e2f9",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/182"
+    },
+    {
+      "number": 183,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "32580cb352612ddbe1843bf34d6a6fa00038a16c236ef9c6711b423b43e7ba43",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/183"
+    },
+    {
+      "number": 184,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "05b03f16cbe48a701990f36f1df6a64ace11016b88b884d2ec4314b332d95d6c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/184"
+    },
+    {
+      "number": 185,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b00f28d61f54a6c4432f52a4c7327d0a3c7105afd3e64f8e362832b0ff57d97f",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/185"
+    },
+    {
+      "number": 186,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5a2b97dc932ced93ad698bd0906e8e474e5b96f881e258c37870ea31b9490354",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/186"
+    },
+    {
+      "number": 187,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "cfcc6fe5f7adb667ea231d06977169f3d59e883a0faed42199da0ab649c3fd67",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/187"
+    },
+    {
+      "number": 188,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b950b3bbfedf29f6246779fafc5cf482112d8250078b660bcd5ac538d19edda2",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/188"
+    },
+    {
+      "number": 189,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "06994bdce1cc9c7407be40df1bf646680f9aab9289cbb3636dddcb8d17852afd",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/189"
+    },
+    {
+      "number": 190,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c2b2de28546a13c47946f89f6d7aca625f5a179e861d9cd912f3c048de11897b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/190"
+    },
+    {
+      "number": 191,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a22df3823e3e3e8a44d476cd4da3386208a1e4bf3a1625daeb7610e7179c0f47",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/191"
+    },
+    {
+      "number": 192,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9b474598c72ff8971a1062c5d401406bab64122a497a5ee54ea94d05811466c4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/192"
+    },
+    {
+      "number": 193,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d0b9b14a72fdc14e8e52f33bc929210da743f1e87dcf7c7b4b73c898492de58d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/193"
+    },
+    {
+      "number": 194,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4699482a66079173e414b6b6ed6e9a9df358e34e489b8cdb6038cebcad34e525",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/194"
+    },
+    {
+      "number": 195,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "65540f30ce990227c96ecc5db369af7e7366c3168bef7e26d288ff532094c32a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/195"
+    },
+    {
+      "number": 196,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "bf4f2c71f4e07f159a67d60f596357f94e18f47163ceb155724c50da79e1f884",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/196"
+    },
+    {
+      "number": 197,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "18bcd162d8997b584f2b17874b49aa0e0ac2146f06ac7f8d98f1d2fc1d647c95",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/197"
+    },
+    {
+      "number": 198,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "3e0f37a2b1db2de2f61510746dda32a650df54b2b2dd5b28cc15a0c93d42ff07",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/198"
+    },
+    {
+      "number": 199,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "90c2963db7896e9af38cb03154995e9aaf03d1b2766cb386ed69b7446fae8209",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/199"
+    },
+    {
+      "number": 200,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "139a0d74db7bad568335b7b32f220c9fd0185f5a7387a6bd1046866bde5349c5",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/200"
+    },
+    {
+      "number": 201,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "08b6cc30efda0554d2b88dad62269cd535a637c02db383efaf800093b7e1d8c7",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/201"
+    },
+    {
+      "number": 202,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "3011a691679f6898608cbe4e3994df2f1f0d40f722ea76ac451ba7876c80f856",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/202"
+    },
+    {
+      "number": 204,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "894ddae2ddfa6760c0d010f4567c15b521f86c036c7435e6ec921f783308c51d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/204"
+    },
+    {
+      "number": 206,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1dea431ac44b0d7c29a749d1e84b8cc5a25f83bbe7c08f6f580cd38ed5b42490",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/206"
+    },
+    {
+      "number": 207,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2dd9f798521212b3814394c5851a7df2d4adad3a69feb7d92d2696ada5351c4b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/207"
+    },
+    {
+      "number": 208,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "05dbfe837e32e8c120de1afcd9173896dc1271a679fb0e4d5e657788f5a6cef7",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/208"
+    },
+    {
+      "number": 209,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9d96190826a1ca0868a73eec117802e870fed114debfe2fbdf69f99b653f935d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/209"
+    },
+    {
+      "number": 212,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4036b46a6c0497a16f50b89f9e0e1350b89304f35ce2004d3139f863d487fa83",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/212"
+    },
+    {
+      "number": 213,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1dfd95988918e2a24051de625c2b97908fbd1097efac00fa1f46a9fde2698c48",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/213"
+    },
+    {
+      "number": 214,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1a33f2ded371fd352601b670864a2b51c6a337399b19d746a2e57ad0667fc79b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/214"
+    },
+    {
+      "number": 215,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e4e33fb24cd14121922feec39171dd7b5ed69d8c95880a50cf1e043d1752383c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/215"
+    },
+    {
+      "number": 216,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9efd076472ac3986ac8770939d377fb63e7a52f9d266e316eeaa70c96f9158bc",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/216"
+    },
+    {
+      "number": 218,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c5257b73465f4e3d91f9693505aeb3803aa8c7ad8b23188e237af908c51179c6",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/218"
+    },
+    {
+      "number": 219,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "70dc5832154e2691a95fde1925abb44f7c1de7f64f81e89ac2800d95749881d2",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/219"
+    },
+    {
+      "number": 222,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fa6fcc83ecf0958bd526edb54c217c70c229ae508dc2fcde74818590c1edb72e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/222"
+    },
+    {
+      "number": 223,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b5bb981dd98dd40bbb23cd4e6d19da6c916bb87d2b249bfbc2c8bcd014c5029b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/223"
+    },
+    {
+      "number": 224,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b49821fae9193c6ae1ffe02c79561ff7ede94ad13f118530b8377484e03c81e4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/224"
+    },
+    {
+      "number": 225,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "501a9c041abc931f76d959b24c74e7a6df8adb3c17e1f11d6c3a1182e1957106",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/225"
+    },
+    {
+      "number": 226,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e618f8bae0a29ce8c97e4bd843b45e9f376478ad0ac43a11db4269987b8d371b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/226"
+    },
+    {
+      "number": 227,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b1ef73918159f14eba88aac79bd6bcc3fd15ec375a84bf145ab0f6dbe06ecb5c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/227"
+    },
+    {
+      "number": 228,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b8a1e8104df4d5d764f8315a2a4b61fc266caa828da87c1a0551c9b9aaa5544f",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/228"
+    },
+    {
+      "number": 229,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c44f9c0171dffeb86afbfd8a431eb0033a1658a4305b046fdee2fffa43e4cc01",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/229"
+    },
+    {
+      "number": 230,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b5145c8f1506dafedfbcd405b73640933c79aa620c3fb0288c650d0a5be5728d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/230"
+    },
+    {
+      "number": 231,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "167097b11713a5d46a33a64aac2c8622af4b7075acc3e1e4cd44818ca287347a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/231"
+    },
+    {
+      "number": 232,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "346232fc0ce54f90f88b0eab993ae2b6241457d8f2e446fca7ea1f8b38eb669b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/232"
+    },
+    {
+      "number": 233,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7c10ba50bd0a6877216e925db5262e7efdc9b9fa75712ff31e71e66482a4781f",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/233"
+    },
+    {
+      "number": 234,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f6b71bf6f8c9c7d7720c386143f5eac92ff1d99610c5f2b983a41d45130931ff",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/234"
+    },
+    {
+      "number": 235,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "0072abc1456cd99cf742f34049983002b8170bd6099cbd8bc0542a6b39dc3dfa",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/235"
+    },
+    {
+      "number": 236,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9b84ebe015f0faaed1dd17c2623d50447c97b06e3cdd6a7b39fdd4f7dbe5b500",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/236"
+    },
+    {
+      "number": 237,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e6126539b28b687a23d2f286cd664f4a92b6a4b89f72908454b1602d2357fe23",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/237"
+    },
+    {
+      "number": 238,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6d026e1a8ff531fd49168c0da1e0014f51f39cdaed9c214e9de4f38912e517a5",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/238"
+    },
+    {
+      "number": 239,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f248ce48bf51e8c4e476a20d7969867bbe6d7d049a6b1168776884f4f06fa6f9",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/239"
+    },
+    {
+      "number": 240,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e312891574cc2bd1ed226e050bdedf2da79dbf438096f70bba5ce59755fd2618",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/240"
+    },
+    {
+      "number": 241,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7f2909777a0416d47b6fca3497cf6e9ee9d59a65ba5bc1c6178d6734611f5a47",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/241"
+    },
+    {
+      "number": 242,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7597d6cce1fe5d807bcaf9e17b033fbf20ec775473eae6d4918a73d4ef171ce9",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/242"
+    },
+    {
+      "number": 243,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "993d8025b0fbaada866c6a3eba6317da7d4a53d8bd848423dee617f87c247211",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/243"
+    },
+    {
+      "number": 244,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "35d706b65336fe814db96d84f5e361b6fd5cf94b889c7bcedd1e6f176f6e27a9",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/244"
+    },
+    {
+      "number": 245,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "aa1c70906e7e992c72ad945fc698349b75f49474c38681a3fbb26d76cc77db57",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/245"
+    },
+    {
+      "number": 246,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "21f6b2166c34e2e37b3185aa03eaea293c2f4fb47a4f54b2f5d10ae40e1aa1f0",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/246"
+    },
+    {
+      "number": 247,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "80648b891defed9f56d3a05d8d59773e4a362ee96f91bee61fe709abcf3da9f9",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/247"
+    },
+    {
+      "number": 248,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ab4091ed6fad5c7f58fa26d74098f722faa155b3c630aa92129359732ffa08d3",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/248"
+    },
+    {
+      "number": 249,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6961507d6cc70c638b5c2f3c3c11ed61536b8b0c661da9f8ebe8e79735d1b99b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/249"
+    },
+    {
+      "number": 250,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9c9c63c361f90366266cb246ec08f647c52c965ec25b89a9b1f928d97962dfcb",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/250"
+    },
+    {
+      "number": 251,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8c8cf433da0be1fe6c70c14b4c5b695adbeadcda68f9b0e755a1712b530eeeee",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/251"
+    },
+    {
+      "number": 252,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6616deb83ea8265ec15df6488b3d89b365fd793c2b6d31b5239a77f7dad04716",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/252"
+    },
+    {
+      "number": 253,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f41872b243643c004fca1ade686e92052628bbc07ac374b2484e5285f3366e04",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/253"
+    },
+    {
+      "number": 254,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "84ae22e38921a9c1c9a09ed93178f8ab752ef8fb9c3e1e889899d882ea0e1428",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/254"
+    },
+    {
+      "number": 255,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7df813e9c54db23c412625be4a0006ad508976286cf058aba408ea29657fabeb",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/255"
+    },
+    {
+      "number": 256,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d7c86e34e2a423731f99361313999a8763c9392ec95ce933283f1a62f690520a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/256"
+    },
+    {
+      "number": 257,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5a86df5fcb4027705a9c0dd7a2ed5fcc21cb58cff584471f851ee943c4809d3d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/257"
+    },
+    {
+      "number": 258,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "44044cfcce1bb8822bad13fa24898fe2394c8092975a3cb65319c30e77db694d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/258"
+    },
+    {
+      "number": 259,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ac2bc56abad926345abef1719a23055d4edd215a5abc553c0930309b8a784d25",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/259"
+    },
+    {
+      "number": 261,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9304a4e0fe8f41097cd07e1f9b128d83e66ca525ab4248ffce1f1db8302f6dff",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/261"
+    },
+    {
+      "number": 262,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fda817885d80944e5edaca59e2ed0bbd4eb7e008adb8505d0b7cad24e69af1bc",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/262"
+    },
+    {
+      "number": 263,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e9bbe6f4a73c364d7bd56ea1f1bf372b30e902d56fc68c9dc5f9de959ffc6f3d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/263"
+    },
+    {
+      "number": 265,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "98633901b358595b679a9724d3c89ecf12d37ffadd8512321cbeff76f307e9f1",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/265"
+    },
+    {
+      "number": 270,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a527b210bf3eb78eaaf37715d0cf2d21f20b826fe5ce2736d8a1b727c07dc37b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/270"
+    },
+    {
+      "number": 271,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e6c256370b92b76f8cbf16ee1fc5104c9aa46beaa196ad60a8770fcd5ecec16b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/271"
+    },
+    {
+      "number": 272,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "689da9f2ae6c35d8cde0f99738f6e782dd593466f58977ec97b676cdeaffb5dc",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/272"
+    },
+    {
+      "number": 273,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "593045fbf15627889060ff7a2b82e560a0a452844655976273295ad7ff7d228a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/273"
+    },
+    {
+      "number": 275,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "369242d20883b6ef21a1505384fabcad6aa6bc0a218ff78062ce4ee194d27168",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/275"
+    },
+    {
+      "number": 277,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4f0eb51dbbfaa93846be885ad73f35c18d5cede0f9d7805e683ba6b2050e160e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/277"
+    },
+    {
+      "number": 278,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4ac6855f2e18be9be7f9839bab9751252179df81a34609b0764a061164fb674c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/278"
+    },
+    {
+      "number": 279,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "36e68675b7ef0b329b824e7b2f7763d176e7a8a3ebbdcd6e5baf9cb82896b878",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/279"
+    },
+    {
+      "number": 280,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "0143602f8decb1ab17638d1e7348828100d3887afbce78b16a1853ed4ce0321e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/280"
+    },
+    {
+      "number": 281,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "995914c94d0f9535b069d760689d9fd812af2ee7fa3f2284e7d26828cf311183",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/281"
+    },
+    {
+      "number": 282,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "cb171d2c10ed752e54190cd860b55d0dec11294a3bb4e9c15f09c4f00824dc04",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/282"
+    },
+    {
+      "number": 284,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d5030fd39cc9944e9525f2bade8d7b0063d0a76694aea0d51e00098198a71979",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/284"
+    },
+    {
+      "number": 285,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2607302ed9fe4e9b60e82736703420bbd259bbe427f8d8ab03cc50b7aab0f000",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/285"
+    },
+    {
+      "number": 286,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e9fcf770ce5285d81bbffd37678e446c9bd4610af675d0761ce1339c94ab46af",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/286"
+    },
+    {
+      "number": 287,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "29ecd37774130ac5c7bc9b07e6bb8ae553f39a96e4d6544253ffac900503b5d8",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/287"
+    },
+    {
+      "number": 289,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "065015770ed29310537c448652ac16f138396ec6de2bc64a33d5b102e5bebf4f",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/289"
+    },
+    {
+      "number": 290,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "82a2a38969186a16936d02f58b003914f0f792e882589155b698f41b3887df05",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/290"
+    },
+    {
+      "number": 292,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "32cea79dc5fd124bd32a39af07daf1e59fa09d6fdc4b3ee7ef80af6b8bea45f8",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/292"
+    },
+    {
+      "number": 293,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e7532ef0e8bbbab15d49391d8d15f70d02d419df1670aa66c29d3786f376ae6c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/293"
+    },
+    {
+      "number": 294,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "546d7581ae6ff2c46c1e0df69b2fc125b57389670858a325d2d3f351d3d4a65a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/294"
+    },
+    {
+      "number": 295,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fb93c29c61fc16e69b2bc18e2784546073a620fcdc339da41c2fed4be019cd0b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/295"
+    },
+    {
+      "number": 297,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "15629d080798faae08e6a457d2cc217b6e369394382cb77d41c1d2a24c21d6c4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/297"
+    },
+    {
+      "number": 299,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e36de78f00d43af9f9bc228809b0ec52a14f8bd6cfe0e9e640a597f62f131290",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/299"
+    },
+    {
+      "number": 300,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d5b0aaecf79d6b7d2031d3178d5ffd69e033d8b015d5fd6087352eaaaceccecd",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/300"
+    },
+    {
+      "number": 301,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "75349ac7c461990d7b9f534f2519b3114a2c542d6521f132a963ddf96e583fcb",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/301"
+    },
+    {
+      "number": 302,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "68d1772550b718a2cdecedaa76a1b44098fdefe31c2c1851a48afbc4dc233b23",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/302"
+    },
+    {
+      "number": 303,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8c0d077b20c3a1933db4ec65052540480b145b00cee496bc6e3900ec03e96804",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/303"
+    },
+    {
+      "number": 304,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a9c6dfb2d11f828be2dad0b278b8f68cb03bc281cacb7e88da31572894c235a5",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/304"
+    },
+    {
+      "number": 305,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "efaac0b85f88232e1facfd816feb579e118c3d465e025856a8162a106d94b422",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/305"
+    },
+    {
+      "number": 307,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "0174fb95fd69312f399e7fb183f3c1a0dd74a41da2ee74dd894f8dba69e7c278",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/307"
+    },
+    {
+      "number": 308,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2a2431168dbe288b4b19b8a0499bdd1febd29b9a54f728f5451252c57d027de6",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/308"
+    },
+    {
+      "number": 309,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "10f95376b8269ae2e7aea77385f3f5c6e7a88b33a6f145e7367170ee743c62b0",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/309"
+    },
+    {
+      "number": 310,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "995ffa5c586811d85227ac51db103cf6e920b2603cbf83c00b3086d4f19a37ee",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/310"
+    },
+    {
+      "number": 311,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "153cd7227c0d7ebe01271f2871117735c29a90739c37f3362df461b83347d037",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/311"
+    },
+    {
+      "number": 312,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e88a85922b9d2fa4af4e562bbe76c638ef9d0a3717585995da1c98873652c681",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/312"
+    },
+    {
+      "number": 313,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c8b16cd06615300cd915ca3620f01bd06f13e8d8cc83eb6fd059da94d8e04af8",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/313"
+    },
+    {
+      "number": 314,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fc4745b46b9cb58551f145d9b03816993dafe8e881e12cbae7b1723a33de2517",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/314"
+    },
+    {
+      "number": 316,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "68f00d7f5ab7290091aad3f5276835ff1448c2c92fbcdaa25df2113955c9ec06",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/316"
+    },
+    {
+      "number": 317,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fce3208ebca5e50cab36bc2e589387365efb7a8566e153cd3f28002d684e137e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/317"
+    },
+    {
+      "number": 319,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "eea1b74bcdfd464852d1ec407f3ca1785f7d92408ef2909ae32056f911b11f34",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/319"
+    },
+    {
+      "number": 320,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2b365fd4bee641b0406a80ddb0a8faa7fb06d58531c2fcde6b45779715e18d15",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/320"
+    },
+    {
+      "number": 321,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "43cbc90f00a4301e086454fde59535c8f83bad3d4d5353ff05fc0bad4377c6d9",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/321"
+    },
+    {
+      "number": 322,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5f27648ccd30262db9bb2e3accd293e982a5d27f4b300ee80d54487c5b880204",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/322"
+    },
+    {
+      "number": 323,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "406f5c01474d28e5af4396dcdcc0b219c706bde9a57929779321440a84d4e89b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/323"
+    },
+    {
+      "number": 324,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "99cec627f811ed21c56c9c7b2a4b912e5ea11c73acdc4621f5bc3ca14800f13c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/324"
+    },
+    {
+      "number": 325,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9260fa35322e62fc6196573d800b9d7f977665047d5fd57fcfbe0acc274ea753",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/325"
+    },
+    {
+      "number": 326,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a5573e205e1e582c9ffb1963e689ebc6ad5b682c9eecbc93d2363d7e07841dcc",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/326"
+    },
+    {
+      "number": 327,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7b67cf20839be5ffbb5d30f1d47e09e404088c49dd7c2244fe789a0ebf4879b3",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/327"
+    },
+    {
+      "number": 328,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c6c797a722a78478c2f03c6d3ee1720f8b82d4a80e49cfe251ebee089e50bbbe",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/328"
+    },
+    {
+      "number": 329,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "70c0e64a2047182d31124ea6636ea3269fe02423a710a9780e5da99f190532e1",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/329"
+    },
+    {
+      "number": 330,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "758838654d273e23b28ccae29aa1707724ea4f08edad4ed40f971da171d0da80",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/330"
+    },
+    {
+      "number": 331,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8720bcb950e65938f4401296ce6a932d75f0039405ad705ed5333a8443fe98bb",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/331"
+    },
+    {
+      "number": 332,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2a2c214720b687d42b95123f5dce497dfe64d600cc7875cc78a959777cc15662",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/332"
+    },
+    {
+      "number": 335,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8f3a9859b38d3025039c47c235761405b78acabcca962b07e467f6261ae0217e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/335"
+    },
+    {
+      "number": 337,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "06d68aaeb7ed919c442e30005472301781bca629ee83e75bc1fdedc874757b04",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/337"
+    },
+    {
+      "number": 338,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b6979166f95905e0da9771b865991093d060dca36fe67008622071af08e92810",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/338"
+    },
+    {
+      "number": 339,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "665d85492549e5a62582edc8191a8007e792e8f3a98d65a122e9a1a0a380b8e2",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/339"
+    },
+    {
+      "number": 340,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4e0817658fde00d22d2c9a26e71aef57e936cee98794d76a79553d98c1a3b5d2",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/340"
+    },
+    {
+      "number": 341,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b89f68d3a3b73077c858f14181f822c3e221fce2ed9152b375e4fce08a5ed15d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/341"
+    },
+    {
+      "number": 342,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c2523fdb947e662da7bfbaa11825f8e48d79732aee3d75277c4475ff1397877d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/342"
+    },
+    {
+      "number": 343,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "34feba11f9db5d59e2590b2cbe9c0dc2824808a70a0b5fcbe4f8d4d11e1efc55",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/343"
+    },
+    {
+      "number": 344,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "3619f834b8e9db91ac601b7f152702ea4863a89440edea90c3b0f31b5e46c5da",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/344"
+    },
+    {
+      "number": 345,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1e3697baec0c176a45590e21af2557cf58417d2f40a8da3380faf1ce15f5387e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/345"
+    },
+    {
+      "number": 346,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2bb91be559ca4ef2a78a688eb10a73082419b3e2fad2f9e0c22a0ba6bc483152",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/346"
+    },
+    {
+      "number": 348,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e241eb6d294a036b08fdcaec92f3f38a61fb984d88a5ca3225d3cf9b2fc47abc",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/348"
+    },
+    {
+      "number": 350,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "978de2ae7d30312d3b3a25775e1a603085e5f1f57c843af747323186abfac3e9",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/350"
+    },
+    {
+      "number": 351,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "64c4374ec6ee3e9d40ef621027d64e1113d14616299acd3c760d733e31bfbd79",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/351"
+    },
+    {
+      "number": 353,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8ace5150aee5ae924547e87a7b0c14176852d6a21eff475e2c357515245510ce",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/353"
+    },
+    {
+      "number": 354,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "54e60970f09d3f3b111281e91584c520e72087dfb419d1896357e84701be3278",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/354"
+    },
+    {
+      "number": 355,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "d7cf36167ca0b99aad2c403f85ab2753badca9bd52c063bc3e429abbb472d6ae",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/355"
+    },
+    {
+      "number": 357,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e2c2e0271b9eb49d144c9d10f49f0e66afa2caaccde1ae84a52952d0c257ef85",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/357"
+    },
+    {
+      "number": 358,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "360f1e8320b1ec0f13bcccd3f12fd4fc355c80e1d4b5eed31ed48b326eb29276",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/358"
+    },
+    {
+      "number": 359,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "3814b1e56d1bebf6fb74ad591673f70d7847b724b1b7f984191ee7f8d924f6c4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/359"
+    },
+    {
+      "number": 360,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "19d24ad428414d5d698c40bfad16e3b913bb808b32eaefdb2c3fee9d44d2d365",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/360"
+    },
+    {
+      "number": 361,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f76633d14bedf00f85eadcc22f7bdd04c2a7db18e8723603a3dff6156c42f49b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/361"
+    },
+    {
+      "number": 362,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ec34a7b7a46919dfdcf7ffbf02aa89b912622df686be75c0024fc1af4f84159d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/362"
+    },
+    {
+      "number": 363,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6d2f1aa040597fc442ae62ab788dc1dc8c4a21a8311f8fbba18b587cbf7bd736",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/363"
+    },
+    {
+      "number": 364,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "08a355634d677951dd7a063a9f6a0c3805152e6484d44f2d0eb690b98cbc7b2e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/364"
+    },
+    {
+      "number": 365,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "55348ae22d61fd0e3ccdaad7b7ccc1491e817dc8e9dbc3b55b7bdb93b8b06266",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/365"
+    },
+    {
+      "number": 366,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a34960e5e77c5b0b6ff400c5f7be082ed695dc18bc75e4fd555b7731a3b3c90d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/366"
+    },
+    {
+      "number": 367,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "aee82670ee38ae10455e8b62af3213743025a59c7215602e453fa21505115215",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/367"
+    },
+    {
+      "number": 368,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "652313c772893ca7cdef47536a1fbbcb6f376ac77d1eec0d0fa75c238bf8d482",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/368"
+    },
+    {
+      "number": 371,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6b09179b0d8ab59cbb6105d03d5d6f0c26da8987f2c71029a881b0d2af84752e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/371"
+    },
+    {
+      "number": 372,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "06433fb024a13d55be5a323723ca7c63e1a461e2ae376e16d641ad89819cc13d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/372"
+    },
+    {
+      "number": 373,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ef40a8fa8d1e434a9099c33b15dacde5f8e89ded6eb64be9a05d5aac2a2167d8",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/373"
+    },
+    {
+      "number": 375,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7a4c7a2122344df42f2d1da55953fa8e7d163418a0440f1e38d7e02ccb319cde",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/375"
+    },
+    {
+      "number": 376,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9ae69755a0bb923c200bebdb624161ad922ae4db127bbbca21c6e94ced12bf1c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/376"
+    },
+    {
+      "number": 377,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f90918a8fafe253d614bda6a71fef73a3d942dfdfd3164b0accbb5a98573e063",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/377"
+    },
+    {
+      "number": 379,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "cac0a35e64932621ac20646d43ae1ee9a3cd36a1a23c2d62154a5f5b6b1d3a6c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/379"
+    },
+    {
+      "number": 380,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "318d6606ba3949f4f6428ac72bb90aaa068d80cdd54c8a949dcd9cc9fa212539",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/380"
+    },
+    {
+      "number": 381,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "dfe2c801a613c4d67c0b25da9ac585aa018c9506498c088ec90147fd8d479db4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/381"
+    },
+    {
+      "number": 382,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fb5afb4e6441d0ef057e5f8085d701dda4962c05e1284c6eab74f3b96ff3873b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/382"
+    },
+    {
+      "number": 383,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "880b0b2b2f253d9db85a6c700bb8a26c954b271992609f96fe162a1381a8c9c4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/383"
+    },
+    {
+      "number": 384,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "0d097d0e5e61272d868607a94ac855c90cb2f6e7214fb459c079e46537faa31e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/384"
+    },
+    {
+      "number": 385,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "941d94d8704e4008ce0c628de8ce4fe0af3e2a3ae6e0ad6089681f1c26fc68ef",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/385"
+    },
+    {
+      "number": 388,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "0fbfa5b49b0132afb89908c89a135463de48dffb47345315d6059afc6dd3bdeb",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/388"
+    },
+    {
+      "number": 389,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "136f01f946a091714e2645ec04c63bc9c7943c23b8f54ff7e8c440cd8395e51a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/389"
+    },
+    {
+      "number": 390,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "dbc94f7821885cee4e63b8f1f843f442b6d1536ebae7dca2bcb6fdc6b7a5ac8a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/390"
+    },
+    {
+      "number": 391,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4ac1494e6528c79152fa95ddeae4e699e319ec12884e363fec87486d47c70c74",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/391"
+    },
+    {
+      "number": 392,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "093ea2c4f61064aabb1f4b1f48192bd61a1a8349621c8e17ede020b9bc1357f0",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/392"
+    },
+    {
+      "number": 393,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4a221497aaa9fc6d6729c4af40f63b0596d78f33003b27e7936d5d7692645654",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/393"
+    },
+    {
+      "number": 394,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e2321b34158d0bd61de182da4ff8c145c549dd6645ed8323b8d0e4e4479a1029",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/394"
+    },
+    {
+      "number": 395,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4cd499276ebddfb1b046bb696a05748bbc2159de2e4502168e0b7a33d2bdd244",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/395"
+    },
+    {
+      "number": 396,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7c04854f95126453c7dead78e05c92ae2a7d7f18192f172e79427fbfb838aacf",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/396"
+    },
+    {
+      "number": 398,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8c9635bbc595af11d9ef526cb1ef1eb1e8840d66d288fc67c5892dc2f65f3180",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/398"
+    },
+    {
+      "number": 399,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "591a73dcf33cf65a342098ea641bacfd47e0d4264e9292b3c0b9081440137d3c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/399"
+    },
+    {
+      "number": 400,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "44d7a98eb445aed7afacf228e04c400dcf02745a645d125d1921625d87126b8d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/400"
+    },
+    {
+      "number": 401,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9e0d881dff2488eec76414d302cb3c9a9c9ebce78220d3e8e4e800bec0946a09",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/401"
+    },
+    {
+      "number": 402,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "993ad5dcbf987daf77ba1dce9ecd92a9b7d66479da509f320355af65bbf84aa1",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/402"
+    },
+    {
+      "number": 403,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "381e0e49015e39b7f0b247efa97b77f6b972d6729c6e1f93b2fae9be89930ed3",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/403"
+    },
+    {
+      "number": 405,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "641a29d1ab58b253ce90620ccef23c1109d66df89bf6c405380024dfdaed2e88",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/405"
+    },
+    {
+      "number": 406,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e4231eb2c944ee20f59e010237fe40bed70cd4dadeaa35136c0287f461064eb6",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/406"
+    },
+    {
+      "number": 407,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "5e4a7367c93fb3df3bc2d5eb5d12af57783e9bb6d64bf7d18e02c73ffda3a39a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/407"
+    },
+    {
+      "number": 409,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "389e8fca00c20fd3a3545726308d985c2984cb82ea16d2ce25f0f170be350b0c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/409"
+    },
+    {
+      "number": 410,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e66f9e9badfddab4d1e6da4a41a2d7316bff7cd8d76e27595d889dbaa3f91e8c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/410"
+    },
+    {
+      "number": 411,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6a0fdddbb917dde228ce059652824e6e5f499c73b41d12d3c2e93807d5f1efc2",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/411"
+    },
+    {
+      "number": 413,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "473c30038e144a6d76256524e22271876973bf553a816935e2e4c59404a471b4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/413"
+    },
+    {
+      "number": 414,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "480f68d063b2a777d60269c5942edced05d7fbb75c0ce9258edd4da09ba4db38",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/414"
+    },
+    {
+      "number": 415,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "77c43b20496b9bf0fa087644349b0a793f3979bf3bd7ffffd01b6a19b1ce68f1",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/415"
+    },
+    {
+      "number": 416,
+      "result": "concurrent-change-skipped",
+      "current_updated_at": "2026-09-10T12:37:12Z",
+      "current_body_sha256": "f44b4bd2d77bb174c0080375737eb1877d29e8f8fb12b9db478e2d6e65176ca2"
+    },
+    {
+      "number": 417,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c35eccf242da1713e91018e52197b31acc146dd8780e83ec863b2e97d69a2dd3",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/417"
+    },
+    {
+      "number": 418,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "10aaa1ce36ab4a8c81c7c920372eaea6087644891e010849ed03217d7e1316d9",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/418"
+    },
+    {
+      "number": 419,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "78eee4c25c9d1d66122ca2f4c7fe0d07eb65324873c80c287017ce5902c34372",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/419"
+    },
+    {
+      "number": 421,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "924bff991d85c85e7206f693fcf33ca6f2a3c3c50e08f619be743ed50d7d7bca",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/421"
+    },
+    {
+      "number": 422,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "675f0616f274acf5da0a862f05928a757e51458852073ee4b2c4f04f79913019",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/422"
+    },
+    {
+      "number": 423,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b8cf7eeff19b1c338e3b05e252fffa361b4f859477905ba46ddeea410ad746d0",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/423"
+    },
+    {
+      "number": 424,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "41f6f5715b4f60fefbc86474af74038bf18324bc79f3318a4748373f1aaf1f9e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/424"
+    },
+    {
+      "number": 425,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c5e3acfec0599880a7f980b69dd39eb1ab9b8624a56034b030749ea4d85d1f79",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/425"
+    },
+    {
+      "number": 426,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ee48a12b9022c1f5337bc6816558b1f06c2901214a54dbd2e35960abaa994864",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/426"
+    },
+    {
+      "number": 428,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b11cf8edd76387edf424b883782ba7d002e7d5c96726fca780f2dac79e009f20",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/428"
+    },
+    {
+      "number": 429,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4a58eb3d1ccfbd3c519470b952c777be1b152d93d4f94f448d1f71748b4d04ff",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/429"
+    },
+    {
+      "number": 430,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7971b852e0d551076a36b90a8e6ef54a9c0912b766584c522dd908f308902dad",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/430"
+    },
+    {
+      "number": 431,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "90496d49bc3f0647ed4ff8b6e3da398454bcaff636197b212ee32733eb6a983b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/431"
+    },
+    {
+      "number": 432,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4cf99d71cb84c67f3c039121d04d3b18e849fd0fbe4d1ae21d307d97864ba0b8",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/432"
+    },
+    {
+      "number": 433,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "89346244b1f7e721a4d427a5db00fec31a16cdf2be780bde12795f397a86fb52",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/433"
+    },
+    {
+      "number": 434,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "cd55698ff978df8ea1db65a4eac728c1c0ca7b5da36fe09ffac7c8b921979015",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/434"
+    },
+    {
+      "number": 435,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "73e0e22fa0165ad1a8c2e41f4a21463c27921dbdeeb6b68d0594ddbbf18c711a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/435"
+    },
+    {
+      "number": 436,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "21cbfcb6afed042ee81f92455b368fa3a847238bd3c4c35cdc3200fab46525cd",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/436"
+    },
+    {
+      "number": 442,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "696ab646e59df58f0617d1a10f346154c90a140fb416cc14d50e7f9b898520ef",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/442"
+    },
+    {
+      "number": 443,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9e4a9f4ac85aebddb2b7476bac8c34596c05a978986547a9cc6d43bae0d67336",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/443"
+    },
+    {
+      "number": 444,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ea2a397b3905209da04aec9691b1c84c11e8ae7341699adf955b7a581a1bb173",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/444"
+    },
+    {
+      "number": 445,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "8d98132844580a4863b9d9565206aa1bbe8fd455cc36a14a27e8dfef7715db2f",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/445"
+    },
+    {
+      "number": 446,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b09e438bb10da5adb5a161a4f8e2267b713c5f978f97873cc79c396dd340bc30",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/446"
+    },
+    {
+      "number": 447,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b205985a5cc9cfe7294688f0b725116d9820a514142021ef61292e85b9e36d8e",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/447"
+    },
+    {
+      "number": 449,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "64724d5412be215e56752e6bc2b7d92f2529c1bab68eb39d3e568431df114a36",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/449"
+    },
+    {
+      "number": 453,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "06e84b7d431f059fa9183fb1228d4371075549d85e85c16f3b241cb60adc0231",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/453"
+    },
+    {
+      "number": 454,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "40c82e23e7d767aa1fe40afe138495f442a367470a9ab8a665abb1fede23ea55",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/454"
+    },
+    {
+      "number": 455,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "6efad9ba7169464bddc1a534a7ec5e611559471cc0cb9f4acd6be92bd29ae4ea",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/455"
+    },
+    {
+      "number": 457,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "f581ec21548151292d5332c147bf8708c9b4d5177dfc9b29cc11032e82198b9f",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/457"
+    },
+    {
+      "number": 459,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "9ecc7d298a3209d671f6334396839641b29bd4e35989d94ee13d14ac6e8ead76",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/459"
+    },
+    {
+      "number": 460,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "3e653f3b09d00456a143c735e18ecaea8c18f0b607aeac6fd932e0e8d1114295",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/460"
+    },
+    {
+      "number": 461,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ba82b6845cb3d771c2c3e6f80435638e163beef23e0341ed4eabd1e2dd07e395",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/461"
+    },
+    {
+      "number": 462,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b8b0a4f125f87ebaa7420132a11abdf1b6d89631cbff20dd1c74bf04bd7a6c3b",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/462"
+    },
+    {
+      "number": 463,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "38255bdf99e6437f9fe582d2ceb6b3d51843173c8c1a44ef5882dc4e27815fe8",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/463"
+    },
+    {
+      "number": 464,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b27784778ac64ca8e359173363a4c45888148934081ef570b6a3b7b249f00fb8",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/464"
+    },
+    {
+      "number": 465,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4561dd1a6916950f37d37c3b81138774372902f9b9610421ed57987218e1d0b6",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/465"
+    },
+    {
+      "number": 466,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "3433302713e1d3df31f883a5bb58533397b8b845e54ef194bc6247dbe650ea77",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/466"
+    },
+    {
+      "number": 468,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a089f3a2164a808c5235358438a196341357e536fd695e893a5f922aa427304c",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/468"
+    },
+    {
+      "number": 470,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2c38c38e2a4142da2dc0583b605a07319e7050b6be94099113e5e5516b6055c6",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/470"
+    },
+    {
+      "number": 473,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "a952a792de6d5ae31bcb0a75ea3a44a2bd8bdb3039224b91619bb49cd597e819",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/473"
+    },
+    {
+      "number": 474,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "32f229235a7f1736175653063c8c5b361ba8f2740a5ba1bda10170f7a3711585",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/474"
+    },
+    {
+      "number": 475,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "971ccca19bffeb9caf98a8e27e0bd4d9221037a7a64dc7a51bd2f452aa864485",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/475"
+    },
+    {
+      "number": 477,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "73c98f0ddf136aad8aaa60269d47d3c3325807d8f6b8d3bb29c064a88b736e94",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/477"
+    },
+    {
+      "number": 479,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "abde44ed37de9c9c6d82c3f873e389fe5f8996c20cec461e17bcc5812ffc81f5",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/479"
+    },
+    {
+      "number": 480,
+      "result": "concurrent-change-skipped",
+      "current_updated_at": "2026-09-10T13:43:30Z",
+      "current_body_sha256": "0bdb8ae65c45ab9f02c3b94b03dafaae09041d7c9fe7613e35ef04f34b445773"
+    },
+    {
+      "number": 481,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c21006322d8c8e0aa948d68343a92e148cde7fbad51c36251b7b96d3ce38bce8",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/481"
+    },
+    {
+      "number": 489,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "92aee129a5770356581ce85b72b869389a34347fa7f9151d813678828e79591d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/489"
+    },
+    {
+      "number": 490,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "1376282b5e24111d0bd15e224584beeae20ab97b995cda37013ba086512c8767",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/490"
+    },
+    {
+      "number": 491,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "187dd0b7359d9c4cc911cc0dc855f51a795569a2a68abd6401ada40ae98576ff",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/491"
+    },
+    {
+      "number": 492,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "4cde3b7a667c430742230b05d3898f426809684a570576d5066775a4bc995910",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/492"
+    },
+    {
+      "number": 493,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "672843c249477f79f2a5c1d21bb211cf34f88b13e19ab3d6a45ce2244c5e3dbd",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/493"
+    },
+    {
+      "number": 494,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "34e13d25146bdb1a0c55a1c7b295b505715f209dfa01e3d0af193cf409dee9fa",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/494"
+    },
+    {
+      "number": 495,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "2fa0db45362f4845adf39ed9775bb7d9877b99b3fe5a10536b86cc845c42a9ad",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/495"
+    },
+    {
+      "number": 496,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "e373db9e3f1a9c7211207cdf7c2717412ffca89baba3364b99d85e565f7b06bf",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/496"
+    },
+    {
+      "number": 497,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "98757845775551ea83e3217652b3d91231524a684dcbb581a8fe7758ac141c6a",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/497"
+    },
+    {
+      "number": 499,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ec71109ec48717f1d34402bd0edc69026747abde767a492c11852cc9d50453ab",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/499"
+    },
+    {
+      "number": 500,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "adfe2b40164d3df09f6bb88a6cc6bc5324af30aff01690b611189bb6c8a7d887",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/500"
+    },
+    {
+      "number": 501,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "51a1f24a0cd6f4bcf5d4ebd6ce67154e193d03b6373357d47f5fedc34f3180e9",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/501"
+    },
+    {
+      "number": 502,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "0210d20944c0afa9eebf0977f05c6331861bfd958f1e1f60bb363f010146a4a4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/502"
+    },
+    {
+      "number": 505,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "22187beac48a97d0cb4ed2b51af793e9a6a1a3110acedf33b82aaf04b2e3419d",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/505"
+    },
+    {
+      "number": 508,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7d01503b7d3d9aad76ef69a0d7aaca2fb1bfbb2bbf37ff550bf20c83f2c54014",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/508"
+    },
+    {
+      "number": 510,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b27b9ee11644d34428dc85d4120b5563279509b96eb13df3f8ec2c8cc1ff0ca4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/510"
+    },
+    {
+      "number": 512,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "fb3c95e33265509e7a6c249cf66adc4e7450d30887b4c53e33aef58ab3cd23b1",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/512"
+    },
+    {
+      "number": 514,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "7f036eeca1cbc5b0e1c543d495c90ce05bd17958a83ca03f9d9246eaae2bc431",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/514"
+    },
+    {
+      "number": 515,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ceb22bfab409d43fef15afad1407d7216b1e0d0c851c824bf307089e980d4da4",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/515"
+    },
+    {
+      "number": 516,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "c4a0febafc5bd68d1f1e39a427a3161b1d01cfc7a1016f40fac68aacf274a1fa",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/516"
+    },
+    {
+      "number": 517,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "b6faac561b0a3f8c509ec60084638e8dcd1214450bd7fb2320377f6850cbabaf",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/517"
+    },
+    {
+      "number": 518,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "ea5bc9373d39d8ceffc08dbb89ebb788d32b1de5b2d0b6951c9e5b95371fe1bf",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/518"
+    },
+    {
+      "number": 519,
+      "result": "body-updated-readback-verified",
+      "body_sha256": "72a87e86b4551cd7c13ac5a2d71c3d3048bf0e92a001add592eca92a7c4f2b64",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/519"
+    },
+    {
+      "number": 508,
+      "result": "consolidated-with-preserved-evidence",
+      "canonical": "rig-cli#507",
+      "state_reason": "not_planned"
+    }
+  ],
+  "parents": {
+    "5": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "6": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "7": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "8": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "9": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "10": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "57": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "59": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "61": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "63": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "65": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/528",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/528"
+    },
+    "66": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "68": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "70": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "73": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "75": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "77": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "79": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "81": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "83": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "86": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    "87": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    "90": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    "91": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    "92": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    "93": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    "96": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "98": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "100": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "105": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "107": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "108": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "110": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "111": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "113": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "116": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "117": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "118": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "119": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "121": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "123": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "127": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "128": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "130": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "132": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "134": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "135": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "136": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "137": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "138": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "142": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "145": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "146": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "147": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "150": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "152": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "153": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "154": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "156": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "158": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "160": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "161": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "166": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "167": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "168": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "170": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "172": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    "174": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "176": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "177": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "178": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "180": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "181": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "182": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "183": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "184": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "185": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "186": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "187": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "188": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "189": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "190": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "191": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "192": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "193": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "194": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "195": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "196": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "197": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "198": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "199": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "200": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "201": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/535",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/535"
+    },
+    "202": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "204": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "206": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "207": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "208": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "209": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "212": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "213": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "214": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "215": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/528",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/528"
+    },
+    "216": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/528",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/528"
+    },
+    "218": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "219": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "222": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "223": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "224": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "225": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "226": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "227": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "228": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/535",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/535"
+    },
+    "229": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "230": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "231": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "232": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/535",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/535"
+    },
+    "233": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "234": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "235": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "236": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "237": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "238": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "239": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "240": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "241": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/535",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/535"
+    },
+    "242": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "243": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "244": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "245": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "246": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "247": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "248": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "249": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "250": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "251": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    "252": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "253": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "254": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "255": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "256": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "257": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "258": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "259": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "261": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "262": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "263": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "265": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "270": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "271": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "272": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "273": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "275": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "277": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "278": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "279": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "280": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "281": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "282": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "284": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "285": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "286": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "287": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "289": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "290": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "292": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "293": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "294": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "295": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "297": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "299": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "300": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "301": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "302": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "303": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "304": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "305": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "307": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "308": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "309": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "310": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "311": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "312": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/537",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/537"
+    },
+    "313": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "314": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "316": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "317": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/537",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/537"
+    },
+    "319": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "320": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "321": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "322": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "323": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    "324": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "325": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "326": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "327": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "328": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "329": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "330": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "331": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "332": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "335": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "337": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "338": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "339": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "340": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "341": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "342": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "343": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "344": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/537",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/537"
+    },
+    "345": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "346": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "348": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "350": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "351": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/537",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/537"
+    },
+    "353": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "354": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "355": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "357": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "358": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "359": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "360": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "361": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "362": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "363": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "364": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "365": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "366": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "367": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "368": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/537",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/537"
+    },
+    "371": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "372": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "373": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "375": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "376": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "377": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "379": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "380": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "381": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "382": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "383": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "384": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "385": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "388": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "389": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "390": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "391": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "392": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "393": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "394": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "395": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "396": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "398": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "399": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/524",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/524"
+    },
+    "400": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "401": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "402": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "403": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "405": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "406": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "407": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "409": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "410": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "411": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "413": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "414": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "415": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "417": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "418": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "419": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "421": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "422": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "423": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "424": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "425": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "426": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "428": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "429": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "430": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/533",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/533"
+    },
+    "431": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "432": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "433": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "434": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "435": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "436": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "442": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "443": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "444": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "445": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "446": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "447": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "449": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/537",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/537"
+    },
+    "453": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "454": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "455": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "457": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "459": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "460": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "461": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/529",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/529"
+    },
+    "462": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "463": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "464": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "465": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "466": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "468": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/531",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/531"
+    },
+    "470": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/535",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/535"
+    },
+    "473": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/536",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/536"
+    },
+    "474": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "475": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "477": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "479": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "481": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/530",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/530"
+    },
+    "489": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/526",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/526"
+    },
+    "490": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "491": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "492": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/523",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/523"
+    },
+    "493": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/532",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/532"
+    },
+    "494": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "495": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/535",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/535"
+    },
+    "496": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "497": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/534",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/534"
+    },
+    "499": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "500": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/535",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/535"
+    },
+    "501": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/537",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/537"
+    },
+    "502": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "505": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/527",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/527"
+    },
+    "507": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/537",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/537"
+    },
+    "508": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/525",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/525"
+    },
+    "510": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/522",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/522"
+    },
+    "512": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/510",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/510"
+    },
+    "514": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/522",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/522"
+    },
+    "515": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/510",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/510"
+    },
+    "516": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/510",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/510"
+    },
+    "517": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/510",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/510"
+    },
+    "518": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/510",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/510"
+    },
+    "519": {
+      "status": "linked",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/510",
+      "verified_parent": "https://github.com/alex-mextner/rig-cli/issues/510"
+    }
+  },
+  "newly_discovered": [
+    {
+      "number": 521,
+      "title": "[EPIC] Verified ecosystem recovery: complete backlog, original-request provenance, acceptance and review portal",
+      "state": "open",
+      "url": "https://github.com/alex-mextner/rig-cli/issues/521"
+    }
+  ],
+  "counts": {
+    "parent-created": 16,
+    "body-updated-readback-verified": 336,
+    "concurrent-change-skipped": 2,
+    "consolidated-with-preserved-evidence": 1
+  },
+  "api_reads": 362,
+  "api_writes": 709,
+  "root": "https://github.com/alex-mextner/rig-cli/issues/522",
+  "finished_at": "2026-09-10T14:00:53.605382+00:00",
+  "planned_issues": 338,
+  "processed_bodies": 336,
+  "native_parents_verified": 336
+}

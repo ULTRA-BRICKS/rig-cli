@@ -1,0 +1,118 @@
+name: Prepare verified current closeout plans
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/closeout-prepare.yml]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: closeout-prepare
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Run all resume and closeout regression tests
+        run: |
+          python3 -m venv /tmp/closeout-venv
+          /tmp/closeout-venv/bin/pip install 'pytest==9.0.2' 'PyYAML==6.0.3'
+          mkdir -p closeout-preparation
+          /tmp/closeout-venv/bin/python -m pytest tests/grooming -q --junitxml=closeout-preparation/regressions.xml
+      - name: Read immutable snapshot and factual test artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,io,json,os,pathlib,sys,urllib.request,zipfile,xml.etree.ElementTree as ET,re
+          sys.path.insert(0,'tools/grooming')
+          from run import OriginScopedRedirect
+          urllib.request.install_opener(urllib.request.build_opener(OriginScopedRedirect()))
+          prefix='https://api.github.com/repos/ultrabricks/rig-cli'
+          headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'}
+          def read(path):
+              with urllib.request.urlopen(urllib.request.Request(prefix+path,headers=headers),timeout=120) as r:return r.read()
+          raw=read('/actions/artifacts/10177418338/zip')
+          assert hashlib.sha256(raw).hexdigest()=='f963293013d584ff309735d8b5d338f791cd0346e522b2f7fb04511efd8f8048'
+          root=pathlib.Path('/tmp/reviewed-closeout-snapshot');root.mkdir()
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              for info in z.infolist():
+                  p=pathlib.PurePosixPath(info.filename)
+                  if p.is_absolute() or '..' in p.parts:raise ValueError('Unsafe artifact path')
+                  if info.filename=='snapshot-summary.json' or info.filename.startswith('inventory/'):
+                      target=root/info.filename;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(z.read(info))
+          summary=json.loads((root/'snapshot-summary.json').read_text());assert summary['complete'] and len(summary['repositories'])==12
+          out=pathlib.Path('docs/grooming/closeout-2026-09-11');out.mkdir(parents=True,exist_ok=True)
+          (out/'snapshot-summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
+          artifacts=json.loads(read('/actions/runs/34541003415/artifacts'))['artifacts'];results={}
+          for artifact in artifacts:
+              name=artifact['name']
+              if not name.startswith('closeout-reverification-'):continue
+              repo=name.removeprefix('closeout-reverification-')
+              with zipfile.ZipFile(io.BytesIO(read('/actions/artifacts/'+str(artifact['id'])+'/zip'))) as z:
+                  entry={'artifact_id':artifact['id'],'artifact_digest':artifact.get('digest'),'run_url':'https://github.com/ultrabricks/rig-cli/actions/runs/34541003415'}
+                  for n in z.namelist():
+                      if n.endswith('summary.json'):entry.update(json.loads(z.read(n)))
+                      if n.endswith('pytest.xml'):
+                          cases=list(ET.fromstring(z.read(n)).iter('testcase'))
+                          status=lambda c:'failed' if c.find('failure') is not None or c.find('error') is not None else 'skipped' if c.find('skipped') is not None else 'passed'
+                          entry['test_counts']={k:sum(status(c)==k for c in cases) for k in ('passed','failed','skipped')}
+                          entry['failed_tests']=[{'name':c.get('name'),'class':c.get('classname'),'message':((c.find('failure') if c.find('failure') is not None else c.find('error')).get('message') or '')[:1000]} for c in cases if status(c)=='failed']
+                      if n.endswith('.log'):
+                          text=z.read(n).decode(errors='replace')
+                          entry.setdefault('log_summaries',[]).append({'file':n,'tail':text.splitlines()[-18:],'bun_failures':re.findall(r'(?m)^\(fail\) (.+)',text)})
+                  results[repo]=entry
+          results.setdefault('draw-cli',{'run_url':'https://github.com/ultrabricks/rig-cli/actions/runs/34541003415','setup_gap':'Checkout used ultrabricks/draw-cli; canonical repository is still alex-mextner/draw-cli. No tests ran in this leg.'})
+          (out/'verification.json').write_text(json.dumps(results,ensure_ascii=False,indent=2)+'\n')
+          lines=['# Повторная проверка реализаций — текущий closeout','', 'Все результаты относятся к конкретному SHA и изолированному Ubuntu-окружению. Учётные записи провайдеров, личный Telegram и установленная версия на машине пользователя не использовались. Проверка репозитория не равна приёмке каждой функции.','', '| Репозиторий | SHA | Passed / failed / skipped | Итог команд |','|---|---|---|---|']
+          for repo,item in sorted(results.items()):
+              count=item.get('test_counts',{});counts=' / '.join(str(count.get(k,'—')) for k in ('passed','failed','skipped'))
+              lines.append('| '+repo+' | `'+item.get('source_sha','не проверен')[:12]+'` | '+counts+' | '+('прошли' if item.get('passed') else 'нужен разбор')+' |')
+          lines+=['','[Фактический запуск](https://github.com/ultrabricks/rig-cli/actions/runs/34541003415) · [Машиночитаемые результаты](./verification.json).','', 'Ошибки окружения, нестабильность теста и дефект продукта разбираются отдельно. До анализа конкретного падения оно не является основанием массово переоткрывать задачи. Отдельный draw-cli checkout исправляется по каноническому владельцу; его пустой результат не считается зелёным.']
+          (out/'verification.md').write_text('\n'.join(lines)+'\n')
+          PY
+      - name: Generate lossless issue-specific current plans
+        run: python3 tools/grooming/closeout_compile.py /tmp/reviewed-closeout-snapshot
+      - name: Redact incidental correlation identifier in legacy public archives
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          # These are archived source copies, not credentials or live issues.
+          # The log's correlation ID was mistaken for an API key. Omit the
+          # incidental value publicly, preserve the pre-redaction content hash.
+          paths=['docs/grooming/full-2026-09-10/before/tg-cli.json','docs/grooming/full-2026-09-10/plans/tg-cli.json','docs/grooming/full-2026-09-10/pull-requests.json']
+          receipt=[]
+          for name in paths:
+              p=pathlib.Path(name);text=p.read_text();updated=text.replace('key=claude-rkq4bd','correlation-id=[omitted from public archive]')
+              if updated!=text:
+                  json.loads(updated)
+                  receipt.append({'path':name,'original_sha256':hashlib.sha256(text.encode()).hexdigest(),'published_sha256':hashlib.sha256(updated.encode()).hexdigest(),'reason':'Incidental request correlation identifier omitted; original issue and PR were not modified. Legacy copy must not be used as an exact mutation baseline.'})
+                  p.write_text(updated)
+          pathlib.Path('docs/grooming/closeout-2026-09-11/legacy-publication-redactions.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          PY
+      - name: Validate the publishable working tree without disabling the secret gate
+        run: |
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz -C /tmp gitleaks
+          /tmp/gitleaks dir docs --redact --no-banner --exit-code 1
+      - name: Commit reviewed plans, source preservation checks and test evidence
+        run: |
+          git config user.name 'Rig closeout audit'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/grooming/closeout-2026-09-11/ docs/grooming/full-2026-09-10/before/tg-cli.json docs/grooming/full-2026-09-10/plans/tg-cli.json docs/grooming/full-2026-09-10/pull-requests.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs(grooming): preserve all current issue requirements and prepare audited closeout plans'
+            git pull --rebase origin docs/full-grooming-2026-09-10
+            git push origin HEAD:docs/full-grooming-2026-09-10
+          fi
+          git rev-parse HEAD > closeout-preparation/prepared-source-ref.txt
+          git archive --format=tar.gz HEAD -o closeout-preparation/prepared-source.tar.gz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: closeout-prepared-plans
+          path: |
+            closeout-preparation/
+            docs/grooming/closeout-2026-09-11/
+          retention-days: 14

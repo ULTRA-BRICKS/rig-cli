@@ -1,0 +1,103 @@
+{
+  "source_version": 4,
+  "started_at": "2026-09-10T15:13:39Z",
+  "issue_mutations": 0,
+  "live_product_acceptance_performed": false,
+  "stages": {
+    "v4_compile": {
+      "function": "compile_corpus",
+      "qualified_records": 505,
+      "public_prs": 938,
+      "public_issues": 1602
+    },
+    "retrospective": {
+      "headings_preserved": 95,
+      "rule_tables_preserved": 13,
+      "source_url": "https://spec-dev.hyperide.ai/spec/2026-07-01-agent-ecosystem-retrospective"
+    },
+    "publication_scan": {
+      "matched_values_withheld": 1,
+      "files_redacted": 6,
+      "history_rewritten": false
+    },
+    "diagrams": {
+      "unique_sources": 4,
+      "rendered": 4,
+      "historical_source_only": 0
+    },
+    "portal": {
+      "documents": 49,
+      "public_issues": 1602,
+      "quote_records": 505,
+      "bytes": 5178909,
+      "auth": "Public reading; GitHub authentication only for submitting reviews",
+      "private_source_included": false,
+      "source_version": 4,
+      "export_rows": 4329,
+      "qualified_records": 505,
+      "sha256": "a68ca13e0ee9cf79bde589b3b2908413556edfca2d685fd61e9f25172f5fe3bf",
+      "retrospective": "01-retrospective-v4",
+      "publication": "GitHub-committed static reader; immutable URL after this build is committed"
+    },
+    "plans": {
+      "rig-cli": {
+        "plans": 355,
+        "bodies_ready": 355,
+        "manual_size_gaps": []
+      },
+      "agent-tools": {
+        "plans": 428,
+        "bodies_ready": 428,
+        "manual_size_gaps": []
+      },
+      "review-cli": {
+        "plans": 347,
+        "bodies_ready": 347,
+        "manual_size_gaps": []
+      },
+      "task-cli": {
+        "plans": 135,
+        "bodies_ready": 135,
+        "manual_size_gaps": []
+      },
+      "tg-cli": {
+        "plans": 232,
+        "bodies_ready": 232,
+        "manual_size_gaps": []
+      },
+      "qa-cli": {
+        "plans": 8,
+        "bodies_ready": 8,
+        "manual_size_gaps": []
+      },
+      "draw-cli": {
+        "plans": 11,
+        "bodies_ready": 11,
+        "manual_size_gaps": []
+      },
+      "stt-cli": {
+        "plans": 33,
+        "bodies_ready": 33,
+        "manual_size_gaps": []
+      },
+      "research-cli": {
+        "plans": 12,
+        "bodies_ready": 12,
+        "manual_size_gaps": []
+      },
+      "dev-cli": {
+        "plans": 21,
+        "bodies_ready": 21,
+        "manual_size_gaps": []
+      },
+      "pm-cli": {
+        "plans": 20,
+        "bodies_ready": 20,
+        "manual_size_gaps": []
+      }
+    }
+  },
+  "warnings": [],
+  "completed": true,
+  "finished_at": "2026-09-10T15:14:48Z"
+}

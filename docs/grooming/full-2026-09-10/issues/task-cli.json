@@ -1,0 +1,5063 @@
+[
+  {
+    "key": "task-cli#1",
+    "repo": "task-cli",
+    "number": 1,
+    "id": 4665159371,
+    "node_id": "I_kwDOS7QDus8AAAABFhCuyw",
+    "title": "Phase 2: task dependency system + Gantt rendering",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "0ac4166bfa34cf5e8ff1151593605517a4d79e75b895019cffc719f95698e1cc",
+    "snapshot_updated_at": "2026-06-22T21:59:40Z"
+  },
+  {
+    "key": "task-cli#2",
+    "repo": "task-cli",
+    "number": 2,
+    "id": 4665189970,
+    "node_id": "I_kwDOS7QDus8AAAABFhEmUg",
+    "title": "Daemon service + webhooks (adapter-based trackers)",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "f8bbd6d3babc2b950b282ed95db687aa98b2413f532025794e13ee81f8aae595",
+    "snapshot_updated_at": "2026-06-15T12:46:52Z"
+  },
+  {
+    "key": "task-cli#3",
+    "repo": "task-cli",
+    "number": 3,
+    "id": 4665190149,
+    "node_id": "I_kwDOS7QDus8AAAABFhEnBQ",
+    "title": "Completion + due-date notifications via tmux-inject",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "221",
+      "143"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "b06f26a12ba4d7199ce049436e0345f6dec719f47754bdad9008ed12cc94a434",
+    "snapshot_updated_at": "2026-06-15T12:46:54Z"
+  },
+  {
+    "key": "task-cli#4",
+    "repo": "task-cli",
+    "number": 4,
+    "id": 4665190301,
+    "node_id": "I_kwDOS7QDus8AAAABFhEnnQ",
+    "title": "Integrations: tg classify hook, agent-tools ticket-discipline skill, rig provisioning",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "a3342b14685054a1c84dd3d517ab0a9e2d58c7830e711648274b541c1902d72e",
+    "snapshot_updated_at": "2026-06-15T12:46:55Z"
+  },
+  {
+    "key": "task-cli#8",
+    "repo": "task-cli",
+    "number": 8,
+    "id": 4718290800,
+    "node_id": "I_kwDOS7QDus8AAAABGTtncA",
+    "title": "Add task new / task done verb aliases (CTO-requested ergonomics) + fix ruff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "ad5096d33cf561908a459e9cc13932efb9efc4f60edf1d22605ffcd9ac2c6901",
+    "snapshot_updated_at": "2026-06-22T16:07:22Z"
+  },
+  {
+    "key": "task-cli#9",
+    "repo": "task-cli",
+    "number": 9,
+    "id": 4718330132,
+    "node_id": "I_kwDOS7QDus8AAAABGTwBFA",
+    "title": "[smoke] verify task new/done verbs against live backend",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "005",
+      "152"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#8"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "ca23b7d4334f5df4f682d270eadbe14ea40df6fa379d121d38b74776ace8688f",
+    "snapshot_updated_at": "2026-06-22T15:56:02Z"
+  },
+  {
+    "key": "task-cli#10",
+    "repo": "task-cli",
+    "number": 10,
+    "id": 4718365695,
+    "node_id": "I_kwDOS7QDus8AAAABGTyL_w",
+    "title": "done/change/status close paths don't validate the source-state transition",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/cli.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#8"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "2b08b138eae71fa02ff14be6b0a97f323452ea52ae794c7d9af7de54e4840fe0",
+    "snapshot_updated_at": "2026-06-22T20:02:09Z"
+  },
+  {
+    "key": "task-cli#12",
+    "repo": "task-cli",
+    "number": 12,
+    "id": 4718467533,
+    "node_id": "I_kwDOS7QDus8AAAABGT4ZzQ",
+    "title": "install-skill must also write the .blurbs/<tool>.md SessionStart blurb",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/install.py"
+    ],
+    "unresolved_historical_paths": [
+      "agents/skills/.blurbs/task.md",
+      "agents/skills/task/SKILL.md",
+      "claude/settings.js"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "7b625ff2d5f700392542f3b3ed79207f3db474f11eff3d41ee54f3829cdc7f1d",
+    "snapshot_updated_at": "2026-06-22T17:01:05Z"
+  },
+  {
+    "key": "task-cli#13",
+    "repo": "task-cli",
+    "number": 13,
+    "id": 4718767603,
+    "node_id": "I_kwDOS7QDus8AAAABGUKt8w",
+    "title": "install-skill is a 1-layer stub: missing blurb + harness-instruction injection that all sibling CLIs do",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/install.py"
+    ],
+    "unresolved_historical_paths": [
+      ".blurbs/task.md",
+      "agents/skills/.blurbs/task.md",
+      "agents/skills/task/SKILL.md",
+      "claude/CLAUDE.md"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "772d5c796be8e5bf041120ceacac8e4a4a220e77b4d37a74da6dc4856386a3e5",
+    "snapshot_updated_at": "2026-06-25T10:37:29Z"
+  },
+  {
+    "key": "task-cli#15",
+    "repo": "task-cli",
+    "number": 15,
+    "id": 4719909642,
+    "node_id": "I_kwDOS7QDus8AAAABGVQbCg",
+    "title": "Docker integration test: real cheap LLM agent verifies task-cli is advertised + usable (CI test-cli job)",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "005",
+      "152"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "install.sh"
+    ],
+    "unresolved_historical_paths": [
+      "agents/skills/.blurbs/task.md",
+      "agents/skills/task/SKILL.md"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#13"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "ea9ae2bbd34eee8a6011b0e88fbdc3b2cebcb7b35b0e2443e6cc6e4fc31aebfe",
+    "snapshot_updated_at": "2026-06-22T19:56:57Z"
+  },
+  {
+    "key": "task-cli#16",
+    "repo": "task-cli",
+    "number": 16,
+    "id": 4720042657,
+    "node_id": "I_kwDOS7QDus8AAAABGVYioQ",
+    "title": "Harden the Docker real-agent leg: force cheap model onto the `task` CLI (defeat TaskCreate/TodoWrite collision)",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "test/docker/agent_test.sh",
+      "test/docker/agent_tools_gating.sh"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#15"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "a8e18b1693e8cf6922e4ca58b0512ae6eeaec1536dac4cd0b706c96c3d5493b7",
+    "snapshot_updated_at": "2026-06-22T21:59:39Z"
+  },
+  {
+    "key": "task-cli#19",
+    "repo": "task-cli",
+    "number": 19,
+    "id": 4720516944,
+    "node_id": "I_kwDOS7QDus8AAAABGV1fUA",
+    "title": "Docker test-cli: assert require-ticket enforcement end-to-end in the deterministic leg",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#1",
+      "task-cli#15",
+      "task-cli#16"
+    ],
+    "linked_prs": [
+      {
+        "key": "agent-tools#95",
+        "state": "closed",
+        "merged_at": "2026-06-22T20:16:30Z",
+        "merge_commit_sha": "c16dc47d1943ddc135f61afb2f72babda14030ae"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "bde492b9e0f987f73d10b5576847f13c6cd9ed9470c2621f996aff803a3f6115",
+    "snapshot_updated_at": "2026-06-22T21:59:39Z"
+  },
+  {
+    "key": "task-cli#20",
+    "repo": "task-cli",
+    "number": 20,
+    "id": 4720765124,
+    "node_id": "I_kwDOS7QDus8AAAABGWEoxA",
+    "title": "Docker test-cli: guard the vendored require-ticket hook against drift from agent-tools source",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "test/docker/require_ticket_before_commit.py"
+    ],
+    "unresolved_historical_paths": [
+      "enforce_test.sh"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "e908535f8fd2676a2e7745e9857211b569d5c3cf30db734da76c5faf94266674",
+    "snapshot_updated_at": "2026-06-25T11:59:41Z"
+  },
+  {
+    "key": "task-cli#22",
+    "repo": "task-cli",
+    "number": 22,
+    "id": 4721031226,
+    "node_id": "I_kwDOS7QDus8AAAABGWU4Og",
+    "title": "task --version is a hardcoded 0.1.0 — never bumped, read pyproject dynamically",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "pyproject.toml",
+      "tasklib/__init__.py",
+      "tasklib/cli.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "agent-tools#98",
+      "rig-cli#70"
+    ],
+    "linked_prs": [
+      {
+        "key": "agent-tools#99",
+        "state": "closed",
+        "merged_at": "2026-06-22T22:25:58Z",
+        "merge_commit_sha": "1fb71a83197d7ef160b2e005bff947f25593fbfb"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "77a491845c3b44593e3c85c873f162587fe1f39494fae49593f76cb528987d2c",
+    "snapshot_updated_at": "2026-06-22T23:02:23Z"
+  },
+  {
+    "key": "task-cli#24",
+    "repo": "task-cli",
+    "number": 24,
+    "id": 4730919153,
+    "node_id": "I_kwDOS7QDus8AAAABGfwY8Q",
+    "title": "Daemon core: polling due-date reminders (start/stop/status/run + --due + de-dupe)",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#2",
+      "task-cli#3"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "578778e6ce5199f6888fdf788ddaaf218f9924ce351dd17a0a60edca24b16cac",
+    "snapshot_updated_at": "2026-06-24T02:29:06Z"
+  },
+  {
+    "key": "task-cli#25",
+    "repo": "task-cli",
+    "number": 25,
+    "id": 4731128644,
+    "node_id": "I_kwDOS7QDus8AAAABGf9LRA",
+    "title": "Daemon hardening: PID-identity check on stop + flock singleton (close the TOCTOU + reused-PID gaps)",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#2",
+      "task-cli#24"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "72aad7efaec2beff13a39b78f2cc2ffccc545a00d8a29aee13a2cc65e054ba04",
+    "snapshot_updated_at": "2026-06-25T11:07:59Z"
+  },
+  {
+    "key": "task-cli#27",
+    "repo": "task-cli",
+    "number": 27,
+    "id": 4731216942,
+    "node_id": "I_kwDOS7QDus8AAAABGgCkLg",
+    "title": "task gantt — read-only due-date timeline (Gantt) view",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#1"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#26",
+        "state": "closed",
+        "merged_at": "2026-06-24T02:29:05Z",
+        "merge_commit_sha": "3476e16b8cad57545b23d336a1a821c4b8aa7e56"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "a5dfe34829fa121f2e0f1ee4e5642098f3c154e31b587f53aea9d62ba2c8b006",
+    "snapshot_updated_at": "2026-06-24T03:13:51Z"
+  },
+  {
+    "key": "task-cli#29",
+    "repo": "task-cli",
+    "number": 29,
+    "id": 4734821929,
+    "node_id": "I_kwDOS7QDus8AAAABGjemKQ",
+    "title": "task-cli render: column alignment uses code-point count, not terminal display width (CJK/emoji shear the gantt grid)",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "3740b7912c2b606cd88a994b1910233f33780a41241470634b91a17548322152",
+    "snapshot_updated_at": "2026-06-24T12:49:13Z"
+  },
+  {
+    "key": "task-cli#32",
+    "repo": "task-cli",
+    "number": 32,
+    "id": 4743041711,
+    "node_id": "I_kwDOS7QDus8AAAABGrUSrw",
+    "title": "daemon: make `status`/`pid_status` identity-aware too (consistency with `stop`'s reused-pid guard)",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/daemon.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#25"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "75e65248b01df6a9a7bdd0b9d7911710fdfdca20baa704b4cc5847669f0dac58",
+    "snapshot_updated_at": "2026-06-25T23:31:52Z"
+  },
+  {
+    "key": "task-cli#36",
+    "repo": "task-cli",
+    "number": 36,
+    "id": 4744146151,
+    "node_id": "I_kwDOS7QDus8AAAABGsXs5w",
+    "title": "Re-sync vendored require-ticket hook to canonical -am de-cluster fix (agent-tools #111)",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "scripts/resync_vendored_hook.py",
+      "test/docker/require_ticket_before_commit.py",
+      "tests/test_vendored_hook_sync.py"
+    ],
+    "unresolved_historical_paths": [
+      "agent-hooks/require-ticket-before-commit/require_ticket_before_commit.py"
+    ],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_vendored_hook_sync.py",
+        "counts": {
+          "passed": 11
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "task-cli#111",
+      "task-cli#20"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#34",
+        "state": "closed",
+        "merged_at": "2026-06-25T11:59:40Z",
+        "merge_commit_sha": "6c4547f114f4eb5810f202f0dab66123f22afdb1"
+      },
+      {
+        "key": "task-cli#5",
+        "state": "closed",
+        "merged_at": "2026-06-17T12:13:46Z",
+        "merge_commit_sha": "43767d06d4e30b4e4f7a443e9d56bcc822a5bbae"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "b54cb3ec5ef42a8de1f2454bf33b3244b1133eadaea055650427f490abe3a03c",
+    "snapshot_updated_at": "2026-06-25T13:27:16Z"
+  },
+  {
+    "key": "task-cli#38",
+    "repo": "task-cli",
+    "number": 38,
+    "id": 4747839294,
+    "node_id": "I_kwDOS7QDus8AAAABGv5HPg",
+    "title": "classifier: resolve model from the shared models.yaml manifest by capability (rig#8 consumer half)",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/classify.py"
+    ],
+    "unresolved_historical_paths": [
+      "agent-tools/lib/contracts/models.yaml",
+      "models.yaml"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "rig-cli#8"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "8f2078f191d91a14c8c51fd03392919541ca77b59e32808f87f5487ee9f27954",
+    "snapshot_updated_at": "2026-06-25T23:01:42Z"
+  },
+  {
+    "key": "task-cli#42",
+    "repo": "task-cli",
+    "number": 42,
+    "id": 4765980832,
+    "node_id": "I_kwDOS7QDus8AAAABHBMYoA",
+    "title": "vendored require-ticket hook has drifted from agent-tools canonical",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "scripts/resync_vendored_hook.py",
+      "test/docker/require_ticket_before_commit.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#20"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "d0fbe3218e67e7e12b001d28890de59f6e87914e815eae7df7039fd7131fb239",
+    "snapshot_updated_at": "2026-09-07T10:52:23Z"
+  },
+  {
+    "key": "task-cli#43",
+    "repo": "task-cli",
+    "number": 43,
+    "id": 4802953466,
+    "node_id": "I_kwDOS7QDus8AAAABHkdA-g",
+    "title": "chore: add scripts/deploy.sh so rig apply keeps this tool fresh",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "221",
+      "143"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "scripts/deploy.sh"
+    ],
+    "unresolved_historical_paths": [
+      "files/repos/tg-cli/scripts/deploy.sh"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "rig-cli#106",
+        "state": "closed",
+        "merged_at": "2026-07-03T10:42:04Z",
+        "merge_commit_sha": "147ec3c0acb17bfb2e12a7735e8e371193f890af"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "72e56966ba411eb8cd81c96510cf0fef78d97f214812c8e689de3ae8953b4398",
+    "snapshot_updated_at": "2026-07-03T21:34:40Z"
+  },
+  {
+    "key": "task-cli#45",
+    "repo": "task-cli",
+    "number": 45,
+    "id": 4807295611,
+    "node_id": "I_kwDOS7QDus8AAAABHomCew",
+    "title": "tg#<id> references need a title guard + auto-quote in ticket bodies",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "topic-associated-request",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [
+      "**tg#5900** — Alex, 2026-07-03 14:13 UTC:\nТолько писать the error is\nnot caused by missing props. Не надо \nИ если ии подключено и ошибка в том что не сделан правильнвй  враппер то починка должна выполняться автоматически\nИ разберись почему ast/lsp логика по реализации воаппера не работает как надо и есть ли она",
+      "**tg#6109** — Alex, 2026-07-04 01:37 UTC:\nУпоминания вида tg#5900 в пр не имеет смысла \nСделай чтобы task-cli и gh ship умели так же как и tg-cli делать такие упоминания ссылками и цитировать еще \nПримем в title вообще запрети инструментально делать такие упоминания, они должны переноситься в тело\n**tg#5900** — Alex, 2026-07-03 14:13 UTC:\nТолько писать the error is\nnot caused by missing props. Не надо \nИ если ии подключено и ошибка в том что не сделан правильнвй  враппер то починка должна выполняться автоматически\nИ разберись почему ast/lsp логика по реализации воаппера не работает как надо и есть ли она"
+    ],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_cli.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_cli.py",
+        "counts": {
+          "passed": 417
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#46",
+        "state": "closed",
+        "merged_at": "2026-07-04T05:25:17Z",
+        "merge_commit_sha": "f637cdddf67181b002d57134f216a8d7ef518723"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "045c09fd346e9d43fa0bbde06ce63d6ba4be45a9f085227801085b3b6902bb8a",
+    "snapshot_updated_at": "2026-07-04T05:26:37Z"
+  },
+  {
+    "key": "task-cli#47",
+    "repo": "task-cli",
+    "number": 47,
+    "id": 4807768057,
+    "node_id": "I_kwDOS7QDus8AAAABHpC3-Q",
+    "title": "msgrefs: scope history lookup by bot, not bare message_id",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#45"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#46",
+        "state": "closed",
+        "merged_at": "2026-07-04T05:25:17Z",
+        "merge_commit_sha": "f637cdddf67181b002d57134f216a8d7ef518723"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "cd18a2cd5aa8b4e26cb20ee216a81797618ba37a15c2691462d9969ae6384bcd",
+    "snapshot_updated_at": "2026-07-04T05:23:18Z"
+  },
+  {
+    "key": "task-cli#50",
+    "repo": "task-cli",
+    "number": 50,
+    "id": 4837247123,
+    "node_id": "I_kwDOS7QDus8AAAABIFKIkw",
+    "title": "Warn about forgotten session tasks",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_cli.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_cli.py",
+        "counts": {
+          "passed": 417
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "d2bdfb25ee53be17e5e3f9253c797ff7a3c06199aee7def65cb6f83aa00e7b26",
+    "snapshot_updated_at": "2026-07-08T17:14:20Z"
+  },
+  {
+    "key": "task-cli#52",
+    "repo": "task-cli",
+    "number": 52,
+    "id": 4852061480,
+    "node_id": "I_kwDOS7QDus8AAAABITSVKA",
+    "title": "Warn after priority-changing task commands",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#52"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "6e90a3e04c07b32588ffd958675e24aa8b01dce6e97adad3070689d6ec5fd553",
+    "snapshot_updated_at": "2026-07-12T07:21:46Z"
+  },
+  {
+    "key": "task-cli#54",
+    "repo": "task-cli",
+    "number": 54,
+    "id": 4908849093,
+    "node_id": "I_kwDOS7QDus8AAAABJJcXxQ",
+    "title": "ticket links field must not carry the session tag",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "eb548a1b7ecb07165f50981b904f264c1cb9cdea7404f1a819400238645368f6",
+    "snapshot_updated_at": "2026-07-17T12:51:33Z"
+  },
+  {
+    "key": "task-cli#57",
+    "repo": "task-cli",
+    "number": 57,
+    "id": 4917629283,
+    "node_id": "I_kwDOS7QDus8AAAABJR0RYw",
+    "title": "fix(daemon): detached spawn missing PYTHONPATH breaks symlink install",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_daemon.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_daemon.py",
+        "counts": {
+          "passed": 113
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "d169f5c3cfa46115932b01cc04bb34a5e727d9471ba671e678bd0f718bc407ce",
+    "snapshot_updated_at": "2026-07-18T15:42:44Z"
+  },
+  {
+    "key": "task-cli#59",
+    "repo": "task-cli",
+    "number": 59,
+    "id": 4918336404,
+    "node_id": "I_kwDOS7QDus8AAAABJSfblA",
+    "title": "task-cli should surface stale/stuck tickets on normal usage, without needing pm-cli",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/cli.py",
+      "tasklib/session.py"
+    ],
+    "unresolved_historical_paths": [
+      "com/alex-mextner/pm-cli/blob/main/pmlib/intake.py",
+      "com/alex-mextner/pm-cli/blob/main/pmlib/reminders.py",
+      "com/alex-mextner/task-cli/blob/main/tasklib/cli.py",
+      "com/alex-mextner/task-cli/blob/main/tasklib/session.py",
+      "pmlib/intake.py",
+      "pmlib/reminders.py"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#57"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#58",
+        "state": "closed",
+        "merged_at": "2026-07-18T15:42:43Z",
+        "merge_commit_sha": "4504e7ee4ded0625e586f04692ba3a7a58d3975a"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "b6b3fc0d3b0f11bc456746a98b9870d9a7819321d47da4227ba08c06a4dfdc66",
+    "snapshot_updated_at": "2026-07-25T09:27:36Z"
+  },
+  {
+    "key": "task-cli#60",
+    "repo": "task-cli",
+    "number": 60,
+    "id": 4918499420,
+    "node_id": "I_kwDOS7QDus8AAAABJSpYXA",
+    "title": "task-cli: preserve caller's original PYTHONPATH exactly across daemon spawn",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#60"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#72",
+        "state": "closed",
+        "merged_at": "2026-09-10T01:54:49Z",
+        "merge_commit_sha": "75fc96497dca347ed9a7a57e6f7e7f778f5151a6"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "7f3ee692e31d113b5aa028aaf893492ad22da36b6f6e742a29e6c9920c7c9279",
+    "snapshot_updated_at": "2026-09-10T01:54:57Z"
+  },
+  {
+    "key": "task-cli#61",
+    "repo": "task-cli",
+    "number": 61,
+    "id": 4918500003,
+    "node_id": "I_kwDOS7QDus8AAAABJSpaow",
+    "title": "task-cli: detect daemon bootstrap failure instead of reporting 'started' on bare Popen success",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "5449032a2c29f6e6d0c5287982a98124a6659246d3208f107b03279b3927aaa0",
+    "snapshot_updated_at": "2026-07-18T13:43:22Z"
+  },
+  {
+    "key": "task-cli#62",
+    "repo": "task-cli",
+    "number": 62,
+    "id": 4918546534,
+    "node_id": "I_kwDOS7QDus8AAAABJSsQZg",
+    "title": "task-cli: scope tg-ctl history resolution by bot/chat to avoid cross-bot message_id collisions",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#56",
+        "state": "closed",
+        "merged_at": "2026-07-22T15:20:30Z",
+        "merge_commit_sha": "1c583cb884a3bced67897786a2310f1d8a77b3ff"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "bf5d27bfaa60fafc7ad55494ece5d0e960c9f189a36e4bd602bf0af08e7902b0",
+    "snapshot_updated_at": "2026-07-18T13:57:36Z"
+  },
+  {
+    "key": "task-cli#63",
+    "repo": "task-cli",
+    "number": 63,
+    "id": 4918560272,
+    "node_id": "I_kwDOS7QDus8AAAABJStGEA",
+    "title": "task-cli: gate -P (PYTHONSAFEPATH) child flag by interpreter version, or enforce Python 3.11+",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#58",
+        "state": "closed",
+        "merged_at": "2026-07-18T15:42:43Z",
+        "merge_commit_sha": "4504e7ee4ded0625e586f04692ba3a7a58d3975a"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "277933f8bc4e2cd28c5c0236ff99d7891d3fc7ca3e1220ca07f4ac9c3ed4ece5",
+    "snapshot_updated_at": "2026-07-18T14:01:40Z"
+  },
+  {
+    "key": "task-cli#64",
+    "repo": "task-cli",
+    "number": 64,
+    "id": 4918560353,
+    "node_id": "I_kwDOS7QDus8AAAABJStGYQ",
+    "title": "task-cli: dont prepend site-packages to PYTHONPATH for pip and pipx package installs",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#58",
+        "state": "closed",
+        "merged_at": "2026-07-18T15:42:43Z",
+        "merge_commit_sha": "4504e7ee4ded0625e586f04692ba3a7a58d3975a"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "fc62da77b613349d1137045145eee91b95990543eb021a450deda5f89ddf87d2",
+    "snapshot_updated_at": "2026-07-18T14:01:42Z"
+  },
+  {
+    "key": "task-cli#65",
+    "repo": "task-cli",
+    "number": 65,
+    "id": 4918575176,
+    "node_id": "I_kwDOS7QDus8AAAABJSuASA",
+    "title": "task-cli: normalize path comparison when deduping repo_root from inherited PYTHONPATH",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "5ff4f41d08f5e1e16ac88378ca5201c795ada320c0fb8d5441723fb61a3844cd",
+    "snapshot_updated_at": "2026-07-18T14:06:02Z"
+  },
+  {
+    "key": "task-cli#66",
+    "repo": "task-cli",
+    "number": 66,
+    "id": 4918589596,
+    "node_id": "I_kwDOS7QDus8AAAABJSu4nA",
+    "title": "task-cli: harden daemon PYTHONPATH resolution edge cases (empty entry, path normalization, dedupe coverage)",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#57"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#58",
+        "state": "closed",
+        "merged_at": "2026-07-18T15:42:43Z",
+        "merge_commit_sha": "4504e7ee4ded0625e586f04692ba3a7a58d3975a"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "12b22f8bc69925cfcbb4ee909c5dc592c0a72d66986747550a2d36cf3818d9ef",
+    "snapshot_updated_at": "2026-07-18T14:10:14Z"
+  },
+  {
+    "key": "task-cli#67",
+    "repo": "task-cli",
+    "number": 67,
+    "id": 4919618434,
+    "node_id": "I_kwDOS7QDus8AAAABJTtrgg",
+    "title": "task-cli: avoid running the msgref-quote and links-url gates twice during change --done",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "7e13a3313288464e33f2e85944d1621c6e3fa924ad2213713a0d87944f2b83d0",
+    "snapshot_updated_at": "2026-07-18T18:55:49Z"
+  },
+  {
+    "key": "task-cli#68",
+    "repo": "task-cli",
+    "number": 68,
+    "id": 4919637873,
+    "node_id": "I_kwDOS7QDus8AAAABJTu3cQ",
+    "title": "task-cli: apply key-aware secret redaction to every link-value diagnostic, not just the links-url gate",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "221",
+      "143"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "2e5fdedf9a5c4bf9722b9f04ebecc66a4ffe044a923c06734e38fc6df9f3f53d",
+    "snapshot_updated_at": "2026-07-18T19:01:45Z"
+  },
+  {
+    "key": "task-cli#69",
+    "repo": "task-cli",
+    "number": 69,
+    "id": 4919647570,
+    "node_id": "I_kwDOS7QDus8AAAABJTvdUg",
+    "title": "task-cli: tag each links-url rejection with its specific reason instead of one merged message",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "005",
+      "152"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "72d56dbe4972679944e8ff0f74d5e4f2cb8fdb52f779e3d5083a1679b2ff617a",
+    "snapshot_updated_at": "2026-07-18T19:04:34Z"
+  },
+  {
+    "key": "task-cli#70",
+    "repo": "task-cli",
+    "number": 70,
+    "id": 4920170003,
+    "node_id": "I_kwDOS7QDus8AAAABJUPWEw",
+    "title": "Global stale-ticket nudge (#59): known scope-limits to close later",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/cli.py",
+      "tasklib/stale_notice.py"
+    ],
+    "unresolved_historical_paths": [
+      "backends/__init__.py",
+      "github_issues.py",
+      "linear.py"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#1",
+      "task-cli#59"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#71",
+        "state": "closed",
+        "merged_at": "2026-07-25T09:27:35Z",
+        "merge_commit_sha": "cc11aecc94b32f79ade5178c8aefc7f2b5d534dc"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "2e5f1d43e802538532f50c03c193be7c3e230fbb244d0862dd2eb26ca0962b2d",
+    "snapshot_updated_at": "2026-07-23T09:15:48Z"
+  },
+  {
+    "key": "task-cli#73",
+    "repo": "task-cli",
+    "number": 73,
+    "id": 5128627958,
+    "node_id": "I_kwDOS7QDus8AAAABMbCm9g",
+    "title": "Review ambiguous backend and duplicate guard diff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#84",
+        "state": "closed",
+        "merged_at": "2026-08-13T18:00:12Z",
+        "merge_commit_sha": "faa470103914cd0e0470ea2b6ee43f85a85b0909"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "349883bfc1aad871d0f1749671f6a4c87a72c6a4d5ebd6e85e4c3d6743a716db",
+    "snapshot_updated_at": "2026-09-08T17:32:02Z"
+  },
+  {
+    "key": "task-cli#74",
+    "repo": "task-cli",
+    "number": 74,
+    "id": 5128645039,
+    "node_id": "I_kwDOS7QDus8AAAABMbDprw",
+    "title": "Review ambiguous create handling for cross-file consistency",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "e58c2cee3d79b6bd10f71e9627f07acc26a7f340e519b15d6b02c0f8d2af0a6f",
+    "snapshot_updated_at": "2026-08-12T08:22:49Z"
+  },
+  {
+    "key": "task-cli#75",
+    "repo": "task-cli",
+    "number": 75,
+    "id": 5128846971,
+    "node_id": "I_kwDOS7QDus8AAAABMbP-ew",
+    "title": "Review ambiguous-create and dedup diff for cross-file consistency",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#73"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#84",
+        "state": "closed",
+        "merged_at": "2026-08-13T18:00:12Z",
+        "merge_commit_sha": "faa470103914cd0e0470ea2b6ee43f85a85b0909"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "e4e4ce6b13ba3656456ab72daf994ec5c02b278b09a883ca720fbb28184fc7ca",
+    "snapshot_updated_at": "2026-09-08T17:32:01Z"
+  },
+  {
+    "key": "task-cli#76",
+    "repo": "task-cli",
+    "number": 76,
+    "id": 5128880414,
+    "node_id": "I_kwDOS7QDus8AAAABMbSBHg",
+    "title": "Audit duplicate gate constant cross-file consistency",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "6ec77f3aed92b7f93a45eb5c0ec6bf3eb5ae5fbdd79532f8cd9cf314d68bd85d",
+    "snapshot_updated_at": "2026-08-12T08:29:54Z"
+  },
+  {
+    "key": "task-cli#77",
+    "repo": "task-cli",
+    "number": 77,
+    "id": 5128952454,
+    "node_id": "I_kwDOS7QDus8AAAABMbWahg",
+    "title": "Review ambiguous backend handling cross-file consistency",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "2645c7cdc6e236e47f74f5d37a5a6751f3f27ac0f90d6bd5fa65ab33a6760f29",
+    "snapshot_updated_at": "2026-08-12T08:38:55Z"
+  },
+  {
+    "key": "task-cli#78",
+    "repo": "task-cli",
+    "number": 78,
+    "id": 5128973579,
+    "node_id": "I_kwDOS7QDus8AAAABMbXtCw",
+    "title": "Review ambiguous-backend handling diff for cross-file consistency",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#73"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#84",
+        "state": "closed",
+        "merged_at": "2026-08-13T18:00:12Z",
+        "merge_commit_sha": "faa470103914cd0e0470ea2b6ee43f85a85b0909"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "11d0985395b241cd8a0d7d67e7c9df6cba0b69b294b5e4b863f212e60af2310b",
+    "snapshot_updated_at": "2026-09-08T17:32:01Z"
+  },
+  {
+    "key": "task-cli#79",
+    "repo": "task-cli",
+    "number": 79,
+    "id": 5128976193,
+    "node_id": "I_kwDOS7QDus8AAAABMbX3QQ",
+    "title": "Review uncommitted cross-file consistency changes",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "238"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#73"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#84",
+        "state": "closed",
+        "merged_at": "2026-08-13T18:00:12Z",
+        "merge_commit_sha": "faa470103914cd0e0470ea2b6ee43f85a85b0909"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "f14a249cc4ef6c36b83b42f089d4e5b532591358fc4a18f232f3a1d591bc59c4",
+    "snapshot_updated_at": "2026-09-08T17:32:01Z"
+  },
+  {
+    "key": "task-cli#80",
+    "repo": "task-cli",
+    "number": 80,
+    "id": 5130298340,
+    "node_id": "I_kwDOS7QDus8AAAABMcoj5A",
+    "title": "classify auto-create fallback misfires on review-request messages, spawning junk GitHub issues",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/classify.py",
+      "tasklib/cli.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#37",
+        "state": "closed",
+        "merged_at": "2026-06-25T13:27:14Z",
+        "merge_commit_sha": "ab59123904e2f321a170b9678d733706e04d0917"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "02175d37568eff275f5a873a18c2fc30a76b96b13423087c123af73181c31eef",
+    "snapshot_updated_at": "2026-08-24T23:01:35Z"
+  },
+  {
+    "key": "task-cli#81",
+    "repo": "task-cli",
+    "number": 81,
+    "id": 5130322768,
+    "node_id": "I_kwDOS7QDus8AAAABMcqDUA",
+    "title": "Fix ambiguous read-time failures and duplicate creation in task new",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "8d97c0179653b8f7191238430a12311e0f5f3c1d479c2b770dd34beab8a48aaa",
+    "snapshot_updated_at": "2026-08-13T18:00:13Z"
+  },
+  {
+    "key": "task-cli#82",
+    "repo": "task-cli",
+    "number": 82,
+    "id": 5130328316,
+    "node_id": "I_kwDOS7QDus8AAAABMcqY_A",
+    "title": "Harden ambiguous-failure handling across other task-cli mutation paths",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#81"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "ab19bf44b35c83bcb003700cfa6aa4ed1493eddc025b83bc869e9c8d3da9780a",
+    "snapshot_updated_at": "2026-08-12T11:25:36Z"
+  },
+  {
+    "key": "task-cli#83",
+    "repo": "task-cli",
+    "number": 83,
+    "id": 5131159683,
+    "node_id": "I_kwDOS7QDus8AAAABMddIgw",
+    "title": "recent-tickets block leaks tickets across repos sharing a session id",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#5",
+        "state": "closed",
+        "merged_at": "2026-06-17T12:13:46Z",
+        "merge_commit_sha": "43767d06d4e30b4e4f7a443e9d56bcc822a5bbae"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "67c7824b3be07727cf1eb3fe5244a6387708179f7490eb67554ae984eba599f9",
+    "snapshot_updated_at": "2026-08-24T21:54:34Z"
+  },
+  {
+    "key": "task-cli#85",
+    "repo": "task-cli",
+    "number": 85,
+    "id": 5137643204,
+    "node_id": "I_kwDOS7QDus8AAAABMjo2xA",
+    "title": "task update: record PR number and worktree path against a ticket",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "worktrees",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "216",
+      "043"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/session.py",
+      "tasklib/stale_notice.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "f9d8735d3f76fce7285663041941716ff9dfecfd46691e0c41915d26277dcf4c",
+    "snapshot_updated_at": "2026-08-13T03:59:36Z"
+  },
+  {
+    "key": "task-cli#86",
+    "repo": "task-cli",
+    "number": 86,
+    "id": 5155139300,
+    "node_id": "I_kwDOS7QDus8AAAABM0Uu5A",
+    "title": "Sync SKILL.md source (install.py) with live-patched drift",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#86"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#89",
+        "state": "closed",
+        "merged_at": "2026-09-10T02:13:33Z",
+        "merge_commit_sha": "ca02f039dc6290837993473314a54e847f57da8a"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "8a633a0153a657e9e8beac6622e5f1d0c8d62efb195657c6b8492040fdddc214",
+    "snapshot_updated_at": "2026-09-10T02:13:38Z"
+  },
+  {
+    "key": "task-cli#87",
+    "repo": "task-cli",
+    "number": 87,
+    "id": 5155178046,
+    "node_id": "I_kwDOS7QDus8AAAABM0XGPg",
+    "title": "Exit code 2 is overloaded across policy-refusal, dedup-refusal, and BackendError",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "8eff50495a8dfc1f280c557aabce3983dde4aba3af96a323728c0522f8af6417",
+    "snapshot_updated_at": "2026-08-14T19:56:40Z"
+  },
+  {
+    "key": "task-cli#88",
+    "repo": "task-cli",
+    "number": 88,
+    "id": 5155196974,
+    "node_id": "I_kwDOS7QDus8AAAABM0YQLg",
+    "title": "Recent-tickets footer breaks TTY-aware scripting convention",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "7f9c8f454b8e0e827ac50f78f8f1c9319b979e748ab870f34f2ce495cf19a11a",
+    "snapshot_updated_at": "2026-08-14T19:59:19Z"
+  },
+  {
+    "key": "task-cli#91",
+    "repo": "task-cli",
+    "number": 91,
+    "id": 5174881853,
+    "node_id": "I_kwDOS7QDus8AAAABNHJuPQ",
+    "title": "Consolidate untrusted-URL-parse hardening into one shared helper (PR #90 follow-up)",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/backends/http.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#90",
+        "state": "closed",
+        "merged_at": "2026-08-18T05:32:19Z",
+        "merge_commit_sha": "2476da2562ce3b98580e87bc381ce08fa15946ba"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "fa5a47e4c5a043c2d35e9d10843fdae6b6e063ab81e83e6b91500c48d72d2276",
+    "snapshot_updated_at": "2026-08-17T19:50:52Z"
+  },
+  {
+    "key": "task-cli#92",
+    "repo": "task-cli",
+    "number": 92,
+    "id": 5186092510,
+    "node_id": "I_kwDOS7QDus8AAAABNR193g",
+    "title": "Add task mark-shipped: gh-ship post-merge hook entry point",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "topic-associated-request",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [
+      "**tg#12323** — Alex, 2026-08-18 18:18 UTC: Найди все расходящиеся статусы всех тикеты скриптом И сделай чтобы task-cli пожвязывадся в хук gh ship В экосистеме rig…"
+    ],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_mark_shipped.py"
+    ],
+    "unresolved_historical_paths": [
+      "ci/ship/ship.sh"
+    ],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_mark_shipped.py",
+        "counts": {
+          "passed": 53
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "task-cli#92"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#94",
+        "state": "closed",
+        "merged_at": "2026-08-19T00:39:24Z",
+        "merge_commit_sha": "4e08f8b891009ea62953002aeea7c4bc35866399"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "7cddbeb73dd48cf56f79769ba5f7c0ebf4ecab275dddb6a229b81fec878a0d13",
+    "snapshot_updated_at": "2026-08-19T01:35:02Z"
+  },
+  {
+    "key": "task-cli#93",
+    "repo": "task-cli",
+    "number": 93,
+    "id": 5186424345,
+    "node_id": "I_kwDOS7QDus8AAAABNSKOGQ",
+    "title": "mark-shipped: idempotency key can be fooled by other Links writers; non-GitHub late-SHA backfill is silently lost",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#92"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "c452b73f0a7234770d88ec1b46032fcf8f6e0796cc808d7bd003c876ac8695f7",
+    "snapshot_updated_at": "2026-08-18T21:20:41Z"
+  },
+  {
+    "key": "task-cli#97",
+    "repo": "task-cli",
+    "number": 97,
+    "id": 5239607802,
+    "node_id": "I_kwDOS7QDus8AAAABOE4R-g",
+    "title": "Session-attention notice can't see a same-team Linear ticket routed through a different project-pinned registry entry",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/cli.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#83"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#96",
+        "state": "closed",
+        "merged_at": "2026-08-24T21:54:33Z",
+        "merge_commit_sha": "177bd6af53d0d8be1e0d40fdad7141c10355eda6"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "6e5d7197f539fa90baec720682b0a7d680fe85efcc3ca63e86aae0e8099e9917",
+    "snapshot_updated_at": "2026-08-24T21:28:32Z"
+  },
+  {
+    "key": "task-cli#98",
+    "repo": "task-cli",
+    "number": 98,
+    "id": 5244898840,
+    "node_id": "I_kwDOS7QDus8AAAABOJ7OGA",
+    "title": "mark-shipped: a prefixed task code like AGENTTOOLS-412 raises a raw 404 instead of resolving or explaining",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/backends/github_issues.py"
+    ],
+    "unresolved_historical_paths": [
+      "ci/ship/ship.sh"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "1f4aebfd0e536b757ea9d84472c3c78bed2c506df5b24158881db0c8b4aedb8f",
+    "snapshot_updated_at": "2026-08-25T10:38:29Z"
+  },
+  {
+    "key": "task-cli#99",
+    "repo": "task-cli",
+    "number": 99,
+    "id": 5259987456,
+    "node_id": "I_kwDOS7QDus8AAAABOYUKAA",
+    "title": "Review uncommitted audit reconciliation diff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "238"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#101",
+        "state": "closed",
+        "merged_at": "2026-09-05T11:01:00Z",
+        "merge_commit_sha": "276e73f1712f0b51faaa94a84cb66e9b194c2390"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "c5c4dfaef0c33b121c9122c805175c28200345d88dd7eb3db9a6443f61c8d4be",
+    "snapshot_updated_at": "2026-09-08T17:32:00Z"
+  },
+  {
+    "key": "task-cli#100",
+    "repo": "task-cli",
+    "number": 100,
+    "id": 5260188893,
+    "node_id": "I_kwDOS7QDus8AAAABOYgc3Q",
+    "title": "task audit: GitHub-Issues backend can miss a native auto-close (label-first state, no sort=updated), and --revert has no confirmation gate",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/audit.py",
+      "tasklib/backends/github_issues.py",
+      "tasklib/cli.py"
+    ],
+    "unresolved_historical_paths": [
+      "stale_notice.py"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#123"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "a948f3ae3a23407c0458e0939a061d1dcd93970746a2c2eb84b0d34d1a1c8975",
+    "snapshot_updated_at": "2026-08-26T18:32:00Z"
+  },
+  {
+    "key": "task-cli#102",
+    "repo": "task-cli",
+    "number": 102,
+    "id": 5276214227,
+    "node_id": "I_kwDOS7QDus8AAAABOnyj0w",
+    "title": "mark-shipped: warn when a Done ticket still has unchecked acceptance criteria",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_mark_shipped.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_mark_shipped.py",
+        "counts": {
+          "passed": 53
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "91f1d933ee32f8fa948c9c523c4bbba5ba60e594de8547a6cf6dc7201f00e321",
+    "snapshot_updated_at": "2026-08-28T09:01:36Z"
+  },
+  {
+    "key": "task-cli#104",
+    "repo": "task-cli",
+    "number": 104,
+    "id": 5276646789,
+    "node_id": "I_kwDOS7QDus8AAAABOoM9hQ",
+    "title": "mark-shipped: GitHub-Issues backend can reopen a natively-closed issue and misses its unmet-criteria warning",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#103",
+        "state": "closed",
+        "merged_at": "2026-09-05T10:43:07Z",
+        "merge_commit_sha": "a8a280557ea6804015dade1988df69f371dfec7c"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "55ecc3c34ac0d4a7ad96ae60e3e1a1959e9c8f5feea0ce6ebd09ac4b12a4d7b7",
+    "snapshot_updated_at": "2026-08-28T09:09:20Z"
+  },
+  {
+    "key": "task-cli#105",
+    "repo": "task-cli",
+    "number": 105,
+    "id": 5291844972,
+    "node_id": "I_kwDOS7QDus8AAAABO2slbA",
+    "title": "fix(attachments): trusted-host allowlist + per-machine attachment_mode override",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "topic-associated-request",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [
+      "**tg#11652** — Alex, 2026-08-15 10:40 UTC: Давай в task-cli конфиге и в rig конфиг ах можно будет выбрать как прикладывать в linear ссылками или нативно. И надо по…"
+    ],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#109",
+        "state": "closed",
+        "merged_at": "2026-08-30T16:54:41Z",
+        "merge_commit_sha": "ccffb7f8a9450d98290bf961057c167ff3767650"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "610654c4c4d896b01b0d32ceccd23c3ae591a9011e483300e0cdfc268fccbc9a",
+    "snapshot_updated_at": "2026-08-30T16:54:45Z"
+  },
+  {
+    "key": "task-cli#106",
+    "repo": "task-cli",
+    "number": 106,
+    "id": 5291909094,
+    "node_id": "I_kwDOS7QDus8AAAABO2wf5g",
+    "title": "Review trusted attachment hosts diff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#109",
+        "state": "closed",
+        "merged_at": "2026-08-30T16:54:41Z",
+        "merge_commit_sha": "ccffb7f8a9450d98290bf961057c167ff3767650"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "b6e14f05480637e5ed2aad987db78d5bc20667d797e50e321c48e1523bb6b98c",
+    "snapshot_updated_at": "2026-09-08T17:32:01Z"
+  },
+  {
+    "key": "task-cli#108",
+    "repo": "task-cli",
+    "number": 108,
+    "id": 5292272608,
+    "node_id": "I_kwDOS7QDus8AAAABO3Gr4A",
+    "title": "security: trusted_attachment_hosts needs connect-time IP validation to close DNS-based SSRF",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "task.yaml/rig.yaml"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#105"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "d2f899667ae3c6d0b541dd96947ba10447fde45f370a9c7654a5afa8d8f93be8",
+    "snapshot_updated_at": "2026-08-30T13:18:40Z"
+  },
+  {
+    "key": "task-cli#110",
+    "repo": "task-cli",
+    "number": 110,
+    "id": 5292839255,
+    "node_id": "I_kwDOS7QDus8AAAABO3pRVw",
+    "title": "task-cli: native Linear proof URLs are unauthenticated and 401 on direct fetch",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#107",
+        "state": "closed",
+        "merged_at": "2026-08-30T14:29:49Z",
+        "merge_commit_sha": "f7c77c26173398eba28556c911156bd4dbdef07e"
+      },
+      {
+        "key": "task-cli#109",
+        "state": "closed",
+        "merged_at": "2026-08-30T16:54:41Z",
+        "merge_commit_sha": "ccffb7f8a9450d98290bf961057c167ff3767650"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "e541818ee93b730cbc38577ab26c62abdb4aa73b9ab334f3df7531a0e4a5799b",
+    "snapshot_updated_at": "2026-08-30T15:23:37Z"
+  },
+  {
+    "key": "task-cli#111",
+    "repo": "task-cli",
+    "number": 111,
+    "id": 5293300836,
+    "node_id": "I_kwDOS7QDus8AAAABO4FcZA",
+    "title": "Review ecosystem README configuration diff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "114",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#113",
+        "state": "closed",
+        "merged_at": "2026-08-30T17:53:42Z",
+        "merge_commit_sha": "8845835cfc238324b4ff92861eb7a1d1760f00e4"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "4d68cd07b97daa0ba8d6d1e7b73d4160e574dc18412d652968cb3b43dca17bf9",
+    "snapshot_updated_at": "2026-09-08T17:32:00Z"
+  },
+  {
+    "key": "task-cli#112",
+    "repo": "task-cli",
+    "number": 112,
+    "id": 5293309188,
+    "node_id": "I_kwDOS7QDus8AAAABO4F9BA",
+    "title": "task-cli: add ecosystem tools section to README",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "114",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#112"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#113",
+        "state": "closed",
+        "merged_at": "2026-08-30T17:53:42Z",
+        "merge_commit_sha": "8845835cfc238324b4ff92861eb7a1d1760f00e4"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "5cf73b4a93b1cc1f487eec23a2e6f3e2d6f083a9e18ca974cf27b4bd0046ac2a",
+    "snapshot_updated_at": "2026-08-30T17:54:22Z"
+  },
+  {
+    "key": "task-cli#114",
+    "repo": "task-cli",
+    "number": 114,
+    "id": 5352753973,
+    "node_id": "I_kwDOS7QDus8AAAABPwyLNQ",
+    "title": "task-cli should warn about stale and overdue tickets on its own, without pm-cli",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "08091d0d60da79ccb368ffd5d467cd0ba06851d146a0dd2b169a6cef73e7d88f",
+    "snapshot_updated_at": "2026-09-04T20:32:55Z"
+  },
+  {
+    "key": "task-cli#115",
+    "repo": "task-cli",
+    "number": 115,
+    "id": 5352861846,
+    "node_id": "I_kwDOS7QDus8AAAABPw4wlg",
+    "title": "No merge without accepted criteria: a ship-time acceptance gate plus convenient commands to check criteria with proofs",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/audit.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#115"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#101",
+        "state": "closed",
+        "merged_at": "2026-09-05T11:01:00Z",
+        "merge_commit_sha": "276e73f1712f0b51faaa94a84cb66e9b194c2390"
+      },
+      {
+        "key": "task-cli#103",
+        "state": "closed",
+        "merged_at": "2026-09-05T10:43:07Z",
+        "merge_commit_sha": "a8a280557ea6804015dade1988df69f371dfec7c"
+      },
+      {
+        "key": "task-cli#118",
+        "state": "closed",
+        "merged_at": "2026-09-05T12:21:10Z",
+        "merge_commit_sha": "c38a7b10e12db7a8de67ae54607b0b373e4223eb"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "97889cc6c5d1c764b7d1fb643639d12d05443a9e54dc8835fed4130ebd4d42b1",
+    "snapshot_updated_at": "2026-09-05T15:28:36Z"
+  },
+  {
+    "key": "task-cli#116",
+    "repo": "task-cli",
+    "number": 116,
+    "id": 5357123193,
+    "node_id": "I_kwDOS7QDus8AAAABP082eQ",
+    "title": "task gate: require a written verification plan before a ticket enters In Review, not just checked proofs",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "agent-tools#521",
+      "task-cli#115"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "571a5c5cbc878eed6f8ae4e54800a734ff1760203e24634645282e9b431449a9",
+    "snapshot_updated_at": "2026-09-05T09:49:58Z"
+  },
+  {
+    "key": "task-cli#117",
+    "repo": "task-cli",
+    "number": 117,
+    "id": 5357178225,
+    "node_id": "I_kwDOS7QDus8AAAABP1ANcQ",
+    "title": "Registry projects: entries have no way to carry an enforce: override, so a registry-routed ticket always inherits the caller's own gates",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "0f43c1180a7bba62410296b78a33799d815fe9bbbfc152edfd90702530a87666",
+    "snapshot_updated_at": "2026-09-05T10:00:12Z"
+  },
+  {
+    "key": "task-cli#119",
+    "repo": "task-cli",
+    "number": 119,
+    "id": 5358228104,
+    "node_id": "I_kwDOS7QDus8AAAABP2ASiA",
+    "title": "Refuse to overwrite a ticket's What (description) without a recent read",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_cli.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_cli.py",
+        "counts": {
+          "passed": 417
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "task-cli#115",
+      "task-cli#119"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#121",
+        "state": "closed",
+        "merged_at": "2026-09-05T19:42:06Z",
+        "merge_commit_sha": "46397e9c5f31cb9d84fe5fba21fb2035f2848f45"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "23bd4e58c940c26e4431aaa82a74222cadfca9f55b623ff63b39cf1c8047f369",
+    "snapshot_updated_at": "2026-09-05T19:42:11Z"
+  },
+  {
+    "key": "task-cli#120",
+    "repo": "task-cli",
+    "number": 120,
+    "id": 5359153431,
+    "node_id": "I_kwDOS7QDus8AAAABP24xFw",
+    "title": "task change mutates the fetched ticket before policy gates run, so a refused edit can still leak into a later save",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#119"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "ec9e990a3384e8a0dc02ef98d26fb7e6ec2d48c2cb2c98c559839862702efee3",
+    "snapshot_updated_at": "2026-09-05T16:02:44Z"
+  },
+  {
+    "key": "task-cli#122",
+    "repo": "task-cli",
+    "number": 122,
+    "id": 5359923235,
+    "node_id": "I_kwDOS7QDus8AAAABP3nwIw",
+    "title": "task read displays the re-rendered body, not the verbatim backend content, weakening the new read-before-edit gate for legacy tickets",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#119"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "cfc0051b808e5d5abae409569cce56c4393bcf36f5ad50f528b362bf71ee042f",
+    "snapshot_updated_at": "2026-09-05T18:03:58Z"
+  },
+  {
+    "key": "task-cli#123",
+    "repo": "task-cli",
+    "number": 123,
+    "id": 5360078685,
+    "node_id": "I_kwDOS7QDus8AAAABP3xPXQ",
+    "title": "Review read-before-edit gate diff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#121",
+        "state": "closed",
+        "merged_at": "2026-09-05T19:42:06Z",
+        "merge_commit_sha": "46397e9c5f31cb9d84fe5fba21fb2035f2848f45"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "7cb701c63b68bac1ea76e1c3d9e2d6bbd173c2724c65e0087460534c0458ac46",
+    "snapshot_updated_at": "2026-09-08T17:32:00Z"
+  },
+  {
+    "key": "task-cli#124",
+    "repo": "task-cli",
+    "number": 124,
+    "id": 5366345219,
+    "node_id": "I_kwDOS7QDus8AAAABP9vuAw",
+    "title": "task gate: reject a non-id code with a clear message instead of a raw GitHub 404",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "ab3f3e4ad49b89672d59b991bf9e32c6eaf881acd2ea2e2fb9d3e95278db28e5",
+    "snapshot_updated_at": "2026-09-06T16:51:56Z"
+  },
+  {
+    "key": "task-cli#125",
+    "repo": "task-cli",
+    "number": 125,
+    "id": 5366654925,
+    "node_id": "I_kwDOS7QDus8AAAABP-CnzQ",
+    "title": "links gate: '48px/48px' (CSS size pair) is reported as a bare repo/path reference",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/references.py"
+    ],
+    "unresolved_historical_paths": [
+      "docs/figma/DESIGN-SPEC.md",
+      "src/foo/bar.ts"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "No machine-readable acceptance checklist found; add outcome-specific cases, not a fabricated completed checklist.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "3b8b3340a8308dfec8347be1b2c1a3ac8c7580cd704fb6a1990354b20b1bb53a",
+    "snapshot_updated_at": "2026-09-06T17:52:23Z"
+  },
+  {
+    "key": "task-cli#126",
+    "repo": "task-cli",
+    "number": 126,
+    "id": 5367990096,
+    "node_id": "I_kwDOS7QDus8AAAABP_UHUA",
+    "title": "The links gate refuses tickets over hex colours, commit shas in prose and ordinary slashes",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_references.py"
+    ],
+    "unresolved_historical_paths": [
+      "docs/index.md"
+    ],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_references.py",
+        "counts": {
+          "passed": 19
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "task-cli#126"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#129",
+        "state": "closed",
+        "merged_at": "2026-09-08T03:12:24Z",
+        "merge_commit_sha": "56e743af84d85b1731b51d3e072259d36be91e2c"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "692d6995566bf073cf1bd22894a42e124dac2fb1159236286b24a9267f3e3d43",
+    "snapshot_updated_at": "2026-09-08T03:12:30Z"
+  },
+  {
+    "key": "task-cli#127",
+    "repo": "task-cli",
+    "number": 127,
+    "id": 5368000666,
+    "node_id": "I_kwDOS7QDus8AAAABP_Uwmg",
+    "title": "Reading back a ticket by its code fails with a raw 404 or \"Entity not found\"",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "4127815b19755a15930d25e72170567ca0946ce4629bdf3d330797fd0f6aa627",
+    "snapshot_updated_at": "2026-09-06T22:17:18Z"
+  },
+  {
+    "key": "task-cli#128",
+    "repo": "task-cli",
+    "number": 128,
+    "id": 5371622271,
+    "node_id": "I_kwDOS7QDus8AAAABQCxzfw",
+    "title": "Review uncommitted links gate context diff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "238"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#135",
+        "state": "closed",
+        "merged_at": "2026-09-07T19:50:08Z",
+        "merge_commit_sha": "fff4daa2b14dca1ea5714c30a41b609428815079"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "69068575a47caaf343af694688575623b4171c1250e7f7400794ca1083182e5d",
+    "snapshot_updated_at": "2026-09-08T17:31:59Z"
+  },
+  {
+    "key": "task-cli#130",
+    "repo": "task-cli",
+    "number": 130,
+    "id": 5372859841,
+    "node_id": "I_kwDOS7QDus8AAAABQD9VwQ",
+    "title": "Add todo-vs-ticket, duplicate, and multi-ask intake gates to task-cli",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "f56d1ce4c5500ad0d3b062f5ddb216b350e4f97a7c188c2dcb602d251c163e60",
+    "snapshot_updated_at": "2026-09-07T09:39:16Z"
+  },
+  {
+    "key": "task-cli#131",
+    "repo": "task-cli",
+    "number": 131,
+    "id": 5372881259,
+    "node_id": "I_kwDOS7QDus8AAAABQD-paw",
+    "title": "Adversarial cross-file review of ticket intake gates diff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#130"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "f2a623ac935f55213b3b402e44e15dabd150ecac3d571df9c86a461f9f58ac40",
+    "snapshot_updated_at": "2026-09-08T17:32:02Z"
+  },
+  {
+    "key": "task-cli#132",
+    "repo": "task-cli",
+    "number": 132,
+    "id": 5373177174,
+    "node_id": "I_kwDOS7QDus8AAAABQEQtVg",
+    "title": "Review OMP lineage-first model detection diff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "bc9ae9113b61aad9b0c65996f9917bc371926652865917eb82c38a087e2676fd",
+    "snapshot_updated_at": "2026-09-08T17:32:03Z"
+  },
+  {
+    "key": "task-cli#133",
+    "repo": "task-cli",
+    "number": 133,
+    "id": 5373928406,
+    "node_id": "I_kwDOS7QDus8AAAABQE-j1g",
+    "title": "task-cli: strengthen the 'What' quality gate from presence to substance",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/quality.py"
+    ],
+    "unresolved_historical_paths": [
+      "com/alex-mextner/task-cli/blob/main/tasklib/quality.py"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "056d8cd9e20cc13ff550371d24ab3b80350d0f2f1e1408f4193c675a47e3ac64",
+    "snapshot_updated_at": "2026-09-07T11:18:53Z"
+  },
+  {
+    "key": "task-cli#134",
+    "repo": "task-cli",
+    "number": 134,
+    "id": 5373929880,
+    "node_id": "I_kwDOS7QDus8AAAABQE-pmA",
+    "title": "task-cli: reduce reliance on the forced acceptance escape hatch with no proof",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#115",
+      "task-cli#116"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "c319f79c1730ca65eeac7c3ea54d9394a2e1d23d0b535b8139a07d92becfb71b",
+    "snapshot_updated_at": "2026-09-07T11:19:02Z"
+  },
+  {
+    "key": "task-cli#137",
+    "repo": "task-cli",
+    "number": 137,
+    "id": 5374745544,
+    "node_id": "I_kwDOS7QDus8AAAABQFwbyA",
+    "title": "Audit junk title gate consistency",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "0dd8a84b7d2c70f8d2df6d4e906ea1e3670b0fa77410b7703b13e0904e080d7d",
+    "snapshot_updated_at": "2026-09-07T12:34:42Z"
+  },
+  {
+    "key": "task-cli#138",
+    "repo": "task-cli",
+    "number": 138,
+    "id": 5375033365,
+    "node_id": "I_kwDOS7QDus8AAAABQGCAFQ",
+    "title": "tg-ctl: control omp (and other non-tmux-capable harnesses) without tmux via its own RPC/resume surface",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "features/tg-ctl/unreachable.ts"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "tg-cli#306"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "867036d727ceab47cb022a4f77fbbc89dd29fe635e0538a77364cf067a4c0f7c",
+    "snapshot_updated_at": "2026-09-07T13:02:27Z"
+  },
+  {
+    "key": "task-cli#139",
+    "repo": "task-cli",
+    "number": 139,
+    "id": 5376634764,
+    "node_id": "I_kwDOS7QDus8AAAABQHjvjA",
+    "title": "review-cli: role-reuse pool padding never fires when a seat is hard-unavailable (session-limit cooldown), only when merely near its usage limit",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "config/review-cli/run-stats.js",
+      "modes/review.py"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "agent-tools#597",
+        "state": "open",
+        "merged_at": null,
+        "merge_commit_sha": null
+      },
+      {
+        "key": "task-cli#135",
+        "state": "closed",
+        "merged_at": "2026-09-07T19:50:08Z",
+        "merge_commit_sha": "fff4daa2b14dca1ea5714c30a41b609428815079"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "a4f07c345042b27cef0acd61573674237aec90a469f61e29f6638fae82545fb9",
+    "snapshot_updated_at": "2026-09-07T15:35:54Z"
+  },
+  {
+    "key": "task-cli#140",
+    "repo": "task-cli",
+    "number": 140,
+    "id": 5376700264,
+    "node_id": "I_kwDOS7QDus8AAAABQHnvaA",
+    "title": "dependency-review CI gate audits the WHOLE dependency tree, blocking every PR regardless of what it actually changes",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "ci/dependency-review/dep-audit.sh"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "5bfebc4b2b9160accaf24aaf28e65569d23f18485a47455ab89b4f6026ddc73c",
+    "snapshot_updated_at": "2026-09-07T15:43:08Z"
+  },
+  {
+    "key": "task-cli#141",
+    "repo": "task-cli",
+    "number": 141,
+    "id": 5376876659,
+    "node_id": "I_kwDOS7QDus8AAAABQHygcw",
+    "title": "Review worktree-only rig hook configuration",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "worktrees",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "216",
+      "043"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#141"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#142",
+        "state": "closed",
+        "merged_at": "2026-09-10T01:24:57Z",
+        "merge_commit_sha": "d71dc89ac080a0de7ea60dc642507e296c13d380"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "ecc3e41f9683cb1f8821690649ca5d6fee512bdece1d198391011f4f557a1d3a",
+    "snapshot_updated_at": "2026-09-10T01:25:02Z"
+  },
+  {
+    "key": "task-cli#143",
+    "repo": "task-cli",
+    "number": 143,
+    "id": 5377148818,
+    "node_id": "I_kwDOS7QDus8AAAABQIDHkg",
+    "title": "review-threads.yml's pull_request_review/pull_request_review_comment triggers are PR-tamperable, defeating the stale-green protection they claim to add",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "explicit-export-association",
+    "quote_ids": [
+      "065",
+      "072"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "b0183a20366e85441d63d7f7ee4eb46ec9fed0c59471880123e6e462e77c5c49",
+    "snapshot_updated_at": "2026-09-07T16:35:25Z"
+  },
+  {
+    "key": "task-cli#144",
+    "repo": "task-cli",
+    "number": 144,
+    "id": 5377212830,
+    "node_id": "I_kwDOS7QDus8AAAABQIHBng",
+    "title": "dep-audit.sh fails CLOSED on every PR in a pyproject.toml-only repo (no requirements*.txt), regardless of vulnerabilities",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "explicit-export-association",
+    "quote_ids": [
+      "061"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "e2d3b5e9227507f3f33db6654ee8a49a4d34f7b6dcde47456ed42a58be4330f5",
+    "snapshot_updated_at": "2026-09-07T16:43:17Z"
+  },
+  {
+    "key": "task-cli#145",
+    "repo": "task-cli",
+    "number": 145,
+    "id": 5377230924,
+    "node_id": "I_kwDOS7QDus8AAAABQIIITA",
+    "title": "leftover-grep.sh: LEFTOVER_BASE=\"\" breaks the documented origin/main fallback",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "ci/leftover-grep/leftover-grep.sh"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "43f200cc27942cae08490f5499081f5dd70a40177459f3555ca03f3dba0e5051",
+    "snapshot_updated_at": "2026-09-07T16:45:38Z"
+  },
+  {
+    "key": "task-cli#146",
+    "repo": "task-cli",
+    "number": 146,
+    "id": 5377231250,
+    "node_id": "I_kwDOS7QDus8AAAABQIIJkg",
+    "title": "leftover-grep.sh no longer flags an orphaned '=======' merge-conflict divider",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "3aa608d7d1a4dcad630a800e3f99543dda166cdd37e71baf84fd738bf23f6552",
+    "snapshot_updated_at": "2026-09-07T16:45:41Z"
+  },
+  {
+    "key": "task-cli#147",
+    "repo": "task-cli",
+    "number": 147,
+    "id": 5377245629,
+    "node_id": "I_kwDOS7QDus8AAAABQIJBvQ",
+    "title": "review-cli: --show-board preview does not reflect role-reuse padding (task-cli#139 follow-up)",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#139"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "8e5d0ea1fdab2ff8cea716455d86fbf2a9c11fe4c9baba666a804a59d79b85e4",
+    "snapshot_updated_at": "2026-09-07T16:47:34Z"
+  },
+  {
+    "key": "task-cli#148",
+    "repo": "task-cli",
+    "number": 148,
+    "id": 5377351017,
+    "node_id": "I_kwDOS7QDus8AAAABQIPdaQ",
+    "title": "review-cli: --commit checkpoint has a TOCTOU race against the agentic reviewer's own repo exploration",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#139"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "8b496be91e4977713c4796361ecefd455aef2ad954458fe3f2f64864fa8692a9",
+    "snapshot_updated_at": "2026-09-07T17:01:25Z"
+  },
+  {
+    "key": "task-cli#149",
+    "repo": "task-cli",
+    "number": 149,
+    "id": 5377620102,
+    "node_id": "I_kwDOS7QDus8AAAABQIf4hg",
+    "title": "RIG_WORKTREE_ONLY=0 silently overrides the committed worktree_only config with no warning",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "worktrees",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "216",
+      "043"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#34",
+        "state": "closed",
+        "merged_at": "2026-06-25T11:59:40Z",
+        "merge_commit_sha": "6c4547f114f4eb5810f202f0dab66123f22afdb1"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "58091514f698914d18b884e8fcc991d4d61b3da664613bd7f9c76d11bd06d923",
+    "snapshot_updated_at": "2026-09-07T17:39:33Z"
+  },
+  {
+    "key": "task-cli#150",
+    "repo": "task-cli",
+    "number": 150,
+    "id": 5377620458,
+    "node_id": "I_kwDOS7QDus8AAAABQIf56g",
+    "title": "git switch/checkout --detach bypasses pin-primary-worktree entirely, and the write hook fails open on detached HEAD",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "7d1a46fc948f2946d217b80dbb86265a52d088dd1a5b9de5923eee64a8d779d3",
+    "snapshot_updated_at": "2026-09-07T17:39:36Z"
+  },
+  {
+    "key": "task-cli#151",
+    "repo": "task-cli",
+    "number": 151,
+    "id": 5377660454,
+    "node_id": "I_kwDOS7QDus8AAAABQIiWJg",
+    "title": "review-cli dashboard: cache invalidation scans+reparses the WHOLE log corpus (147K files/18GB), never bounded to recent activity",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "reviewlib/dashboard/call_log_cache.py",
+      "reviewlib/dashboard/parser.py"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "666d496b33b2bed51006a07252e3056f906b5783618a8940adf331346e7fcf7b",
+    "snapshot_updated_at": "2026-09-07T17:45:17Z"
+  },
+  {
+    "key": "task-cli#152",
+    "repo": "task-cli",
+    "number": 152,
+    "id": 5377969293,
+    "node_id": "I_kwDOS7QDus8AAAABQI1MjQ",
+    "title": "task daemon: unused MVP (no auto-start, tickets never set due dates, not tracked in rig stats)",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/daemon.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#2",
+      "task-cli#3"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "bdb6260d7d0498722a98160b19a083d0045524f317296bb49a5bf7011380ffb7",
+    "snapshot_updated_at": "2026-09-07T18:35:28Z"
+  },
+  {
+    "key": "task-cli#153",
+    "repo": "task-cli",
+    "number": 153,
+    "id": 5377974679,
+    "node_id": "I_kwDOS7QDus8AAAABQI1hlw",
+    "title": "rig stats: too coarse (ours-vs-baseline only), undercounts (task-cli#316), no per-subcommand/hook/git-hook detail, no web UI, no test-data exclusion",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "005",
+      "152"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "riglib/stats/taxonomy.py"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "rig-cli#21",
+        "state": "closed",
+        "merged_at": "2026-06-16T01:23:03Z",
+        "merge_commit_sha": "8e42b9f7e9c7ce5e7650610ac43e679aeee6b4e0"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "dbec0118b48358612093bed6e7974c71fd7032a991661c1828544729b383e11a",
+    "snapshot_updated_at": "2026-09-07T18:29:11Z"
+  },
+  {
+    "key": "task-cli#154",
+    "repo": "task-cli",
+    "number": 154,
+    "id": 5378023468,
+    "node_id": "I_kwDOS7QDus8AAAABQI4gLA",
+    "title": "task-cli should nudge agents to link related tickets, and add a task link command",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/references.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#158"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "eaa4a2d6c5d10525cc529ccc58529d1866af48db4711c39bfcfc4e7e0b21bdfc",
+    "snapshot_updated_at": "2026-09-08T14:39:21Z"
+  },
+  {
+    "key": "task-cli#155",
+    "repo": "task-cli",
+    "number": 155,
+    "id": 5378030655,
+    "node_id": "I_kwDOS7QDus8AAAABQI48Pw",
+    "title": "review dashboard status: false 'stopped' report from an untracked legacy launchd job",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/daemon.py"
+    ],
+    "unresolved_historical_paths": [
+      "dev_cli/cli.py",
+      "lib/agenttools_service/core.py"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "agent-tools#685",
+      "dev-cli#27",
+      "task-cli#151"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Closed with unchecked criteria: preserve closure history and explicitly reverify the outstanding outcome.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "79e07a748e01bf6b94f8b0064ff1c82a0dd22556e4c5a7c72134c1e84b3fc280",
+    "snapshot_updated_at": "2026-09-09T07:51:27Z"
+  },
+  {
+    "key": "task-cli#156",
+    "repo": "task-cli",
+    "number": 156,
+    "id": 5378032443,
+    "node_id": "I_kwDOS7QDus8AAAABQI5DOw",
+    "title": "review-cli log directory has no retention/rotation -- unbounded growth (147K files/18GB and climbing)",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#151"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "5d975af0ceeb81adeae5412ae0acad21d6c61a5411104c7890747e4ea35374c5",
+    "snapshot_updated_at": "2026-09-07T18:37:55Z"
+  },
+  {
+    "key": "task-cli#157",
+    "repo": "task-cli",
+    "number": 157,
+    "id": 5378188832,
+    "node_id": "I_kwDOS7QDus8AAAABQJCmIA",
+    "title": "give agents a real non-ticket place for ephemeral findings, not just a block on filing them as GitHub issues",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "skills/AGENTS.md"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [
+      {
+        "key": "task-cli#135",
+        "state": "closed",
+        "merged_at": "2026-09-07T19:50:08Z",
+        "merge_commit_sha": "fff4daa2b14dca1ea5714c30a41b609428815079"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "22afe34276099f5ba504bd17f05ca7769edefe41940e72322e14c0922877822a",
+    "snapshot_updated_at": "2026-09-07T19:02:11Z"
+  },
+  {
+    "key": "task-cli#158",
+    "repo": "task-cli",
+    "number": 158,
+    "id": 5378289915,
+    "node_id": "I_kwDOS7QDus8AAAABQJIw-w",
+    "title": "GitHubIssuesBackend.update() reopens a provider-closed issue whose managed label is stale",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/backends/github_issues.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#154"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "90a6b633602507a31cb0f2bba803673e9aa4ae20c8d4b20ce3d0e97ed938dae0",
+    "snapshot_updated_at": "2026-09-07T19:17:55Z"
+  },
+  {
+    "key": "task-cli#160",
+    "repo": "task-cli",
+    "number": 160,
+    "id": 5383134223,
+    "node_id": "I_kwDOS7QDus8AAAABQNwcDw",
+    "title": "Add task burn chart and task web lifecycle",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "160-proof/burn.js",
+      "160-proof/empty.js"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "474ea7b2ba14b3ad0f8fdf5d3a61b12d7c16a51dc96f17d38e36d18bfeb6cb74",
+    "snapshot_updated_at": "2026-09-08T08:27:49Z"
+  },
+  {
+    "key": "task-cli#162",
+    "repo": "task-cli",
+    "number": 162,
+    "id": 5384107025,
+    "node_id": "I_kwDOS7QDus8AAAABQOr0EQ",
+    "title": "Refuse process tickets against a product GitHub tracker",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "d4d6cce42f4e3fe08c6e6750a0ec78cda36bf7de4b6ff4c59a7c6d40a8e205b4",
+    "snapshot_updated_at": "2026-09-08T08:15:52Z"
+  },
+  {
+    "key": "task-cli#165",
+    "repo": "task-cli",
+    "number": 165,
+    "id": 5389753500,
+    "node_id": "I_kwDOS7QDus8AAAABQUEcnA",
+    "title": "Refuse Review-uncommitted titles that omit trailing diff",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "rig-cli#409",
+      "rig-cli#436",
+      "rig-cli#454",
+      "task-cli#165"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#164",
+        "state": "closed",
+        "merged_at": "2026-09-08T17:58:07Z",
+        "merge_commit_sha": "661b14e03618bbd4ce27979c7b53cf6d8b76b194"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "1b6e69d813ce052a08b8d70e9a28de1d594ffd7cd076245eae5f5cb13f137fb3",
+    "snapshot_updated_at": "2026-09-08T17:58:15Z"
+  },
+  {
+    "key": "task-cli#166",
+    "repo": "task-cli",
+    "number": 166,
+    "id": 5389834128,
+    "node_id": "I_kwDOS7QDus8AAAABQUJXkA",
+    "title": "Block ticket create that mentions screenshot/скриншот without an attached image",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_policy.py"
+    ],
+    "unresolved_historical_paths": [
+      "com/alex-mextner/task-cli/blob/main/tasklib/policy.py"
+    ],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_policy.py",
+        "counts": {
+          "passed": 122
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "task-cli#166",
+      "task-cli#167",
+      "tg-cli#337"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#171",
+        "state": "closed",
+        "merged_at": "2026-09-10T01:33:32Z",
+        "merge_commit_sha": "974a6b4169c8fdc65d82930689e925a92c95253d"
+      },
+      {
+        "key": "tg-cli#338",
+        "state": "closed",
+        "merged_at": "2026-09-08T08:27:25Z",
+        "merge_commit_sha": "a643f2a8df9590000567c1b361a0182121e4ce60"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.",
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "84604d9aa5d51ceee52fabb0a6db9a5f61b0e3c22c13ea3331a715425c21b1e9",
+    "snapshot_updated_at": "2026-09-10T01:33:38Z"
+  },
+  {
+    "key": "task-cli#167",
+    "repo": "task-cli",
+    "number": 167,
+    "id": 5389865892,
+    "node_id": "I_kwDOS7QDus8AAAABQULTpA",
+    "title": "Add task attach for easy screenshot proof on tickets",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_attach.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_attach.py",
+        "counts": {
+          "passed": 15
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "task-cli#166",
+      "task-cli#167"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#136",
+        "state": "closed",
+        "merged_at": "2026-09-08T13:20:36Z",
+        "merge_commit_sha": "4803176e7a51048c765099ecfe4b9dd19da0a6c2"
+      },
+      {
+        "key": "task-cli#176",
+        "state": "closed",
+        "merged_at": "2026-09-08T18:42:06Z",
+        "merge_commit_sha": "cb8ac96a51d9b112a34ef2fd7b10cc28086dead2"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "853527b088b58675f18beee9377bfb6b79cea940d2847770617d312c3aac13f0",
+    "snapshot_updated_at": "2026-09-08T18:42:13Z"
+  },
+  {
+    "key": "task-cli#168",
+    "repo": "task-cli",
+    "number": 168,
+    "id": 5389891450,
+    "node_id": "I_kwDOS7QDus8AAAABQUM3eg",
+    "title": "Show both burn and gantt as HTML charts in task web",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_web.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_web.py",
+        "counts": {
+          "passed": 11
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "task-cli#168"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#161",
+        "state": "closed",
+        "merged_at": "2026-09-08T08:22:33Z",
+        "merge_commit_sha": "99c6efba214607665f96bf9f5ffc96173ecdd6ca"
+      },
+      {
+        "key": "task-cli#177",
+        "state": "closed",
+        "merged_at": "2026-09-08T18:57:11Z",
+        "merge_commit_sha": "de354bcaa2c06c8ea46316303dec72d8ec582a7d"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "e3a36a995b608b89977be2d4e97ab29e70b3d5d655c5c0fcf97e7dc88a412a10",
+    "snapshot_updated_at": "2026-09-08T18:57:36Z"
+  },
+  {
+    "key": "task-cli#169",
+    "repo": "task-cli",
+    "number": 169,
+    "id": 5389909825,
+    "node_id": "I_kwDOS7QDus8AAAABQUN_QQ",
+    "title": "Reject invented task codes; add repo-aware taskref library",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/backends/github_issues.py",
+      "tests/test_taskref.py"
+    ],
+    "unresolved_historical_paths": [
+      "task.yaml/rig.yaml"
+    ],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_taskref.py",
+        "counts": {
+          "passed": 19
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "agent-tools#607",
+      "task-cli#123"
+    ],
+    "linked_prs": [
+      {
+        "key": "agent-tools#612",
+        "state": "open",
+        "merged_at": null,
+        "merge_commit_sha": "e95713af963f3c6108923f44a771fba56df73ad4"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [
+      "task-cli#170",
+      "task-cli#172",
+      "task-cli#173"
+    ],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "16e4c6718bf3ad7bfa4f75c081b06e24d1427e0e0a461fa33165dc2923a50b91",
+    "snapshot_updated_at": "2026-09-08T17:30:17Z"
+  },
+  {
+    "key": "task-cli#170",
+    "repo": "task-cli",
+    "number": 170,
+    "id": 5389918279,
+    "node_id": "I_kwDOS7QDus8AAAABQUOgRw",
+    "title": "Reject invented task codes; add repo-aware taskref library",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/backends/github_issues.py",
+      "tests/test_taskref.py"
+    ],
+    "unresolved_historical_paths": [
+      "task.yaml/rig.yaml"
+    ],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_taskref.py",
+        "counts": {
+          "passed": 19
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "agent-tools#607",
+      "task-cli#123"
+    ],
+    "linked_prs": [
+      {
+        "key": "agent-tools#612",
+        "state": "open",
+        "merged_at": null,
+        "merge_commit_sha": "e95713af963f3c6108923f44a771fba56df73ad4"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": "task-cli#169",
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "2f774325763e273f77007d3cea8a7c1b0b8bdcd63065cdcea1e6ceba441ea824",
+    "snapshot_updated_at": "2026-09-08T17:31:13Z"
+  },
+  {
+    "key": "task-cli#172",
+    "repo": "task-cli",
+    "number": 172,
+    "id": 5389928593,
+    "node_id": "I_kwDOS7QDus8AAAABQUPIkQ",
+    "title": "Reject invented task codes; add repo-aware taskref library",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_taskref.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_taskref.py",
+        "counts": {
+          "passed": 19
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "agent-tools#607"
+    ],
+    "linked_prs": [
+      {
+        "key": "agent-tools#612",
+        "state": "open",
+        "merged_at": null,
+        "merge_commit_sha": "e95713af963f3c6108923f44a771fba56df73ad4"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": "task-cli#169",
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "98f4974781d50718ed2236e2bef06aa93d14777bf3f70656a5da45527bf3035d",
+    "snapshot_updated_at": "2026-09-08T17:32:24Z"
+  },
+  {
+    "key": "task-cli#173",
+    "repo": "task-cli",
+    "number": 173,
+    "id": 5389932765,
+    "node_id": "I_kwDOS7QDus8AAAABQUPY3Q",
+    "title": "Reject invented task codes; add repo-aware taskref library",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tests/test_taskref.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_taskref.py",
+        "counts": {
+          "passed": 19
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "agent-tools#607"
+    ],
+    "linked_prs": [
+      {
+        "key": "agent-tools#612",
+        "state": "open",
+        "merged_at": null,
+        "merge_commit_sha": "e95713af963f3c6108923f44a771fba56df73ad4"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass."
+    ],
+    "canonical": "task-cli#169",
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "6eaf6c50ccbd9ebbe5b3c5622914c84fab565fa42345ea29ee13384832e5b5f9",
+    "snapshot_updated_at": "2026-09-08T18:35:44Z"
+  },
+  {
+    "key": "task-cli#174",
+    "repo": "task-cli",
+    "number": 174,
+    "id": 5389979271,
+    "node_id": "I_kwDOS7QDus8AAAABQUSOhw",
+    "title": "task list interactive TUI when stdout is a TTY",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "com/alex-mextner/agent-tools/blob/main/ROADMAP.md",
+      "com/alex-mextner/task-cli/blob/main/tasklib/cli.py"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#175"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "1de9b02947d2d5bdcd621b8a23af31f9c86d38da95d646974930898063a4fc36",
+    "snapshot_updated_at": "2026-09-08T17:41:08Z"
+  },
+  {
+    "key": "task-cli#175",
+    "repo": "task-cli",
+    "number": 175,
+    "id": 5389980039,
+    "node_id": "I_kwDOS7QDus8AAAABQUSRhw",
+    "title": "Map a current ticket to the session or working directory",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "222",
+      "214"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [
+      "com/alex-mextner/agent-tools/blob/main/ROADMAP.md",
+      "com/alex-mextner/task-cli/blob/main/tasklib/cli.py"
+    ],
+    "named_test_evidence": [],
+    "related_issues": [
+      "task-cli#174"
+    ],
+    "linked_prs": [],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Some referenced paths are absent from the inspected tree; these may be historical/renamed, not automatically missing implementation."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "c904adb375e41d530083407d4b4c0a3242ee60181f5eea7a8be8cdc6dc46acf4",
+    "snapshot_updated_at": "2026-09-08T17:41:09Z"
+  },
+  {
+    "key": "task-cli#178",
+    "repo": "task-cli",
+    "number": 178,
+    "id": 5390511276,
+    "node_id": "I_kwDOS7QDus8AAAABQUysrA",
+    "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+    "provider_state": "open",
+    "state_reason": null,
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "261",
+      "263"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "agent-tools#600",
+      "agent-tools#624",
+      "task-cli#178"
+    ],
+    "linked_prs": [
+      {
+        "key": "agent-tools#609",
+        "state": "closed",
+        "merged_at": "2026-09-08T03:43:14Z",
+        "merge_commit_sha": "90f69110c2617f77e700489d04a25a293970ee86"
+      },
+      {
+        "key": "review-cli#451",
+        "state": "closed",
+        "merged_at": "2026-09-08T18:27:01Z",
+        "merge_commit_sha": "964b637e685cbec6e16cd22e367e8580bc08b514"
+      },
+      {
+        "key": "task-cli#180",
+        "state": "closed",
+        "merged_at": "2026-09-08T18:54:17Z",
+        "merge_commit_sha": "ce4d72100c7ce09f3f88b2292db8d781b498a0b6"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "open-outcome-requires-acceptance",
+    "original_body_sha256": "79071f707257a1d9f4b14dea3f5cb370d1d10548fc3880ca369420eb676de915",
+    "snapshot_updated_at": "2026-09-08T18:54:22Z"
+  },
+  {
+    "key": "task-cli#181",
+    "repo": "task-cli",
+    "number": 181,
+    "id": 5407226080,
+    "node_id": "I_kwDOS7QDus8AAAABQku44A",
+    "title": "task change --what truncates text at embedded '## ' markdown headings",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "025",
+      "239"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/render.py",
+      "tests/test_render.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [
+      {
+        "path": "tests/test_render.py",
+        "counts": {
+          "passed": 38
+        },
+        "qualification": "Only named tests collected by this run; no inference of live acceptance."
+      }
+    ],
+    "related_issues": [
+      "task-cli#181"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#182",
+        "state": "closed",
+        "merged_at": "2026-09-10T08:44:38Z",
+        "merge_commit_sha": "eb9defc6b82ab3a243e53a70c185a04a2ab50fc5"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "7df3472ba8c5f2d639f05a1c03b1613a0dd1626ef643c5bb18a6f74bcb8baf37",
+    "snapshot_updated_at": "2026-09-10T08:44:45Z"
+  },
+  {
+    "key": "task-cli#183",
+    "repo": "task-cli",
+    "number": 183,
+    "id": 5408478384,
+    "node_id": "I_kwDOS7QDus8AAAABQl7UsA",
+    "title": "GitHub Issues backend: attach() posts a raw local path instead of a real upload",
+    "provider_state": "closed",
+    "state_reason": "completed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap; standing/topic instruction available",
+    "quote_ids": [
+      "202",
+      "028"
+    ],
+    "existing_source_attributed_quotes": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "existing_paths": [
+      "tasklib/backends/github_issues.py"
+    ],
+    "unresolved_historical_paths": [],
+    "named_test_evidence": [],
+    "related_issues": [
+      "review-cli#484",
+      "task-cli#183"
+    ],
+    "linked_prs": [
+      {
+        "key": "task-cli#184",
+        "state": "closed",
+        "merged_at": "2026-09-10T08:54:09Z",
+        "merge_commit_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a"
+      }
+    ],
+    "reference_gaps": [],
+    "verification_flags": [
+      "Historical forced acceptance must be re-evidenced; not automatically accepted by this pass.",
+      "Historical local-path proof cannot be verified remotely; do not call the feature broken solely for this reason."
+    ],
+    "canonical": null,
+    "preserves": [],
+    "live_acceptance": "not-performed",
+    "verification_disposition": "historical-closure-not-reaccepted",
+    "original_body_sha256": "993a34ef7741760565b0d95e861913916a2eefab3a8dde22a7340f41b4813a3a",
+    "snapshot_updated_at": "2026-09-10T08:54:16Z"
+  }
+]

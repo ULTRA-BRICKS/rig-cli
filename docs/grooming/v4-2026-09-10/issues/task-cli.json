@@ -1,0 +1,2310 @@
+[
+  {
+    "key": "task-cli#1",
+    "repo": "task-cli",
+    "number": 1,
+    "title": "Phase 2: task dependency system + Gantt rendering",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#2",
+    "repo": "task-cli",
+    "number": 2,
+    "title": "Daemon service + webhooks (adapter-based trackers)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#3",
+    "repo": "task-cli",
+    "number": 3,
+    "title": "Completion + due-date notifications via tmux-inject",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#4",
+    "repo": "task-cli",
+    "number": 4,
+    "title": "Integrations: tg classify hook, agent-tools ticket-discipline skill, rig provisioning",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#8",
+    "repo": "task-cli",
+    "number": 8,
+    "title": "Add task new / task done verb aliases (CTO-requested ergonomics) + fix ruff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#9",
+    "repo": "task-cli",
+    "number": 9,
+    "title": "[smoke] verify task new/done verbs against live backend",
+    "provider_state": "closed",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#10",
+    "repo": "task-cli",
+    "number": 10,
+    "title": "done/change/status close paths don't validate the source-state transition",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#12",
+    "repo": "task-cli",
+    "number": 12,
+    "title": "install-skill must also write the .blurbs/<tool>.md SessionStart blurb",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#13",
+    "repo": "task-cli",
+    "number": 13,
+    "title": "install-skill is a 1-layer stub: missing blurb + harness-instruction injection that all sibling CLIs do",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#15",
+    "repo": "task-cli",
+    "number": 15,
+    "title": "Docker integration test: real cheap LLM agent verifies task-cli is advertised + usable (CI test-cli job)",
+    "provider_state": "closed",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#16",
+    "repo": "task-cli",
+    "number": 16,
+    "title": "Harden the Docker real-agent leg: force cheap model onto the `task` CLI (defeat TaskCreate/TodoWrite collision)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#19",
+    "repo": "task-cli",
+    "number": 19,
+    "title": "Docker test-cli: assert require-ticket enforcement end-to-end in the deterministic leg",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#20",
+    "repo": "task-cli",
+    "number": 20,
+    "title": "Docker test-cli: guard the vendored require-ticket hook against drift from agent-tools source",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#22",
+    "repo": "task-cli",
+    "number": 22,
+    "title": "task --version is a hardcoded 0.1.0 — never bumped, read pyproject dynamically",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#24",
+    "repo": "task-cli",
+    "number": 24,
+    "title": "Daemon core: polling due-date reminders (start/stop/status/run + --due + de-dupe)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#25",
+    "repo": "task-cli",
+    "number": 25,
+    "title": "Daemon hardening: PID-identity check on stop + flock singleton (close the TOCTOU + reused-PID gaps)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#27",
+    "repo": "task-cli",
+    "number": 27,
+    "title": "task gantt — read-only due-date timeline (Gantt) view",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#29",
+    "repo": "task-cli",
+    "number": 29,
+    "title": "task-cli render: column alignment uses code-point count, not terminal display width (CJK/emoji shear the gantt grid)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#32",
+    "repo": "task-cli",
+    "number": 32,
+    "title": "daemon: make `status`/`pid_status` identity-aware too (consistency with `stop`'s reused-pid guard)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#36",
+    "repo": "task-cli",
+    "number": 36,
+    "title": "Re-sync vendored require-ticket hook to canonical -am de-cluster fix (agent-tools #111)",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#38",
+    "repo": "task-cli",
+    "number": 38,
+    "title": "classifier: resolve model from the shared models.yaml manifest by capability (rig#8 consumer half)",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#42",
+    "repo": "task-cli",
+    "number": 42,
+    "title": "vendored require-ticket hook has drifted from agent-tools canonical",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#43",
+    "repo": "task-cli",
+    "number": 43,
+    "title": "chore: add scripts/deploy.sh so rig apply keeps this tool fresh",
+    "provider_state": "closed",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#45",
+    "repo": "task-cli",
+    "number": 45,
+    "title": "tg#<id> references need a title guard + auto-quote in ticket bodies",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#47",
+    "repo": "task-cli",
+    "number": 47,
+    "title": "msgrefs: scope history lookup by bot, not bare message_id",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#50",
+    "repo": "task-cli",
+    "number": 50,
+    "title": "Warn about forgotten session tasks",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#52",
+    "repo": "task-cli",
+    "number": 52,
+    "title": "Warn after priority-changing task commands",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#54",
+    "repo": "task-cli",
+    "number": 54,
+    "title": "ticket links field must not carry the session tag",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#57",
+    "repo": "task-cli",
+    "number": 57,
+    "title": "fix(daemon): detached spawn missing PYTHONPATH breaks symlink install",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#59",
+    "repo": "task-cli",
+    "number": 59,
+    "title": "task-cli should surface stale/stuck tickets on normal usage, without needing pm-cli",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#60",
+    "repo": "task-cli",
+    "number": 60,
+    "title": "task-cli: preserve caller's original PYTHONPATH exactly across daemon spawn",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#61",
+    "repo": "task-cli",
+    "number": 61,
+    "title": "task-cli: detect daemon bootstrap failure instead of reporting 'started' on bare Popen success",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#62",
+    "repo": "task-cli",
+    "number": 62,
+    "title": "task-cli: scope tg-ctl history resolution by bot/chat to avoid cross-bot message_id collisions",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#63",
+    "repo": "task-cli",
+    "number": 63,
+    "title": "task-cli: gate -P (PYTHONSAFEPATH) child flag by interpreter version, or enforce Python 3.11+",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#64",
+    "repo": "task-cli",
+    "number": 64,
+    "title": "task-cli: dont prepend site-packages to PYTHONPATH for pip and pipx package installs",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#65",
+    "repo": "task-cli",
+    "number": 65,
+    "title": "task-cli: normalize path comparison when deduping repo_root from inherited PYTHONPATH",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#66",
+    "repo": "task-cli",
+    "number": 66,
+    "title": "task-cli: harden daemon PYTHONPATH resolution edge cases (empty entry, path normalization, dedupe coverage)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#67",
+    "repo": "task-cli",
+    "number": 67,
+    "title": "task-cli: avoid running the msgref-quote and links-url gates twice during change --done",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#68",
+    "repo": "task-cli",
+    "number": 68,
+    "title": "task-cli: apply key-aware secret redaction to every link-value diagnostic, not just the links-url gate",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#69",
+    "repo": "task-cli",
+    "number": 69,
+    "title": "task-cli: tag each links-url rejection with its specific reason instead of one merged message",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#70",
+    "repo": "task-cli",
+    "number": 70,
+    "title": "Global stale-ticket nudge (#59): known scope-limits to close later",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#73",
+    "repo": "task-cli",
+    "number": 73,
+    "title": "Review ambiguous backend and duplicate guard diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#74",
+    "repo": "task-cli",
+    "number": 74,
+    "title": "Review ambiguous create handling for cross-file consistency",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#75",
+    "repo": "task-cli",
+    "number": 75,
+    "title": "Review ambiguous-create and dedup diff for cross-file consistency",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#76",
+    "repo": "task-cli",
+    "number": 76,
+    "title": "Audit duplicate gate constant cross-file consistency",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#77",
+    "repo": "task-cli",
+    "number": 77,
+    "title": "Review ambiguous backend handling cross-file consistency",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#78",
+    "repo": "task-cli",
+    "number": 78,
+    "title": "Review ambiguous-backend handling diff for cross-file consistency",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#79",
+    "repo": "task-cli",
+    "number": 79,
+    "title": "Review uncommitted cross-file consistency changes",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#80",
+    "repo": "task-cli",
+    "number": 80,
+    "title": "classify auto-create fallback misfires on review-request messages, spawning junk GitHub issues",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#81",
+    "repo": "task-cli",
+    "number": 81,
+    "title": "Fix ambiguous read-time failures and duplicate creation in task new",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#82",
+    "repo": "task-cli",
+    "number": 82,
+    "title": "Harden ambiguous-failure handling across other task-cli mutation paths",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#83",
+    "repo": "task-cli",
+    "number": 83,
+    "title": "recent-tickets block leaks tickets across repos sharing a session id",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#85",
+    "repo": "task-cli",
+    "number": 85,
+    "title": "task update: record PR number and worktree path against a ticket",
+    "provider_state": "open",
+    "topic": "worktrees",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#86",
+    "repo": "task-cli",
+    "number": 86,
+    "title": "Sync SKILL.md source (install.py) with live-patched drift",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#87",
+    "repo": "task-cli",
+    "number": 87,
+    "title": "Exit code 2 is overloaded across policy-refusal, dedup-refusal, and BackendError",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#88",
+    "repo": "task-cli",
+    "number": 88,
+    "title": "Recent-tickets footer breaks TTY-aware scripting convention",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#91",
+    "repo": "task-cli",
+    "number": 91,
+    "title": "Consolidate untrusted-URL-parse hardening into one shared helper (PR #90 follow-up)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#92",
+    "repo": "task-cli",
+    "number": 92,
+    "title": "Add task mark-shipped: gh-ship post-merge hook entry point",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#93",
+    "repo": "task-cli",
+    "number": 93,
+    "title": "mark-shipped: idempotency key can be fooled by other Links writers; non-GitHub late-SHA backfill is silently lost",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#97",
+    "repo": "task-cli",
+    "number": 97,
+    "title": "Session-attention notice can't see a same-team Linear ticket routed through a different project-pinned registry entry",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#98",
+    "repo": "task-cli",
+    "number": 98,
+    "title": "mark-shipped: a prefixed task code like AGENTTOOLS-412 raises a raw 404 instead of resolving or explaining",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#99",
+    "repo": "task-cli",
+    "number": 99,
+    "title": "Review uncommitted audit reconciliation diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#100",
+    "repo": "task-cli",
+    "number": 100,
+    "title": "task audit: GitHub-Issues backend can miss a native auto-close (label-first state, no sort=updated), and --revert has no confirmation gate",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#102",
+    "repo": "task-cli",
+    "number": 102,
+    "title": "mark-shipped: warn when a Done ticket still has unchecked acceptance criteria",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#104",
+    "repo": "task-cli",
+    "number": 104,
+    "title": "mark-shipped: GitHub-Issues backend can reopen a natively-closed issue and misses its unmet-criteria warning",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#105",
+    "repo": "task-cli",
+    "number": 105,
+    "title": "fix(attachments): trusted-host allowlist + per-machine attachment_mode override",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#106",
+    "repo": "task-cli",
+    "number": 106,
+    "title": "Review trusted attachment hosts diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#108",
+    "repo": "task-cli",
+    "number": 108,
+    "title": "security: trusted_attachment_hosts needs connect-time IP validation to close DNS-based SSRF",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#110",
+    "repo": "task-cli",
+    "number": 110,
+    "title": "task-cli: native Linear proof URLs are unauthenticated and 401 on direct fetch",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#111",
+    "repo": "task-cli",
+    "number": 111,
+    "title": "Review ecosystem README configuration diff",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#112",
+    "repo": "task-cli",
+    "number": 112,
+    "title": "task-cli: add ecosystem tools section to README",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#114",
+    "repo": "task-cli",
+    "number": 114,
+    "title": "task-cli should warn about stale and overdue tickets on its own, without pm-cli",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#115",
+    "repo": "task-cli",
+    "number": 115,
+    "title": "No merge without accepted criteria: a ship-time acceptance gate plus convenient commands to check criteria with proofs",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#116",
+    "repo": "task-cli",
+    "number": 116,
+    "title": "task gate: require a written verification plan before a ticket enters In Review, not just checked proofs",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#117",
+    "repo": "task-cli",
+    "number": 117,
+    "title": "Registry projects: entries have no way to carry an enforce: override, so a registry-routed ticket always inherits the caller's own gates",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#119",
+    "repo": "task-cli",
+    "number": 119,
+    "title": "Refuse to overwrite a ticket's What (description) without a recent read",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#120",
+    "repo": "task-cli",
+    "number": 120,
+    "title": "task change mutates the fetched ticket before policy gates run, so a refused edit can still leak into a later save",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#122",
+    "repo": "task-cli",
+    "number": 122,
+    "title": "task read displays the re-rendered body, not the verbatim backend content, weakening the new read-before-edit gate for legacy tickets",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#123",
+    "repo": "task-cli",
+    "number": 123,
+    "title": "Review read-before-edit gate diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#124",
+    "repo": "task-cli",
+    "number": 124,
+    "title": "task gate: reject a non-id code with a clear message instead of a raw GitHub 404",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#125",
+    "repo": "task-cli",
+    "number": 125,
+    "title": "links gate: '48px/48px' (CSS size pair) is reported as a bare repo/path reference",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#126",
+    "repo": "task-cli",
+    "number": 126,
+    "title": "The links gate refuses tickets over hex colours, commit shas in prose and ordinary slashes",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#127",
+    "repo": "task-cli",
+    "number": 127,
+    "title": "Reading back a ticket by its code fails with a raw 404 or \"Entity not found\"",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#128",
+    "repo": "task-cli",
+    "number": 128,
+    "title": "Review uncommitted links gate context diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#130",
+    "repo": "task-cli",
+    "number": 130,
+    "title": "Add todo-vs-ticket, duplicate, and multi-ask intake gates to task-cli",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#131",
+    "repo": "task-cli",
+    "number": 131,
+    "title": "Adversarial cross-file review of ticket intake gates diff",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#132",
+    "repo": "task-cli",
+    "number": 132,
+    "title": "Review OMP lineage-first model detection diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#133",
+    "repo": "task-cli",
+    "number": 133,
+    "title": "task-cli: strengthen the 'What' quality gate from presence to substance",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#134",
+    "repo": "task-cli",
+    "number": 134,
+    "title": "task-cli: reduce reliance on the forced acceptance escape hatch with no proof",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#137",
+    "repo": "task-cli",
+    "number": 137,
+    "title": "Audit junk title gate consistency",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#138",
+    "repo": "task-cli",
+    "number": 138,
+    "title": "tg-ctl: control omp (and other non-tmux-capable harnesses) without tmux via its own RPC/resume surface",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#139",
+    "repo": "task-cli",
+    "number": 139,
+    "title": "review-cli: role-reuse pool padding never fires when a seat is hard-unavailable (session-limit cooldown), only when merely near its usage limit",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#140",
+    "repo": "task-cli",
+    "number": 140,
+    "title": "dependency-review CI gate audits the WHOLE dependency tree, blocking every PR regardless of what it actually changes",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#141",
+    "repo": "task-cli",
+    "number": 141,
+    "title": "Review worktree-only rig hook configuration",
+    "provider_state": "closed",
+    "topic": "worktrees",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#143",
+    "repo": "task-cli",
+    "number": 143,
+    "title": "review-threads.yml's pull_request_review/pull_request_review_comment triggers are PR-tamperable, defeating the stale-green protection they claim to add",
+    "provider_state": "open",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-237"
+    ],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#144",
+    "repo": "task-cli",
+    "number": 144,
+    "title": "dep-audit.sh fails CLOSED on every PR in a pyproject.toml-only repo (no requirements*.txt), regardless of vulnerabilities",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-237"
+    ],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#145",
+    "repo": "task-cli",
+    "number": 145,
+    "title": "leftover-grep.sh: LEFTOVER_BASE=\"\" breaks the documented origin/main fallback",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#146",
+    "repo": "task-cli",
+    "number": 146,
+    "title": "leftover-grep.sh no longer flags an orphaned '=======' merge-conflict divider",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#147",
+    "repo": "task-cli",
+    "number": 147,
+    "title": "review-cli: --show-board preview does not reflect role-reuse padding (task-cli#139 follow-up)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#148",
+    "repo": "task-cli",
+    "number": 148,
+    "title": "review-cli: --commit checkpoint has a TOCTOU race against the agentic reviewer's own repo exploration",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#149",
+    "repo": "task-cli",
+    "number": 149,
+    "title": "RIG_WORKTREE_ONLY=0 silently overrides the committed worktree_only config with no warning",
+    "provider_state": "open",
+    "topic": "worktrees",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#150",
+    "repo": "task-cli",
+    "number": 150,
+    "title": "git switch/checkout --detach bypasses pin-primary-worktree entirely, and the write hook fails open on detached HEAD",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#151",
+    "repo": "task-cli",
+    "number": 151,
+    "title": "review-cli dashboard: cache invalidation scans+reparses the WHOLE log corpus (147K files/18GB), never bounded to recent activity",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#152",
+    "repo": "task-cli",
+    "number": 152,
+    "title": "task daemon: unused MVP (no auto-start, tickets never set due dates, not tracked in rig stats)",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#153",
+    "repo": "task-cli",
+    "number": 153,
+    "title": "rig stats: too coarse (ours-vs-baseline only), undercounts (task-cli#316), no per-subcommand/hook/git-hook detail, no web UI, no test-data exclusion",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#154",
+    "repo": "task-cli",
+    "number": 154,
+    "title": "task-cli should nudge agents to link related tickets, and add a task link command",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#155",
+    "repo": "task-cli",
+    "number": 155,
+    "title": "review dashboard status: false 'stopped' report from an untracked legacy launchd job",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#156",
+    "repo": "task-cli",
+    "number": 156,
+    "title": "review-cli log directory has no retention/rotation -- unbounded growth (147K files/18GB and climbing)",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#157",
+    "repo": "task-cli",
+    "number": 157,
+    "title": "give agents a real non-ticket place for ephemeral findings, not just a block on filing them as GitHub issues",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#158",
+    "repo": "task-cli",
+    "number": 158,
+    "title": "GitHubIssuesBackend.update() reopens a provider-closed issue whose managed label is stale",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#160",
+    "repo": "task-cli",
+    "number": 160,
+    "title": "Add task burn chart and task web lifecycle",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#162",
+    "repo": "task-cli",
+    "number": 162,
+    "title": "Refuse process tickets against a product GitHub tracker",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#165",
+    "repo": "task-cli",
+    "number": 165,
+    "title": "Refuse Review-uncommitted titles that omit trailing diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#166",
+    "repo": "task-cli",
+    "number": 166,
+    "title": "Block ticket create that mentions screenshot/скриншот without an attached image",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#167",
+    "repo": "task-cli",
+    "number": 167,
+    "title": "Add task attach for easy screenshot proof on tickets",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#168",
+    "repo": "task-cli",
+    "number": 168,
+    "title": "Show both burn and gantt as HTML charts in task web",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-202"
+    ],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#169",
+    "repo": "task-cli",
+    "number": 169,
+    "title": "Reject invented task codes; add repo-aware taskref library",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-214"
+    ],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#170",
+    "repo": "task-cli",
+    "number": 170,
+    "title": "Reject invented task codes; add repo-aware taskref library",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-214"
+    ],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": "task-cli#169"
+  },
+  {
+    "key": "task-cli#172",
+    "repo": "task-cli",
+    "number": 172,
+    "title": "Reject invented task codes; add repo-aware taskref library",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-214"
+    ],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": "task-cli#169"
+  },
+  {
+    "key": "task-cli#173",
+    "repo": "task-cli",
+    "number": 173,
+    "title": "Reject invented task codes; add repo-aware taskref library",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "reviewed-requirement-association",
+    "quote_ids": [
+      "v4-214"
+    ],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [],
+    "canonical": "task-cli#169"
+  },
+  {
+    "key": "task-cli#174",
+    "repo": "task-cli",
+    "number": 174,
+    "title": "task list interactive TUI when stdout is a TTY",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#175",
+    "repo": "task-cli",
+    "number": 175,
+    "title": "Map a current ticket to the session or working directory",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#178",
+    "repo": "task-cli",
+    "number": 178,
+    "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+    "provider_state": "open",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#181",
+    "repo": "task-cli",
+    "number": 181,
+    "title": "task change --what truncates text at embedded '## ' markdown headings",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#183",
+    "repo": "task-cli",
+    "number": 183,
+    "title": "GitHub Issues backend: attach() posts a raw local path instead of a real upload",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#185",
+    "repo": "task-cli",
+    "number": 185,
+    "title": "[EPIC] task-cli: complete backlog recovery and verified acceptance",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#186",
+    "repo": "task-cli",
+    "number": 186,
+    "title": "[EPIC] task-cli recovery: Auxiliary product workflows",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#187",
+    "repo": "task-cli",
+    "number": 187,
+    "title": "[EPIC] task-cli recovery: Provisioning and drift",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#188",
+    "repo": "task-cli",
+    "number": 188,
+    "title": "[EPIC] task-cli recovery: Task intake and acceptance evidence",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#189",
+    "repo": "task-cli",
+    "number": 189,
+    "title": "[EPIC] task-cli recovery: Testing and platform acceptance",
+    "provider_state": "open",
+    "topic": "intake",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#190",
+    "repo": "task-cli",
+    "number": 190,
+    "title": "[EPIC] task-cli recovery: Execution, progress and cleanup",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#191",
+    "repo": "task-cli",
+    "number": 191,
+    "title": "[EPIC] task-cli recovery: Historical process records",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#192",
+    "repo": "task-cli",
+    "number": 192,
+    "title": "[EPIC] task-cli recovery: Worktree isolation and preservation",
+    "provider_state": "open",
+    "topic": "worktrees",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#193",
+    "repo": "task-cli",
+    "number": 193,
+    "title": "[EPIC] task-cli recovery: Specifications and documentation",
+    "provider_state": "open",
+    "topic": "specs",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "task-cli#194",
+    "repo": "task-cli",
+    "number": 194,
+    "title": "[EPIC] task-cli recovery: Shipping, local CI and releases",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  }
+]

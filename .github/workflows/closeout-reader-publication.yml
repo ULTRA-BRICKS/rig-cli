@@ -1,0 +1,189 @@
+name: Publish the complete static specification review site
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/closeout-reader-publication.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: closeout-reader-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Install isolated document and browser tooling
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends graphviz
+          python3 -m venv /tmp/reader-tools
+          /tmp/reader-tools/bin/pip install 'markdown-it-py==3.0.0' 'playwright==1.55.0'
+          /tmp/reader-tools/bin/python -m playwright install --with-deps chromium
+      - name: Collect actual applied journals without asserting completion from plans
+        run: |
+          python3 - <<'PY'
+          import datetime,json,pathlib,urllib.request,urllib.error
+          root=pathlib.Path('docs/grooming/closeout-2026-09-11')
+          plan=json.loads((root/'plan-summary.json').read_text())
+          summary={'checked_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'repositories':{},'source':'Persisted per-repository receipts; not inferred from generated plans.'}
+          for repo,data in plan['repositories'].items():
+              full=data['canonical_repository'];url='https://raw.githubusercontent.com/'+full+'/refs/heads/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/applied.json'
+              try:
+                  req=urllib.request.Request(url,headers={'User-Agent':'rig-closeout-reader','Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(req,timeout=45) as response:receipt=json.load(response)
+                  if receipt.get('context',{}).get('repository')!=full:raise ValueError('Receipt repository mismatch')
+                  target=root/'receipts'/(repo+'.json');target.parent.mkdir(exist_ok=True)
+                  target.write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+'\n')
+                  item={k:receipt.get(k) for k in ('complete','writes','verified_exact','remaining_or_conflicted','planned','finished_at','fatal','readback_error')}
+                  item['status']='complete' if receipt.get('complete') else 'partial / not fully verified'
+                  item['receipt_url']=url;summary['repositories'][repo]=item
+              except (urllib.error.HTTPError,urllib.error.URLError,ValueError,TimeoutError) as exc:
+                  summary['repositories'][repo]={'status':'receipt not available; no completion claimed','error_kind':type(exc).__name__,'planned':data['planned']}
+          summary['verified_exact_total']=sum(i.get('verified_exact') or 0 for i in summary['repositories'].values())
+          summary['complete_repositories']=sum(i.get('complete') is True for i in summary['repositories'].values())
+          (root/'applied-summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(summary,ensure_ascii=False,indent=2))
+          PY
+      - name: Update domain contracts without rewriting preserved original specifications
+        run: /tmp/reader-tools/bin/python tools/grooming/build_closeout_reader.py --enrich
+      - name: Commit the reviewed source documents before assigning their source revision
+        run: |
+          git config user.name 'Rig specification publisher'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/specs/recovery/ docs/grooming/closeout-2026-09-11/
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs(specs): publish domain-specific contracts and actual closeout evidence'
+            git pull --rebase origin docs/full-grooming-2026-09-10
+            git push origin HEAD:docs/full-grooming-2026-09-10
+          fi
+          echo "DOCUMENT_SOURCE_REF=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Render all documents, source-linked issues and original quotations as static HTML
+        run: /tmp/reader-tools/bin/python tools/grooming/build_closeout_reader.py --source-ref "$DOCUMENT_SOURCE_REF"
+      - name: Validate navigation, every document, filters, diagrams and mobile layout
+        run: |
+          /tmp/reader-tools/bin/python - <<'PY'
+          import hashlib,json,os,pathlib,subprocess,time,urllib.parse,urllib.request
+          from html.parser import HTMLParser
+          from playwright.sync_api import sync_playwright
+          root=pathlib.Path('portal/closeout');out=pathlib.Path('docs/grooming/closeout-2026-09-11/reader-proof');out.mkdir(exist_ok=True)
+          report={'source_ref':os.environ['DOCUMENT_SOURCE_REF'],'scope':'Static specification reader, not live acceptance of the described products','pages':[],'errors':[],'local_links':[]}
+          class Links(HTMLParser):
+              def handle_starttag(self,tag,attrs):
+                  attrs=dict(attrs)
+                  if tag=='a' and 'href' in attrs:
+                      href=urllib.parse.urlsplit(attrs['href'])
+                      if not href.scheme and not href.netloc and href.path:self.links.append(href.path)
+          for file in root.rglob('*.html'):
+              parser=Links();parser.links=[];parser.feed(file.read_text())
+              for link in parser.links:
+                  target=(file.parent/urllib.parse.unquote(link)).resolve()
+                  assert target.is_relative_to(root.resolve()) and target.is_file(), (str(file),link)
+              report['local_links'].append({'page':str(file.relative_to(root)),'checked':len(parser.links)})
+          server=subprocess.Popen(['python3','-m','http.server','8765','--bind','127.0.0.1','--directory',str(root)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+          try:
+              for _ in range(50):
+                  try:urllib.request.urlopen('http://127.0.0.1:8765/',timeout=1);break
+                  except Exception:time.sleep(.1)
+              with sync_playwright() as p:
+                  browser=p.chromium.launch();page=browser.new_page(viewport={'width':1440,'height':1050})
+                  page.on('pageerror',lambda e:report['errors'].append(str(e)))
+                  base='http://127.0.0.1:8765/'
+                  page.goto(base,wait_until='domcontentloaded');page.screenshot(path=str(out/'home-desktop.png'),full_page=False)
+                  page.goto(base+'spec/telegram.html',wait_until='domcontentloaded')
+                  page.locator('.diagram').first.screenshot(path=str(out/'telegram-contract.png'))
+                  page.goto(base+'backlog.html',wait_until='domcontentloaded');page.locator('#query').fill('harness-cli#18')
+                  assert page.locator('[data-searchable]:visible').count()==1
+                  page.goto(base+'requests.html',wait_until='domcontentloaded');page.locator('#query').fill('v4-227')
+                  assert page.locator('[data-searchable]:visible').count()==1
+                  page.set_viewport_size({'width':393,'height':852});page.goto(base,wait_until='domcontentloaded')
+                  page.locator('#menu').click();assert page.locator('aside').is_visible()
+                  page.keyboard.press('Escape');assert not page.locator('aside').is_visible()
+                  page.screenshot(path=str(out/'home-mobile.png'),full_page=False)
+                  for file in root.rglob('*.html'):
+                      url=base+str(file.relative_to(root))
+                      page.goto(url,wait_until='domcontentloaded')
+                      assert not page.evaluate('document.documentElement.scrollWidth > innerWidth + 1'), file.name
+                      assert page.locator('h1').count()>=1
+                      assert page.locator('article script').count()==0
+                      if file.parent.name=='spec' and file.name!='index.html':assert page.locator('article.document').count()==1
+                      report['pages'].append(str(file.relative_to(root)))
+                  # SSR/SSG check: a document remains readable with JavaScript off.
+                  nojs=browser.new_context(java_script_enabled=False);reader=nojs.new_page()
+                  reader.goto(base+'spec/01-retrospective-v4.html',wait_until='domcontentloaded')
+                  assert len(reader.locator('article.document').inner_text())>12000
+                  report['without_javascript']=True
+                  browser.close()
+              assert not report['errors']
+              report['passed']=True
+          finally:
+              server.terminate();server.wait(timeout=10)
+              (out/'browser.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          PY
+      - name: Commit the browser-checked static site
+        run: |
+          git add portal/closeout/ docs/grooming/closeout-2026-09-11/reader-proof/ docs/grooming/closeout-2026-09-11/reader-diagrams.json
+          git commit -m 'docs(site): publish a browser-verified static specification reader'
+          git pull --rebase origin docs/full-grooming-2026-09-10
+          git push origin HEAD:docs/full-grooming-2026-09-10
+          echo "READER_REF=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Verify the public site, not just the local generated files
+        run: |
+          /tmp/reader-tools/bin/python - <<'PY'
+          import datetime,hashlib,json,os,pathlib,time,urllib.request,urllib.error
+          from playwright.sync_api import sync_playwright
+          root=pathlib.Path('portal/closeout');out=pathlib.Path('docs/grooming/closeout-2026-09-11/reader-proof')
+          ref=os.environ['READER_REF'];base='https://rawcdn.githack.com/ultrabricks/rig-cli/'+ref+'/portal/closeout/'
+          report={'source_ref':os.environ['DOCUMENT_SOURCE_REF'],'reader_ref':ref,'url':base+'index.html','retrospective_url':base+'spec/01-retrospective-v4.html','checked_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'pages':[],'public_reading':True,'private_reader_authentication':False}
+          for relative in ('index.html','spec/index.html','spec/01-retrospective-v4.html','spec/telegram.html','backlog.html','requests.html','evidence.html'):
+              expected=hashlib.sha256((root/relative).read_bytes()).hexdigest();result={'path':relative,'verified':False}
+              for attempt in range(8):
+                  try:
+                      req=urllib.request.Request(base+relative,headers={'User-Agent':'rig-publication-verification','Cache-Control':'no-cache'})
+                      with urllib.request.urlopen(req,timeout=45) as r:raw=r.read();status=r.status;ct=r.headers.get('Content-Type')
+                      actual=hashlib.sha256(raw).hexdigest();result.update(http_status=status,content_type=ct,sha256=actual,verified=status==200 and actual==expected)
+                      if result['verified']:break
+                  except (urllib.error.HTTPError,urllib.error.URLError,TimeoutError) as exc:result['error_kind']=type(exc).__name__
+                  time.sleep(min(20,3*(attempt+1)))
+              report['pages'].append(result)
+              (out/'publication.json').write_text(json.dumps(report,indent=2)+'\n')
+              assert result['verified'], result
+          with sync_playwright() as p:
+              browser=p.chromium.launch();page=browser.new_page(viewport={'width':1440,'height':1050})
+              page.goto(report['retrospective_url'],wait_until='domcontentloaded',timeout=90000)
+              assert len(page.locator('article.document').inner_text())>12000
+              page.screenshot(path=str(out/'public-retrospective.png'),full_page=False)
+              report['external_browser_verified']=True;browser.close()
+          report['verified']=all(p['verified'] for p in report['pages']) and report['external_browser_verified']
+          (out/'publication.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          readme=pathlib.Path('README.md');text=readme.read_text();marker='<!-- rig-spec-reader:closeout -->';end='<!-- /rig-spec-reader:closeout -->'
+          block=marker+'\n## Specification review portal\n\n[Open the published specifications]('+report['url']+') · [Updated ecosystem retrospective]('+report['retrospective_url']+')\n\nPublic read-only corpus with original-request provenance, domain diagrams, complete issue inventory and explicit verification limits. Review submissions use GitHub authentication; private-reading OAuth is not enabled.\n'+end
+          if marker in text:
+              a=text.index(marker);b=text.index(end,a)+len(end);text=text[:a]+block+text[b:]
+          else:text=text.rstrip()+'\n\n'+block+'\n'
+          readme.write_text(text)
+          PY
+      - name: Commit factual public URL and publication proof
+        if: always()
+        run: |
+          git add docs/grooming/closeout-2026-09-11/reader-proof/ README.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs(site): record the public URL and independent external publication checks'
+            git pull --rebase origin docs/full-grooming-2026-09-10
+            git push origin HEAD:docs/full-grooming-2026-09-10
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: closeout-static-reader-and-proof
+          path: |
+            portal/closeout/
+            docs/grooming/closeout-2026-09-11/reader-proof/
+            docs/grooming/closeout-2026-09-11/applied-summary.json
+          retention-days: 30

@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "source_version": 4,
+  "context": {
+    "repository": "ultrabricks/rig-cli",
+    "repository_id": 1269680459,
+    "source_ref": "f707ee2b2f643a4621121187df442554aa968244",
+    "snapshot_run": "34541300125",
+    "mutations": "body only",
+    "manual_exclusions": []
+  },
+  "mode": "apply",
+  "started_at": "2026-09-10T23:37:43.078401+00:00",
+  "events": [
+    {
+      "key": "rig-cli#537",
+      "number": 537,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "b093a283847936e815af64ffa352f21760765e3f0fe392cda5d1182ed3601c6f"
+    },
+    {
+      "key": "rig-cli#535",
+      "number": 535,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "dfaf9b87231b816cea9b5f86fab5d6841338e747446f1e134c78f6dc932627b8"
+    },
+    {
+      "key": "rig-cli#534",
+      "number": 534,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "4cafee27ccce5d532c93c958b8229a1a7e3d6bea88b7e50365098248132987a2"
+    },
+    {
+      "key": "rig-cli#533",
+      "number": 533,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "c3f775ddbbe23ec07cbeaf6a1f1812484b80033b481eee33a17b1bfcd61ba708"
+    },
+    {
+      "key": "rig-cli#528",
+      "number": 528,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "e30b26d3efb756d3874960770c9bb07a8316d9db8fc117d5bba611a61505ad27"
+    },
+    {
+      "key": "rig-cli#527",
+      "number": 527,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "34ac4fd724044f62ff88e4cb9c74882732a1f221ea7fb2ff22627f84e51e99f4"
+    },
+    {
+      "key": "rig-cli#514",
+      "number": 514,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "6ee854b30a053ee5599fcfcf848b33e5aa109726fffb1e64cef9bf940e9793ba"
+    },
+    {
+      "key": "rig-cli#507",
+      "number": 507,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "25b2a8c9a27211adf529cc69e3d2934a4fa06185c803ae99eb45a7c413323ff3"
+    },
+    {
+      "key": "rig-cli#500",
+      "number": 500,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "adfe2b40164d3df09f6bb88a6cc6bc5324af30aff01690b611189bb6c8a7d887"
+    },
+    {
+      "key": "rig-cli#495",
+      "number": 495,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "2fa0db45362f4845adf39ed9775bb7d9877b99b3fe5a10536b86cc845c42a9ad"
+    },
+    {
+      "key": "rig-cli#479",
+      "number": 479,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "abde44ed37de9c9c6d82c3f873e389fe5f8996c20cec461e17bcc5812ffc81f5"
+    },
+    {
+      "key": "rig-cli#470",
+      "number": 470,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "2c38c38e2a4142da2dc0583b605a07319e7050b6be94099113e5e5516b6055c6"
+    },
+    {
+      "key": "rig-cli#444",
+      "number": 444,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "ea2a397b3905209da04aec9691b1c84c11e8ae7341699adf955b7a581a1bb173"
+    },
+    {
+      "key": "rig-cli#443",
+      "number": 443,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "9e4a9f4ac85aebddb2b7476bac8c34596c05a978986547a9cc6d43bae0d67336"
+    },
+    {
+      "key": "rig-cli#430",
+      "number": 430,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "7971b852e0d551076a36b90a8e6ef54a9c0912b766584c522dd908f308902dad"
+    },
+    {
+      "key": "rig-cli#418",
+      "number": 418,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "10aaa1ce36ab4a8c81c7c920372eaea6087644891e010849ed03217d7e1316d9"
+    },
+    {
+      "key": "rig-cli#403",
+      "number": 403,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "381e0e49015e39b7f0b247efa97b77f6b972d6729c6e1f93b2fae9be89930ed3"
+    },
+    {
+      "key": "rig-cli#389",
+      "number": 389,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "136f01f946a091714e2645ec04c63bc9c7943c23b8f54ff7e8c440cd8395e51a"
+    },
+    {
+      "key": "rig-cli#379",
+      "number": 379,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "cac0a35e64932621ac20646d43ae1ee9a3cd36a1a23c2d62154a5f5b6b1d3a6c"
+    },
+    {
+      "key": "rig-cli#368",
+      "number": 368,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "652313c772893ca7cdef47536a1fbbcb6f376ac77d1eec0d0fa75c238bf8d482"
+    },
+    {
+      "key": "rig-cli#346",
+      "number": 346,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "2bb91be559ca4ef2a78a688eb10a73082419b3e2fad2f9e0c22a0ba6bc483152"
+    },
+    {
+      "key": "rig-cli#331",
+      "number": 331,
+      "result": "patch-received-awaiting-readback",
+      "observed_before_sha256": "8720bcb950e65938f4401296ce6a932d75f0039405ad705ed5333a8443fe98bb"
+    },
+    {
+      "key": "rig-cli#330",
+      "number": 330,
+      "result": "delivery-uncertain",
+      "observed_before_sha256": "758838654d273e23b28ccae29aa1707724ea4f08edad4ed40f971da171d0da80"
+    }
+  ],
+  "writes": 22,
+  "complete": false,
+  "fatal": "delivery-uncertain",
+  "product_acceptance": false,
+  "counts": {
+    "patch-received-awaiting-readback": 22,
+    "delivery-uncertain": 1
+  },
+  "pending_write": {
+    "key": "rig-cli#330",
+    "intended_sha256": "a779c4b205a94e76a102165210f59c4ec38fe139fd867a00c263a48739e72155"
+  },
+  "readback_error": "HTTPError",
+  "planned": 356,
+  "remaining_or_conflicted": 356,
+  "finished_at": "2026-09-10T23:40:57.942538+00:00"
+}

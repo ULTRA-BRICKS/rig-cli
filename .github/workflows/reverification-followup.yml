@@ -1,0 +1,89 @@
+name: Reverification dependency and determinism follow-up
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/reverification-followup.yml]
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: alex-mextner/review-cli
+          ref: c3779b4a2592961f4dcc2d9a98da65ef0e954442
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install declared visual prerequisites from official ImageMagick source
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libpng-dev libjpeg-dev libfreetype-dev libxml2-dev pkg-config
+          git clone --depth=1 --branch 7.1.2-31 https://github.com/ImageMagick/ImageMagick.git "$RUNNER_TEMP/ImageMagick"
+          cd "$RUNNER_TEMP/ImageMagick"
+          ./configure --prefix="$RUNNER_TEMP/magick" --without-perl --without-x --disable-openmp > "$RUNNER_TEMP/magick-configure.log" 2>&1
+          make -j2 > "$RUNNER_TEMP/magick-build.log" 2>&1
+          make install >> "$RUNNER_TEMP/magick-build.log" 2>&1
+          echo "$RUNNER_TEMP/magick/bin" >> "$GITHUB_PATH"
+          git rev-parse HEAD
+      - name: Isolated full suite and single-module comparison
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install -e '.[test]' pyyaml pytest-asyncio
+          mkdir -p audit-results "$RUNNER_TEMP/isolated-home"
+          export HOME="$RUNNER_TEMP/isolated-home" XDG_CONFIG_HOME="$RUNNER_TEMP/isolated-home/.config" XDG_CACHE_HOME="$RUNNER_TEMP/isolated-home/.cache" PYTHONNOUSERSITE=1
+          export PATH="$RUNNER_TEMP/venv/bin:$PATH"
+          magick -version > audit-results/imagemagick.txt
+          set +e
+          python -m pytest -q tests/test_effort_run_flag.py --junitxml=audit-results/effort-isolated.xml > audit-results/effort-isolated.log 2>&1
+          echo $? > audit-results/effort-isolated.exit
+          python -m pytest -q --junitxml=audit-results/pytest.xml > audit-results/full.log 2>&1
+          code=$?; echo "$code" > audit-results/full.exit
+          tail -60 audit-results/full.log
+          exit "$code"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: review-correct-dependencies
+          path: |
+            audit-results/
+            ${{ runner.temp }}/magick-*.log
+          retention-days: 30
+  telegram:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: alex-mextner/tg-cli
+          ref: b640b65e7b30321ec8c14259896212f1fe78626f
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with: {bun-version: latest}
+      - name: Repeat failing files with system and venv interpreter environments
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pil python3-venv
+          bun install --ignore-scripts
+          mkdir -p audit-results "$RUNNER_TEMP/isolated-home"
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install pillow
+          export HOME="$RUNNER_TEMP/isolated-home" XDG_CONFIG_HOME="$RUNNER_TEMP/isolated-home/.config" XDG_CACHE_HOME="$RUNNER_TEMP/isolated-home/.cache" PYTHONNOUSERSITE=1
+          set +e
+          for i in 1 2 3; do
+            bun test tests/ctl-question-durable-integration.test.ts > "audit-results/durable-$i.log" 2>&1
+            echo $? > "audit-results/durable-$i.exit"
+          done
+          bun test tests/hooks-watermark-detector.test.ts > audit-results/watermark-system.log 2>&1
+          echo $? > audit-results/watermark-system.exit
+          PATH="$RUNNER_TEMP/venv/bin:$PATH" bun test tests/hooks-watermark-detector.test.ts > audit-results/watermark-venv.log 2>&1
+          echo $? > audit-results/watermark-venv.exit
+          for f in audit-results/*.log; do echo "--- $f"; tail -12 "$f"; done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: telegram-determinism-followup
+          path: audit-results/
+          retention-days: 30

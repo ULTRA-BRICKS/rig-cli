@@ -1,0 +1,62 @@
+name: Reconcile reviewed closeout relationships
+on:
+  workflow_call:
+permissions:
+  contents: write
+  issues: write
+jobs:
+  graph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: caller
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ultrabricks/rig-cli
+          ref: 03d31e270189d81974db56350e3b404579b8f6f5
+          path: reviewed
+          persist-credentials: false
+      - name: Validate the reviewed graph has no self or cyclic parent edges
+        run: |
+          PYTHONPATH=reviewed/tools/grooming python3 - <<'PY'
+          from closeout_graph import PARENTS,ROOTS,DEPENDENCIES
+          parents={(repo,n):(repo,p) for repo,rows in PARENTS.items() for n,p in rows.items()}
+          parents.update({(repo,n):('rig-cli',521) for repo,n in ROOTS.items()})
+          for node in parents:
+              seen=set();current=node
+              while current in parents:
+                  assert current not in seen, (node,seen)
+                  seen.add(current);current=parents[current]
+          for repo,edges in DEPENDENCIES.items():
+              assert len(edges)==len(set(edges))
+              for n,other,p in edges:assert (repo,n)!=(other,p)
+          print('Reviewed parent map is acyclic; no duplicate/self dependencies.')
+          PY
+      - name: Preserve existing parents, fill missing links and read all parents back
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 reviewed/tools/grooming/closeout_graph.py
+      - name: Commit actual relationship receipt only
+        if: always()
+        working-directory: caller
+        run: |
+          if test -f "$GITHUB_WORKSPACE/closeout-graph/receipt.json"; then
+            mkdir -p docs/grooming/closeout-2026-09-11
+            cp "$GITHUB_WORKSPACE/closeout-graph/receipt.json" docs/grooming/closeout-2026-09-11/relationships.json
+            git config user.name 'Rig closeout audit'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add docs/grooming/closeout-2026-09-11/relationships.json
+            if ! git diff --cached --quiet; then
+              git commit -m 'docs(grooming): preserve verified native issue relationships'
+              git pull --rebase origin docs/full-grooming-2026-09-10
+              git push origin HEAD:docs/full-grooming-2026-09-10
+            fi
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: closeout-relationships-${{ github.repository_id }}
+          path: closeout-graph/receipt.json
+          retention-days: 30

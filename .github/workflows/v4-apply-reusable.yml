@@ -1,0 +1,60 @@
+name: Apply verified v4 recovery plan
+on:
+  workflow_call:
+permissions:
+  contents: write
+  issues: write
+  pull-requests: read
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Fetch the repository-scoped v4 delivery wrapper
+        run: |
+          mkdir -p .recovery-v4
+          curl --fail --silent --show-error --location 'https://raw.githubusercontent.com/alex-mextner/rig-cli/refs/heads/docs/full-grooming-2026-09-10/tools/recovery_v4_apply.py' -o .recovery-v4/apply.py
+          python3 -m py_compile .recovery-v4/apply.py
+      - name: Apply the immutable browser-verified v4 plan to this repository only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WRITE_INTERVAL: '2.0'
+        run: python3 .recovery-v4/apply.py
+      - name: Preserve the read-back journal and every conflict
+        if: always()
+        run: |
+          mkdir -p docs/grooming/v4-2026-09-10
+          if test -f grooming-v4-results/readback.json; then
+            cp grooming-v4-results/readback.json docs/grooming/v4-2026-09-10/applied.json
+          fi
+          python3 - <<'PY'
+          import json,pathlib
+          roots=[pathlib.Path('v4-results'),pathlib.Path('grooming-results'),pathlib.Path('grooming-v4-results')]
+          out=pathlib.Path('docs/grooming/v4-2026-09-10/engine-journals');out.mkdir(parents=True,exist_ok=True)
+          for root in roots:
+              if not root.exists():continue
+              for f in root.rglob('*.json'):
+                  if f.stat().st_size>20_000_000:continue
+                  try:obj=json.loads(f.read_text())
+                  except (UnicodeDecodeError,json.JSONDecodeError):continue
+                  (out/(root.name+'--'+f.name)).write_text(json.dumps(obj,ensure_ascii=False,indent=2)+'\n')
+          PY
+          git config user.name 'Rig v4 recovery audit'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/grooming/v4-2026-09-10/
+          if ! git diff --cached --quiet; then
+            git commit -m 'docs(grooming): record v4 applied bodies, native parents and unresolved conflicts'
+            git pull --rebase origin docs/full-grooming-2026-09-10
+            git push origin HEAD:docs/full-grooming-2026-09-10
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: v4-grooming-actual-results
+          path: |
+            grooming-v4-results/
+            docs/grooming/v4-2026-09-10/
+          retention-days: 30

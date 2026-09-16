@@ -1,0 +1,4358 @@
+[
+  {
+    "id": "v4-001",
+    "source_ids": [
+      "001"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-002",
+    "source_ids": [
+      "002"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-003",
+    "source_ids": [
+      "003"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-004",
+    "source_ids": [
+      "004"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-005",
+    "source_ids": [
+      "005"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-006",
+    "source_ids": [
+      "006"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-007",
+    "source_ids": [
+      "007"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-008",
+    "source_ids": [
+      "008"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-010",
+    "source_ids": [
+      "010"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-011",
+    "source_ids": [
+      "011"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-012",
+    "source_ids": [
+      "012"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-013",
+    "source_ids": [
+      "013"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-014",
+    "source_ids": [
+      "014"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-015",
+    "source_ids": [
+      "015"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-016",
+    "source_ids": [
+      "016"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-017",
+    "source_ids": [
+      "017"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-018",
+    "source_ids": [
+      "018"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-019",
+    "source_ids": [
+      "019"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-020",
+    "source_ids": [
+      "020"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-021",
+    "source_ids": [
+      "021"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-024",
+    "source_ids": [
+      "024"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-025",
+    "source_ids": [
+      "025"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-026",
+    "source_ids": [
+      "026"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-027",
+    "source_ids": [
+      "027"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-028",
+    "source_ids": [
+      "028"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-029",
+    "source_ids": [
+      "029"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-030",
+    "source_ids": [
+      "030"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-031",
+    "source_ids": [
+      "031"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-032",
+    "source_ids": [
+      "032"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-033",
+    "source_ids": [
+      "033"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-034",
+    "source_ids": [
+      "034"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-035",
+    "source_ids": [
+      "035"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-036",
+    "source_ids": [
+      "036"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-037",
+    "source_ids": [
+      "037"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-038",
+    "source_ids": [
+      "038"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-039",
+    "source_ids": [
+      "039"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-040",
+    "source_ids": [
+      "040"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-041",
+    "source_ids": [
+      "041"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-042",
+    "source_ids": [
+      "042"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-043",
+    "source_ids": [
+      "043"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-044",
+    "source_ids": [
+      "044"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-045",
+    "source_ids": [
+      "045"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-046",
+    "source_ids": [
+      "046"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-047",
+    "source_ids": [
+      "047"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-048",
+    "source_ids": [
+      "048"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-049",
+    "source_ids": [
+      "049"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-050",
+    "source_ids": [
+      "050"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-051",
+    "source_ids": [
+      "051"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-052",
+    "source_ids": [
+      "052"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-053",
+    "source_ids": [
+      "053"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-054",
+    "source_ids": [
+      "054"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-055",
+    "source_ids": [
+      "055"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-056",
+    "source_ids": [
+      "056"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-057",
+    "source_ids": [
+      "057"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-058",
+    "source_ids": [
+      "058"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-060",
+    "source_ids": [
+      "060"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-061",
+    "source_ids": [
+      "061"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-062",
+    "source_ids": [
+      "062"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-064",
+    "source_ids": [
+      "064"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-068",
+    "source_ids": [
+      "068"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-069",
+    "source_ids": [
+      "069"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-070",
+    "source_ids": [
+      "070"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-071",
+    "source_ids": [
+      "071"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-073",
+    "source_ids": [
+      "073"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-074",
+    "source_ids": [
+      "074"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-075",
+    "source_ids": [
+      "075"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-076",
+    "source_ids": [
+      "076"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-077",
+    "source_ids": [
+      "077"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-078",
+    "source_ids": [
+      "078"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-079",
+    "source_ids": [
+      "079"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-080",
+    "source_ids": [
+      "080"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-081",
+    "source_ids": [
+      "081"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-082",
+    "source_ids": [
+      "082"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-083",
+    "source_ids": [
+      "083"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-084",
+    "source_ids": [
+      "084"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-085",
+    "source_ids": [
+      "085"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-086",
+    "source_ids": [
+      "086"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-087",
+    "source_ids": [
+      "087"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-088",
+    "source_ids": [
+      "088"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-089",
+    "source_ids": [
+      "089"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-090",
+    "source_ids": [
+      "090"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-091",
+    "source_ids": [
+      "091"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-092",
+    "source_ids": [
+      "092"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-094",
+    "source_ids": [
+      "094"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-095",
+    "source_ids": [
+      "095"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-096",
+    "source_ids": [
+      "096"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-097",
+    "source_ids": [
+      "097"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-098",
+    "source_ids": [
+      "098"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-099",
+    "source_ids": [
+      "099"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-100",
+    "source_ids": [
+      "100"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-101",
+    "source_ids": [
+      "101"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-102",
+    "source_ids": [
+      "102"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-103",
+    "source_ids": [
+      "103"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-104",
+    "source_ids": [
+      "104"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-105",
+    "source_ids": [
+      "105"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-106",
+    "source_ids": [
+      "106"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-107",
+    "source_ids": [
+      "107"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-108",
+    "source_ids": [
+      "108"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-109",
+    "source_ids": [
+      "109"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-110",
+    "source_ids": [
+      "110"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-112",
+    "source_ids": [
+      "112"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-113",
+    "source_ids": [
+      "113"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-114",
+    "source_ids": [
+      "114"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-115",
+    "source_ids": [
+      "115"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-116",
+    "source_ids": [
+      "116"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-117",
+    "source_ids": [
+      "117"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-118",
+    "source_ids": [
+      "118"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-119",
+    "source_ids": [
+      "119"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-120",
+    "source_ids": [
+      "120"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-121",
+    "source_ids": [
+      "121"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-122",
+    "source_ids": [
+      "122"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-123",
+    "source_ids": [
+      "123"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-124",
+    "source_ids": [
+      "124"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-125",
+    "source_ids": [
+      "125"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-126",
+    "source_ids": [
+      "126"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-127",
+    "source_ids": [
+      "127"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-128",
+    "source_ids": [
+      "128"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-129",
+    "source_ids": [
+      "129"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-130",
+    "source_ids": [
+      "130"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-131",
+    "source_ids": [
+      "131"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-132",
+    "source_ids": [
+      "132"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-133",
+    "source_ids": [
+      "133"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-134",
+    "source_ids": [
+      "134"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-135",
+    "source_ids": [
+      "135"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-136",
+    "source_ids": [
+      "136"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-138",
+    "source_ids": [
+      "138"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-139",
+    "source_ids": [
+      "139"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-140",
+    "source_ids": [
+      "140"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-141",
+    "source_ids": [
+      "141"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-142",
+    "source_ids": [
+      "142"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-143",
+    "source_ids": [
+      "143"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-144",
+    "source_ids": [
+      "144"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-145",
+    "source_ids": [
+      "145"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-146",
+    "source_ids": [
+      "146"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-147",
+    "source_ids": [
+      "147"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-148",
+    "source_ids": [
+      "148"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-149",
+    "source_ids": [
+      "149"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-150",
+    "source_ids": [
+      "150"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-151",
+    "source_ids": [
+      "151"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-152",
+    "source_ids": [
+      "152"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-153",
+    "source_ids": [
+      "153"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-154",
+    "source_ids": [
+      "154"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-156",
+    "source_ids": [
+      "156"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-157",
+    "source_ids": [
+      "157"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-158",
+    "source_ids": [
+      "158"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-159",
+    "source_ids": [
+      "159"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-160",
+    "source_ids": [
+      "160"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-161",
+    "source_ids": [
+      "161"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-162",
+    "source_ids": [
+      "162"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-163",
+    "source_ids": [
+      "163"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-164",
+    "source_ids": [
+      "164"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-165",
+    "source_ids": [
+      "165"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-166",
+    "source_ids": [
+      "166"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-167",
+    "source_ids": [
+      "167"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-168",
+    "source_ids": [
+      "168"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-169",
+    "source_ids": [
+      "169"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-170",
+    "source_ids": [
+      "170"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-171",
+    "source_ids": [
+      "171"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-172",
+    "source_ids": [
+      "172"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-174",
+    "source_ids": [
+      "174"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-177",
+    "source_ids": [
+      "177"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-186",
+    "source_ids": [
+      "186"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-191",
+    "source_ids": [
+      "191"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-192",
+    "source_ids": [
+      "192"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-193",
+    "source_ids": [
+      "193"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-195",
+    "source_ids": [
+      "195"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-196",
+    "source_ids": [
+      "196"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-201",
+    "source_ids": [
+      "201"
+    ],
+    "related_issues": [
+      "tg-cli#323",
+      "tg-cli#339",
+      "tg-cli#344",
+      "tg-cli#373",
+      "tg-cli#377",
+      "tg-cli#379",
+      "tg-cli#380"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-202",
+    "source_ids": [
+      "202"
+    ],
+    "related_issues": [
+      "review-cli#476",
+      "task-cli#168",
+      "qa-cli#1",
+      "qa-cli#6",
+      "qa-cli#11",
+      "tg-cli#375",
+      "rig-cli#416",
+      "rig-cli#480",
+      "rig-cli#499",
+      "agent-tools#685"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-203",
+    "source_ids": [
+      "203"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-204",
+    "source_ids": [
+      "204"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-205",
+    "source_ids": [
+      "205"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-206",
+    "source_ids": [
+      "206"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-207",
+    "source_ids": [
+      "207"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-208",
+    "source_ids": [
+      "208"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-209",
+    "source_ids": [
+      "209"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-210",
+    "source_ids": [
+      "210"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-211",
+    "source_ids": [
+      "211"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-212",
+    "source_ids": [
+      "212"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-213",
+    "source_ids": [
+      "213"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-214",
+    "source_ids": [
+      "214"
+    ],
+    "related_issues": [
+      "task-cli#169",
+      "task-cli#170",
+      "task-cli#172",
+      "task-cli#173"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-215",
+    "source_ids": [
+      "215"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-216",
+    "source_ids": [
+      "216"
+    ],
+    "related_issues": [
+      "rig-cli#297",
+      "rig-cli#324",
+      "rig-cli#326",
+      "rig-cli#329",
+      "rig-cli#418",
+      "rig-cli#422",
+      "agent-tools#554",
+      "agent-tools#608",
+      "agent-tools#622",
+      "agent-tools#716",
+      "agent-tools#719",
+      "agent-tools#720"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-217",
+    "source_ids": [
+      "217"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-218",
+    "source_ids": [
+      "218"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-219",
+    "source_ids": [
+      "219"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-220",
+    "source_ids": [
+      "220"
+    ],
+    "related_issues": [
+      "rig-cli#394",
+      "rig-cli#429",
+      "rig-cli#453"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-221",
+    "source_ids": [
+      "221"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-222",
+    "source_ids": [
+      "222"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-223",
+    "source_ids": [
+      "223"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-224",
+    "source_ids": [
+      "224"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-225",
+    "source_ids": [
+      "225"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-226",
+    "source_ids": [
+      "226"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-227",
+    "source_ids": [
+      "227"
+    ],
+    "related_issues": [
+      "review-cli#364",
+      "review-cli#365",
+      "review-cli#433",
+      "review-cli#441",
+      "review-cli#442",
+      "review-cli#444",
+      "review-cli#454",
+      "agent-tools#644",
+      "agent-tools#648"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-228",
+    "source_ids": [
+      "228"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-229",
+    "source_ids": [
+      "229"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-230",
+    "source_ids": [
+      "230"
+    ],
+    "related_issues": [
+      "rig-cli#449",
+      "rig-cli#465",
+      "rig-cli#480",
+      "rig-cli#497",
+      "rig-cli#499",
+      "rig-cli#505",
+      "agent-tools#537"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-231",
+    "source_ids": [
+      "231"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-232",
+    "source_ids": [
+      "232"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-233",
+    "source_ids": [
+      "233"
+    ],
+    "related_issues": [
+      "qa-cli#1",
+      "qa-cli#3",
+      "qa-cli#5",
+      "qa-cli#6",
+      "qa-cli#8",
+      "qa-cli#9",
+      "qa-cli#11",
+      "tg-cli#375"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-234",
+    "source_ids": [
+      "234",
+      "2901"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-235",
+    "source_ids": [
+      "235"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-236",
+    "source_ids": [
+      "236",
+      "3025"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-237",
+    "source_ids": [
+      "237"
+    ],
+    "related_issues": [
+      "task-cli#143",
+      "task-cli#144",
+      "agent-tools#623",
+      "agent-tools#651"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-238",
+    "source_ids": [
+      "238"
+    ],
+    "related_issues": [
+      "rig-cli#419"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-239",
+    "source_ids": [
+      "239"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-240",
+    "source_ids": [
+      "240"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-242",
+    "source_ids": [
+      "242"
+    ],
+    "related_issues": [
+      "rig-cli#442",
+      "rig-cli#443",
+      "rig-cli#444",
+      "agent-tools#628",
+      "agent-tools#717"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-252",
+    "source_ids": [
+      "252"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-255",
+    "source_ids": [
+      "255"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-257",
+    "source_ids": [
+      "257"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-258",
+    "source_ids": [
+      "258"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-259",
+    "source_ids": [
+      "259"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-260",
+    "source_ids": [
+      "260"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-261",
+    "source_ids": [
+      "261"
+    ],
+    "related_issues": [
+      "rig-cli#399",
+      "rig-cli#475",
+      "rig-cli#477",
+      "rig-cli#493",
+      "agent-tools#518",
+      "agent-tools#522",
+      "agent-tools#592",
+      "agent-tools#600",
+      "agent-tools#624",
+      "agent-tools#674",
+      "agent-tools#682"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-262",
+    "source_ids": [
+      "262"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-263",
+    "source_ids": [
+      "263"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-264",
+    "source_ids": [
+      "264"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-265",
+    "source_ids": [
+      "265"
+    ],
+    "related_issues": [
+      "review-cli#472",
+      "review-cli#479",
+      "review-cli#483"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-266",
+    "source_ids": [
+      "266"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-267",
+    "source_ids": [
+      "267"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-393",
+    "source_ids": [
+      "393"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-394",
+    "source_ids": [
+      "394"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-395",
+    "source_ids": [
+      "395"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-396",
+    "source_ids": [
+      "396"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-397",
+    "source_ids": [
+      "397"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-398",
+    "source_ids": [
+      "398"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-399",
+    "source_ids": [
+      "399"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-410",
+    "source_ids": [
+      "410"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-413",
+    "source_ids": [
+      "413",
+      "539"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-462",
+    "source_ids": [
+      "462",
+      "540"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-501",
+    "source_ids": [
+      "501",
+      "541"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-503",
+    "source_ids": [
+      "503",
+      "542"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-508",
+    "source_ids": [
+      "508",
+      "543"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-510",
+    "source_ids": [
+      "510",
+      "544"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-512",
+    "source_ids": [
+      "512",
+      "545"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-521",
+    "source_ids": [
+      "521",
+      "546"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-525",
+    "source_ids": [
+      "525",
+      "547"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-527",
+    "source_ids": [
+      "527",
+      "548"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-530",
+    "source_ids": [
+      "530",
+      "549"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-532",
+    "source_ids": [
+      "532",
+      "550"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-534",
+    "source_ids": [
+      "534",
+      "551"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-537",
+    "source_ids": [
+      "537",
+      "552"
+    ],
+    "related_issues": [
+      "rig-cli#327",
+      "rig-cli#337",
+      "rig-cli#342",
+      "rig-cli#363",
+      "rig-cli#403",
+      "rig-cli#425",
+      "rig-cli#428",
+      "rig-cli#430",
+      "rig-cli#512",
+      "rig-cli#518",
+      "agent-tools#514",
+      "agent-tools#573",
+      "agent-tools#613",
+      "agent-tools#614",
+      "agent-tools#615",
+      "agent-tools#616",
+      "agent-tools#630",
+      "agent-tools#634",
+      "agent-tools#635",
+      "agent-tools#647",
+      "agent-tools#649",
+      "agent-tools#673",
+      "agent-tools#676",
+      "agent-tools#679",
+      "agent-tools#686",
+      "agent-tools#692",
+      "agent-tools#693",
+      "agent-tools#703",
+      "agent-tools#712",
+      "agent-tools#718"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-553",
+    "source_ids": [
+      "553"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-564",
+    "source_ids": [
+      "564",
+      "594"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-595",
+    "source_ids": [
+      "595"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-717",
+    "source_ids": [
+      "717",
+      "747"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-729",
+    "source_ids": [
+      "729",
+      "748"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-750",
+    "source_ids": [
+      "750"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-764",
+    "source_ids": [
+      "764",
+      "769"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-766",
+    "source_ids": [
+      "766",
+      "770"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-768",
+    "source_ids": [
+      "768"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2148",
+    "source_ids": [
+      "2148",
+      "2189"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2170",
+    "source_ids": [
+      "2170"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2172",
+    "source_ids": [
+      "2172",
+      "3971"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2174",
+    "source_ids": [
+      "2174",
+      "3973"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2181",
+    "source_ids": [
+      "2181",
+      "3982"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2183",
+    "source_ids": [
+      "2183",
+      "3984"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2198",
+    "source_ids": [
+      "2198"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2201",
+    "source_ids": [
+      "2201"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2204",
+    "source_ids": [
+      "2204",
+      "4042"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2221",
+    "source_ids": [
+      "2221",
+      "4043"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2223",
+    "source_ids": [
+      "2223",
+      "4044"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2225",
+    "source_ids": [
+      "2225",
+      "4045"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2243",
+    "source_ids": [
+      "2243",
+      "4046"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2271",
+    "source_ids": [
+      "2271",
+      "4047"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2278",
+    "source_ids": [
+      "2278",
+      "4048"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2281",
+    "source_ids": [
+      "2281",
+      "4049"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2290",
+    "source_ids": [
+      "2290",
+      "4050"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2294",
+    "source_ids": [
+      "2294",
+      "4051"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2556",
+    "source_ids": [
+      "2556",
+      "4052"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2567",
+    "source_ids": [
+      "2567",
+      "4053"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2570",
+    "source_ids": [
+      "2570",
+      "4054"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2580",
+    "source_ids": [
+      "2580",
+      "4055"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2583",
+    "source_ids": [
+      "2583",
+      "4056"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2586",
+    "source_ids": [
+      "2586",
+      "4057"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2590",
+    "source_ids": [
+      "2590",
+      "4058"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2600",
+    "source_ids": [
+      "2600",
+      "4130"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2606",
+    "source_ids": [
+      "2606",
+      "4131"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2615",
+    "source_ids": [
+      "2615",
+      "4132"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2617",
+    "source_ids": [
+      "2617",
+      "4133"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2638",
+    "source_ids": [
+      "2638",
+      "4134"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2644",
+    "source_ids": [
+      "2644"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2648",
+    "source_ids": [
+      "2648",
+      "4135"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2660",
+    "source_ids": [
+      "2660",
+      "4136"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2669",
+    "source_ids": [
+      "2669",
+      "4137"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2674",
+    "source_ids": [
+      "2674",
+      "4138"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2683",
+    "source_ids": [
+      "2683",
+      "4139"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2692",
+    "source_ids": [
+      "2692",
+      "4140"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2703",
+    "source_ids": [
+      "2703",
+      "4141"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2705",
+    "source_ids": [
+      "2705",
+      "4142"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2715",
+    "source_ids": [
+      "2715",
+      "4143"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2718",
+    "source_ids": [
+      "2718",
+      "4144"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2769",
+    "source_ids": [
+      "2769",
+      "4145"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2783",
+    "source_ids": [
+      "2783",
+      "4146"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2786",
+    "source_ids": [
+      "2786",
+      "4147"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2794",
+    "source_ids": [
+      "2794",
+      "4148"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2803",
+    "source_ids": [
+      "2803",
+      "4149"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2805",
+    "source_ids": [
+      "2805",
+      "4150"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2807",
+    "source_ids": [
+      "2807",
+      "4151"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2817",
+    "source_ids": [
+      "2817",
+      "4152"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2865",
+    "source_ids": [
+      "2865",
+      "4153"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2871",
+    "source_ids": [
+      "2871",
+      "2885",
+      "4154"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2898",
+    "source_ids": [
+      "2898",
+      "4155"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2907",
+    "source_ids": [
+      "2907",
+      "4156"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2910",
+    "source_ids": [
+      "2910",
+      "4157"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2912",
+    "source_ids": [
+      "2912",
+      "4158"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2920",
+    "source_ids": [
+      "2920",
+      "4159"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2923",
+    "source_ids": [
+      "2923",
+      "4160"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2925",
+    "source_ids": [
+      "2925",
+      "4161"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2933",
+    "source_ids": [
+      "2933",
+      "3210"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-2939",
+    "source_ids": [
+      "2939",
+      "4210"
+    ],
+    "related_issues": [
+      "review-cli#364",
+      "review-cli#365",
+      "review-cli#487",
+      "review-cli#495",
+      "review-cli#496"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-3001",
+    "source_ids": [
+      "3001",
+      "3002"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3010",
+    "source_ids": [
+      "3010",
+      "4183"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3030",
+    "source_ids": [
+      "3030",
+      "4186"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3032",
+    "source_ids": [
+      "3032",
+      "4187"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3034",
+    "source_ids": [
+      "3034",
+      "4188"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3039",
+    "source_ids": [
+      "3039",
+      "4189"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3043",
+    "source_ids": [
+      "3043",
+      "4191"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3045",
+    "source_ids": [
+      "3045",
+      "4192"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3050",
+    "source_ids": [
+      "3050",
+      "4193"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3053",
+    "source_ids": [
+      "3053",
+      "4194"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3058",
+    "source_ids": [
+      "3058",
+      "4195"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3060",
+    "source_ids": [
+      "3060",
+      "4196"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3077",
+    "source_ids": [
+      "3077",
+      "4197"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3078",
+    "source_ids": [
+      "3078"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3080",
+    "source_ids": [
+      "3080",
+      "4198"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3087",
+    "source_ids": [
+      "3087",
+      "4199"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3108",
+    "source_ids": [
+      "3108",
+      "4200"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3109",
+    "source_ids": [
+      "3109"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3110",
+    "source_ids": [
+      "3110"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3112",
+    "source_ids": [
+      "3112",
+      "4201"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3131",
+    "source_ids": [
+      "3131",
+      "4202"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3132",
+    "source_ids": [
+      "3132"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3133",
+    "source_ids": [
+      "3133"
+    ],
+    "related_issues": [
+      "review-cli#472",
+      "review-cli#495",
+      "rig-cli#368",
+      "rig-cli#462",
+      "rig-cli#501"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-3135",
+    "source_ids": [
+      "3135",
+      "4203"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3173",
+    "source_ids": [
+      "3173",
+      "4204"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3183",
+    "source_ids": [
+      "3183",
+      "4205"
+    ],
+    "related_issues": [
+      "tg-cli#356"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-3185",
+    "source_ids": [
+      "3185",
+      "4206"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3190",
+    "source_ids": [
+      "3190",
+      "4207"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3191",
+    "source_ids": [
+      "3191"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3193",
+    "source_ids": [
+      "3193",
+      "4208"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3208",
+    "source_ids": [
+      "3208",
+      "4209"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3209",
+    "source_ids": [
+      "3209"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3226",
+    "source_ids": [
+      "3226",
+      "3301",
+      "4211"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3272",
+    "source_ids": [
+      "3272",
+      "4212"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3325",
+    "source_ids": [
+      "3325",
+      "4213"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3327",
+    "source_ids": [
+      "3327"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3330",
+    "source_ids": [
+      "3330",
+      "4214"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3331",
+    "source_ids": [
+      "3331"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3333",
+    "source_ids": [
+      "3333",
+      "4215"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3335",
+    "source_ids": [
+      "3335",
+      "4216"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3338",
+    "source_ids": [
+      "3338",
+      "4217"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3339",
+    "source_ids": [
+      "3339"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3376",
+    "source_ids": [
+      "3376",
+      "4218"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3378",
+    "source_ids": [
+      "3378",
+      "4219"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3448",
+    "source_ids": [
+      "3448"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3449",
+    "source_ids": [
+      "3449"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3450",
+    "source_ids": [
+      "3450"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3452",
+    "source_ids": [
+      "3452",
+      "4220"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3453",
+    "source_ids": [
+      "3453"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3454",
+    "source_ids": [
+      "3454"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3456",
+    "source_ids": [
+      "3456",
+      "4221"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3458",
+    "source_ids": [
+      "3458",
+      "4222"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3501",
+    "source_ids": [
+      "3501",
+      "4223"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3505",
+    "source_ids": [
+      "3505",
+      "4224"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3511",
+    "source_ids": [
+      "3511",
+      "4225"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3515",
+    "source_ids": [
+      "3515",
+      "4226"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3586",
+    "source_ids": [
+      "3586"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3589",
+    "source_ids": [
+      "3589"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3591",
+    "source_ids": [
+      "3591"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3593",
+    "source_ids": [
+      "3593"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3595",
+    "source_ids": [
+      "3595"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3597",
+    "source_ids": [
+      "3597"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3600",
+    "source_ids": [
+      "3600"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3602",
+    "source_ids": [
+      "3602"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3637",
+    "source_ids": [
+      "3637"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3639",
+    "source_ids": [
+      "3639"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3641",
+    "source_ids": [
+      "3641"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3643",
+    "source_ids": [
+      "3643"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3653",
+    "source_ids": [
+      "3653"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3655",
+    "source_ids": [
+      "3655"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3657",
+    "source_ids": [
+      "3657"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3659",
+    "source_ids": [
+      "3659"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3661",
+    "source_ids": [
+      "3661"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3681",
+    "source_ids": [
+      "3681",
+      "4257"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3817",
+    "source_ids": [
+      "3817",
+      "4258"
+    ],
+    "related_issues": [
+      "review-cli#484",
+      "review-cli#493",
+      "review-cli#494"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-3822",
+    "source_ids": [
+      "3822",
+      "4259"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3829",
+    "source_ids": [
+      "3829",
+      "4260"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3831",
+    "source_ids": [
+      "3831",
+      "4261"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3832",
+    "source_ids": [
+      "3832"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3837",
+    "source_ids": [
+      "3837",
+      "4262"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3956",
+    "source_ids": [
+      "3956"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3962",
+    "source_ids": [
+      "3962"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3965",
+    "source_ids": [
+      "3965"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-3968",
+    "source_ids": [
+      "3968"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4059",
+    "source_ids": [
+      "4059"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4060",
+    "source_ids": [
+      "4060"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4061",
+    "source_ids": [
+      "4061"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4062",
+    "source_ids": [
+      "4062"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4063",
+    "source_ids": [
+      "4063"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4064",
+    "source_ids": [
+      "4064"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4065",
+    "source_ids": [
+      "4065"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4066",
+    "source_ids": [
+      "4066"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4067",
+    "source_ids": [
+      "4067"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4068",
+    "source_ids": [
+      "4068"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4069",
+    "source_ids": [
+      "4069"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4070",
+    "source_ids": [
+      "4070"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4071",
+    "source_ids": [
+      "4071"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4072",
+    "source_ids": [
+      "4072"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4073",
+    "source_ids": [
+      "4073"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4074",
+    "source_ids": [
+      "4074"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4075",
+    "source_ids": [
+      "4075"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4076",
+    "source_ids": [
+      "4076"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4077",
+    "source_ids": [
+      "4077"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4078",
+    "source_ids": [
+      "4078"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4079",
+    "source_ids": [
+      "4079"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4080",
+    "source_ids": [
+      "4080"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4081",
+    "source_ids": [
+      "4081"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4082",
+    "source_ids": [
+      "4082"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4083",
+    "source_ids": [
+      "4083"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4084",
+    "source_ids": [
+      "4084"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4085",
+    "source_ids": [
+      "4085"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4086",
+    "source_ids": [
+      "4086"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4087",
+    "source_ids": [
+      "4087"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4088",
+    "source_ids": [
+      "4088"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4089",
+    "source_ids": [
+      "4089"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4090",
+    "source_ids": [
+      "4090"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4091",
+    "source_ids": [
+      "4091"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4092",
+    "source_ids": [
+      "4092"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4093",
+    "source_ids": [
+      "4093"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4094",
+    "source_ids": [
+      "4094"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4095",
+    "source_ids": [
+      "4095"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4096",
+    "source_ids": [
+      "4096"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4097",
+    "source_ids": [
+      "4097"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4098",
+    "source_ids": [
+      "4098"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4099",
+    "source_ids": [
+      "4099"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4100",
+    "source_ids": [
+      "4100"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4101",
+    "source_ids": [
+      "4101"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4102",
+    "source_ids": [
+      "4102"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4103",
+    "source_ids": [
+      "4103"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4104",
+    "source_ids": [
+      "4104"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4105",
+    "source_ids": [
+      "4105"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4106",
+    "source_ids": [
+      "4106"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4107",
+    "source_ids": [
+      "4107"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4108",
+    "source_ids": [
+      "4108"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4109",
+    "source_ids": [
+      "4109"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4110",
+    "source_ids": [
+      "4110"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4111",
+    "source_ids": [
+      "4111"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4112",
+    "source_ids": [
+      "4112"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4113",
+    "source_ids": [
+      "4113"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4114",
+    "source_ids": [
+      "4114"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4115",
+    "source_ids": [
+      "4115"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4116",
+    "source_ids": [
+      "4116"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4117",
+    "source_ids": [
+      "4117"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4118",
+    "source_ids": [
+      "4118"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4119",
+    "source_ids": [
+      "4119"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4120",
+    "source_ids": [
+      "4120"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4121",
+    "source_ids": [
+      "4121"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4122",
+    "source_ids": [
+      "4122"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4123",
+    "source_ids": [
+      "4123"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4124",
+    "source_ids": [
+      "4124"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4125",
+    "source_ids": [
+      "4125"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4126",
+    "source_ids": [
+      "4126"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4127",
+    "source_ids": [
+      "4127"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4128",
+    "source_ids": [
+      "4128"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4129",
+    "source_ids": [
+      "4129"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4162",
+    "source_ids": [
+      "4162"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4163",
+    "source_ids": [
+      "4163"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4164",
+    "source_ids": [
+      "4164"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4165",
+    "source_ids": [
+      "4165"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4166",
+    "source_ids": [
+      "4166"
+    ],
+    "related_issues": [
+      "tg-cli#354",
+      "tg-cli#356",
+      "tg-cli#374",
+      "tg-cli#380",
+      "agent-tools#525",
+      "agent-tools#702",
+      "agent-tools#713"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-4167",
+    "source_ids": [
+      "4167"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4168",
+    "source_ids": [
+      "4168"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4169",
+    "source_ids": [
+      "4169"
+    ],
+    "related_issues": [
+      "rig-cli#492",
+      "agent-tools#665"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-4170",
+    "source_ids": [
+      "4170"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4171",
+    "source_ids": [
+      "4171"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4172",
+    "source_ids": [
+      "4172"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4173",
+    "source_ids": [
+      "4173"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4174",
+    "source_ids": [
+      "4174"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4175",
+    "source_ids": [
+      "4175"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4176",
+    "source_ids": [
+      "4176"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4177",
+    "source_ids": [
+      "4177"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4178",
+    "source_ids": [
+      "4178"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4179",
+    "source_ids": [
+      "4179"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4180",
+    "source_ids": [
+      "4180"
+    ],
+    "related_issues": [
+      "review-cli#460",
+      "review-cli#467",
+      "review-cli#468",
+      "review-cli#469",
+      "review-cli#472",
+      "review-cli#479",
+      "review-cli#480",
+      "review-cli#483",
+      "review-cli#486",
+      "review-cli#492",
+      "agent-tools#705"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-4181",
+    "source_ids": [
+      "4181"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4182",
+    "source_ids": [
+      "4182"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4227",
+    "source_ids": [
+      "4227"
+    ],
+    "related_issues": [
+      "review-cli#163",
+      "review-cli#476",
+      "tg-cli#357",
+      "tg-cli#360",
+      "tg-cli#377"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-4228",
+    "source_ids": [
+      "4228"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4229",
+    "source_ids": [
+      "4229"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4230",
+    "source_ids": [
+      "4230"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4231",
+    "source_ids": [
+      "4231"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4236",
+    "source_ids": [
+      "4236"
+    ],
+    "related_issues": [
+      "rig-cli#495",
+      "rig-cli#496",
+      "rig-cli#507",
+      "rig-cli#508",
+      "agent-tools#519",
+      "agent-tools#683",
+      "agent-tools#697"
+    ],
+    "disposition": "associated with reviewed issues"
+  },
+  {
+    "id": "v4-4237",
+    "source_ids": [
+      "4237"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4238",
+    "source_ids": [
+      "4238"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4239",
+    "source_ids": [
+      "4239"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4288",
+    "source_ids": [
+      "4288",
+      "4449"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4292",
+    "source_ids": [
+      "4292",
+      "4348",
+      "4450"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4294",
+    "source_ids": [
+      "4294",
+      "4451"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4409",
+    "source_ids": [
+      "4409",
+      "4452"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4413",
+    "source_ids": [
+      "4413",
+      "4422",
+      "4453"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4454",
+    "source_ids": [
+      "4454"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4468",
+    "source_ids": [
+      "4468"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  },
+  {
+    "id": "v4-4469",
+    "source_ids": [
+      "4469"
+    ],
+    "related_issues": [],
+    "disposition": "retained in source registry; no issue-level association established"
+  }
+]

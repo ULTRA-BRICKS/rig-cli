@@ -1,0 +1,10 @@
+flowchart TD
+  A[Исходный запрос и контекст] --> B[Каноническая задача]
+  B --> C[Native identity и effective cwd]
+  C --> D[Guard на фактической операции]
+  D --> E[Scoped decision и durable intent]
+  E --> F[Producer и consumer integration]
+  F --> G[Проверка установленного сценария]
+  G --> H[Приёмка результата]
+  D -->|ложный отказ или обход| B
+  F -->|неполное доказательство| B

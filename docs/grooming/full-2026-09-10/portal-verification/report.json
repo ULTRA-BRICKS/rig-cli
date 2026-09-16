@@ -1,0 +1,51 @@
+{
+  "source_sha": "fd11b9aee570d3424f99d7e0f1e96b2b20a27fef",
+  "scope": "The generated review portal, not the product UIs described in its specs",
+  "browser": {
+    "documents_rendered": 46,
+    "public_issues": 1519,
+    "quote_records": 230,
+    "desktop": "1440x1050",
+    "mobile": "393x852",
+    "javascript_errors": [],
+    "search_and_navigation": true
+  },
+  "endpoints": {
+    "https://spec-dev.hyperide.ai/": {
+      "status": 200,
+      "url": "https://spec-dev.hyperide.ai/",
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 3915,
+      "sha256": "a28d0a5d00840116519136675338c433c97bff587d889ffe8a4a73bad0ed8474",
+      "title": "Spec review — Navigator"
+    },
+    "https://spec-dev.hyperide.ai/spec/": {
+      "status": 404,
+      "url": "https://spec-dev.hyperide.ai/spec/"
+    },
+    "https://spec-dev.hyperide.ai/spec/2026-07-11-haft-research": {
+      "status": 200,
+      "url": "https://spec-dev.hyperide.ai/spec/2026-07-11-haft-research",
+      "content_type": "text/html; charset=utf-8",
+      "bytes": 5607,
+      "sha256": "d3d36e392785340515376b219effa5034748bf57d2b471d3ce43301d7d7d1781",
+      "title": "Spec review — 2026-07-11-haft-research.md"
+    }
+  },
+  "authentication": "Public reader; review submission uses GitHub authentication. No server-side domain/OAuth access restriction claimed.",
+  "github_pages": {
+    "status": 404,
+    "action": "No existing site was modified; enabling Pages needs the separate administration permission."
+  },
+  "publication": {
+    "status": 200,
+    "url": "https://rawcdn.githack.com/alex-mextner/rig-cli/fd11b9aee570d3424f99d7e0f1e96b2b20a27fef/portal/index.html",
+    "content_type": "text/html; charset=utf-8",
+    "bytes": 3714862,
+    "sha256": "d7fc7d6910920b2602f3dd65d9f4313e3bb8e098e0b576c3c40088bbdb29175a",
+    "title": "Rig / Recovery review",
+    "kind": "Immutable static publication from committed GitHub HTML; not Vercel deployment",
+    "local_sha256": "d7fc7d6910920b2602f3dd65d9f4313e3bb8e098e0b576c3c40088bbdb29175a",
+    "verified_same_content": true
+  }
+}

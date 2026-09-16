@@ -1,0 +1,563 @@
+[
+  {
+    "key": "stt-cli#1",
+    "repo": "stt-cli",
+    "number": 1,
+    "title": "stt: guard the archive against two concurrent runs of the same file",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#2",
+    "repo": "stt-cli",
+    "number": 2,
+    "title": "stt: reconcile rig.yaml GitHub settings with the CI workflows it ships",
+    "provider_state": "open",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#3",
+    "repo": "stt-cli",
+    "number": 3,
+    "title": "Review uncommitted terminology, auth, and context diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#4",
+    "repo": "stt-cli",
+    "number": 4,
+    "title": "Review uncommitted diff for cross-file regressions",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#6",
+    "repo": "stt-cli",
+    "number": 6,
+    "title": "stt mic: live dictation that types into the focused field",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#7",
+    "repo": "stt-cli",
+    "number": 7,
+    "title": "stt dict check: accept --dict-similarity so it explains the run the user actually made",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#8",
+    "repo": "stt-cli",
+    "number": 8,
+    "title": "Give the settled per-run state a type of its own, instead of reusing Settings",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#9",
+    "repo": "stt-cli",
+    "number": 9,
+    "title": "Move the shared similarity default to a leaf module so config stops importing dictionary",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#10",
+    "repo": "stt-cli",
+    "number": 10,
+    "title": "Run speaker diarization end to end on a real recording",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#11",
+    "repo": "stt-cli",
+    "number": 11,
+    "title": "Add Ollama as a local provider for the LLM correction pass",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#12",
+    "repo": "stt-cli",
+    "number": 12,
+    "title": "Review uncommitted JSON file handling diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#13",
+    "repo": "stt-cli",
+    "number": 13,
+    "title": "stt mic: show provisional text underlined, the way Apple's dictation does",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#14",
+    "repo": "stt-cli",
+    "number": 14,
+    "title": "stt mic: an always-visible indicator that the microphone is open",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#15",
+    "repo": "stt-cli",
+    "number": 15,
+    "title": "stt mic: keep a dictation session in the archive, if you ask for it",
+    "provider_state": "open",
+    "topic": "telegram",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#16",
+    "repo": "stt-cli",
+    "number": 16,
+    "title": "stt mic: correct dictated text with an LLM, the way --fix does for a file",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#17",
+    "repo": "stt-cli",
+    "number": 17,
+    "title": "stt mic: try Apple's own speech recognition as the fast draft model",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#18",
+    "repo": "stt-cli",
+    "number": 18,
+    "title": "stt: both lock files can be replaced out from under the process holding them",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#19",
+    "repo": "stt-cli",
+    "number": 19,
+    "title": "stt: declare the version where the release tooling looks for it",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#20",
+    "repo": "stt-cli",
+    "number": 20,
+    "title": "Review uncommitted live dictation diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#21",
+    "repo": "stt-cli",
+    "number": 21,
+    "title": "stt mic: managed-service subcommands and a configurable hotkey",
+    "provider_state": "open",
+    "topic": "resources",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#22",
+    "repo": "stt-cli",
+    "number": 22,
+    "title": "stt dict learn: build the terminology dictionary from what Alex already writes",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#23",
+    "repo": "stt-cli",
+    "number": 23,
+    "title": "Sync the stt dictionary with macOS text replacement, optionally in both directions",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#24",
+    "repo": "stt-cli",
+    "number": 24,
+    "title": "Ship shell completions for stt, generated from the argparse tree",
+    "provider_state": "open",
+    "topic": "provisioning",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#25",
+    "repo": "stt-cli",
+    "number": 25,
+    "title": "Review live dictation uncommitted diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#27",
+    "repo": "stt-cli",
+    "number": 27,
+    "title": "stt: transcribe the macOS Voice Memos library",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#28",
+    "repo": "stt-cli",
+    "number": 28,
+    "title": "stt diarize: run pyannote the way mlx already runs, instead of installing into the system Python",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#30",
+    "repo": "stt-cli",
+    "number": 30,
+    "title": "mlx backend: uv run without --no-project synchronises whatever project stt was launched from",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#31",
+    "repo": "stt-cli",
+    "number": 31,
+    "title": "stt --help is uncoloured while subcommand help is coloured",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#34",
+    "repo": "stt-cli",
+    "number": 34,
+    "title": "stt diarize install fails on the Homebrew Python 3.14 interpreter (uv pip install torch and pyannote.audio)",
+    "provider_state": "open",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#35",
+    "repo": "stt-cli",
+    "number": 35,
+    "title": "Review uncommitted worktree-only hook policy diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#37",
+    "repo": "stt-cli",
+    "number": 37,
+    "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+    "provider_state": "closed",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#38",
+    "repo": "stt-cli",
+    "number": 38,
+    "title": "Audit ship external review configuration",
+    "provider_state": "open",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "stt-cli#42",
+    "repo": "stt-cli",
+    "number": 42,
+    "title": "[EPIC] stt-cli: complete backlog recovery and verified acceptance",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  }
+]

@@ -1,0 +1,44 @@
+name: Validate v4 source provenance
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/v4-source-validation.yml]
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Verify transport and expand structured evidence without executing it
+        run: |
+          python3 - <<'PY'
+          import base64,hashlib,json,lzma,pathlib
+          root=pathlib.Path('docs/grooming/v4-2026-09-10')
+          paths=[root/'source-parts'/f'v4.{i:02d}.b64' for i in range(6)]
+          encoded=''.join(p.read_text().strip() for p in paths)
+          raw=lzma.decompress(base64.b64decode(encoded,validate=True),memlimit=128*1024*1024)
+          assert len(raw)==253821
+          assert hashlib.sha256(raw).hexdigest()=='1788d0cc34e57b4bc2d83bd933032b7e618d5522284b864a96de367bf9c90aff', 'Transport mismatch: no publication or issue mutation'
+          data=json.loads(raw);records=[]
+          for source_ids,original,kind,context,provenance,status,acceptance in data['records']:
+              records.append({'id':'v4-'+source_ids[0],'source_ids':source_ids,'original':original,'edited':original,'editorial_status':'original wording retained; editorial overlay applied separately','original_sha256':hashlib.sha256(original.encode()).hexdigest(),'source_kind':data['kinds'][kind],'context':data['contexts'][context],'context_incomplete':len(original.split())<6,'provenance':[dict(zip(data['provenance_fields'],data['provenance'][p])) for p in provenance],'reported_status':status,'reported_acceptance':acceptance})
+          assert len(records)==505
+          audit=data['audit'];assert audit['input_records']==4329
+          assert sum(audit['disposition_counts'].values())==4329
+          assert audit['automatically_accepted_relationships']==0
+          assert len({q['id'] for q in records})==len(records)
+          (root/'reviewed-input.json').write_text(json.dumps({'audit':audit,'records':records},ensure_ascii=False,indent=2)+'\n')
+          (root/'source-audit.json').write_text(json.dumps(audit,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps({k:v for k,v in audit.items() if k not in ('disposition_ids','groups')},ensure_ascii=False,indent=2))
+          PY
+      - name: Commit verified source records and all-record dispositions
+        run: |
+          git config user.name 'Rig grooming audit'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/grooming/v4-2026-09-10/reviewed-input.json docs/grooming/v4-2026-09-10/source-audit.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'docs(provenance): record all 4329 export dispositions and 505 qualified quotations'
+          git pull --rebase origin docs/full-grooming-2026-09-10
+          git push origin HEAD:docs/full-grooming-2026-09-10

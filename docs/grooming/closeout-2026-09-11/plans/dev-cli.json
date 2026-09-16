@@ -1,0 +1,719 @@
+[
+  {
+    "key": "dev-cli#30",
+    "number": 30,
+    "id": 5412874619,
+    "title": "[EPIC] dev-cli: complete backlog recovery and verified acceptance",
+    "expected_state": "open",
+    "expected_sha256": "274269300a1c1c02cb423d9c69ffbbbc001233129db2579ece5341c90006742d",
+    "expected_updated_at": "2026-09-10T13:36:26Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**[EPIC] dev-cli: complete backlog recovery and verified acceptance**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/telemetry.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [rig-cli#521](https://github.com/ultrabricks/rig-cli/issues/521). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- All original outcomes are verified or explicitly rescoped by the owner; a merge or a copied screenshot path is not acceptance.\n- Native parent links and preserved prior relationships are reconciled.\n- Source gaps and unsupported/live-platform checks remain visible.\n- Duplicate consolidation preserves every unique finding before closure.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n<!-- rig-grooming-parent:2026-09-10:dev-cli:root -->\n\n## User request — editorial quotation\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами с исправлением стилистики, орфографии и пунктуации. Всё влитое и сделанное нужно перепроверить.\n\nSource: current ChatGPT request, 2026-09-10. This is the recovery mandate, not the original feature request for every historical ticket. Original wording and linked source quotations are retained in the central registry.\n\n## Outcome\nEvery issue in alex-mextner/dev-cli has an explicit, source-grounded disposition, preserved technical scope, specification links and a verification status. Existing product epics remain owners of implementation; this epic indexes recovery/acceptance, not duplicate development.\n\nCoordinator: https://github.com/alex-mextner/rig-cli/issues/521\nSpecification catalog: https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/\nInventory and evidence: https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/dev-cli.json\n\n## Acceptance\n- [ ] All original outcomes are verified or explicitly rescoped by the owner; a merge or a copied screenshot path is not acceptance.\n- [ ] Native parent links and preserved prior relationships are reconciled.\n- [ ] Source gaps and unsupported/live-platform checks remain visible.\n- [ ] Duplicate consolidation preserves every unique finding before closure.\n\n## Example\nAn issue closed after a helper-level unit test remains historically closed, but the recovery record does not claim that its installed CLI or multi-agent integration passed. Verify that specific user workflow at a named revision before marking recovery complete.\n",
+    "record": {
+      "key": "dev-cli#30",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 30,
+      "title": "[EPIC] dev-cli: complete backlog recovery and verified acceptance",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "telemetry",
+      "classification": "epic",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "rig-cli#521"
+      ],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "274269300a1c1c02cb423d9c69ffbbbc001233129db2579ece5341c90006742d"
+    }
+  },
+  {
+    "key": "dev-cli#20",
+    "number": 20,
+    "id": 5367999551,
+    "title": "dev stop refuses to stop the process that is actually holding the port",
+    "expected_state": "open",
+    "expected_sha256": "a69098036d95b9e37922b7d6f8061ce00c7ca8e3408234dc8b626d5028fe4206",
+    "expected_updated_at": "2026-09-10T13:37:08Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**dev stop refuses to stop the process that is actually holding the port**\n\n### Сохранённая постановка проблемы\n\nThree related problems seen on 2026-09-05/06. First, `dev start` refuses with \"Conloca cannot start: port 8787 is already in use. Stop its owning development session first\", but the following `dev stop server` refuses back with \"pid 24537 is not recognized as a development tool\" because the process holding the port is an esbuild service child, and in another case a storybook child, rather than the top-level runner. Second, `dev status server` reports the target running with a log path while `dev logs server` reports \"dev target server has no readable log under logs_root\". Third, --repo-only is accepted after the subcommand in `dev run --repo-only server` but rejected before it in `dev --repo-only status server`, with no hint about the correct position.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [dev-cli#27](https://github.com/ultrabricks/dev-cli/issues/27). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- dev stop can stop the toolchain child that holds a port for a target it owns, or explains precisely which process it will not touch and why.\n- dev status and dev logs agree about whether a target has a readable log.\n- The repo-only flag works in one documented position, and the error names that position when it is used in the other.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nThree related problems seen on 2026-09-05/06. First, `dev start` refuses with \"Conloca cannot start: port 8787 is already in use. Stop its owning development session first\", but the following `dev stop server` refuses back with \"pid 24537 is not recognized as a development tool\" because the process holding the port is an esbuild service child, and in another case a storybook child, rather than the top-level runner. Second, `dev status server` reports the target running with a log path while `dev logs server` reports \"dev target server has no readable log under logs_root\". Third, --repo-only is accepted after the subcommand in `dev run --repo-only server` but rejected before it in `dev --repo-only status server`, with no hint about the correct position.\n\n## Why (motivation)\nThe safe-stop process matcher recognises only the runner it started, not the toolchain children that inherit the listening socket. status and logs resolve the target through different paths. And the repo-only flag is registered on some subparsers only.\n\n## User impact\nThe agent is told to stop the old dev server, tries the sanctioned command, and is refused. There is no other approved way to free the port, so the work stops there. Alex sees the app never come up and no explanation beyond two commands contradicting each other.\n\n## Cost of inaction\nAgents fall back to raw pkill and lsof, which is exactly what dev stop exists to prevent.\n\n## Acceptance criteria\n- [ ] dev stop can stop the toolchain child that holds a port for a target it owns, or explains precisely which process it will not touch and why.\n- [ ] dev status and dev logs agree about whether a target has a readable log.\n- [ ] The repo-only flag works in one documented position, and the error names that position when it is used in the other.\n\n## Screenshots\n(none)\n\n## Links\n- Relates to #27: https://github.com/alex-mextner/dev-cli/issues/27\n",
+    "record": {
+      "key": "dev-cli#20",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 20,
+      "title": "dev stop refuses to stop the process that is actually holding the port",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "dev-cli#27"
+      ],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "a69098036d95b9e37922b7d6f8061ce00c7ca8e3408234dc8b626d5028fe4206"
+    }
+  },
+  {
+    "key": "dev-cli#9",
+    "number": 9,
+    "id": 5266223629,
+    "title": "dev shot's default scroll step produces captures its own quality gate rejects",
+    "expected_state": "open",
+    "expected_sha256": "dbeadd7cc5ffa3f794c73f2610f41c691e5a85f218ecb664fad50e27eaf64bb6",
+    "expected_updated_at": "2026-09-10T13:36:44Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**dev shot's default scroll step produces captures its own quality gate rejects**\n\n### Сохранённая постановка проблемы\n\nThe `dev shot` command performs a scroll sweep before capturing so that reveal-on-scroll content has entered the viewport, then judges the resulting capture and refuses to attest to a degenerate one. Its default sweep step is 400px. On a long marketing page that default is too coarse: content gated on scroll never enters the viewport at some offsets, so the capture comes back with a large uniform band and the command's own quality check rejects it. Passing `--sweep-step 150` produced a usable capture of the same page with no other change. The tool is failing its own gate with its own defaults.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- Running `dev shot` against a long reveal-gated page with no `--sweep-step` argument produces a capture that passes the command's own quality check.\n- When the quality check rejects a capture, the command's error output names the sweep step that was used, so the reader can tell the tool's configuration apart from a genuinely broken page.\n- The chosen default is justified in `dev shot --help` or in code, rather than being an unexplained constant.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nThe `dev shot` command performs a scroll sweep before capturing so that reveal-on-scroll content has entered the viewport, then judges the resulting capture and refuses to attest to a degenerate one. Its default sweep step is 400px. On a long marketing page that default is too coarse: content gated on scroll never enters the viewport at some offsets, so the capture comes back with a large uniform band and the command's own quality check rejects it. Passing `--sweep-step 150` produced a usable capture of the same page with no other change. The tool is failing its own gate with its own defaults.\n\n## Why (motivation)\nA default that makes the tool reject its own output is the most expensive kind of wrong default, because the failure points at the page rather than at the tool. The command already computes the signal it needs to self-correct: it knows the capture is degenerate at the moment it rejects it, so it could lower the step and retry instead of reporting failure. Options worth weighing rather than prescribing one: lower the constant, derive the step from the viewport height, or retry once with a finer step before giving up.\n\n## User impact\nAn engineer capturing a screenshot of a long page is told the capture failed its quality check, with nothing in the message pointing at the sweep step. They go looking for a rendering bug in a page that renders correctly, and only find the real cause by guessing at a flag. Worse, an engineer who does not notice the rejection can carry a partly-blank image forward as evidence and draw a confident conclusion from a picture that shows nothing.\n\n## Cost of inaction\nEvery person capturing a long page pays the same investigation cost, and each one rediscovers the `--sweep-step` workaround independently. The failure mode that already occurred on [the Conloca landing page](https://github.com/conloca/landing) — a fidelity comparison measured against a capture that was 52% blank, producing numbers that meant nothing — stays available to anyone who misses the rejection.\n\n## Acceptance criteria\n- [ ] Running `dev shot` against a long reveal-gated page with no `--sweep-step` argument produces a capture that passes the command's own quality check.\n- [ ] When the quality check rejects a capture, the command's error output names the sweep step that was used, so the reader can tell the tool's configuration apart from a genuinely broken page.\n- [ ] The chosen default is justified in `dev shot --help` or in code, rather than being an unexplained constant.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "dev-cli#9",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 9,
+      "title": "dev shot's default scroll step produces captures its own quality gate rejects",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "dbeadd7cc5ffa3f794c73f2610f41c691e5a85f218ecb664fad50e27eaf64bb6"
+    }
+  },
+  {
+    "key": "dev-cli#6",
+    "number": 6,
+    "id": 5265217940,
+    "title": "dev shot: blankness check defeated by gradients, and thin-border false rejects",
+    "expected_state": "open",
+    "expected_sha256": "3d969972590e0d6c06da40f50f8c3e153d1e361c1ecb922179d31f82afeb0f72",
+    "expected_updated_at": "2026-09-10T13:36:39Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**dev shot: blankness check defeated by gradients, and thin-border false rejects**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанные PR на момент сверки:\n- [dev-cli#5](https://github.com/ultrabricks/dev-cli/pull/5) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- A content-free horizontal gradient measures as fully featureless and is rejected\n- A 1px vertical rule is treated as content at every column, so a bordered empty element is not refused as a blank band\n- Untracked files count as worktree dirt, and a staged-but-clean tree does not\n- Both real capture fixtures still classify correctly: unswept rejected, swept accepted\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nAutomated review of [PR #5](https://github.com/alex-mextner/dev-cli/pull/5) found the blankness check compares pixels for exact equality, so a blank page under a CSS gradient scores 0% featureless and receives the attestation the feature exists to withhold. A second finding: git diff never lists untracked files, so a page rendered from a brand-new asset records worktree_dirty=false.\n\n## User impact\nAn agent can honestly attest to a screenshot of a blank gradient page, and a reviewer trusts a proof that proves nothing. Separately, a page rendered from an untracked asset passes binding while the staged commit lacks the file on screen.\n\n## Cost of inaction\nThe visual-proof mechanism keeps its central hole: the failure it was built to catch still passes, so the gate provides false assurance rather than none - worse, because people rely on it.\n\n## Acceptance criteria\n- [ ] A content-free horizontal gradient measures as fully featureless and is rejected\n- [ ] A 1px vertical rule is treated as content at every column, so a bordered empty element is not refused as a blank band\n- [ ] Untracked files count as worktree dirt, and a staged-but-clean tree does not\n- [ ] Both real capture fixtures still classify correctly: unswept rejected, swept accepted\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "dev-cli#6",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 6,
+      "title": "dev shot: blankness check defeated by gradients, and thin-border false rejects",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [
+        "[dev-cli#5](https://github.com/ultrabricks/dev-cli/pull/5) — merged"
+      ],
+      "snapshot_body_sha256": "3d969972590e0d6c06da40f50f8c3e153d1e361c1ecb922179d31f82afeb0f72"
+    }
+  },
+  {
+    "key": "dev-cli#3",
+    "number": 3,
+    "id": 4911823739,
+    "title": "Cleanup: dead status.* config branch, dev start orphaning, has-script/run e2e mismatch, docker scan early-return",
+    "expected_state": "open",
+    "expected_sha256": "5291a85d5bf6bcd17c07a08d776ba0fb9f9e5a318e4318dc27a1be3b1b21bb85",
+    "expected_updated_at": "2026-09-10T13:36:34Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Cleanup: dead status.* config branch, dev start orphaning, has-script/run e2e mismatch, docker scan early-return**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/resources.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [dev-cli#27](https://github.com/ultrabricks/dev-cli/issues/27). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- (none specified)\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\n\n\n## User impact\n\n\n## Cost of inaction\n\n\n## Acceptance criteria\n- [ ] (none specified)\n\n## Screenshots\n(none)\n\n## Links\n- Relates to #27: https://github.com/alex-mextner/dev-cli/issues/27\n",
+    "record": {
+      "key": "dev-cli#3",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 3,
+      "title": "Cleanup: dead status.* config branch, dev start orphaning, has-script/run e2e mismatch, docker scan early-return",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "resources",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "dev-cli#27"
+      ],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "5291a85d5bf6bcd17c07a08d776ba0fb9f9e5a318e4318dc27a1be3b1b21bb85"
+    }
+  },
+  {
+    "key": "dev-cli#2",
+    "number": 2,
+    "id": 4911823634,
+    "title": "Security: command-substitution check bypassable via apostrophe inside double quotes",
+    "expected_state": "open",
+    "expected_sha256": "5eccd8b7b9acd022abc4edff8d991baef74ee3e4e99629947818535a7c4f46d6",
+    "expected_updated_at": "2026-09-10T13:36:31Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Security: command-substitution check bypassable via apostrophe inside double quotes**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nВ исходной записи отсутствует явный checklist приёмки. До закрытия определить вход, ожидаемый результат и отрицательный случай из сохранённого описания; отсутствие checklist не является доказательством отсутствия кода.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\nCarried over from agent-tools verbatim; flagged by the extraction code review.\n\n`_has_shell_substitution` blanks single-quoted regions (`_blank_single_quoted`) before scanning for `$(`, backticks, `<(`. But `_blank_single_quoted` only tracks `'` — it has no notion of double quotes (unlike `_command_segments` / `_has_shell_redirection`, which track both). A lone apostrophe inside a double-quoted word flips the blanker into single-quote mode for the rest of the string and erases everything after it, including a real substitution.\n\nRepro — a `rig.yaml` script value of:\n```\nnpm test \"it's fine\" $(touch pwned)\n```\n`_blank_single_quoted` hits the `'` in `it's`, finds no closing `'`, blanks the remainder → `_has_shell_substitution` returns False. `npm` head passes the dev-tool check; `_ensure_lifecycle_command` passes; `_run_shell(shell=True)` executes the substitution. Same shape defeats the check for backticks and `<(...)`, across `dev run`, `dev start`, `dev e2e run`.\n\n## Fix\nMake `_blank_single_quoted` (or a shared tokenizer) enter single-quote mode only when the `'` is outside a double-quoted region — `_has_shell_redirection` already has the two-state machine to copy. Red-first test with the string above (nothing in the suite currently mixes quote styles).\n\n## Why P1\nIt is the command-shape safety boundary that makes `Bash(dev:*)` safe to allowlist. Pre-existing in agent-tools; not fixed during the extraction to keep the port faithful and avoid mid-cutover behavior change.\n",
+    "record": {
+      "key": "dev-cli#2",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 2,
+      "title": "Security: command-substitution check bypassable via apostrophe inside double quotes",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "5eccd8b7b9acd022abc4edff8d991baef74ee3e4e99629947818535a7c4f46d6"
+    }
+  },
+  {
+    "key": "dev-cli#10",
+    "number": 10,
+    "id": 5280116474,
+    "title": "dev-cli: safe cleanup commands gated by rules.yaml and review quorum",
+    "expected_state": "closed",
+    "expected_sha256": "091da6b631539491f63d61b898207acfb98bdc0b30dde9a61e61262219842654",
+    "expected_updated_at": "2026-09-10T13:36:47Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**dev-cli: safe cleanup commands gated by rules.yaml and review quorum**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/roles.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- dev kill-orphan and dev clean-logs commands exist and validate every target against rules.yaml before acting\n- the commands reject an under-specified or unscoped kill/delete target instead of executing it\n- a commit that edits rules.yaml is blocked locally unless the task code has a passed review-cli quorum\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nAlex manually approves the same class of raw pkill and rm Bash permission prompts repeatedly; some ad hoc commands use an unscoped pattern with no unique suffix that could kill an unrelated agent process\n\n## User impact\nfewer interactive approval prompts for routine harness cleanup; the new commands cannot express an unscoped kill or delete the way raw shell one-liners could\n\n## Cost of inaction\nagents keep generating ad hoc shell cleanup commands that require manual approval every time with no enforced safety boundary\n\n## Acceptance criteria\n- [ ] dev kill-orphan and dev clean-logs commands exist and validate every target against rules.yaml before acting\n- [ ] the commands reject an under-specified or unscoped kill/delete target instead of executing it\n- [ ] a commit that edits rules.yaml is blocked locally unless the task code has a passed review-cli quorum\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n## Skipped gates\n- links: feature description references command names and a repo-relative file path, not external entities\n",
+    "record": {
+      "key": "dev-cli#10",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 10,
+      "title": "dev-cli: safe cleanup commands gated by rules.yaml and review quorum",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "roles",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "091da6b631539491f63d61b898207acfb98bdc0b30dde9a61e61262219842654"
+    }
+  },
+  {
+    "key": "dev-cli#27",
+    "number": 27,
+    "id": 5390983010,
+    "title": "dev stop declares success and deletes state before the OS confirms the process exited",
+    "expected_state": "closed",
+    "expected_sha256": "62c46a9a45bad6d1cf679c96283721a1a4023f16f86e0360703bc06e683e09e6",
+    "expected_updated_at": "2026-09-10T13:37:22Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**dev stop declares success and deletes state before the OS confirms the process exited**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [agent-tools#519](https://github.com/ultrabricks/agent-tools/issues/519), [agent-tools#685](https://github.com/ultrabricks/agent-tools/issues/685), [dev-cli#3](https://github.com/ultrabricks/dev-cli/issues/3), [dev-cli#20](https://github.com/ultrabricks/dev-cli/issues/20), [review-cli#377](https://github.com/ultrabricks/review-cli/issues/377), [task-cli#155](https://github.com/ultrabricks/task-cli/issues/155). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nСвязанные PR на момент сверки:\n- [dev-cli#29](https://github.com/ultrabricks/dev-cli/pull/29) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- dev stop does not remove a target's state record (or report success) until the signalled pid is confirmed dead by polling, with a bounded timeout and a SIGKILL escalation on timeout, mirroring agenttools_service.core.Supervisor.stop()'s confirmed-dead contract\n- dev status/dev list never reports a target as unqualified 'configured'/'stopped' while the OS process from the just-removed state record could still be alive; a grace-period or port-liveness probe (mirroring agenttools_service.core.ServiceManager.probe_port(), agent-tools#538) closes the gap\n- a regression test starts a fake long-lived child that ignores/delays SIGTERM, calls the stop path, and asserts the state record is NOT removed (or a probe still reports the port live) until the child actually exits\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nagent-tools#538 (merged, review-cli#377) already fixed this exact race class for agenttools_service's ServiceManager (dashboard/config-web/tg-ctl), whose Supervisor.stop() now blocks until the pid is confirmed dead and probe_port() catches a stray fd-inheriting child afterward. dev-cli's own _stop_target/_terminate_pid in dev_cli/cli.py never got the equivalent fix: _send_signal() fires SIGTERM and _stop_target() unlinks the state file and prints success in the very next lines, with zero wait, zero retry, and no port probe anywhere in the file (grep for grace/escalat/SIGKILL/confirm/wait_for/poll_for/retry/deadline in dev_cli/cli.py returns nothing). CROSS-LINK NOTE: this is related to, but NOT a duplicate of, https://github.com/alex-mextner/task-cli/issues/155 (closed, refiled as https://github.com/alex-mextner/agent-tools/issues/685 ) -- that ticket is a permanent launchd-label detection gap in agenttools_service's Supervisor.status/is_installed (a legacy hand-installed launchd job under an untracked label is never recognized as running, regardless of timing), whereas this ticket is a pure stop-timing race in dev-cli's own PID-file tracking with no launchd involved at all. Same 'status/stop lies about a live process' symptom class, two independent root causes in two independent codebases -- fixing one does not fix the other.\n\n## User impact\nAn agent (or Alex) that calls 'dev stop target' immediately followed by 'dev status target' or 'dev start target' — the exact sequence the dev-cli docs recommend for restarting a server — can be told the target is not running while the old process is still mid-shutdown and still holding its port. A subsequent 'dev start' then either fails with an opaque port-in-use error from the NEW process, or (if the target has no fixed port) leaves two live copies of the same dev server running side by side, silently doubling that target's memory/CPU footprint.\n\n## Cost of inaction\nEvery stop-then-start or stop-then-status sequence stays racy; agents keep hitting spurious port-in-use failures or silently accumulate duplicate dev-server processes, which is itself a contributor to the machine-wide swap/OOM pressure tracked in agent-tools#519.\n\n## Acceptance criteria\n- [x] dev stop does not remove a target's state record (or report success) until the signalled pid is confirmed dead by polling, with a bounded timeout and a SIGKILL escalation on timeout, mirroring agenttools_service.core.Supervisor.stop()'s confirmed-dead contract — proof: ![proof](/tmp/dev-cli27-proof.txt)\n- [x] dev status/dev list never reports a target as unqualified 'configured'/'stopped' while the OS process from the just-removed state record could still be alive; a grace-period or port-liveness probe (mirroring agenttools_service.core.ServiceManager.probe_port(), agent-tools#538) closes the gap — proof: ![proof](/tmp/dev-cli27-proof.txt)\n- [x] a regression test starts a fake long-lived child that ignores/delays SIGTERM, calls the stop path, and asserts the state record is NOT removed (or a probe still reports the port live) until the child actually exits — proof: ![proof](/tmp/dev-cli27-proof.txt)\n\n## Screenshots\n(none)\n\n## Links\n- Relates to #3: https://github.com/alex-mextner/dev-cli/issues/3\n- Relates to #20: https://github.com/alex-mextner/dev-cli/issues/20\n- PR: https://github.com/alex-mextner/dev-cli/pull/29\n- Merge commit: https://github.com/alex-mextner/dev-cli/commit/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0\n\n## Skipped gates\n- links: agent-tools#538/review-cli#377 are bare cross-repo issue mentions already accepted on the original ticket; _stop_target/_terminate_pid, dev_cli/cli.py, and the grep pattern list are code identifiers/paths in prose, not repo links\n",
+    "record": {
+      "key": "dev-cli#27",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 27,
+      "title": "dev stop declares success and deletes state before the OS confirms the process exited",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "agent-tools#519",
+        "agent-tools#685",
+        "dev-cli#3",
+        "dev-cli#20",
+        "review-cli#377",
+        "task-cli#155"
+      ],
+      "implementation_prs": [
+        "[dev-cli#29](https://github.com/ultrabricks/dev-cli/pull/29) — merged"
+      ],
+      "snapshot_body_sha256": "62c46a9a45bad6d1cf679c96283721a1a4023f16f86e0360703bc06e683e09e6"
+    }
+  },
+  {
+    "key": "dev-cli#25",
+    "number": 25,
+    "id": 5390506088,
+    "title": "Disable forced GitHub review on gh ship via .ship-config",
+    "expected_state": "closed",
+    "expected_sha256": "e483e29495f0aad1e04bed8cf9a1bc655e459520eb088d254402dc464e6cf018",
+    "expected_updated_at": "2026-09-10T13:37:20Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Disable forced GitHub review on gh ship via .ship-config**\n\n### Сохранённая постановка проблемы\n\ngh ship refuses PRs that have zero GitHub-side reviews. After https://github.com/alex-mextner/agent-tools/issues/624 the env var SHIP_EXTERNAL_REVIEW=0 is ignored; the only durable off-switch is a committed repo-root .ship-config on the PR base branch with SHIP_EXTERNAL_REVIEW=0. Add that one-line file so this repo matches tg-cli (https://github.com/alex-mextner/tg-cli/commit/17431bf446dffd76016cf84704773a91806e93ba) and review-cli (https://github.com/alex-mextner/review-cli/pull/451).\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/shipping.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [agent-tools#624](https://github.com/ultrabricks/agent-tools/issues/624). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nСвязанные PR на момент сверки:\n- [review-cli#451](https://github.com/ultrabricks/review-cli/pull/451) — merged\n- [dev-cli#26](https://github.com/ultrabricks/dev-cli/pull/26) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- Repo-root .ship-config exists with exactly the line SHIP_EXTERNAL_REVIEW=0 (trailing newline).\n- A PR against main contains only that file and is opened with Refs to this ticket, without GitHub magic-close keywords in title or body.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\ngh ship refuses PRs that have zero GitHub-side reviews. After https://github.com/alex-mextner/agent-tools/issues/624 the env var SHIP_EXTERNAL_REVIEW=0 is ignored; the only durable off-switch is a committed repo-root .ship-config on the PR base branch with SHIP_EXTERNAL_REVIEW=0. Add that one-line file so this repo matches tg-cli (https://github.com/alex-mextner/tg-cli/commit/17431bf446dffd76016cf84704773a91806e93ba) and review-cli (https://github.com/alex-mextner/review-cli/pull/451).\n\n## Why (motivation)\nWithout the committed key, gh ship keeps blocking zero-GitHub-review PRs even when GitHub required_approving_review_count is already 0. Env SHIP_EXTERNAL_REVIEW=0 no longer works (https://github.com/alex-mextner/agent-tools/issues/624).\n\n## User impact\nAgents and developers shipping PRs in this repo hit a hard refuse at the external-review gate and cannot land otherwise-ready one-line or config changes until a GitHub review exists AND the gate is still on. The durable per-repo off-switch unblocks ship without a machine-wide env leak.\n\n## Cost of inaction\nEvery future gh ship on a PR with no GitHub review comment fails at the external-review gate. Work piles up behind a gate this repo has already decided should be off, matching sibling CLIs.\n\n## Acceptance criteria\n- [x] Repo-root .ship-config exists with exactly the line SHIP_EXTERNAL_REVIEW=0 (trailing newline). — forced: no rendered surface; proven by git show 60e0417:.ship-config which is exactly SHIP_EXTERNAL_REVIEW=0 with trailing newline\n- [x] A PR against main contains only that file and is opened with Refs to this ticket, without GitHub magic-close keywords in title or body. — forced: no rendered surface; proven by https://github.com/alex-mextner/dev-cli/pull/26 which contains only .ship-config and body Refs #25\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/dev-cli/pull/26\n- Merge commit: https://github.com/alex-mextner/dev-cli/commit/07632d0a7cc12cae07d0b767565592a251279adc\n\n## Skipped gates\n- screenshots: No UI; one-line committed config file with no rendered surface.\n",
+    "record": {
+      "key": "dev-cli#25",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 25,
+      "title": "Disable forced GitHub review on gh ship via .ship-config",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "shipping",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "agent-tools#624"
+      ],
+      "implementation_prs": [
+        "[review-cli#451](https://github.com/ultrabricks/review-cli/pull/451) — merged",
+        "[dev-cli#26](https://github.com/ultrabricks/dev-cli/pull/26) — merged"
+      ],
+      "snapshot_body_sha256": "e483e29495f0aad1e04bed8cf9a1bc655e459520eb088d254402dc464e6cf018"
+    }
+  },
+  {
+    "key": "dev-cli#21",
+    "number": 21,
+    "id": 5372313855,
+    "title": "Adversarial review of uncommitted safe-cleanup diff",
+    "expected_state": "closed",
+    "expected_sha256": "32e2cd11525bd680be7eeb5c76f0dd562b9aaef459dfa2d0ee917174f85fbe1b",
+    "expected_updated_at": "2026-09-10T13:37:11Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Adversarial review of uncommitted safe-cleanup diff**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- Identify every actionable defect with a file and line plus a concrete triggering scenario.\n- If no defects are found, document the specific adversarial failure modes checked and why each is ruled out.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe requested review needs an auditable work item.\n\n## User impact\nPeople relying on safe project cleanup could be told a process stopped when it did not, or could have a safety-rule change committed without the required review.\n\n## Cost of inaction\nPeople may encounter unreliable cleanup behavior or safety protections could be weakened unnoticed.\n\n## Acceptance criteria\n- [ ] Identify every actionable defect with a file and line plus a concrete triggering scenario.\n- [ ] If no defects are found, document the specific adversarial failure modes checked and why each is ruled out.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "dev-cli#21",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 21,
+      "title": "Adversarial review of uncommitted safe-cleanup diff",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "32e2cd11525bd680be7eeb5c76f0dd562b9aaef459dfa2d0ee917174f85fbe1b"
+    }
+  },
+  {
+    "key": "dev-cli#19",
+    "number": 19,
+    "id": 5293631893,
+    "title": "dev-cli: 72 pre-existing ruff violations masked by an unpinned CI install",
+    "expected_state": "closed",
+    "expected_sha256": "d6a5f6f7cef0ff9496c3d208c2dfd7006975a9e605b8a1b1503fefb18abd5553",
+    "expected_updated_at": "2026-09-10T13:37:05Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**dev-cli: 72 pre-existing ruff violations masked by an unpinned CI install**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/execution.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанные PR на момент сверки:\n- [dev-cli#17](https://github.com/ultrabricks/dev-cli/pull/17) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- ruff check . passes cleanly against dev-cli's actual pinned ruff version\n- each of the 72 violations is either fixed, or consciously waived in ruff config if a false positive\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nCI's ruff step ran an unpinned 'pip install ruff', so a newer ruff release surfaced 72 pre-existing violations across the repo (e.g. typing.List instead of list, unsorted imports) that were never actually caught before - found while shipping [an unrelated docs-only PR](https://github.com/alex-mextner/dev-cli/pull/17).\n\n## User impact\nThe repo's actual code quality has drifted from what CI was supposed to enforce; a future contributor fixing one small thing could get blocked by an unrelated wall of 72 pre-existing errors.\n\n## Cost of inaction\nThe version pin added alongside this ticket only prevents this from resurfacing on the NEXT ruff release - the 72 existing violations stay unfixed and CI's real signal stays degraded until ruff is bumped again.\n\n## Acceptance criteria\n- [x] ruff check . passes cleanly against dev-cli's actual pinned ruff version — proof: ![proof](https://github.com/alex-mextner/dev-cli/actions/runs/33328106493/job/99301739613)\n- [ ] each of the 72 violations is either fixed, or consciously waived in ruff config if a false positive\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/dev-cli/pull/17\n- Merge commit: https://github.com/alex-mextner/dev-cli/commit/a9117db73c4490a75071b2270ae6130647774f8c\n\n## Skipped gates\n- links: internal repo-relative file paths, not real links\n",
+    "record": {
+      "key": "dev-cli#19",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 19,
+      "title": "dev-cli: 72 pre-existing ruff violations masked by an unpinned CI install",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "execution",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [
+        "[dev-cli#17](https://github.com/ultrabricks/dev-cli/pull/17) — merged"
+      ],
+      "snapshot_body_sha256": "d6a5f6f7cef0ff9496c3d208c2dfd7006975a9e605b8a1b1503fefb18abd5553"
+    }
+  },
+  {
+    "key": "dev-cli#15",
+    "number": 15,
+    "id": 5293555598,
+    "title": "dev-cli: add ecosystem tools section to README",
+    "expected_state": "closed",
+    "expected_sha256": "534bae21d09fbff8e0adc310d07063efc271e374f54d1083b1adb67cece8fa2d",
+    "expected_updated_at": "2026-09-10T13:36:59Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**dev-cli: add ecosystem tools section to README**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/specs.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- dev-cli's README.md has a '## Ecosystem' section listing the HyperIDE.ai agent toolchain, matching sibling repos\n- the block uses the shared rig:ecosystem-block markers so future rig syncs update it in place\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\ndev-cli previously had no Ecosystem section at all, unlike sibling repos such as [rig-cli](https://github.com/alex-mextner/rig-cli) and [task-cli](https://github.com/alex-mextner/task-cli) (found during an earlier session audit).\n\n## User impact\nSomeone reading dev-cli's README has no discoverability path to the rest of the HyperIDE.ai toolchain it's part of.\n\n## Cost of inaction\ndev-cli stays the odd one out among sibling repos.\n\n## Acceptance criteria\n- [ ] dev-cli's README.md has a '## Ecosystem' section listing the HyperIDE.ai agent toolchain, matching sibling repos\n- [ ] the block uses the shared rig:ecosystem-block markers so future rig syncs update it in place\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "dev-cli#15",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 15,
+      "title": "dev-cli: add ecosystem tools section to README",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "specs",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "534bae21d09fbff8e0adc310d07063efc271e374f54d1083b1adb67cece8fa2d"
+    }
+  },
+  {
+    "key": "dev-cli#13",
+    "number": 13,
+    "id": 5281221932,
+    "title": "Review pinned Ruff CI diff",
+    "expected_state": "closed",
+    "expected_sha256": "8223e66060d1891a73b66797acefa22d6263310c275b13dfd1dfb8eb4a7970c6",
+    "expected_updated_at": "2026-09-10T13:36:53Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Review pinned Ruff CI diff**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/testing.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- Review the uncommitted GitHub Actions Ruff pin for concrete bugs, regressions, security issues, and cross-file contract drift.\n- Exercise adversarial CI/version scenarios and return only actionable findings or a substantiated clean verdict.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe requested code review needs a durable record and adversarial verification.\n\n## User impact\nMaintainers need confidence that CI linting remains reproducible without breaking the workflow.\n\n## Cost of inaction\nA flawed CI pin could make lint checks fail or leave CI supply-chain behavior inconsistent.\n\n## Acceptance criteria\n- [ ] Review the uncommitted GitHub Actions Ruff pin for concrete bugs, regressions, security issues, and cross-file contract drift.\n- [ ] Exercise adversarial CI/version scenarios and return only actionable findings or a substantiated clean verdict.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "dev-cli#13",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 13,
+      "title": "Review pinned Ruff CI diff",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "testing",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "8223e66060d1891a73b66797acefa22d6263310c275b13dfd1dfb8eb4a7970c6"
+    }
+  },
+  {
+    "key": "dev-cli#4",
+    "number": 4,
+    "id": 5261521878,
+    "title": "dev shot: capture-measure-attest visual proof that cannot be faked",
+    "expected_state": "closed",
+    "expected_sha256": "11a600733a8f38de773cfda672ae94a8c514d031efdb1a43dfb95f3d99bf0e55",
+    "expected_updated_at": "2026-09-10T13:36:36Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**dev shot: capture-measure-attest visual proof that cannot be faked**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/intake.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- `dev shot <url> --out <path>` captures with a viewport set before open and a scroll sweep, so reveal-on-scroll content is visible before the shutter\n- A degenerate capture (large contiguous blank band, wrong viewport width, near-blank page) is REJECTED with exit code 3 and NO attestation is written\n- The attestation record binds the capture sha256 and the `git diff --cached` sha256, so it cannot be reused for a different change or survive further edits\n- Adversarial tests use two real captures of the same page — one unswept (42% blank band) must be rejected, one swept (4%) must be accepted\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe visual-proof gate's contract was 'any file in the marker dir with a recent mtime'. A bare touch satisfied it, so the attestation carried no information: an agent that never opened a browser could pass it, and an agent that captured a blank page could pass it too.\n\n## User impact\nTwo batches of completed UI work were stalled because the honour-system marker could not be written, while the same mechanism would have happily accepted proof of a blank page. Reviewers cannot trust a green gate, and agents cannot satisfy it honestly.\n\n## Cost of inaction\nThe gate stays theatre: it blocks honest work at random while providing no actual evidence that anyone looked at the rendered result. UI regressions ship with a passing visual-proof check.\n\n## Acceptance criteria\n- [ ] `dev shot <url> --out <path>` captures with a viewport set before open and a scroll sweep, so reveal-on-scroll content is visible before the shutter\n- [ ] A degenerate capture (large contiguous blank band, wrong viewport width, near-blank page) is REJECTED with exit code 3 and NO attestation is written\n- [ ] The attestation record binds the capture sha256 and the `git diff --cached` sha256, so it cannot be reused for a different change or survive further edits\n- [ ] Adversarial tests use two real captures of the same page — one unswept (42% blank band) must be rejected, one swept (4%) must be accepted\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "dev-cli#4",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 4,
+      "title": "dev shot: capture-measure-attest visual proof that cannot be faked",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "intake",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "11a600733a8f38de773cfda672ae94a8c514d031efdb1a43dfb95f3d99bf0e55"
+    }
+  },
+  {
+    "key": "dev-cli#1",
+    "number": 1,
+    "id": 4911766256,
+    "title": "Extract dev into standalone dev-cli repo",
+    "expected_state": "closed",
+    "expected_sha256": "17f2e1e92761e63b165b7f149baeedd4f17340ca61af1c73c6ec83bf77d2d5ce",
+    "expected_updated_at": "2026-09-10T13:36:28Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Extract dev into standalone dev-cli repo**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- dev_cli package with the full CLI ported, `--version` + `install-skill`\n- `--agenttools-dev-probe`/`agenttools-dev` token + `.agenttools-dev` state-dir preserved (wire contracts)\n- agenttools_config vendored under vendor/ + pinned-SHA drift guard + re-sync script + scheduled drift workflow\n- README, AGENTS.md, LICENSE, CI (ruff + pytest matrix + gitleaks)\n- full unit suite ported + green; `dev` reinstalled from the new repo and verified working\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\nSpin the project-scoped dev/e2e process runner (`dev`) out of the agent-tools umbrella (it lived at `lib/agenttools_dev`) into a first-class peer of pm-cli / research-cli / tg-cli, matching their layout (bin shim, install.sh, install-skill, vendored shared lib + drift guard, CI).\n\n## Acceptance\n- [ ] dev_cli package with the full CLI ported, `--version` + `install-skill`\n- [ ] `--agenttools-dev-probe`/`agenttools-dev` token + `.agenttools-dev` state-dir preserved (wire contracts)\n- [ ] agenttools_config vendored under vendor/ + pinned-SHA drift guard + re-sync script + scheduled drift workflow\n- [ ] README, AGENTS.md, LICENSE, CI (ruff + pytest matrix + gitleaks)\n- [ ] full unit suite ported + green; `dev` reinstalled from the new repo and verified working\n- [ ] agent-tools removal PR + any rig registry follow-up\n\n## Why\ndev was the last agent CLI still living inside agent-tools instead of its own repo; the CTO ordered the extraction. Standalone means it versions/ships/tests independently like its siblings.\n",
+    "record": {
+      "key": "dev-cli#1",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 1,
+      "title": "Extract dev into standalone dev-cli repo",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "17f2e1e92761e63b165b7f149baeedd4f17340ca61af1c73c6ec83bf77d2d5ce"
+    }
+  },
+  {
+    "key": "dev-cli#23",
+    "number": 23,
+    "id": 5376989418,
+    "title": "Review uncommitted rig configuration diff",
+    "expected_state": "closed",
+    "expected_sha256": "2cf9107b31ba2012312c5f5a353be60487661c24515a8931e71e3a7ec481b3f4",
+    "expected_updated_at": "2026-09-10T13:37:17Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Review uncommitted rig configuration diff**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nЭто процессная запись ревью/проверки, а не самостоятельная функция. Сохранить её находки и ссылки на исправления. Не создавать новую реализацию по одному служебному заголовку; оригинальная история остаётся ниже.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe new repo-level worktree-only configuration changes how contributors author changes.\n\n## User impact\nContributors could be prevented from doing normal work, or their primary checkout could remain unprotected, if this configuration is incorrect.\n\n## Cost of inaction\nA harmful configuration change could be merged without a concrete safety review.\n\n## Acceptance criteria\n- [ ] Identify each concrete defect with exact file and line number.\n- [ ] For a clean verdict, document specific adversarial failure modes checked and why they are ruled out.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "dev-cli#23",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 23,
+      "title": "Review uncommitted rig configuration diff",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "2cf9107b31ba2012312c5f5a353be60487661c24515a8931e71e3a7ec481b3f4"
+    }
+  },
+  {
+    "key": "dev-cli#22",
+    "number": 22,
+    "id": 5372703830,
+    "title": "Review uncommitted cleanup safety diff",
+    "expected_state": "closed",
+    "expected_sha256": "b412c620443962592590233881f5d73a28a4613e05624ba4e7820ba4c3187883",
+    "expected_updated_at": "2026-09-10T13:37:14Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Review uncommitted cleanup safety diff**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nЭто процессная запись ревью/проверки, а не самостоятельная функция. Сохранить её находки и ссылки на исправления. Не создавать новую реализацию по одному служебному заголовку; оригинальная история остаётся ниже.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe requested review concerns changes to cleanup validation, signal escalation, and the safety quorum hook.\n\n## User impact\nPeople using the developer tool could have a running local server stopped unexpectedly, or a teammate could commit a weakened safety setting without the intended review.\n\n## Cost of inaction\nA bug could cause someone to lose a development process or let a weakened cleanup rule be committed unnoticed.\n\n## Acceptance criteria\n- [ ] Trace every changed function through its production callers and configuration inputs.\n- [ ] Attempt concrete malformed-template, process-race, rename, and review-execution failure scenarios.\n- [ ] Return only actionable findings or a clean verdict that names the attempted failure modes.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n## Skipped gates\n- user-impact-quality: This is an internal developer-tool review; the plain-language impact describes the direct operational consequences.\n",
+    "record": {
+      "key": "dev-cli#22",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 22,
+      "title": "Review uncommitted cleanup safety diff",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "b412c620443962592590233881f5d73a28a4613e05624ba4e7820ba4c3187883"
+    }
+  },
+  {
+    "key": "dev-cli#16",
+    "number": 16,
+    "id": 5293565940,
+    "title": "Review uncommitted README ecosystem diff",
+    "expected_state": "closed",
+    "expected_sha256": "006b26c111d05b30e23a429983d8568351919382a6125077ca8d8f6e4ef5c5f6",
+    "expected_updated_at": "2026-09-10T13:37:02Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Review uncommitted README ecosystem diff**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nЭто процессная запись ревью/проверки, а не самостоятельная функция. Сохранить её находки и ссылки на исправления. Не создавать новую реализацию по одному служебному заголовку; оригинальная история остаётся ниже.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe requested documentation change needs adversarial review before it is committed.\n\n## User impact\nPeople choosing a tool from the README need working links and accurate descriptions so they can reach the right project without confusion.\n\n## Cost of inaction\nReaders could follow incorrect project references or receive misleading setup information.\n\n## Acceptance criteria\n- [ ] Inspect the README ecosystem block for concrete defects, regressions, security concerns, and missing tests.\n- [ ] Trace cross-file and external integration contracts, then report only actionable findings or a documented clean verdict.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "dev-cli#16",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 16,
+      "title": "Review uncommitted README ecosystem diff",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "006b26c111d05b30e23a429983d8568351919382a6125077ca8d8f6e4ef5c5f6"
+    }
+  },
+  {
+    "key": "dev-cli#14",
+    "number": 14,
+    "id": 5281266248,
+    "title": "Review staged Ruff version-pinning diff",
+    "expected_state": "closed",
+    "expected_sha256": "3c0d42280a4f69ca192eafe52224290fd1056052435b1ac1d8ce36aff6b78a04",
+    "expected_updated_at": "2026-09-10T13:36:56Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Review staged Ruff version-pinning diff**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nЭто процессная запись ревью/проверки, а не самостоятельная функция. Сохранить её находки и ссылки на исправления. Не создавать новую реализацию по одному служебному заголовку; оригинальная история остаётся ниже.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe requested review needs a durable traceable record.\n\n## User impact\nDevelopers and contributors need CI and local lint commands to give consistent, trustworthy results instead of unexpectedly failing after a tool update.\n\n## Cost of inaction\nContributors could be blocked by unpredictable lint failures or rely on a local check that disagrees with CI.\n\n## Acceptance criteria\n- [ ] Identify any concrete correctness, security, regression, or cross-file-consistency issue in the staged diff, with file and line evidence.\n- [ ] If no issue is found, record specific adversarial failure scenarios checked and why the diff prevents each one.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "dev-cli#14",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 14,
+      "title": "Review staged Ruff version-pinning diff",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "3c0d42280a4f69ca192eafe52224290fd1056052435b1ac1d8ce36aff6b78a04"
+    }
+  },
+  {
+    "key": "dev-cli#11",
+    "number": 11,
+    "id": 5280353105,
+    "title": "Review uncommitted cleanup command diff",
+    "expected_state": "closed",
+    "expected_sha256": "e58a72c4a533840377dce2339feb087a7c811c12c7b433ce6148a633fe60da8a",
+    "expected_updated_at": "2026-09-10T13:36:50Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Review uncommitted cleanup command diff**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nЭто процессная запись ревью/проверки, а не самостоятельная функция. Сохранить её находки и ссылки на исправления. Не создавать новую реализацию по одному служебному заголовку; оригинальная история остаётся ниже.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe requested code review must actively test safety boundaries before a commit.\n\n## User impact\nPeople using this tool need cleanup commands that do not accidentally stop unrelated work or delete files outside the intended logs.\n\n## Cost of inaction\nPeople could lose active work or encounter a broken cleanup command after the change lands.\n\n## Acceptance criteria\n- [ ] Identify each actionable defect with an exact file and line.\n- [ ] Exercise concrete adversarial failure scenarios before reaching a clean verdict.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "dev-cli#11",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 11,
+      "title": "Review uncommitted cleanup command diff",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "e58a72c4a533840377dce2339feb087a7c811c12c7b433ce6148a633fe60da8a"
+    }
+  },
+  {
+    "key": "dev-cli#7",
+    "number": 7,
+    "id": 5265337880,
+    "title": "Review uncommitted visual-proof diff",
+    "expected_state": "closed",
+    "expected_sha256": "94765ae32b7f3b399f3d8e7b008f41a13496bd1720ee2ba18d9523cf0c2b7bc7",
+    "expected_updated_at": "2026-09-10T13:36:42Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Review uncommitted visual-proof diff**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nЭто процессная запись ревью/проверки, а не самостоятельная функция. Сохранить её находки и ссылки на исправления. Не создавать новую реализацию по одному служебному заголовку; оригинальная история остаётся ниже.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`b7550a1d0107`](https://github.com/ultrabricks/dev-cli/tree/b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe requested review needs a durable record of the investigated change and verdict.\n\n## User impact\nPrevents visual-proof attestation regressions and CI instability from reaching users.\n\n## Cost of inaction\nUndetected contract drift could produce invalid attestations or incorrectly reject valid captures.\n\n## Acceptance criteria\n- [ ] Identify actionable bugs, regressions, security issues, and missing tests in the uncommitted diff.\n- [ ] Trace cross-file attestation and validation contracts and document concrete adversarial checks.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n## Skipped gates\n- screenshots: Read-only code review; no UI implementation.\n",
+    "record": {
+      "key": "dev-cli#7",
+      "repo": "dev-cli",
+      "canonical_repository": "ultrabricks/dev-cli",
+      "number": 7,
+      "title": "Review uncommitted visual-proof diff",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "94765ae32b7f3b399f3d8e7b008f41a13496bd1720ee2ba18d9523cf0c2b7bc7"
+    }
+  }
+]

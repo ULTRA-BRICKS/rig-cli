@@ -1,0 +1,65 @@
+{
+  "findings": [
+    {
+      "RuleID": "generic-api-key",
+      "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "File": "docs/grooming/full-2026-09-10/before/tg-cli.json",
+      "StartLine": 411,
+      "EndLine": 411,
+      "StartColumn": 452,
+      "EndColumn": 469,
+      "Fingerprint": "docs/grooming/full-2026-09-10/before/tg-cli.json:generic-api-key:411"
+    },
+    {
+      "RuleID": "generic-api-key",
+      "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "File": "docs/grooming/v4-2026-09-10/tg-cli-current-issues.json",
+      "StartLine": 2382,
+      "EndLine": 2382,
+      "StartColumn": 4366,
+      "EndColumn": 4383,
+      "Fingerprint": "docs/grooming/v4-2026-09-10/tg-cli-current-issues.json:generic-api-key:2382"
+    },
+    {
+      "RuleID": "generic-api-key",
+      "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "File": "docs/grooming/v4-2026-09-10/tg-cli-current-issues.json",
+      "StartLine": 2382,
+      "EndLine": 2382,
+      "StartColumn": 6820,
+      "EndColumn": 6837,
+      "Fingerprint": "docs/grooming/v4-2026-09-10/tg-cli-current-issues.json:generic-api-key:2382"
+    },
+    {
+      "RuleID": "generic-api-key",
+      "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "File": "docs/grooming/full-2026-09-10/plans/tg-cli.json",
+      "StartLine": 2573,
+      "EndLine": 2573,
+      "StartColumn": 4292,
+      "EndColumn": 4309,
+      "Fingerprint": "docs/grooming/full-2026-09-10/plans/tg-cli.json:generic-api-key:2573"
+    },
+    {
+      "RuleID": "generic-api-key",
+      "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "File": "docs/grooming/full-2026-09-10/plans/tg-cli.json",
+      "StartLine": 2573,
+      "EndLine": 2573,
+      "StartColumn": 6746,
+      "EndColumn": 6763,
+      "Fingerprint": "docs/grooming/full-2026-09-10/plans/tg-cli.json:generic-api-key:2573"
+    },
+    {
+      "RuleID": "generic-api-key",
+      "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+      "File": "docs/grooming/full-2026-09-10/pull-requests.json",
+      "StartLine": 11137,
+      "EndLine": 11137,
+      "StartColumn": 1341,
+      "EndColumn": 1358,
+      "Fingerprint": "docs/grooming/full-2026-09-10/pull-requests.json:generic-api-key:11137"
+    }
+  ],
+  "policy": "Scanner matches are not assumed to be valid credentials. No matched secret values are logged or published."
+}

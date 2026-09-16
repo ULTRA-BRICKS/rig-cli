@@ -1,0 +1,7 @@
+[
+  {
+    "key": "harness-cli#18",
+    "reason": "Issue-specific rewrite applied separately; preserve it.",
+    "observed_body_sha256": "a64840ceb274dfe9a5a994412f41d13ea9e5eda631590262539ee332568280df"
+  }
+]

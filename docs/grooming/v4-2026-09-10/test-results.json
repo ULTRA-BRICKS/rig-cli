@@ -1,0 +1,458 @@
+{
+  "rig-cli": {
+    "repository": "rig-cli",
+    "source_sha": "97023cfd0c1ec4c8ba5c9e6a7666e26391ecc6ad",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:22:43.753678+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 106.58,
+        "log": "command-1.log"
+      },
+      {
+        "argv": [
+          "bash",
+          "tests/smoke.sh"
+        ],
+        "exit_code": 0,
+        "seconds": 103.26,
+        "log": "command-2.log"
+      }
+    ],
+    "passed": true,
+    "test_counts": {
+      "passed": 3639,
+      "skipped": 44
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance."
+  },
+  "agent-tools": {
+    "repository": "agent-tools",
+    "source_sha": "5bd4dca121baf3034f9800c70c58fae2f53c3f82",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:22:37.171737+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 196.67,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "test_counts": {
+      "passed": 5382,
+      "skipped": 12
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance."
+  },
+  "review-cli": {
+    "repository": "review-cli",
+    "source_sha": "c3779b4a2592961f4dcc2d9a98da65ef0e954442",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:22:43.414921+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 1,
+        "seconds": 303.31,
+        "log": "command-1.log"
+      },
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "tests/smoke.py"
+        ],
+        "exit_code": 0,
+        "seconds": 294.36,
+        "log": "command-2.log"
+      }
+    ],
+    "passed": false,
+    "test_counts": {
+      "passed": 2559,
+      "failed": 66,
+      "skipped": 13
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance.",
+    "qualification": "With ImageMagick 7.1.2-31 installed: 2625 passed, 1 failed, 12 skipped. The same effort/board test fails when run alone (24 passed, 1 failed). It patches backend_available but leaves another availability path dependent on installed CLIs. This is a reproducible test-isolation/contract gap, not evidence of 66 independent product regressions. Suite invocation/count differences are retained instead of silently summed. Follow-up: https://github.com/alex-mextner/rig-cli/actions/runs/34478551966",
+    "followup": {
+      "effort_isolated": {
+        "counts": {
+          "passed": 24,
+          "failed": 1
+        },
+        "failed": [
+          {
+            "module": "tests.test_effort_run_flag",
+            "name": "test_overridden_board_flows_into_panel_jobs_once",
+            "status": "failed"
+          }
+        ],
+        "skipped": []
+      },
+      "image_magick_version": "Version: ImageMagick 7.1.2-31 Q16-HDRI x86_64 8309dc92a:20260903 https://imagemagick.org",
+      "full": {
+        "counts": {
+          "passed": 2625,
+          "skipped": 12,
+          "failed": 1
+        },
+        "failed": [
+          {
+            "module": "tests.test_effort_run_flag",
+            "name": "test_overridden_board_flows_into_panel_jobs_once",
+            "status": "failed"
+          }
+        ],
+        "skipped": [
+          {
+            "module": "tests.test_dashboard_service",
+            "name": "test_dashboard_service_descriptor_shape",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_dashboard_service",
+            "name": "test_dashboard_service_honors_explicit_port_and_host",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_install_commit_hook_rig_delegate",
+            "name": "test_install_commit_hook_delegates_scoped_and_rig_owns_the_gate",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_install_commit_hook_rig_delegate",
+            "name": "test_install_commit_hook_falls_back_when_rig_succeeds_but_provisions_no_gate",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_install_commit_hook_rig_delegate",
+            "name": "test_install_commit_hook_falls_back_when_rig_leaves_only_an_unrelated_hook",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_install_commit_hook_rig_delegate",
+            "name": "test_install_commit_hook_surfaces_a_failing_rigs_exit_code_without_falling_back",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_env",
+            "name": "test_docker_compose_bringup_and_teardown_live",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_executor",
+            "name": "test_dod_live_buggy_and_good",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_ext",
+            "name": "test_live_vscode_dod_good_passes",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_ext",
+            "name": "test_live_vscode_dod_buggy_fails",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_web",
+            "name": "test_live_browser_dod_good_passes",
+            "status": "skipped"
+          },
+          {
+            "module": "tests.test_qa_web",
+            "name": "test_live_browser_dod_buggy_fails",
+            "status": "skipped"
+          }
+        ]
+      }
+    }
+  },
+  "task-cli": {
+    "repository": "task-cli",
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:22:39.105559+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 24.77,
+        "log": "command-1.log"
+      },
+      {
+        "argv": [
+          "bash",
+          "tests/smoke.sh"
+        ],
+        "exit_code": 0,
+        "seconds": 24.47,
+        "log": "command-2.log"
+      }
+    ],
+    "passed": true,
+    "test_counts": {
+      "passed": 1619,
+      "skipped": 6
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance."
+  },
+  "tg-cli": {
+    "repository": "tg-cli",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:23:48.298552+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "bun",
+          "test",
+          "./tests"
+        ],
+        "exit_code": 1,
+        "seconds": 345.91,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": false,
+    "test_counts": {
+      "passed": 2941,
+      "failed": 2,
+      "skipped": 14
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance.",
+    "qualification": "The durable-question file fails once and passes twice across three isolated repeats; the repeated failure is a reconnect/callback scenario, different from the first full-suite late-delivery assertion. Watermark tests pass 27/27 with both system and venv interpreter setups after installing system Pillow. Do not declare the original watermark failure a confirmed product regression. Follow-up: https://github.com/alex-mextner/rig-cli/actions/runs/34478551966",
+    "followup": {
+      "exit_codes": {
+        "durable-1.exit": 1,
+        "durable-2.exit": 0,
+        "durable-3.exit": 0,
+        "watermark-system.exit": 0,
+        "watermark-venv.exit": 0
+      },
+      "repeat_failures": {
+        "durable-2.log": [],
+        "durable-1.log": [
+          "RECONNECT: a daemon bounce mid-block re-attaches the card (no duplicate) and the answer flows [15105.77ms]",
+          "RECONNECT: a daemon bounce mid-block re-attaches the card (no duplicate) and the answer flows [15105.77ms]"
+        ],
+        "durable-3.log": [],
+        "watermark-system.log": [],
+        "watermark-venv.log": []
+      }
+    }
+  },
+  "qa-cli": {
+    "repository": "qa-cli",
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:26:16.558327+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 3.82,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "test_counts": {
+      "passed": 32,
+      "skipped": 1
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance."
+  },
+  "draw-cli": {
+    "repository": "draw-cli",
+    "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:26:36.217307+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 10.99,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "test_counts": {
+      "passed": 253,
+      "skipped": 2
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance."
+  },
+  "stt-cli": {
+    "repository": "stt-cli",
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:26:44.488060+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 7.53,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "test_counts": {
+      "passed": 498
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance."
+  },
+  "research-cli": {
+    "repository": "research-cli",
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:27:08.919425+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 1.42,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "test_counts": {
+      "passed": 67
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance."
+  },
+  "dev-cli": {
+    "repository": "dev-cli",
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:27:15.680897+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 3.47,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "test_counts": {
+      "passed": 251
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance."
+  },
+  "pm-cli": {
+    "repository": "pm-cli",
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "platform": "ubuntu-latest / Python 3.12",
+    "started_at": "2026-09-10T12:28:05.085265+00:00",
+    "live_credentials": false,
+    "live_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 4.42,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "test_counts": {
+      "passed": 304
+    },
+    "run_url": "https://github.com/alex-mextner/rig-cli/actions/runs/34476344921",
+    "interpretation": "Isolated repository-suite evidence only; no live-machine/provider acceptance."
+  }
+}

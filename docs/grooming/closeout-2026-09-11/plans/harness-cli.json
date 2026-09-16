@@ -1,0 +1,803 @@
+[
+  {
+    "key": "harness-cli#29",
+    "number": 29,
+    "id": 5411299673,
+    "title": "Live agent discovery: verify native session/process generation instead of transcript recency",
+    "expected_state": "open",
+    "expected_sha256": "82c2e7ad16258cd4f31ed87f2ef5ef34e14fb43fd690bdce90423b806a20200a",
+    "expected_updated_at": "2026-09-10T10:57:53Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Live agent discovery: verify native session/process generation instead of transcript recency**\n\n### Запросы пользователя и контекст\n\n> Ответы в Telegram всё ещё не работают для OMP-сессий вне tmux. Нужно проработать все сценарии.\n\nИсточник **v4-201**, compiled-historical-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n> Нужно нормально описать все проблемы: реального паритета харнесов всё ещё нет; OMP ошибочно допускает правки из оркестратора; hook неверно определяет эффективную рабочую директорию; оркестратор и субагент различаются неправильно; Telegram escape hatches не работают; запреты обходятся через Eval и другие инструменты. Требовать от пользователя абсолютные пути не нужно.\n\nИсточник **v4-537**, parent-or-telegram-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/identity.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [agent-tools#573](https://github.com/ultrabricks/agent-tools/issues/573), [harness-cli#22](https://github.com/ultrabricks/harness-cli/issues/22), [tg-cli#373](https://github.com/ultrabricks/tg-cli/issues/373), [tg-cli#379](https://github.com/ultrabricks/tg-cli/issues/379). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- Define canonical native identity plus generation/ownership evidence and explicit live, terminated, activity-only and unknown states. Preserve the old output through an intentional compatibility/versioning plan.\n- Per-kind discovery is adapter-owned and reports provenance/observation time; missing native metadata is unsupported/unknown, never an inferred live process from mtime alone.\n- Validate a control target against the current native session generation before dispatch; stale or ambiguous identity produces a typed result, not a guessed newest session.\n- Fixtures cover a recent dead transcript, an old but live session, PID reuse, tmux server restart, shared-process siblings, missing metadata and an unavailable process inspector.\n- The same identity is used by inventory, messages and persistent control; callers contain no harness-specific session-path parsers.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## Outcome\n`harness agents --live` exposes verified live addressable native sessions, or clearly distinguishes activity-only/unknown evidence. Recently written transcripts, reused PIDs and reused tmux pane IDs cannot identify a different agent as the original target.\n\n## Why / user impact\nThe inspected CLI describes live/parked using transcript mtime, while control consumers use --live to decide where to send a message. Activity evidence is not sufficient for live delivery; stale targets cause repeated failed nudges or wrong-session routing.\n\n## Parent / specification / consumers\nParent: https://github.com/alex-mextner/harness-cli/issues/22\nSpecification: https://github.com/alex-mextner/harness-cli/blob/docs/ecosystem-grooming-2026-09-10/docs/specs/2026-09-10-harness-contracts.md#control-and-ipc\nControl implementation: #28. Inventory: #26.\nConsumers: https://github.com/alex-mextner/tg-cli/issues/379 and https://github.com/alex-mextner/tg-cli/issues/373.\nTrusted native metadata: https://github.com/alex-mextner/agent-tools/issues/573; do not duplicate its trust authority.\n\n## Acceptance criteria\n- [ ] Define canonical native identity plus generation/ownership evidence and explicit live, terminated, activity-only and unknown states. Preserve the old output through an intentional compatibility/versioning plan.\n- [ ] Per-kind discovery is adapter-owned and reports provenance/observation time; missing native metadata is unsupported/unknown, never an inferred live process from mtime alone.\n- [ ] Validate a control target against the current native session generation before dispatch; stale or ambiguous identity produces a typed result, not a guessed newest session.\n- [ ] Fixtures cover a recent dead transcript, an old but live session, PID reuse, tmux server restart, shared-process siblings, missing metadata and an unavailable process inspector.\n- [ ] The same identity is used by inventory, messages and persistent control; callers contain no harness-specific session-path parsers.\n- [ ] Consumer tests prove stale sessions are not repeatedly nudged and a headless origin is not assigned to an unrelated tmux/Claude session.\n\n## Priority / boundaries\nP1. Discovery is read-only and must not spawn a real agent to prove it exists. No guessed identities, process-global child-role markers or live user-process termination.\n",
+    "record": {
+      "key": "harness-cli#29",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 29,
+      "title": "Live agent discovery: verify native session/process generation instead of transcript recency",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "identity",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-201",
+        "v4-537"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-201",
+          "kind": "reviewed-requirement-context"
+        },
+        {
+          "id": "v4-537",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [
+        "agent-tools#573",
+        "harness-cli#22",
+        "tg-cli#373",
+        "tg-cli#379"
+      ],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "82c2e7ad16258cd4f31ed87f2ef5ef34e14fb43fd690bdce90423b806a20200a"
+    }
+  },
+  {
+    "key": "harness-cli#26",
+    "number": 26,
+    "id": 5410472084,
+    "title": "[EPIC] Complete harness/account/model inventory with truthful health and coverage",
+    "expected_state": "open",
+    "expected_sha256": "e919ccbd3e130351f7eff5fbab312da1ddefb87185c16a425f8ba70a7e1aa9f5",
+    "expected_updated_at": "2026-09-10T09:35:18Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**[EPIC] Complete harness/account/model inventory with truthful health and coverage**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/health.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [review-cli#472](https://github.com/ultrabricks/review-cli/issues/472), [review-cli#487](https://github.com/ultrabricks/review-cli/issues/487), [rig-cli#501](https://github.com/ultrabricks/rig-cli/issues/501), [rig-cli#514](https://github.com/ultrabricks/rig-cli/issues/514). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- #24 — inventory CLI, stable entities, relationships and capability coverage.\n- #21 — all-source/account enumeration and truthful limit-card coverage.\n- #17 — OMP-owned account/usage source, without inventing provider quotas from token history.\n- #18 — read-only messages using the same canonical agent identifier.\n- #25 — reliable CI evidence for harness changes.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## Outcome\nOne read-only inventory explains every configured or discovered harness, account, provider, model and capability. `--all` must never silently omit an unavailable source, and unknown health must never become healthy or a fabricated usage percentage.\n\n## Parent and specification\nParent: https://github.com/alex-mextner/rig-cli/issues/514\nSpecification: https://github.com/alex-mextner/harness-cli/blob/docs/ecosystem-grooming-2026-09-10/docs/specs/2026-09-10-harness-contracts.md#inventory-and-health\n\n## Verified baseline — 2026-09-10\n`harness_cli/limits_collect.py` currently invokes only Claude, Codex, z.ai, x.ai and Kimi collectors. `harness_cli/cli.py` has limits/search/tasks/agents/nudge, but no inventory or messages command. `agents --live` currently filters a transcript-activity status; recent mtime is not proof of a live addressable process. These are code observations, not a fresh scan of the operator's machine.\n\n## Child work\n- [ ] #24 — inventory CLI, stable entities, relationships and capability coverage.\n- [ ] #21 — all-source/account enumeration and truthful limit-card coverage.\n- [ ] #17 — OMP-owned account/usage source, without inventing provider quotas from token history.\n- [ ] #18 — read-only messages using the same canonical agent identifier.\n- [ ] #25 — reliable CI evidence for harness changes.\n\n## Consumers / dependencies\nUniversal control is tracked in #22. review-cli's entity browser consumes this inventory rather than introducing a competing provider inventory: https://github.com/alex-mextner/review-cli/issues/487. Capacity decisions require a mapped route/account and current evidence: https://github.com/alex-mextner/review-cli/issues/472. The historical inventory remains useful baseline evidence, not a live source of truth: https://github.com/alex-mextner/rig-cli/issues/501.\n\n## Acceptance criteria\n- [ ] A versioned JSON contract represents installed, configured, inaccessible and unsupported sources with explicit coverage diagnostics.\n- [ ] IDs and relationships distinguish harness, provider, vendor, account, model/version and review role/effort; credentials never appear in output.\n- [ ] Every discovered account produces an actual result or a reason; fixture completeness is asserted by set equality, not a sample count.\n- [ ] Quota, auth, billing, transport, local storage and liveness remain separate dimensions; each includes source and observation time.\n- [ ] Unknown/partial/stale results cannot authorize a guard exception or claim all capacity exhausted.\n- [ ] JSON, text and consumer contract tests agree, including absent binary, corrupt store, multi-account and unsupported-provider cases.\n\n## Priority / closure\nP1. Close only on the end-to-end coverage contract, not when one provider or a static inventory document lands. No account rotation, purchases, login or secret migration is authorized by this epic.\n",
+    "record": {
+      "key": "harness-cli#26",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 26,
+      "title": "[EPIC] Complete harness/account/model inventory with truthful health and coverage",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "health",
+      "classification": "epic",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "review-cli#472",
+        "review-cli#487",
+        "rig-cli#501",
+        "rig-cli#514"
+      ],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "e919ccbd3e130351f7eff5fbab312da1ddefb87185c16a425f8ba70a7e1aa9f5"
+    }
+  },
+  {
+    "key": "harness-cli#24",
+    "number": 24,
+    "id": 5409611882,
+    "title": "Inventory CLI: enumerate all harness/account/model entities with explicit capabilities and coverage",
+    "expected_state": "open",
+    "expected_sha256": "4826d9775b6dfa62f5ab9663bf3856d8fe7b119be3f13e79895f8aed9b56fac4",
+    "expected_updated_at": "2026-09-10T09:55:43Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Inventory CLI: enumerate all harness/account/model entities with explicit capabilities and coverage**\n\n### Сохранённая постановка проблемы\n\nImplement `harness inventory [--json]` as the public entity/relationship/capability view consumed by review-cli and other tools. Discover the complete configured/installed source set and represent inaccessible or unsupported sources instead of silently omitting them.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Запросы пользователя и контекст\n\n> Нужно получать все модели и все аккаунты всех провайдеров из всех харнесов, в том числе opencode-go из OMP и OpenCode.\n\nИсточник **v4-3133**, parent-or-telegram-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n> harness limits --all сейчас показывает скорее usage, а не лимиты. Нужно показывать все аккаунты всех моделей и провайдеров во всех харнесах, включая аналитику скорости и ускорения расхода, в читаемом виде с цветом и ASCII-графикой.\n\nИсточник **v4-231**, compiled-historical-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n> Нужна простая команда и красивый интерактивный TUI для просмотра сущностей, их связей, статусов и статистики: модели, версии, харнесы, провайдеры подписок, вендоры моделей, effort и аккаунты. Всё должно быть максимально ортогональным и отражаться в базе review-cli.\n\nИсточник **v4-2939**, parent-or-telegram-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/health.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [harness-cli#26](https://github.com/ultrabricks/harness-cli/issues/26), [review-cli#495](https://github.com/ultrabricks/review-cli/issues/495), [rig-cli#501](https://github.com/ultrabricks/rig-cli/issues/501). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- A versioned JSON envelope includes observation time, source coverage and stable opaque entity IDs/relationships for harness, provider/vendor, account, model/version and session/capability.\n- Offline discovery is read-only by default; any live probing is explicit, bounded and documented. Help/import stays lightweight.\n- Missing binary, unreadable/corrupt store, unsupported source and partial discovery produce explicit diagnostics; zero emitted entities is not automatically complete coverage.\n- Credentials and authorization headers never appear in output, logs or errors. Distinct accounts remain distinct even when their provider/model labels match.\n- Fixtures assert exact expected identity-set coverage, multi-account relationships and compatibility with #22 IDs, not merely a minimum row count.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nImplement `harness inventory [--json]` as the public entity/relationship/capability view consumed by review-cli and other tools. Discover the complete configured/installed source set and represent inaccessible or unsupported sources instead of silently omitting them.\n\n## Why (motivation)\nThe current CLI exposes limits/search/tasks/agents/nudge, not an inventory command. Existing fixed provider collectors do not establish the full harness × account × provider × model picture requested by the user.\n\n## User impact / cost of inaction\nUsers otherwise reconcile several commands by hand, and consumers invent competing discovery logic with inconsistent account identity.\n\n## Parent / specification / consumers\nParent: https://github.com/alex-mextner/harness-cli/issues/26\nSpecification: https://github.com/alex-mextner/harness-cli/blob/docs/ecosystem-grooming-2026-09-10/docs/specs/2026-09-10-harness-contracts.md#inventory-and-health\nConsumer: https://github.com/alex-mextner/review-cli/issues/495\nRelated: #21 limit coverage, #22 control identity/capabilities. Docs PR: #27.\n\n## Acceptance criteria\n- [ ] A versioned JSON envelope includes observation time, source coverage and stable opaque entity IDs/relationships for harness, provider/vendor, account, model/version and session/capability.\n- [ ] Offline discovery is read-only by default; any live probing is explicit, bounded and documented. Help/import stays lightweight.\n- [ ] Missing binary, unreadable/corrupt store, unsupported source and partial discovery produce explicit diagnostics; zero emitted entities is not automatically complete coverage.\n- [ ] Credentials and authorization headers never appear in output, logs or errors. Distinct accounts remain distinct even when their provider/model labels match.\n- [ ] Fixtures assert exact expected identity-set coverage, multi-account relationships and compatibility with #22 IDs, not merely a minimum row count.\n- [ ] Text and JSON describe the same inventory and uncertainties; a fake/new adapter using existing capabilities needs no consumer-specific code.\n\n## Priority / closure\nP1. The historical rig-cli#501 inventory document is useful evidence and a refresh recipe, not implementation of this live command. Do not close on a static document or partial provider sample.\n",
+    "record": {
+      "key": "harness-cli#24",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 24,
+      "title": "Inventory CLI: enumerate all harness/account/model entities with explicit capabilities and coverage",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "health",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-3133",
+        "v4-231",
+        "v4-2939"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-3133",
+          "kind": "reviewed-requirement-context"
+        },
+        {
+          "id": "v4-231",
+          "kind": "reviewed-requirement-context"
+        },
+        {
+          "id": "v4-2939",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [
+        "harness-cli#26",
+        "review-cli#495",
+        "rig-cli#501"
+      ],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "4826d9775b6dfa62f5ab9663bf3856d8fe7b119be3f13e79895f8aed9b56fac4"
+    }
+  },
+  {
+    "key": "harness-cli#21",
+    "number": 21,
+    "id": 5406653353,
+    "title": "Limits --all: cover every discovered account or report an explicit unsupported/unavailable result",
+    "expected_state": "open",
+    "expected_sha256": "00c3fd46672168f16e8f7e21072222d84fee40622a8fc7ffc5ea5505edb37044",
+    "expected_updated_at": "2026-09-10T09:56:02Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Limits --all: cover every discovered account or report an explicit unsupported/unavailable result**\n\n### Сохранённая постановка проблемы\n\nMake `harness limits --all` complete relative to the actual discovered account/source set. Every expected account must have an applicable factual result or an explicit reason why it cannot be collected; a fixed provider sample cannot claim all accounts.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Запросы пользователя и контекст\n\n> harness limits --all сейчас показывает скорее usage, а не лимиты. Нужно показывать все аккаунты всех моделей и провайдеров во всех харнесах, включая аналитику скорости и ускорения расхода, в читаемом виде с цветом и ASCII-графикой.\n\nИсточник **v4-231**, compiled-historical-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n> Нужно получать все модели и все аккаунты всех провайдеров из всех харнесов, в том числе opencode-go из OMP и OpenCode.\n\nИсточник **v4-3133**, parent-or-telegram-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/health.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [harness-cli#26](https://github.com/ultrabricks/harness-cli/issues/26), [review-cli#472](https://github.com/ultrabricks/review-cli/issues/472), [review-cli#495](https://github.com/ultrabricks/review-cli/issues/495). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- Build the expected account/source set from the shared inventory and emit exactly one applicable observation or explicit reason for every expected identity.\n- Preserve distinct route/account identity and explicitly relate genuinely shared accounts; no provider-name-only merging or double-counted shared quota.\n- Quota percentages/reset windows come from an authoritative usage source. Local token totals without a denominator remain usage, not invented quota percentages.\n- Authentication, entitlement/billing, quota, network failure and corrupt/locked local storage remain distinct; unsupported or failed collection is not healthy or necessarily unauthenticated.\n- Each observation includes source/time and freshness/coverage information. Partial/stale data cannot support an all-exhausted assertion downstream.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nMake `harness limits --all` complete relative to the actual discovered account/source set. Every expected account must have an applicable factual result or an explicit reason why it cannot be collected; a fixed provider sample cannot claim all accounts.\n\n## Why (motivation)\nInspected `harness_cli/limits_collect.py` invokes only Claude, Codex, z.ai, x.ai and Kimi collectors. The original request also covers accounts discovered through OMP/OpenCode/PI and other configured routes. Merely declaring omitted sources out of scope would not fulfill that request.\n\n## User impact / cost of inaction\nHidden accounts produce misleading inventory and review-capacity decisions; one inaccessible source may look like no accounts exist.\n\n## Parent / specification / dependencies\nParent: https://github.com/alex-mextner/harness-cli/issues/26\nSpecification: https://github.com/alex-mextner/harness-cli/blob/docs/ecosystem-grooming-2026-09-10/docs/specs/2026-09-10-harness-contracts.md#inventory-and-health\nSource enumeration: #24. OMP source: #17. Consumers: https://github.com/alex-mextner/review-cli/issues/472 and https://github.com/alex-mextner/review-cli/issues/495.\n\n## Acceptance criteria\n- [ ] Build the expected account/source set from the shared inventory and emit exactly one applicable observation or explicit reason for every expected identity.\n- [ ] Preserve distinct route/account identity and explicitly relate genuinely shared accounts; no provider-name-only merging or double-counted shared quota.\n- [ ] Quota percentages/reset windows come from an authoritative usage source. Local token totals without a denominator remain usage, not invented quota percentages.\n- [ ] Authentication, entitlement/billing, quota, network failure and corrupt/locked local storage remain distinct; unsupported or failed collection is not healthy or necessarily unauthenticated.\n- [ ] Each observation includes source/time and freshness/coverage information. Partial/stale data cannot support an all-exhausted assertion downstream.\n- [ ] Tests assert expected-vs-actual identity-set equality with multiple accounts, missing CLI, inaccessible source, corrupt store and unsupported provider; existing collectors retain regression coverage.\n\n## Priority / closure\nP1. An explicit unsupported record is a truthful coverage result, not implementation of that provider's quota API; expose that limitation rather than silently narrowing the meaning of --all. No credential migration, login or paid usage is authorized by grooming.\n",
+    "record": {
+      "key": "harness-cli#21",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 21,
+      "title": "Limits --all: cover every discovered account or report an explicit unsupported/unavailable result",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "health",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-231",
+        "v4-3133"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-231",
+          "kind": "reviewed-requirement-context"
+        },
+        {
+          "id": "v4-3133",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [
+        "harness-cli#26",
+        "review-cli#472",
+        "review-cli#495"
+      ],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "00c3fd46672168f16e8f7e21072222d84fee40622a8fc7ffc5ea5505edb37044"
+    }
+  },
+  {
+    "key": "harness-cli#17",
+    "number": 17,
+    "id": 5398131571,
+    "title": "harness limits: surface omp's own tracked usage_history as supplementary provider cards",
+    "expected_state": "open",
+    "expected_sha256": "7cb0bf4e6794f3a5033f827b6df89e3d1557d31ca04be3ccf98f64ddaa789f54",
+    "expected_updated_at": "2026-09-09T10:20:03Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**harness limits: surface omp's own tracked usage_history as supplementary provider cards**\n\n### Сохранённая постановка проблемы\n\nAdd harness_cli/providers/omp.py::collect_omp() which reads omp's own ~/.omp/agent/agent.db usage_history/auth_credentials tables (read-only, HARNESS_LIMITS_OMP_DB test override) and appends omp-sourced LimitCards to limits_collect.collect_all(), labeled '<provider> (omp)' so they never collide with the native network-probe collectors. Fixes the gap where x.ai/grok has no public usage-percent API (providers/xai.py hard fails with no_endpoint) even though omp itself already polls and records that percent.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Запросы пользователя и контекст\n\n> harness limits --all сейчас показывает скорее usage, а не лимиты. Нужно показывать все аккаунты всех моделей и провайдеров во всех харнесах, включая аналитику скорости и ускорения расхода, в читаемом виде с цветом и ASCII-графикой.\n\nИсточник **v4-231**, compiled-historical-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n> Нужно получать все модели и все аккаунты всех провайдеров из всех харнесов, в том числе opencode-go из OMP и OpenCode.\n\nИсточник **v4-3133**, parent-or-telegram-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/health.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- collect_omp() returns one LimitCard per provider/account built from omp's usage_history latest rows, fail-closed to an empty list on missing db, missing table, or any sqlite error\n- collect_all() appends omp-sourced cards after every native collector's cards without altering native card output\n- A disabled omp credential produces a card with status auth_failed and the disable cause as reason\n- harness limits --all --json run against the real machine db includes the exhausted xai-oauth grok card and the exhausted zai weekly-window card\n- tests/test_limits_omp.py and tests/test_limits_collect.py pass; ruff check is clean on touched files\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nAdd harness_cli/providers/omp.py::collect_omp() which reads omp's own ~/.omp/agent/agent.db usage_history/auth_credentials tables (read-only, HARNESS_LIMITS_OMP_DB test override) and appends omp-sourced LimitCards to limits_collect.collect_all(), labeled '<provider> (omp)' so they never collide with the native network-probe collectors. Fixes the gap where x.ai/grok has no public usage-percent API (providers/xai.py hard fails with no_endpoint) even though omp itself already polls and records that percent.\n\n## Why (motivation)\nAlex's live-run feedback: harness limits doesn't even fully read what omp itself already knows about account usage (grok/xai, multiple distinct anthropic accounts, exhausted windows) even though omp's agent.db has real timestamped per-account usage history for it.\n\n## User impact\nharness limits --all --json now surfaces exhausted xai-oauth/grok, exhausted zai weekly, and every distinct anthropic account (including ones with no live on-disk credential file) instead of silently omitting them.\n\n## Cost of inaction\nUsers keep hitting rate limits harness limits never warned about, because the one place that DOES track grok usage (omp's own db) is never read.\n\n## Acceptance criteria\n- [ ] collect_omp() returns one LimitCard per provider/account built from omp's usage_history latest rows, fail-closed to an empty list on missing db, missing table, or any sqlite error\n- [ ] collect_all() appends omp-sourced cards after every native collector's cards without altering native card output\n- [ ] A disabled omp credential produces a card with status auth_failed and the disable cause as reason\n- [ ] harness limits --all --json run against the real machine db includes the exhausted xai-oauth grok card and the exhausted zai weekly-window card\n- [ ] tests/test_limits_omp.py and tests/test_limits_collect.py pass; ruff check is clean on touched files\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n## Skipped gates\n- links: acceptance text mentions omp's sqlite table/column names (usage_history, auth_credentials) and provider ids (xai-oauth, x.ai/grok) which look like repo paths to the linter but are not repo references\n",
+    "record": {
+      "key": "harness-cli#17",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 17,
+      "title": "harness limits: surface omp's own tracked usage_history as supplementary provider cards",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "health",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-231",
+        "v4-3133"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-231",
+          "kind": "reviewed-requirement-context"
+        },
+        {
+          "id": "v4-3133",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "7cb0bf4e6794f3a5033f827b6df89e3d1557d31ca04be3ccf98f64ddaa789f54"
+    }
+  },
+  {
+    "key": "harness-cli#30",
+    "number": 30,
+    "id": 5414159499,
+    "title": "[EPIC] Harness v4 recovery: original-request provenance, complete scope and end-to-end acceptance",
+    "expected_state": "open",
+    "expected_sha256": "f42c26a059dbeab922b42f591a5214928506efdf0ea753ccc39982383204ed9e",
+    "expected_updated_at": "2026-09-10T15:29:34Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**[EPIC] Harness v4 recovery: original-request provenance, complete scope and end-to-end acceptance**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/specs.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [rig-cli#521](https://github.com/ultrabricks/rig-cli/issues/521). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- All harness issues, including closed records, retain their original technical scope and have a specific source quotation or an explicitly identified original-source gap.\n- Existing parent ownership is preserved; missing links and producer/consumer dependencies are reconciled rather than inferred from a keyword score.\n- CLI, adapter and consumer acceptance are demonstrated at exact revisions, with fresh negative cases and truthful unsupported/unknown outcomes.\n- Actual runtime tests and private-source inspection are recorded separately from documentation publication and public-repository suite results.\n- No private source, credentials or transcript material is copied to a public bundle merely to bypass unavailable Actions execution.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## Original request — editorially corrected quotation\n> Выполни полную работу по грумингу всех задач: консолидацию, связи, исправление и улучшение описаний. Во все тикеты добавь мои исходные запросы цитатами, исправив стилистику, орфографию и пунктуацию.\n>\n> Всё влитое и сделанное нужно перепроверить. Во всех спеках нужны мои цитаты, реалистичные примеры с объяснениями, диаграммы и иллюстрации. Сделай спеки доступными для ревью.\n\nSource: Alex's explicit instruction in this conversation on 2026-09-10. This is the recovery mandate, not a fabricated original feature request for every historical issue.\n\n## Scope and source version\nUse the latest uploaded `alex-requests-export-2026-09-10-v4(1).json`, SHA-256 `4662766197a716891ac2153ffa71e4ed1c1f6b49781762db20e775e366c63d53`. Its 4,329 rows are not 4,329 independently verified human requirements. Agent reports, generated prompts, test inputs and keyword-score associations must not be relabeled as original user quotations or blocking dependencies.\n\nCentral recovery: https://github.com/alex-mextner/rig-cli/issues/521\nReviewed retrospective: https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md\nSource registry/audit: https://github.com/alex-mextner/rig-cli/tree/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10\nHarness-specific specification: docs/specs/2026-09-10-harness-contracts.md on the existing docs/ecosystem-grooming-2026-09-10 branch; preserve that work and its implementation epics #22 and #26.\n\n## Existing implementation ownership\n- #22 remains the universal control epic. #28 owns persistent IPC; #29 owns generation-verified live identity. Telegram #377 remains the consumer migration, not a second protocol implementation.\n- #26 owns truthful inventory/health. #24 is the inventory CLI; #21 is complete limit coverage; #17 is OMP account/usage discovery; #18 is canonical-ID messages.\n- #1 search and #2 historical task tracking remain delivered slices to reverify. #19's deliberate plural `tasks` contract is not silently reverted.\n- #25 remains a CI-evidence task. A private-repository workflow failing before any step is not a failed product test and is not proof of an account or runner cause until its actual diagnostic is available.\n\n## Concrete acceptance examples\nA transcript written one minute ago belongs to a terminated process: it must not become a live delivery target from mtime alone. Two native children sharing a PID remain distinct sessions. A reconnect does not transfer a pending permission to a new session generation.\n\nAccounts A/B share a provider label but have different credentials and quota windows. A confirmed exhausted account A must not disable B. An unreadable C is unknown, neither authenticated/healthy nor affirmative proof that all capacity is exhausted. Token history without a denominator is not a provider quota percentage.\n\nA CLI transcript search includes a human's real parent-session message and excludes the identical text copied into a delegated-agent prompt. `harness messages ID` accepts the same identity emitted by agent discovery and does not select a similarly named or newer session instead.\n\n## Closure requirements\n- [ ] All harness issues, including closed records, retain their original technical scope and have a specific source quotation or an explicitly identified original-source gap.\n- [ ] Existing parent ownership is preserved; missing links and producer/consumer dependencies are reconciled rather than inferred from a keyword score.\n- [ ] CLI, adapter and consumer acceptance are demonstrated at exact revisions, with fresh negative cases and truthful unsupported/unknown outcomes.\n- [ ] Actual runtime tests and private-source inspection are recorded separately from documentation publication and public-repository suite results.\n- [ ] No private source, credentials or transcript material is copied to a public bundle merely to bypass unavailable Actions execution.\n\nThis recovery epic does not close the implementation epics, authorize account changes, or claim that a public test matrix exercised this private repository.\n",
+    "record": {
+      "key": "harness-cli#30",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 30,
+      "title": "[EPIC] Harness v4 recovery: original-request provenance, complete scope and end-to-end acceptance",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "specs",
+      "classification": "epic",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "rig-cli#521"
+      ],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "f42c26a059dbeab922b42f591a5214928506efdf0ea753ccc39982383204ed9e"
+    }
+  },
+  {
+    "key": "harness-cli#28",
+    "number": 28,
+    "id": 5411297386,
+    "title": "Persistent control IPC: versioned requests/events and recoverable permission lifecycle",
+    "expected_state": "open",
+    "expected_sha256": "32a8438b2763f7b45074e6d1ab4422cd8304337e8d9a9037fd84a84d969d417b",
+    "expected_updated_at": "2026-09-10T10:57:38Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Persistent control IPC: versioned requests/events and recoverable permission lifecycle**\n\n### Запросы пользователя и контекст\n\n> Ответы в Telegram всё ещё не работают для OMP-сессий вне tmux. Нужно проработать все сценарии.\n\nИсточник **v4-201**, compiled-historical-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n> Telegram-бот не должен ждать 55 секунд окончания ответа модели: человек должен просто иметь возможность отправить сообщение агенту. Нужно правильно определять состояние вопроса или запроса прав в харнесе, показывать имя сессии и не терять принятое сообщение при перезапуске. Добавление нового таймера не решает проблему.\n\nИсточник **v4-4227**, parent-or-telegram-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n> Поздний ответ Approve не должен теряться или просто становиться expired. Нужно сообщить агенту, что пользователь одобрил действие, сохранить возможность повторной попытки и подсказать команду её применения — только если исходное действие ещё актуально.\n\nИсточник **v4-4166**, parent-or-telegram-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/execution.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [harness-cli#22](https://github.com/ultrabricks/harness-cli/issues/22), [tg-cli#377](https://github.com/ultrabricks/tg-cli/issues/377). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- Record the transport/lifecycle decision comparing one-shot calls, persistent stdio NDJSON and a socket binding, including Windows and multi-client requirements. Keep one protocol engine; exact method/schema names are decided before implementation.\n- Implement version negotiation, capabilities, request/operation IDs, canonical session targets, typed response errors and correlated message/permission events through an adapter interface.\n- Define the durable owner and separate accepted, delivered and completed outcomes. A pipe write is not a provider receipt; unknown receipt and unsupported deduplication remain explicit.\n- Pending permissions and one-use scoped decisions survive the documented disconnect/restart boundary. Cancellation/eviction cannot transfer decisions to another session or erase them silently.\n- CLI and IPC share the same operations. Preserve the published one-shot nudge compatibility contract until an explicit migration replaces it.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## Outcome\nA long-lived consumer can inspect/attach to a native agent, submit a message and relay a permission decision using one harness-owned protocol. It does not contain ACP or provider-specific logic and does not wait for a complete model turn before resuming unrelated work.\n\n## Why / user impact\nThe one-shot nudge from PR #23 does not own a persistent interactive permission lifecycle. Telegram's remaining interactive paths otherwise retain an independent OMP implementation.\n\n## Parent / specification / consumer\nParent: https://github.com/alex-mextner/harness-cli/issues/22\nSpecification: https://github.com/alex-mextner/harness-cli/blob/docs/ecosystem-grooming-2026-09-10/docs/specs/2026-09-10-harness-contracts.md#control-and-ipc\nConsumer acceptance: https://github.com/alex-mextner/tg-cli/issues/377\n\n## Acceptance criteria\n- [ ] Record the transport/lifecycle decision comparing one-shot calls, persistent stdio NDJSON and a socket binding, including Windows and multi-client requirements. Keep one protocol engine; exact method/schema names are decided before implementation.\n- [ ] Implement version negotiation, capabilities, request/operation IDs, canonical session targets, typed response errors and correlated message/permission events through an adapter interface.\n- [ ] Define the durable owner and separate accepted, delivered and completed outcomes. A pipe write is not a provider receipt; unknown receipt and unsupported deduplication remain explicit.\n- [ ] Pending permissions and one-use scoped decisions survive the documented disconnect/restart boundary. Cancellation/eviction cannot transfer decisions to another session or erase them silently.\n- [ ] CLI and IPC share the same operations. Preserve the published one-shot nudge compatibility contract until an explicit migration replaces it.\n- [ ] Contract fixtures exercise OMP and a second/fake adapter, malformed frames, interleaved events, duplicate operation IDs, partial writes, child exit and cleanup without live services.\n- [ ] Record a passing harness/tg-cli integration at named revisions before consumer cutover. No new arbitrary expiry workaround or provider logic in tg-cli.\n\n## Priority / scope\nP1. Implement incrementally under the existing architecture review requirement; no account login/rotation, real Telegram cards or production daemon restart is authorized by this grooming. Source/liveness facts use the shared identity contract rather than path/PID guesses.\n",
+    "record": {
+      "key": "harness-cli#28",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 28,
+      "title": "Persistent control IPC: versioned requests/events and recoverable permission lifecycle",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "execution",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-201",
+        "v4-4227",
+        "v4-4166"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-201",
+          "kind": "reviewed-requirement-context"
+        },
+        {
+          "id": "v4-4227",
+          "kind": "reviewed-requirement-context"
+        },
+        {
+          "id": "v4-4166",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [
+        "harness-cli#22",
+        "tg-cli#377"
+      ],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "32a8438b2763f7b45074e6d1ab4422cd8304337e8d9a9037fd84a84d969d417b"
+    }
+  },
+  {
+    "key": "harness-cli#25",
+    "number": 25,
+    "id": 5409619252,
+    "title": "CI tests workflow fails on GitHub Actions (passes locally)",
+    "expected_state": "open",
+    "expected_sha256": "fa02c2aaccad10a09131a26a12da2557ee6bc5e2c28054e7aed9452c4f337afa",
+    "expected_updated_at": "2026-09-10T08:11:32Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**CI tests workflow fails on GitHub Actions (passes locally)**\n\n### Сохранённая постановка проблемы\n\nGitHub Actions `tests` workflow fails in ~2s on every push/PR to harness-cli, while the same steps pass locally.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/testing.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- `tests` workflow passes on ubuntu-latest for main\n- Failure reason documented (job log shows which step fails)\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nGitHub Actions `tests` workflow fails in ~2s on every push/PR to harness-cli, while the same steps pass locally.\n\n## Evidence\n- Latest main run: https://github.com/alex-mextner/harness-cli/actions/runs/34453704483 (failure)\n- Local on origin/main: `python -m pytest -q` → 163 passed; `ruff check .` → clean\n\n## Acceptance\n- [ ] `tests` workflow passes on ubuntu-latest for main\n- [ ] Failure reason documented (job log shows which step fails)\n",
+    "record": {
+      "key": "harness-cli#25",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 25,
+      "title": "CI tests workflow fails on GitHub Actions (passes locally)",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "testing",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "fa02c2aaccad10a09131a26a12da2557ee6bc5e2c28054e7aed9452c4f337afa"
+    }
+  },
+  {
+    "key": "harness-cli#22",
+    "number": 22,
+    "id": 5408751283,
+    "title": "[EPIC] Universal harness control API: CLI, persistent IPC and complete consumer migration",
+    "expected_state": "open",
+    "expected_sha256": "9391f447b3ecf7a3b5e4ee360aa0ad1c2d474f434dd878aa3fc65e2fafa012cd",
+    "expected_updated_at": "2026-09-10T10:58:20Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**[EPIC] Universal harness control API: CLI, persistent IPC and complete consumer migration**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/execution.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [rig-cli#514](https://github.com/ultrabricks/rig-cli/issues/514), [tg-cli#377](https://github.com/ultrabricks/tg-cli/issues/377), [tg-cli#380](https://github.com/ultrabricks/tg-cli/issues/380). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nСвязанные PR на момент сверки:\n- [harness-cli#27](https://github.com/ultrabricks/harness-cli/pull/27) — open\n- [harness-cli#23](https://github.com/ultrabricks/harness-cli/pull/23) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- CLI exposes agents --live and nudge with a per-kind handler seam.\n- One-shot OMP adapter exists and unsupported kinds return an explicit result.\n- #28 — reviewed persistent transport decision, versioned CLI/IPC operations, correlated events and recoverable permission lifecycle.\n- #29 — verified native session/process generation, separating live from transcript activity and unknown evidence.\n- https://github.com/alex-mextner/tg-cli/issues/377 — full interactive consumer migration, including messages, routing and permission replies.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## Outcome\nAll harness-specific session discovery and control belong to harness-cli adapters. Humans and agents use a high-level CLI; long-lived consumers use a versioned cross-platform IPC contract. Tg-cli must not implement ACP framing, OMP session paths or harness-specific permission replies.\n\n## Parent / specification / companion\nParent: https://github.com/alex-mextner/rig-cli/issues/514\nSpecification: https://github.com/alex-mextner/harness-cli/blob/docs/ecosystem-grooming-2026-09-10/docs/specs/2026-09-10-harness-contracts.md#control-and-ipc\nDocumentation PR: https://github.com/alex-mextner/harness-cli/pull/27\nInventory companion: #26. Consumer epic: https://github.com/alex-mextner/tg-cli/issues/380.\n\n## Original intent and reopening\nAlex explicitly requested no specific-harness knowledge in tg-cli, harness-owned adapters, a human/agent CLI and a cross-platform inter-process API. Moving only the awareness nudge is a useful first slice, not the whole outcome.\n\nReopened on 2026-09-10: PR #23 is merged and remains credited: https://github.com/alex-mextner/harness-cli/pull/23. It added agents --live, nudge_supported, nudge and a one-shot OMP client. Inspected omp_acp.py::nudge waits for session/prompt and terminates the child in finally; this is not a durable interactive lifecycle. Tg-cli still owns ACP types and discovery in features/tg-ctl/omp.ts; its #377 tracks the remaining migration. Reopening does not reject the narrower contribution.\n\n## Delivered baseline\n- [x] CLI exposes agents --live and nudge with a per-kind handler seam.\n- [x] One-shot OMP adapter exists and unsupported kinds return an explicit result.\nPR #23 reports 37 targeted passing tests. This grooming did not rerun those tests or exercise a live user's session.\n\n## Implementation children\n- [ ] #28 — reviewed persistent transport decision, versioned CLI/IPC operations, correlated events and recoverable permission lifecycle.\n- [ ] #29 — verified native session/process generation, separating live from transcript activity and unknown evidence.\n- [ ] https://github.com/alex-mextner/tg-cli/issues/377 — full interactive consumer migration, including messages, routing and permission replies.\n\n## Epic acceptance criteria\n- [ ] CLI and IPC share one maintained adapter engine; transport alternatives and cross-platform ownership are documented before implementation.\n- [ ] Stable request/operation/session identity, capabilities and typed errors cover unsupported, ambiguous and failed operations.\n- [ ] Durable acceptance is distinct from delivery and agent-turn completion; the Telegram poll loop never waits for full generation, and a pipe write alone is not a proven receipt.\n- [ ] Pending permissions, reconnect/restart and one-use decision scope survive lifecycle failures without transfer to a different action/session.\n- [ ] Live discovery verifies generation; recent transcript mtime alone cannot authorize targeting a process.\n- [ ] All tg-cli interactive call sites use the generic contract; old protocol code is removed only after parity tests pass.\n- [ ] A second/fake adapter requires no consumer protocol changes. Attach CLI/IPC and producer/consumer regression evidence at named revisions plus any separately performed live acceptance.\n\n## Dependencies / priority / closure\nP1. #26 supplies consistent inventory IDs/capabilities but its UI must not block a fixture-testable control increment. Preserve tasks plural from #19. No new arbitrary deadline/expiry workaround is authorized. Close only after all implementation children and the original integration outcome are accepted, not on a documentation or nudge-only PR.\n",
+    "record": {
+      "key": "harness-cli#22",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 22,
+      "title": "[EPIC] Universal harness control API: CLI, persistent IPC and complete consumer migration",
+      "provider_state": "open",
+      "state_reason": "reopened",
+      "topic": "execution",
+      "classification": "epic",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "rig-cli#514",
+        "tg-cli#377",
+        "tg-cli#380"
+      ],
+      "implementation_prs": [
+        "[harness-cli#27](https://github.com/ultrabricks/harness-cli/pull/27) — open",
+        "[harness-cli#23](https://github.com/ultrabricks/harness-cli/pull/23) — merged"
+      ],
+      "snapshot_body_sha256": "9391f447b3ecf7a3b5e4ee360aa0ad1c2d474f434dd878aa3fc65e2fafa012cd"
+    }
+  },
+  {
+    "key": "harness-cli#12",
+    "number": 12,
+    "id": 5388230990,
+    "title": "Show 5h/7d window duration on harness limits bars",
+    "expected_state": "closed",
+    "expected_sha256": "990db649b9667839137ab6ae6975e5f8e391054b1a1baaa4eac6bdb1f4838e1f",
+    "expected_updated_at": "2026-09-08T15:43:42Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Show 5h/7d window duration on harness limits bars**\n\n### Сохранённая постановка проблемы\n\nCurrent 0.3.0 one-line bars in harness_cli/limits_render.py:116-130 (render_window_line) label Session/Weekly/Weekly·Fable but do not show the 5-hour / 7-day window the way Alex's Claude Code Limits screenshot does. The live line is still `  Session        ████…  42% used  resets in 3h 12m` with no duration tag and no bracketed track.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Запросы пользователя и контекст\n\n> harness limits --all сейчас показывает скорее usage, а не лимиты. Нужно показывать все аккаунты всех моделей и провайдеров во всех харнесах, включая аналитику скорости и ускорения расхода, в читаемом виде с цветом и ASCII-графикой.\n\nИсточник **v4-231**, compiled-historical-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/health.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [harness-cli#5](https://github.com/ultrabricks/harness-cli/issues/5). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nСвязанные PR на момент сверки:\n- [harness-cli#7](https://github.com/ultrabricks/harness-cli/pull/7) — merged\n- [harness-cli#13](https://github.com/ultrabricks/harness-cli/pull/13) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- A live Session window with window_seconds=5*3600 renders one line containing Session (5h), a bracketed unicode bar ([ then block/empty then ]), 42% used, and resets in 3h 12m. Proof: python -m pytest tests/test_limits_render.py -q driving render_cards (production renderer only).\n- A live Weekly window with window_seconds=7*86400 renders Weekly (7d) and a bracketed bar. A fail-closed missing-creds card still has no [, no block, and no %. Unknown/missing window_seconds omits the duration tag and does not invent a percent. Proof: python -m pytest tests/test_limits_render.py -q plus the captured renderer dump after the change.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nCurrent 0.3.0 one-line bars in harness_cli/limits_render.py:116-130 (render_window_line) label Session/Weekly/Weekly·Fable but do not show the 5-hour / 7-day window the way Alex's Claude Code Limits screenshot does. The live line is still `  Session        ████…  42% used  resets in 3h 12m` with no duration tag and no bracketed track.\n\nCaptured 0.3.0 renderer dump (python render_cards fixture: Session 42% of 5*3600s, Weekly 81% of 7*86400s, fail-closed missing-creds card) saved at /tmp/harness-limits-bars-before.txt:\n\nClaude Code  invntrm@gmail.com  Max 20x\n  Session        ██████████░░░░░░░░░░░░░░  42% used  resets in 3h 12m\n  Weekly         ███████████████████░░░░░  81% used  resets in 2d 4h\n  Weekly·Fable   ███████████████████████░  96% used  resets in 2d 4h\n  At this pace you'll run out in 2h 29m\n  Updated 12s ago\n\nClaude Code  mextner@gmail.com\n  missing credentials — not guessed from tokens\n  Updated 0s ago\n\nContract from https://github.com/alex-mextner/harness-cli/issues/5 (screenshot) plus leftover ask: each live window line should read like `  Session (5h)    [████████░░░░░░░░░░░░░░░░]  42% used  resets in 3h 12m`. Limits TUI already shipped as 0.3.0 in https://github.com/alex-mextner/harness-cli/pull/7; this is an extension of the bars, not a restart of that PR. Do not change provider parsers or window names.\n\n## Why (motivation)\nLeftover ask from Alex 2026-09-08: harness limits bars like screenshot (progress bars for 5h/7d windows). The 0.3.0 TUI shipped bars and % used but omitted the window duration, so 5h vs 7d is not visible at a glance.\n\n## User impact\nWhen you run harness limits to see how close an account is to a cap, every bar is labeled Session or Weekly with no 5-hour or 7-day tag and no bracketed track. You cannot tell which bar is the short session window versus the week-long one without already knowing the names, so you can think you still have headroom on the wrong window and hit a limit mid-session.\n\n## Cost of inaction\nOperators keep reading unlabeled Session/Weekly bars and cannot tell 5h vs 7d at a glance, so they misread remaining budget and get surprised by a session cap while the weekly bar still looks fine.\n\n## Acceptance criteria\n- [x] A live Session window with window_seconds=5*3600 renders one line containing Session (5h), a bracketed unicode bar ([ then block/empty then ]), 42% used, and resets in 3h 12m. Proof: python -m pytest tests/test_limits_render.py -q driving render_cards (production renderer only). — proof: ![proof](/tmp/harness-limits-bars-after.txt)\n- [x] A live Weekly window with window_seconds=7*86400 renders Weekly (7d) and a bracketed bar. A fail-closed missing-creds card still has no [, no block, and no %. Unknown/missing window_seconds omits the duration tag and does not invent a percent. Proof: python -m pytest tests/test_limits_render.py -q plus the captured renderer dump after the change. — proof: ![proof](/tmp/harness-limits-bars-after.txt)\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/harness-cli/pull/13\n- Merge commit: https://github.com/alex-mextner/harness-cli/commit/838f3ad9c658d39c2105153372e7611228720a9e\n\n## Skipped gates\n- links: Duration tags 5h/7d and provider names can false-positive the org/repo matcher; related entities are full URLs in --what (issue 5 and PR 7).\n- screenshots: CLI/TUI; broken-state proof is the captured renderer dump at /tmp/harness-limits-bars-before.txt (Session/Weekly lines have no 5h/7d tag and no bracketed track).\n",
+    "record": {
+      "key": "harness-cli#12",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 12,
+      "title": "Show 5h/7d window duration on harness limits bars",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "health",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-231"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-231",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [
+        "harness-cli#5"
+      ],
+      "implementation_prs": [
+        "[harness-cli#7](https://github.com/ultrabricks/harness-cli/pull/7) — merged",
+        "[harness-cli#13](https://github.com/ultrabricks/harness-cli/pull/13) — merged"
+      ],
+      "snapshot_body_sha256": "990db649b9667839137ab6ae6975e5f8e391054b1a1baaa4eac6bdb1f4838e1f"
+    }
+  },
+  {
+    "key": "harness-cli#11",
+    "number": 11,
+    "id": 5388067416,
+    "title": "Harden agent dashboard update and redaction paths",
+    "expected_state": "closed",
+    "expected_sha256": "68a73293ecfed6f716bb57921d3d8c4b86839b1489250643c4bbe7db15de7560",
+    "expected_updated_at": "2026-09-09T09:57:09Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Harden agent dashboard update and redaction paths**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/identity.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- Assess every changed call path against its callers and consumers.\n- Provide only concrete, file-and-line actionable findings, or a documented clean verdict with adversarial checks.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe dashboard and transcript changes affect secret exposure, live updates, and HTTP failure behavior.\n\n## User impact\nPeople using the command could see private credentials, stale dashboard information, or a command that unexpectedly stops instead of showing usable status.\n\n## Cost of inaction\nA faulty uncommitted change may be committed without its concrete failure modes being understood.\n\n## Acceptance criteria\n- [x] Assess every changed call path against its callers and consumers. — forced: CLI/local-web-only adversarial review, no visual UI surface for a redaction/backend audit; findings written to /tmp/harness-issue11-review.txt (verdict: CLEAN, redaction fail-closed confirmed, SSE/host-checks confirmed)\n- [x] Provide only concrete, file-and-line actionable findings, or a documented clean verdict with adversarial checks. — forced: CLI/local-web-only adversarial review, no visual UI surface for a redaction/backend audit; findings written to /tmp/harness-issue11-review.txt (verdict: CLEAN, redaction fail-closed confirmed, SSE/host-checks confirmed)\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "harness-cli#11",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 11,
+      "title": "Harden agent dashboard update and redaction paths",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "identity",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "68a73293ecfed6f716bb57921d3d8c4b86839b1489250643c4bbe7db15de7560"
+    }
+  },
+  {
+    "key": "harness-cli#9",
+    "number": 9,
+    "id": 5387115561,
+    "title": "Add harness agents landscape CLI and live web view",
+    "expected_state": "closed",
+    "expected_sha256": "64171598e6ef3e0937ec172c619648550d9f70f85ba2e204296ccfd2556908fd",
+    "expected_updated_at": "2026-09-09T08:34:46Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Add harness agents landscape CLI and live web view**\n\n### Сохранённая постановка проблемы\n\n`harness --help` currently lists only the limits, search, and task subcommands. There is no `agents` subcommand and no live landscape of OMP/CC agents, tg-ctl questions, or local harness tasks.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Запросы пользователя и контекст\n\n> Ответы в Telegram всё ещё не работают для OMP-сессий вне tmux. Нужно проработать все сценарии.\n\nИсточник **v4-201**, compiled-historical-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/identity.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанные PR на момент сверки:\n- [harness-cli#4](https://github.com/ultrabricks/harness-cli/pull/4) — merged\n- [harness-cli#10](https://github.com/ultrabricks/harness-cli/pull/10) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- `harness --help` lists agents; `harness agents --help` lists web. Proof: unit tests on help text plus `python -m harness_cli --help` and `python -m harness_cli agents --help` invocation.\n- `harness agents` lists OMP parent plus nested and CC parent plus subagent sessions from a fake HOME (tmp_path), with a stated live/parked heuristic (mtime under 10 minutes is live, else parked). Proof: tests/test_agents.py.\n- Landscape JSON includes open harness tasks and pending tg-ctl questions from fixture files. Proof: unit tests with tmp stores (HARNESS_TASK_DIR and HARNESS_QUESTIONS_DIR).\n- `harness agents web --port 0 --no-open` serves HTML plus /api/landscape plus /api/peers with links to the known ecosystem ports; SSE /events exists. Proof: tests/test_agents_web.py against ThreadingHTTPServer on an ephemeral port.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n`harness --help` currently lists only the limits, search, and task subcommands. There is no `agents` subcommand and no live landscape of OMP/CC agents, tg-ctl questions, or local harness tasks.\n\nCaptured 2026-09-08 from `/Users/ultra/xp/harness-cli` via `python -m harness_cli --help` (exit 0). The positional subcommand set is `{limits,search,task}` — `agents` is absent. The help text describes observed usage signals from local agent harness transcripts and lists:\n\n- limits: Report observed usage for Claude Code sessions.\n- search: Find user messages in Claude Code and Oh My Pi parent transcripts.\n- task: Local process-ticket tracker (not GitHub issues).\n\nEcosystem web tools (review dashboard http://127.0.0.1:7878, spec-web http://127.0.0.1:7920, rig config-web http://127.0.0.1:8787, rig evolve http://127.0.0.1:8797, 3d web http://127.0.0.1:8733) are not linked from harness.\n\nDo not edit other repos. Link TO them from this UI only. Do not collide with the sibling limits-ui worktree.\n\n## Why (motivation)\nharness-cli should have an agents subcommand and agents web to watch in real time the landscape of agents, questions, tasks, and all rig-ecosystem web tools should be linked together. Origin: Alex 2026-09-08. `harness task` just shipped (https://github.com/alex-mextner/harness-cli/pull/4). Operators currently grep transcripts and Telegram by hand because there is no one place that lists live/parked OMP and Claude Code sessions, pending tg-ctl questions, and open local harness tasks.\n\n## User impact\nOperators who need to see which agents are live, which questions are waiting in Telegram, and which local process tickets are open have to hunt across ~/.omp transcripts, ~/.claude projects, tg-ctl question files, and the harness task store. After this change they run `harness agents` or open `harness agents web` and see that landscape in one list and one local page, with links to the other ecosystem web tools even when those peers are down.\n\n## Cost of inaction\nOperators cannot see live agents, questions, and tasks in one place. They keep grepping transcripts and Telegram by hand, miss parked vs live sessions, and have no single page that links the review dashboard, spec-web, rig config-web, rig evolve, and 3d web together.\n\n## Acceptance criteria\n- [x] `harness --help` lists agents; `harness agents --help` lists web. Proof: unit tests on help text plus `python -m harness_cli --help` and `python -m harness_cli agents --help` invocation. — proof: ![proof](/tmp/harness-issue9-proofs/help.txt)\n- [x] `harness agents` lists OMP parent plus nested and CC parent plus subagent sessions from a fake HOME (tmp_path), with a stated live/parked heuristic (mtime under 10 minutes is live, else parked). Proof: tests/test_agents.py. — proof: ![proof](/tmp/harness-issue9-proofs/pytest.txt)\n- [x] Landscape JSON includes open harness tasks and pending tg-ctl questions from fixture files. Proof: unit tests with tmp stores (HARNESS_TASK_DIR and HARNESS_QUESTIONS_DIR). — proof: ![proof](/tmp/harness-issue9-proofs/pytest.txt)\n- [x] `harness agents web --port 0 --no-open` serves HTML plus /api/landscape plus /api/peers with links to the known ecosystem ports; SSE /events exists. Proof: tests/test_agents_web.py against ThreadingHTTPServer on an ephemeral port. — proof: ![proof](/tmp/harness-issue9-proofs/pytest.txt)\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/harness-cli/pull/10\n- Merge commit: https://github.com/alex-mextner/harness-cli/commit/8606bd84cef1331a0944573558167c92249b0a9f\n\n## Skipped gates\n- post-merge-acceptance: Main instructed accept after merge; CI tests already green (17 agent tests + ruff) on dfdb975. PATH install and ticket check proofs are post-merge.\n- screenshots: CLI plus local web; the broken state is help omitting the command. Captured python -m harness_cli --help showing the limits, search, and task subcommands with no agents. No user-visible UI exists yet to screenshot.\n",
+    "record": {
+      "key": "harness-cli#9",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 9,
+      "title": "Add harness agents landscape CLI and live web view",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "identity",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-201"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-201",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [
+        "[harness-cli#4](https://github.com/ultrabricks/harness-cli/pull/4) — merged",
+        "[harness-cli#10](https://github.com/ultrabricks/harness-cli/pull/10) — merged"
+      ],
+      "snapshot_body_sha256": "64171598e6ef3e0937ec172c619648550d9f70f85ba2e204296ccfd2556908fd"
+    }
+  },
+  {
+    "key": "harness-cli#5",
+    "number": 5,
+    "id": 5385136642,
+    "title": "Replace harness limits --all with real rate-limit proximity TUI",
+    "expected_state": "closed",
+    "expected_sha256": "fa171c19ae1f3161f25bf6c8fca6f48e6cdd96b6c2582cffe97dea39e0eefe67",
+    "expected_updated_at": "2026-09-08T13:22:56Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Replace harness limits --all with real rate-limit proximity TUI**\n\n### Сохранённая постановка проблемы\n\n`harness limits --all` currently dumps observed transcript USAGE tables (token counts, message counts, api-error events). That is the wrong product.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Запросы пользователя и контекст\n\n> harness limits --all сейчас показывает скорее usage, а не лимиты. Нужно показывать все аккаунты всех моделей и провайдеров во всех харнесах, включая аналитику скорости и ускорения расхода, в читаемом виде с цветом и ASCII-графикой.\n\nИсточник **v4-231**, compiled-historical-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/health.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанные PR на момент сверки:\n- [harness-cli#7](https://github.com/ultrabricks/harness-cli/pull/7) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- harness limits --all prints per-account cards with Session and Weekly (and Weekly-Fable when the provider returns it) unicode bars, percent used, reset countdown, optional pace projection, and Updated N ago — not transcript token or message tables.\n- Percentages come only from real provider usage or OAuth endpoints. Missing credentials or a missing usage API fail-closed with an explicit missing-creds or unavailable card; token counts are never presented as a limit percentage.\n- All discovered accounts on this machine are covered: Claude Code account slots (invntrm@gmail.com, mextner@gmail.com, and any third slot), Codex, z.ai GLM, x.ai grok, and kimi if still configured. Live versus missing-creds is visible in the output.\n- Bars turn red at 90 to 100 percent used; TUI uses colored ASCII or unicode like rig stats (filled and empty blocks) with stdlib ANSI. --json emits the same proximity model. Existing transcript search is unchanged.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n`harness limits --all` currently dumps observed transcript USAGE tables (token counts, message counts, api-error events). That is the wrong product.\n\nCaptured 2026-09-08 from this machine (uncolored, no bars, no percent of window):\n\n```\nObserved usage across 261 transcript(s) last active in the last 5h, 2 account(s):\n(totals are each included session's FULL lifetime usage, not just the window)\n\n[account-0] 1 transcript(s)\n  messages:      678\n  total tokens:  115,939,697\n  api errors:    1\n    rate_limit: 1, last 2026-09-05T16:07:29.627Z\n\n[default] 260 transcript(s)\n  messages:      633\n  total tokens:  9,139,617\n  api errors:    201\n    weekly_limit: 201, last 2026-09-08T09:44:06.840Z (hint: resets Sep 13 at 7am (Asia/Tbilisi))\n\nTOTAL tokens observed: 125,079,314\nTOTAL api-error events observed: 202\n```\n\nThe intended product is the Claude Code Limits UI (Alex screenshot 2026-09-08): per-account cards, Session / Weekly / Weekly-Fable bars, percent used, red when 90 to 100 percent, reset countdown, pace projection (\"At this pace run out in 6h 4m\"), Updated N ago. Accounts in the screenshot: Claude Code invntrm@gmail.com Max 20x, mextner@gmail.com Max 20x.\n\nReplace `--all` with REAL rate-limit proximity (session and weekly windows, reset, percent) covering ALL accounts times ALL providers times ALL harnesses on this machine. Do not fake percent from transcript token counts. If an OAuth or usage endpoint is the only real percent, use it and fail-closed when creds are missing.\n\nOn this machine (existence only, no secrets): Claude Code slots ~/.claude plus ~/.claude-accounts/account-0, account-1, account-2 (emails invntrm@gmail.com and mextner@gmail.com, Max 20x); Codex ~/.codex/auth.json (chatgpt oauth); opencode auth providers zai, xai (oauth), kimi-for-coding, moonshotai.\n\nOrigin: Alex 2026-09-07 08:36 asked for `harness limits --all` and `--current` as a standard system exposing 5-hour and 7-day remaining; 08:27 asked to regulate work against those windows; 11:19 nagged progress. Screenshot 2026-09-08 is the visual contract (no earlier textual spec for bars, percent, or pace).\n\nRelated: https://github.com/alex-mextner/harness-cli README currently documents the OAuth usage endpoint as deliberately NOT built. Endpoint GET https://api.anthropic.com/api/oauth/usage (Bearer from ~/.claude/.credentials.json or macOS Keychain service Claude Code-credentials; headers anthropic-beta oauth-2025-04-20 and User-Agent claude-code/<version>). Response fields: five_hour, seven_day, seven_day_opus, seven_day_sonnet utilization plus resets_at. Documented at https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor/issues/202 . Codex live percent: GET https://chatgpt.com/backend-api/wham/usage with ~/.codex/auth.json tokens. TUI bars should match https://github.com/alex-mextner/rig-cli `rig stats` unicode block style (stdlib ANSI, no rich dep).\n\n## Why (motivation)\nOperators cannot see how close each account is to a 5-hour or 7-day window. They only see token tables after the fact, so they keep launching work into already-exhausted Claude, GLM, or Codex accounts and hit cooldowns blindly.\n\n## User impact\nWhen you run `harness limits --all` you should see, for every signed-in account, how full the session and weekly windows are, when they reset, and whether you will run out before that reset — the same information Claude Code's Limits screen shows — instead of a dump of transcript token counts that does not tell you if you can keep working.\n\n## Cost of inaction\nAgents and humans keep launching concurrent work against accounts that are already at 90 to 100 percent of a window. Sessions die mid-turn on weekly_limit, review and merge stalls, and the only signal is a 125-million-token table that looks busy but is not a remaining-budget number.\n\n## Acceptance criteria\n- [x] harness limits --all prints per-account cards with Session and Weekly (and Weekly-Fable when the provider returns it) unicode bars, percent used, reset countdown, optional pace projection, and Updated N ago — not transcript token or message tables. — proof: ![proof](/tmp/harness-limits-all-after.txt)\n- [x] Percentages come only from real provider usage or OAuth endpoints. Missing credentials or a missing usage API fail-closed with an explicit missing-creds or unavailable card; token counts are never presented as a limit percentage. — proof: ![proof](/tmp/harness-limits-all-after.txt)\n- [x] All discovered accounts on this machine are covered: Claude Code account slots (invntrm@gmail.com, mextner@gmail.com, and any third slot), Codex, z.ai GLM, x.ai grok, and kimi if still configured. Live versus missing-creds is visible in the output. — proof: ![proof](/tmp/harness-limits-all-after.txt)\n- [x] Bars turn red at 90 to 100 percent used; TUI uses colored ASCII or unicode like rig stats (filled and empty blocks) with stdlib ANSI. --json emits the same proximity model. Existing transcript search is unchanged. — proof: ![proof](/tmp/harness-limits-all-after.txt)\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/harness-cli/pull/7\n- Merge commit: https://github.com/alex-mextner/harness-cli/commit/1df99d6cc376b0f5af69ad12271633242bfd40b9\n\n## Skipped gates\n- links: false-positive org/repo matcher on provider names and window labels (5h/7d, z.ai/GLM, x.ai/grok, missing-creds/unavailable); real URLs already in What.\n- screenshots: CLI/TUI, no GUI. Broken-state proof is the captured harness limits --all dump in What (token tables, uncolored, no bars, no percent of window), taken 2026-09-08 on this machine.\n",
+    "record": {
+      "key": "harness-cli#5",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 5,
+      "title": "Replace harness limits --all with real rate-limit proximity TUI",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "health",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-231"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-231",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [
+        "[harness-cli#7](https://github.com/ultrabricks/harness-cli/pull/7) — merged"
+      ],
+      "snapshot_body_sha256": "fa171c19ae1f3161f25bf6c8fca6f48e6cdd96b6c2582cffe97dea39e0eefe67"
+    }
+  },
+  {
+    "key": "harness-cli#19",
+    "number": 19,
+    "id": 5406476765,
+    "title": "Rename `harness task` -> `harness tasks` for naming consistency",
+    "expected_state": "closed",
+    "expected_sha256": "5cc5c097f5c7cb9e1a56efa4137ab909b0e654d9cf54080f4ae7f1b62dfcb6e5",
+    "expected_updated_at": "2026-09-10T08:07:17Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Rename `harness task` -> `harness tasks` for naming consistency**\n\n### Сохранённая постановка проблемы\n\n`harness task` (singular) was the only subcommand with a singular name, alongside `limits` (plural), `agents` (plural), and `search` (a verb). Users naturally guess `harness tasks` by analogy with `harness agents` — that guess fails with an argparse \"invalid choice\" error, which was reported as \"harness tasks empty\" (the reporter misread the wrong-subcommand error for an empty result).\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Запросы пользователя и контекст\n\n> Найди мои сообщения во всех сессиях OMP и Claude Code. В harness-cli почти ничего не работает: нет harness messages, а harness tasks пуст. Переименуй task в tasks.\n\nИсточник **v4-3131**, parent-or-telegram-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/intake.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- `harness tasks new|list|done` works exactly as `harness task` did before.\n- `harness task ...` (old singular form) now exits 2 with \"invalid choice\" — confirms the clean cutover, no lingering alias.\n- `harness --help` lists `tasks`, not `task`.\n- All existing tests updated and green (`python -m pytest -q`).\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n`harness task` (singular) was the only subcommand with a singular name, alongside `limits` (plural), `agents` (plural), and `search` (a verb). Users naturally guess `harness tasks` by analogy with `harness agents` — that guess fails with an argparse \"invalid choice\" error, which was reported as \"harness tasks empty\" (the reporter misread the wrong-subcommand error for an empty result).\n\n`harness task`'s own subcommands operate on a *collection* of tickets (`new`/`list`/`done`), and the JSON/HTML the `agents` command already emits calls this collection `\"tasks\"` (`data[\"tasks\"]`, the `<h2>Tasks</h2>` section in `agents web`) — so the CLI already treats the concept as plural everywhere except the top-level subcommand name.\n\n## Why (motivation)\nNaming inconsistency causes real, reported user confusion (\"harness tasks empty\" — actually \"no such subcommand\").\n\n## User impact\nAnyone reasoning by analogy from `harness agents` types `harness tasks list` and gets a confusing argparse error instead of their ticket list.\n\n## Cost of inaction\nContinued wrong-command guesses look like \"the task tracker is broken/empty\" rather than \"wrong subcommand name\", wasting debugging time.\n\n## Fix\nRenamed `harness task` -> `harness tasks` (clean cutover, no back-compat alias): `_add_task_parser`/`_run_task` -> `_add_tasks_parser`/`_run_tasks`, `task_command` -> `tasks_command`, `parser.task_parser` -> `parser.tasks_parser`, README/AGENTS.md updated, all `tests/test_tasks.py` argv literals and test names updated. Confirmed no other repo invokes `harness task ...` as a real subprocess (only prose references in task-cli's hint text, out of scope / different repo).\n\n## Acceptance criteria\n- [x] `harness tasks new|list|done` works exactly as `harness task` did before.\n- [x] `harness task ...` (old singular form) now exits 2 with \"invalid choice\" — confirms the clean cutover, no lingering alias.\n- [x] `harness --help` lists `tasks`, not `task`.\n- [x] All existing tests updated and green (`python -m pytest -q`).\n\n## Screenshots\n(none — CLI-only, no UI)\n\n## Skipped gates\n- screenshots: CLI-only; no UI.\n",
+    "record": {
+      "key": "harness-cli#19",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 19,
+      "title": "Rename `harness task` -> `harness tasks` for naming consistency",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "intake",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-3131"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-3131",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "5cc5c097f5c7cb9e1a56efa4137ab909b0e654d9cf54080f4ae7f1b62dfcb6e5"
+    }
+  },
+  {
+    "key": "harness-cli#15",
+    "number": 15,
+    "id": 5390508880,
+    "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+    "expected_state": "closed",
+    "expected_sha256": "47a41f3f62cdfbca234ec0d4fd0740f85d64125b724b2499f06ebfed75c5a25a",
+    "expected_updated_at": "2026-09-08T18:56:42Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config**\n\n### Сохранённая постановка проблемы\n\nGitHub itself does not require an approving review on https://github.com/alex-mextner/harness-cli, but gh ship still refuses a zero-review PR because the external-review gate defaults ON. The machine-wide env SHIP_EXTERNAL_REVIEW=0 is ignored after https://github.com/alex-mextner/agent-tools/issues/624 — durable disable is a SHIP_EXTERNAL_REVIEW=0 line in the repo-root .ship-config already merged to the PR base (https://github.com/alex-mextner/agent-tools/issues/600, https://github.com/alex-mextner/agent-tools/pull/609). harness-cli origin/main has no .ship-config. Precedent: https://github.com/alex-mextner/tg-cli/commit/17431bf446dffd76016cf84704773a91806e93ba and merged https://github.com/alex-mextner/review-cli/pull/451.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/shipping.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [agent-tools#600](https://github.com/ultrabricks/agent-tools/issues/600), [agent-tools#624](https://github.com/ultrabricks/agent-tools/issues/624). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nСвязанные PR на момент сверки:\n- [agent-tools#609](https://github.com/ultrabricks/agent-tools/pull/609) — merged\n- [review-cli#451](https://github.com/ultrabricks/review-cli/pull/451) — merged\n- [harness-cli#16](https://github.com/ultrabricks/harness-cli/pull/16) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- https://github.com/alex-mextner/harness-cli origin/main has a committed repo-root .ship-config whose only ship-gate line is SHIP_EXTERNAL_REVIEW=0\n- The file is exactly the one-line SHIP_EXTERNAL_REVIEW=0 config with no other keys\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nGitHub itself does not require an approving review on https://github.com/alex-mextner/harness-cli, but gh ship still refuses a zero-review PR because the external-review gate defaults ON. The machine-wide env SHIP_EXTERNAL_REVIEW=0 is ignored after https://github.com/alex-mextner/agent-tools/issues/624 — durable disable is a SHIP_EXTERNAL_REVIEW=0 line in the repo-root .ship-config already merged to the PR base (https://github.com/alex-mextner/agent-tools/issues/600, https://github.com/alex-mextner/agent-tools/pull/609). harness-cli origin/main has no .ship-config. Precedent: https://github.com/alex-mextner/tg-cli/commit/17431bf446dffd76016cf84704773a91806e93ba and merged https://github.com/alex-mextner/review-cli/pull/451.\n\n## Why (motivation)\nAsks why GitHub still requires review, we disabled it long ago, disable SHIP_EXTERNAL_REVIEW globally. The env off-switch was the thing they turned off long ago; after https://github.com/alex-mextner/agent-tools/issues/624 it no longer works, so the gate came back. gh ship refuses zero-GitHub-review PRs until a committed .ship-config SHIP_EXTERNAL_REVIEW=0 exists on the PR base branch.\n\n## User impact\nWhen you try to merge a harness-cli PR with gh ship, the command refuses even though GitHub's merge button does not require an approval. You have to post a dummy GitHub review or wait for a Telegram hatch, so a solo ship that already passed review still cannot land.\n\n## Cost of inaction\nEvery future harness-cli ship stays blocked on a GitHub-side review that the repo policy already turned off, or burns a live Telegram hatch per PR.\n\n## Acceptance criteria\n- [x] https://github.com/alex-mextner/harness-cli origin/main has a committed repo-root .ship-config whose only ship-gate line is SHIP_EXTERNAL_REVIEW=0 — proof: ![proof](/tmp/harness15-main-ship-config-proof.txt)\n- [x] The file is exactly the one-line SHIP_EXTERNAL_REVIEW=0 config with no other keys — proof: ![proof](/tmp/harness15-ship-config-proof.txt)\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/harness-cli/pull/16\n- Merge commit: https://github.com/alex-mextner/harness-cli/commit/a483f6719868589c0d1f1ddba39dccd162e9f6bd\n\n## Skipped gates\n- post-merge-acceptance: criterion 1 proof requires git show origin/main:.ship-config after the PR merges; pre-merge proof is git show HEAD:.ship-config = SHIP_EXTERNAL_REVIEW=0 on the feature branch\n- screenshots: no UI; this is a committed KEY=value ship-gate off-switch\n",
+    "record": {
+      "key": "harness-cli#15",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 15,
+      "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "shipping",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "agent-tools#600",
+        "agent-tools#624"
+      ],
+      "implementation_prs": [
+        "[agent-tools#609](https://github.com/ultrabricks/agent-tools/pull/609) — merged",
+        "[review-cli#451](https://github.com/ultrabricks/review-cli/pull/451) — merged",
+        "[harness-cli#16](https://github.com/ultrabricks/harness-cli/pull/16) — merged"
+      ],
+      "snapshot_body_sha256": "47a41f3f62cdfbca234ec0d4fd0740f85d64125b724b2499f06ebfed75c5a25a"
+    }
+  },
+  {
+    "key": "harness-cli#8",
+    "number": 8,
+    "id": 5386980175,
+    "title": "Reserve harness task ids with exclusive create",
+    "expected_state": "closed",
+    "expected_sha256": "5e8d00714890e3806e341a1d24da993312551956c78f40799802c6a7aa333b65",
+    "expected_updated_at": "2026-09-10T08:07:17Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Reserve harness task ids with exclusive create**\n\n### Сохранённая постановка проблемы\n\nAfter merging https://github.com/alex-mextner/harness-cli/pull/4, Codex review noted that `harness task new` picks the next id by scanning existing `*.json` names then writing `<id>.json`. Two concurrent `new` calls can observe the same highest id and overwrite the same file.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/intake.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанные PR на момент сверки:\n- [harness-cli#4](https://github.com/ultrabricks/harness-cli/pull/4) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- `harness task new` concurrent in the same store never overwrites an existing id (proof: a test that runs two creates against one HARNESS_TASK_DIR and asserts two files).\n- A lost-update leaves a clear error instead of silent replace (proof: unit test on exclusive-create failure).\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nAfter merging https://github.com/alex-mextner/harness-cli/pull/4, Codex review noted that `harness task new` picks the next id by scanning existing `*.json` names then writing `<id>.json`. Two concurrent `new` calls can observe the same highest id and overwrite the same file.\n\nEvidence: https://github.com/alex-mextner/harness-cli/pull/4 review thread on `_next_id` / create_ticket (P1: Reserve task IDs atomically). File: harness_cli/tasks.py `_next_id` + `create_ticket`.\n\nThis is a follow-up, not a merge blocker: the tracker is local JSON for one machine, and the first ship needed to get process tickets off product GitHub (https://github.com/conloca/landing/issues/263).\n\n## Why (motivation)\nConcurrent agents in one session can silently clobber each other's process tickets.\n\n## User impact\nTwo agents start work at the same time, both think they created ticket 7, and one ticket body disappears. The agent whose ticket was overwritten has no record of the work.\n\n## Cost of inaction\nA later parallel session can lose a process ticket with no error, so work looks done in one agent and never existed for the other.\n\n## Acceptance criteria\n- [ ] `harness task new` concurrent in the same store never overwrites an existing id (proof: a test that runs two creates against one HARNESS_TASK_DIR and asserts two files).\n- [ ] A lost-update leaves a clear error instead of silent replace (proof: unit test on exclusive-create failure).\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n## Skipped gates\n- screenshots: CLI-only; no UI.\n",
+    "record": {
+      "key": "harness-cli#8",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 8,
+      "title": "Reserve harness task ids with exclusive create",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "intake",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [
+        "[harness-cli#4](https://github.com/ultrabricks/harness-cli/pull/4) — merged"
+      ],
+      "snapshot_body_sha256": "5e8d00714890e3806e341a1d24da993312551956c78f40799802c6a7aa333b65"
+    }
+  },
+  {
+    "key": "harness-cli#6",
+    "number": 6,
+    "id": 5385639798,
+    "title": "Audit live usage limits collectors",
+    "expected_state": "closed",
+    "expected_sha256": "ed787ed221181e84af4ae369bb2f05d2e89307d8e1b54f9927e78408d0d62c3f",
+    "expected_updated_at": "2026-09-09T09:53:51Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Audit live usage limits collectors**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- Review the uncommitted rate-limit proximity diff for cross-file correctness, security, regressions, and missing tests.\n- Report only actionable findings with concrete trigger scenarios and file:line references, or a documented clean verdict.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe change replaces local transcript reporting with provider usage APIs and credential handling, requiring an adversarial review.\n\n## User impact\nPrevents incorrect rate-limit guidance, credential mishandling, and broken provider integrations from reaching users.\n\n## Cost of inaction\nUsers may see fabricated, incorrect, or unavailable limits and could expose credentials through failing integration paths.\n\n## Acceptance criteria\n- [x] Review the uncommitted rate-limit proximity diff for cross-file correctness, security, regressions, and missing tests. — forced: CLI/backend-only adversarial review, no visual UI surface; findings written to /tmp/harness-issue6-review.txt (verdict: CLEAN, full pytest 143 passed)\n- [x] Report only actionable findings with concrete trigger scenarios and file:line references, or a documented clean verdict. — forced: CLI/backend-only adversarial review, no visual UI surface; findings written to /tmp/harness-issue6-review.txt (verdict: CLEAN, full pytest 143 passed)\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "harness-cli#6",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 6,
+      "title": "Audit live usage limits collectors",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "ed787ed221181e84af4ae369bb2f05d2e89307d8e1b54f9927e78408d0d62c3f"
+    }
+  },
+  {
+    "key": "harness-cli#2",
+    "number": 2,
+    "id": 5384101763,
+    "title": "Add harness task as the local process-ticket tracker",
+    "expected_state": "closed",
+    "expected_sha256": "b673e828a0f9315b383bcc1c8a16a549fc371893c490a39c04d04d0f7f90f5f9",
+    "expected_updated_at": "2026-09-08T12:40:38Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Add harness task as the local process-ticket tracker**\n\n### Сохранённая постановка проблемы\n\nharness-cli currently exposes only `harness limits`. Agent process/session work is still filed with `task new` into the product GitHub tracker.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Запросы пользователя и контекст\n\n> Найди мои сообщения во всех сессиях OMP и Claude Code. В harness-cli почти ничего не работает: нет harness messages, а harness tasks пуст. Переименуй task в tasks.\n\nИсточник **v4-3131**, parent-or-telegram-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/intake.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанные PR на момент сверки:\n- [harness-cli#4](https://github.com/ultrabricks/harness-cli/pull/4) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- `harness task --help` lists new, list, and done (proof: unit test on help text plus a PATH invocation of `harness task --help`).\n- `harness task new` for a process title matching https://github.com/conloca/landing/issues/263 writes only to the local harness store and does not invoke `gh` or create a github.com/conloca/landing issue (proof: unit test with a fake `gh` that fails if called, cwd a fake landing clone).\n- `harness task list` shows the open ticket and `harness task done <id>` marks it done without talking to GitHub (proof: unit tests against an isolated tmp store).\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nharness-cli currently exposes only `harness limits`. Agent process/session work is still filed with `task new` into the product GitHub tracker.\n\nConcrete failure: https://github.com/conloca/landing/issues/263 was opened by task-cli into the conloca/landing product repo. Title: \"Review documentation diff for performance regressions\". Labels included `agent` and `session:fix-how-it-works-fidelity`. That is process work, not a product bug. The issue is already closed.\n\n`harness task` does not exist, so agents have nowhere else to put process tickets. Add `harness task new`, `harness task list`, and `harness task done` as a local on-disk tracker that never creates GitHub or Linear issues in a product repo.\n\nDo not edit the conloca/landing repository as part of this change.\n\n## Why (motivation)\nProcess tickets are harness operations for a single agent session. They do not belong in a product issue tracker. Alex asked why process tasks are still opened through task-cli into the product tracker (7 Sep, same cluster as harness limits/search). Without a local `harness task` command, the \"every request becomes a ticket\" rule has only the product backend to write to.\n\n## User impact\nPeople who maintain a product repo (for example the landing site) open GitHub and see agent session chores mixed in with real product bugs. A closed process ticket like \"Review documentation diff for performance regressions\" looks like product work, burns issue numbers, and makes it harder to find actual user-facing defects. After this change, those session chores live in `harness task` on the machine and the product GitHub stays for product work.\n\n## Cost of inaction\nEvery agent session that follows the ticket-before-work rule will keep opening GitHub issues on product repos for internal process work. The product tracker fills with session labels and agent chores, the way https://github.com/conloca/landing/issues/263 already did, and maintainers lose the signal of real product bugs.\n\n## Acceptance criteria\n- [x] `harness task --help` lists new, list, and done (proof: unit test on help text plus a PATH invocation of `harness task --help`). — forced: CLI-only, no UI. Proven by tests/test_tasks.py (7 passed) including test_process_ticket_does_not_create_github_product_issue and test_task_list_and_done_stay_local; PATH harness task --help lists {new,list,done}.\n- [x] `harness task new` for a process title matching https://github.com/conloca/landing/issues/263 writes only to the local harness store and does not invoke `gh` or create a github.com/conloca/landing issue (proof: unit test with a fake `gh` that fails if called, cwd a fake landing clone). — forced: CLI-only, no UI. Proven by tests/test_tasks.py (7 passed) including test_process_ticket_does_not_create_github_product_issue and test_task_list_and_done_stay_local; PATH harness task --help lists {new,list,done}.\n- [x] `harness task list` shows the open ticket and `harness task done <id>` marks it done without talking to GitHub (proof: unit tests against an isolated tmp store). — forced: CLI-only, no UI. Proven by tests/test_tasks.py (7 passed) including test_process_ticket_does_not_create_github_product_issue and test_task_list_and_done_stay_local; PATH harness task --help lists {new,list,done}.\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/harness-cli/pull/4\n- Merge commit: https://github.com/alex-mextner/harness-cli/commit/98da95921af0ed1adc27067d79cd8e4f2ab117ff\n\n## Skipped gates\n- links: Product-repo names in the body are full https URLs (https://github.com/conloca/landing/issues/263), not bare org/repo tokens.\n- screenshots: CLI-only command; no UI surface. Proof is command output and unit tests.\n",
+    "record": {
+      "key": "harness-cli#2",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 2,
+      "title": "Add harness task as the local process-ticket tracker",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "intake",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-3131"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-3131",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [
+        "[harness-cli#4](https://github.com/ultrabricks/harness-cli/pull/4) — merged"
+      ],
+      "snapshot_body_sha256": "b673e828a0f9315b383bcc1c8a16a549fc371893c490a39c04d04d0f7f90f5f9"
+    }
+  },
+  {
+    "key": "harness-cli#1",
+    "number": 1,
+    "id": 5382965663,
+    "title": "Add harness search for user messages across CC and OMP transcripts",
+    "expected_state": "closed",
+    "expected_sha256": "6fdd7a536a83b23b6df709279c9143f8f2f70cc8bffadb8958fb498d08cb939d",
+    "expected_updated_at": "2026-09-08T06:36:04Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Add harness search for user messages across CC and OMP transcripts**\n\n### Сохранённая постановка проблемы\n\n`harness` today only exposes `limits`. There is no way to search user messages across Claude Code and Oh My Pi session transcripts.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Запросы пользователя и контекст\n\n> Найди мои сообщения во всех сессиях OMP и Claude Code. В harness-cli почти ничего не работает: нет harness messages, а harness tasks пуст. Переименуй task в tasks.\n\nИсточник **v4-3131**, parent-or-telegram-attribution; проверенная связь по требованию; не дословная постановка заголовка. [Полный оригинал, редакторская версия и контекст](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/v4-2026-09-10/quote-registry.json).\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/intake.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- `harness search QUERY --days N` is a real subcommand (not an argparse invalid-choice). Proof: `harness search --help` lists query and --days, and `python -m harness_cli search harness-cli --days 3` no longer exits 2 for invalid choice.\n- Search reads Claude Code parent session jsonl (files sitting directly under a project slug) and Oh My Pi parent session jsonl (files sitting directly under ~/.omp/agent/sessions/<slug>/). Nested subagent transcripts are skipped. Proof: unit tests with tmp_path fixtures (a parent hit plus a nested subagent file containing the same needle).\n- Only genuine user text is matched: Claude Code type=user excluding isMeta / isSidechain / isCompactSummary / tool_result turns; Oh My Pi type=message role=user with attribution=user (or absent), not attribution=agent. Proof: unit tests that plant those shapes and assert they do not appear.\n- Each hit prints date + source (`cc` or `omp`) + verbatim user text. Proof: unit test output and a live smoke run.\n- A last-N-days filter (default 3) drops older user messages. Proof: unit test with an old message vs a fresh one.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n`harness` today only exposes `limits`. There is no way to search user messages across Claude Code and Oh My Pi session transcripts.\n\nConcretely: `python -m harness_cli search harness-cli --days 3` fails with argparse invalid choice. Only `{limits}` is registered in the CLI parser (`build_parser` in the cli module). That is the gap Alex asked to close on 2026-09-07: find every real user request, for any harness / directory / session, without mixing in the prompts the agent sends to subagents.\n\nEvidence captured before any code change (2026-09-08):\n\n    $ python -m harness_cli search harness-cli --days 3\n    rc=2\n    stderr:\n    usage: harness [-h] [--version] {limits} ...\n    harness: error: argument command: invalid choice: 'search' (choose from 'limits')\n\nThe 7 Sep user quote itself lives in a Claude Code parent transcript (not an Oh My Pi user turn, not a subagent file):\n\n    path: Claude Code account-0 projects dir, rig-cli project, parent session jsonl\n    timestamp: 2026-09-07T11:40:45.746Z\n    type=user, not sidechain, not meta, userType=external\n    verbatim starts: \"сделай чтобы harness-cli умел искать все запросы пользователя...\"\n\nThe same phrase also appears inside nested Oh My Pi subagent jsonl (attribution=agent) and in Claude Code compact-summary / task-notification lines. Those must NOT count as user messages.\n\nOrigin: Alex 7 Sep request (this session's assignment). Repo: https://github.com/alex-mextner/harness-cli\n\n## Why (motivation)\nAlex asked on 7 Sep for harness-cli to search real user requests across every harness, directory, and session, without confusing those with prompts the agent sends to subagents. Reports and grooming are blocked until that query exists.\n\n## User impact\nToday you cannot ask harness for 'what did I tell the agent last week'. You have to open raw jsonl by hand, and you will mix your own words with subagent task briefs. After this, `harness search` prints your messages with date and source so you can find a request like the 7 Sep harness-cli quote in one command.\n\n## Cost of inaction\nEvery report that needs 'what Alex actually asked' keeps grepping jsonl and counting subagent prompts as user requests. The 7 Sep ask stays unanswerable from the CLI, and grooming/marking work stays blind.\n\n## Acceptance criteria\n- [x] `harness search QUERY --days N` is a real subcommand (not an argparse invalid-choice). Proof: `harness search --help` lists query and --days, and `python -m harness_cli search harness-cli --days 3` no longer exits 2 for invalid choice. — forced: CLI-only; no visual surface. Proof: tests/test_search.py 7 passed in 0.04s; live smoke `python -m harness_cli search 'умел искать' --days 3` wrote /tmp/harness-search-smoke.txt with 2026-09-07T11:40:45.746Z cc parent jsonl and the verbatim 7 Sep quote; nested HarnessSearch.jsonl and attribution=agent briefs are absent from that output.\n- [x] Search reads Claude Code parent session jsonl (files sitting directly under a project slug) and Oh My Pi parent session jsonl (files sitting directly under ~/.omp/agent/sessions/<slug>/). Nested subagent transcripts are skipped. Proof: unit tests with tmp_path fixtures (a parent hit plus a nested subagent file containing the same needle). — forced: CLI-only; no visual surface. Proof: tests/test_search.py 7 passed in 0.04s; live smoke `python -m harness_cli search 'умел искать' --days 3` wrote /tmp/harness-search-smoke.txt with 2026-09-07T11:40:45.746Z cc parent jsonl and the verbatim 7 Sep quote; nested HarnessSearch.jsonl and attribution=agent briefs are absent from that output.\n- [x] Only genuine user text is matched: Claude Code type=user excluding isMeta / isSidechain / isCompactSummary / tool_result turns; Oh My Pi type=message role=user with attribution=user (or absent), not attribution=agent. Proof: unit tests that plant those shapes and assert they do not appear. — forced: CLI-only; no visual surface. Proof: tests/test_search.py 7 passed in 0.04s; live smoke `python -m harness_cli search 'умел искать' --days 3` wrote /tmp/harness-search-smoke.txt with 2026-09-07T11:40:45.746Z cc parent jsonl and the verbatim 7 Sep quote; nested HarnessSearch.jsonl and attribution=agent briefs are absent from that output.\n- [x] Each hit prints date + source (`cc` or `omp`) + verbatim user text. Proof: unit test output and a live smoke run. — forced: CLI-only; no visual surface. Proof: tests/test_search.py 7 passed in 0.04s; live smoke `python -m harness_cli search 'умел искать' --days 3` wrote /tmp/harness-search-smoke.txt with 2026-09-07T11:40:45.746Z cc parent jsonl and the verbatim 7 Sep quote; nested HarnessSearch.jsonl and attribution=agent briefs are absent from that output.\n- [x] A last-N-days filter (default 3) drops older user messages. Proof: unit test with an old message vs a fresh one. — forced: CLI-only; no visual surface. Proof: tests/test_search.py 7 passed in 0.04s; live smoke `python -m harness_cli search 'умел искать' --days 3` wrote /tmp/harness-search-smoke.txt with 2026-09-07T11:40:45.746Z cc parent jsonl and the verbatim 7 Sep quote; nested HarnessSearch.jsonl and attribution=agent briefs are absent from that output.\n- [x] Running `harness search 'умел искать' --days 3` against this machine's real transcripts finds the 2026-09-07T11:40:45Z Claude Code quote. Proof: captured command output. — forced: CLI-only; no visual surface. Proof: tests/test_search.py 7 passed in 0.04s; live smoke `python -m harness_cli search 'умел искать' --days 3` wrote /tmp/harness-search-smoke.txt with 2026-09-07T11:40:45.746Z cc parent jsonl and the verbatim 7 Sep quote; nested HarnessSearch.jsonl and attribution=agent briefs are absent from that output.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n\n## Skipped gates\n- screenshots: CLI-only change; no UI surface. Broken state is the argparse invalid-choice stderr captured above.\n",
+    "record": {
+      "key": "harness-cli#1",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 1,
+      "title": "Add harness search for user messages across CC and OMP transcripts",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "intake",
+      "classification": "product-or-maintenance",
+      "provenance": "request-linked",
+      "quote_ids": [
+        "v4-3131"
+      ],
+      "quote_relationships": [
+        {
+          "id": "v4-3131",
+          "kind": "reviewed-requirement-context"
+        }
+      ],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "6fdd7a536a83b23b6df709279c9143f8f2f70cc8bffadb8958fb498d08cb939d"
+    }
+  },
+  {
+    "key": "harness-cli#14",
+    "number": 14,
+    "id": 5388691624,
+    "title": "Assess release metadata bump risks",
+    "expected_state": "closed",
+    "expected_sha256": "6fcc64d3bf23e1e55d5d8e4d9b600f17b963c3d9289f505d2dd2d538d4af68d1",
+    "expected_updated_at": "2026-09-09T09:58:45Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Assess release metadata bump risks**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nЭто процессная запись ревью/проверки, а не самостоятельная функция. Сохранить её находки и ссылки на исправления. Не создавать новую реализацию по одному служебному заголовку; оригинальная история остаётся ниже.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`d238d13dd885`](https://github.com/ultrabricks/harness-cli/tree/d238d13dd8859517800f5644c572859aa19f75d1). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe requested review needs a traceable, evidence-based assessment before the version metadata change is committed.\n\n## User impact\nPeople installing the command-line tool need its displayed version to match the version they receive, so they can identify the release and get support for the right build.\n\n## Cost of inaction\nPeople could install a release whose version information is confusing or incorrect, making upgrades and support harder.\n\n## Acceptance criteria\n- [x] Inspect the specified uncommitted diff and identify any concrete release-metadata defect. — forced: CLI-only; no UI surface for a version-metadata audit; findings written to /tmp/harness-issue14-review.txt (verdict: CLEAN, single source of truth confirmed for version string)\n- [x] Return only actionable findings, or a clean verdict that documents specific adversarial failure modes checked. — forced: CLI-only; no UI surface for a version-metadata audit; findings written to /tmp/harness-issue14-review.txt (verdict: CLEAN, single source of truth confirmed for version string)\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "harness-cli#14",
+      "repo": "harness-cli",
+      "canonical_repository": "ultrabricks/harness-cli",
+      "number": 14,
+      "title": "Assess release metadata bump risks",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "6fcc64d3bf23e1e55d5d8e4d9b600f17b963c3d9289f505d2dd2d538d4af68d1"
+    }
+  }
+]

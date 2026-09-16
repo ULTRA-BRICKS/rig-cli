@@ -1,0 +1,676 @@
+{
+  "review-cli": {
+    "artifact_id": 10177597708,
+    "artifact_digest": "sha256:6402f1f4a83f5f7783ac04f65eb1a6591a2c9e61f15f554cac1a3d434dfff372",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          "  ",
+          "  Full diff:",
+          "  - []",
+          "  + [",
+          "  +     BoardReviewer(",
+          "  +         model='codex:gpt-5',",
+          "  +         role='',",
+          "  +         display='Codex',",
+          "  +         effort='low',",
+          "  +     ),",
+          "  +     BoardReviewer(",
+          "  +         model='claude:opus',",
+          "  +         role='',",
+          "  +         display='Claude',",
+          "  +         effort='high',",
+          "  +     ),",
+          "  + ]",
+          "1 failed, 2640 passed, 12 skipped, 1 warning in 299.68s (0:04:59)"
+        ],
+        "bun_failures": []
+      },
+      {
+        "file": "command-2.log",
+        "tail": [
+          "      ✗ DeepSeek   oc:commandcode/deepseek/deepseek-v4-pro  — opencode not found on PATH",
+          "      ✗ Gemini     gemini  — GEMINI_API_KEY not found in env, GEMINI_ENV_FILE, or ~/.config/review-cli/.env",
+          "      ✗ Grok       oc:xai/grok-4.6  — opencode not found on PATH",
+          "      ✗ MiMo       omp:opencode-go/mimo-v2.5  — omp not found on PATH",
+          "      ✗ GLM        oc:zai/glm-5.2  — opencode not found on PATH",
+          "",
+          "Fix at least one of these to restore a pool:",
+          "  - Opus, Sonnet: claude: no `claude` CLI on PATH and no API key",
+          "  - GLM-cc: COMMANDCODE_API_KEY not found in env, GEMINI_ENV_FILE, or ~/.config/review-cli/.env",
+          "  - Kimi, Qwen, DeepSeek, Grok, GLM: opencode not found on PATH",
+          "  - Astra, Terra, Sol: codex not found on PATH",
+          "  - Sonnet-omp, MiMo: omp not found on PATH",
+          "  - Gemini: GEMINI_API_KEY not found in env, GEMINI_ENV_FILE, or ~/.config/review-cli/.env",
+          "",
+          "Current live models: (none).",
+          "",
+          "",
+          "FAILED: 25 checks, 1 failures, 0 skipped"
+        ],
+        "bun_failures": []
+      }
+    ],
+    "test_counts": {
+      "passed": 2640,
+      "failed": 1,
+      "skipped": 12
+    },
+    "failed_tests": [
+      {
+        "name": "test_overridden_board_flows_into_panel_jobs_once",
+        "class": "tests.test_effort_run_flag",
+        "message": "AssertionError: assert [BoardReviewe...ffort='high')] == []\n  \n  Left contains 2 more items, first extra item: BoardReviewer(model='codex:gpt-5', role='', display='Codex', effort='low')\n  \n  Full diff:\n  - []\n  + [\n  +     BoardReviewer(\n  +         model='codex:gpt-5',\n  +         role='',\n  +         display='Codex',\n  +         effort='low',\n  +     ),\n  +     BoardReviewer(\n  +         model='claude:opus',\n  +         role='',\n  +         display='Claude',\n  +         effort='high',\n  +     ),\n  + ]"
+      }
+    ],
+    "repository": "review-cli",
+    "source_sha": "5430f9361468bf9bd1a66a4d4be8198024f989ba",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:14:22.897767+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 1,
+        "seconds": 300.34,
+        "log": "command-1.log"
+      },
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "tests/smoke.py"
+        ],
+        "exit_code": 1,
+        "seconds": 295.87,
+        "log": "command-2.log"
+      }
+    ],
+    "passed": false,
+    "finished_at": "2026-09-10T23:24:19.103206+00:00"
+  },
+  "tg-cli": {
+    "artifact_id": 10177478823,
+    "artifact_digest": "sha256:2edd6e6d52f968fbe837888316517dc704a6c012250905d6d63b8c19f09ab17b",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          "(skip) integration(#102): a referenced local secret file is NOT read into the rendered output",
+          "(skip) enable --dry-run: prints the launchd plan (contract label + plist path + launchctl load) without touching launchd",
+          "(skip) enable: launchd activation failure → writes plist, falls back to a start, exits 4 (the contract)",
+          "(skip) disable with no unit installed is a no-op that exits 0 (idempotent removal)",
+          "(skip) enable then disable (shimmed launchctl): writes the plist then removes it, both exit 0",
+          "(skip) disable: launchctl unload failure → leaves the plist on disk, exits 4 (no orphaning)",
+          "",
+          "",
+          "2 tests failed:",
+          "(fail) private_topics: crash after new-window is adopted on restart, not double-spawned [5000.98ms]",
+          "  ^ this test timed out after 5000ms.",
+          "(fail) daemon edits the Telegram prompt when the hook client disconnects before answering [6197.00ms]",
+          "",
+          " 2941 pass",
+          " 14 skip",
+          " 2 fail",
+          " 9162 expect() calls",
+          "Ran 2957 tests across 181 files. [404.03s]"
+        ],
+        "bun_failures": [
+          "private_topics: crash after new-window is adopted on restart, not double-spawned [5000.98ms]",
+          "daemon edits the Telegram prompt when the hook client disconnects before answering [6197.00ms]",
+          "private_topics: crash after new-window is adopted on restart, not double-spawned [5000.98ms]",
+          "daemon edits the Telegram prompt when the hook client disconnects before answering [6197.00ms]"
+        ]
+      }
+    ],
+    "repository": "tg-cli",
+    "source_sha": "b640b65e7b30321ec8c14259896212f1fe78626f",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:13:14.161174+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "bun",
+          "test",
+          "./tests"
+        ],
+        "exit_code": 1,
+        "seconds": 404.09,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": false,
+    "finished_at": "2026-09-10T23:19:58.254362+00:00"
+  },
+  "pm-cli": {
+    "artifact_id": 10177358846,
+    "artifact_digest": "sha256:c85a77c06027c53c11b09e5908e5065990950c1cee3eeca15342cd8cbc7cddf6",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          "........................................................................ [ 23%]",
+          "........................................................................ [ 47%]",
+          "........................................................................ [ 71%]",
+          "........................................................................ [ 94%]",
+          "................                                                         [100%]",
+          "304 passed in 3.77s"
+        ],
+        "bun_failures": []
+      }
+    ],
+    "test_counts": {
+      "passed": 304,
+      "failed": 0,
+      "skipped": 0
+    },
+    "failed_tests": [],
+    "repository": "pm-cli",
+    "source_sha": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:15:39.712322+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 4.13,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "finished_at": "2026-09-10T23:15:43.839062+00:00"
+  },
+  "dev-cli": {
+    "artifact_id": 10177355700,
+    "artifact_digest": "sha256:bc53db5c1b1bae7c5e1799a7f18f96b59fad2a4e4227e0fff8d9189d959e4e3f",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          "........................................................................ [ 28%]",
+          "........................................................................ [ 57%]",
+          "........................................................................ [ 86%]",
+          "...................................                                      [100%]",
+          "251 passed in 2.48s"
+        ],
+        "bun_failures": []
+      }
+    ],
+    "test_counts": {
+      "passed": 251,
+      "failed": 0,
+      "skipped": 0
+    },
+    "failed_tests": [],
+    "repository": "dev-cli",
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:15:34.530580+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 2.82,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "finished_at": "2026-09-10T23:15:37.352179+00:00"
+  },
+  "stt-cli": {
+    "artifact_id": 10177347462,
+    "artifact_digest": "sha256:e94c45e3fe2bbbe69abc2bea61bbabbd2fe890e0a21e9da5496d82dd7f28f3e5",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          "........................................................................ [ 14%]",
+          "........................................................................ [ 28%]",
+          "........................................................................ [ 43%]",
+          "........................................................................ [ 57%]",
+          "........................................................................ [ 72%]",
+          "........................................................................ [ 86%]",
+          "..................................................................       [100%]",
+          "498 passed in 6.23s"
+        ],
+        "bun_failures": []
+      }
+    ],
+    "test_counts": {
+      "passed": 498,
+      "failed": 0,
+      "skipped": 0
+    },
+    "failed_tests": [],
+    "repository": "stt-cli",
+    "source_sha": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:15:12.705293+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 6.58,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "finished_at": "2026-09-10T23:15:19.284847+00:00"
+  },
+  "research-cli": {
+    "artifact_id": 10177344844,
+    "artifact_digest": "sha256:7ae07df617286502ebf1cf617b691b9a9bed76579dba80c02740d20b75ac164b",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          "...................................................................      [100%]",
+          "67 passed in 0.49s"
+        ],
+        "bun_failures": []
+      }
+    ],
+    "test_counts": {
+      "passed": 67,
+      "failed": 0,
+      "skipped": 0
+    },
+    "failed_tests": [],
+    "repository": "research-cli",
+    "source_sha": "b72836d235b104690b1f98376a6156363f50d85b",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:15:12.958275+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 0.92,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "finished_at": "2026-09-10T23:15:13.874135+00:00"
+  },
+  "rig-cli": {
+    "artifact_id": 10177335467,
+    "artifact_digest": "sha256:c244a563d5831fe33612e31f2f7a0a0005c541da6ad6b536eebb386737087f62",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          ".................ss.......s............................................. [ 71%]",
+          "........................................................................ [ 73%]",
+          "........................................................................ [ 75%]",
+          "........................................................................ [ 77%]",
+          "......................sssssssssssssss.s................................. [ 79%]",
+          ".....................................................................s.. [ 81%]",
+          "........................................................................ [ 82%]",
+          "........................................................................ [ 84%]",
+          "........................................................................ [ 86%]",
+          "........................................................................ [ 88%]",
+          "........................................................................ [ 90%]",
+          "....................sssssss............................................. [ 92%]",
+          "........................................................................ [ 94%]",
+          "........................................................................ [ 96%]",
+          "........................................................................ [ 98%]",
+          "..................................................s..................... [ 99%]",
+          ".                                                                        [100%]",
+          "3771 passed, 46 skipped in 97.54s (0:01:37)"
+        ],
+        "bun_failures": []
+      },
+      {
+        "file": "command-2.log",
+        "tail": [
+          "........................................................................ [ 75%]",
+          "........................................................................ [ 77%]",
+          "......................sssssssssssssss.s................................. [ 79%]",
+          ".....................................................................s.. [ 81%]",
+          "........................................................................ [ 82%]",
+          "........................................................................ [ 84%]",
+          "........................................................................ [ 86%]",
+          "........................................................................ [ 88%]",
+          "........................................................................ [ 90%]",
+          "....................sssssss............................................. [ 92%]",
+          "........................................................................ [ 94%]",
+          "........................................................................ [ 96%]",
+          "........................................................................ [ 98%]",
+          "..................................................s..................... [ 99%]",
+          ".                                                                        [100%]",
+          "3771 passed, 46 skipped in 96.76s (0:01:36)",
+          "  \u001b[32m✔\u001b[0m pytest",
+          "smoke OK"
+        ],
+        "bun_failures": []
+      }
+    ],
+    "test_counts": {
+      "passed": 3771,
+      "failed": 0,
+      "skipped": 46
+    },
+    "failed_tests": [],
+    "repository": "rig-cli",
+    "source_sha": "0e231117e38af4f074b07fcb00ea7fd807e6db12",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:11:34.862187+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 98.63,
+        "log": "command-1.log"
+      },
+      {
+        "argv": [
+          "bash",
+          "tests/smoke.sh"
+        ],
+        "exit_code": 0,
+        "seconds": 99.53,
+        "log": "command-2.log"
+      }
+    ],
+    "passed": true,
+    "finished_at": "2026-09-10T23:14:53.023016+00:00"
+  },
+  "qa-cli": {
+    "artifact_id": 10177319227,
+    "artifact_digest": "sha256:b1980a569c4180ac8229e18bedc1efaa3e5d6eac12a827e5e090676593432fa2",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          "................................s                                        [100%]",
+          "32 passed, 1 skipped in 1.33s"
+        ],
+        "bun_failures": []
+      }
+    ],
+    "test_counts": {
+      "passed": 32,
+      "failed": 0,
+      "skipped": 1
+    },
+    "failed_tests": [],
+    "repository": "qa-cli",
+    "source_sha": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:14:17.082868+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 1.57,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "finished_at": "2026-09-10T23:14:18.650058+00:00"
+  },
+  "agent-tools": {
+    "artifact_id": 10177309356,
+    "artifact_digest": "sha256:c751aa1cd18fad32076178286d7501627b66be143328d70a102bb4da6cb8e028",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          "...............................................s........................ [ 87%]",
+          "........................................................................ [ 88%]",
+          "........................................................................ [ 90%]",
+          "........................................................................ [ 91%]",
+          "........................................................................ [ 92%]",
+          "........................................................................ [ 93%]",
+          "........................................................................ [ 95%]",
+          "........................................................................ [ 96%]",
+          "........................................................................ [ 97%]",
+          "........................................................................ [ 99%]",
+          "...................................................                      [100%]",
+          "=============================== warnings summary ===============================",
+          "tests/test_omp_hook_bridge.py:2565",
+          "  /home/runner/work/rig-cli/rig-cli/tests/test_omp_hook_bridge.py:2565: SyntaxWarning: invalid escape sequence '\\`'",
+          "    \"\"\"Security-review finding (ReDoS): the old `(?:\\\\\\\\.|(?!closing).)*?` body alternative let",
+          "",
+          "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+          "5563 passed, 32 skipped, 1 warning in 144.77s (0:02:24)"
+        ],
+        "bun_failures": []
+      }
+    ],
+    "test_counts": {
+      "passed": 5563,
+      "failed": 0,
+      "skipped": 32
+    },
+    "failed_tests": [],
+    "repository": "agent-tools",
+    "source_sha": "33934284ef258c3548611ac5ffc71b2e37bd4ea0",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:11:31.759603+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 145.58,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "finished_at": "2026-09-10T23:13:57.339926+00:00"
+  },
+  "task-cli": {
+    "artifact_id": 10177274566,
+    "artifact_digest": "sha256:5b0a74e65dd2cf038388c913e092f317dc225ba9f8b46961cfaff66dcbb90a6e",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          "........................................................................ [ 31%]",
+          "........................................................................ [ 35%]",
+          "........................................................................ [ 39%]",
+          "........................................................................ [ 44%]",
+          "........................................................................ [ 48%]",
+          "........................................................................ [ 53%]",
+          "........................................................................ [ 57%]",
+          "........................................................................ [ 62%]",
+          "........................................................................ [ 66%]",
+          "......................................................s.........sss..... [ 70%]",
+          "........................................................................ [ 75%]",
+          "........................................................................ [ 79%]",
+          "........................................................................ [ 84%]",
+          "........................................................................ [ 88%]",
+          "........................................................................ [ 93%]",
+          "........................................................................ [ 97%]",
+          "..........s..............................                                [100%]",
+          "1619 passed, 6 skipped in 22.53s"
+        ],
+        "bun_failures": []
+      },
+      {
+        "file": "command-2.log",
+        "tail": [
+          "........................................................................ [ 39%]",
+          "........................................................................ [ 44%]",
+          "........................................................................ [ 48%]",
+          "........................................................................ [ 53%]",
+          "........................................................................ [ 57%]",
+          "........................................................................ [ 62%]",
+          "........................................................................ [ 66%]",
+          "......................................................s.........sss..... [ 70%]",
+          "........................................................................ [ 75%]",
+          "........................................................................ [ 79%]",
+          "........................................................................ [ 84%]",
+          "........................................................................ [ 88%]",
+          "........................................................................ [ 93%]",
+          "........................................................................ [ 97%]",
+          "..........s..............................                                [100%]",
+          "1619 passed, 6 skipped in 20.22s",
+          "  \u001b[32m✔\u001b[0m pytest unit suite",
+          "task smoke: all checks passed"
+        ],
+        "bun_failures": []
+      }
+    ],
+    "test_counts": {
+      "passed": 1619,
+      "failed": 0,
+      "skipped": 6
+    },
+    "failed_tests": [],
+    "repository": "task-cli",
+    "source_sha": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:11:59.208401+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 22.96,
+        "log": "command-1.log"
+      },
+      {
+        "argv": [
+          "bash",
+          "tests/smoke.sh"
+        ],
+        "exit_code": 0,
+        "seconds": 22.76,
+        "log": "command-2.log"
+      }
+    ],
+    "passed": true,
+    "finished_at": "2026-09-10T23:12:44.933564+00:00"
+  },
+  "harness-cli": {
+    "artifact_id": 10177243780,
+    "artifact_digest": "sha256:5fa5895d3b9a5b9c34d1f4aca9f5809ec0ebcd2f9796efa54d76e39a0597648e",
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "log_summaries": [
+      {
+        "file": "command-1.log",
+        "tail": [
+          "........................................................................ [ 44%]",
+          "........................................................................ [ 88%]",
+          "...................                                                      [100%]",
+          "163 passed in 3.09s"
+        ],
+        "bun_failures": []
+      }
+    ],
+    "test_counts": {
+      "passed": 163,
+      "failed": 0,
+      "skipped": 0
+    },
+    "failed_tests": [],
+    "repository": "harness-cli",
+    "source_sha": "d238d13dd8859517800f5644c572859aa19f75d1",
+    "platform": "Ubuntu 24.04 / Python 3.12",
+    "started_at": "2026-09-10T23:11:37.101325+00:00",
+    "live_accounts_used": false,
+    "user_machine_acceptance": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/runner/work/_temp/audit-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "--junitxml=/home/runner/work/rig-cli/rig-cli/audit-results/pytest.xml"
+        ],
+        "exit_code": 0,
+        "seconds": 3.42,
+        "log": "command-1.log"
+      }
+    ],
+    "passed": true,
+    "finished_at": "2026-09-10T23:11:40.523527+00:00"
+  },
+  "draw-cli": {
+    "run_url": "https://github.com/ultrabricks/rig-cli/actions/runs/34541003415",
+    "setup_gap": "Checkout used ultrabricks/draw-cli; canonical repository is still alex-mextner/draw-cli. No tests ran in this leg."
+  }
+}

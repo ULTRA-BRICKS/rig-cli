@@ -1,0 +1,39 @@
+name: V4 public-corpus safety review
+on:
+  push:
+    branches: [docs/full-grooming-2026-09-10]
+    paths: [.github/workflows/v4-publication-safety.yml]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Run redacted scanner and expose metadata only
+        run: |
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz -C /tmp gitleaks
+          /tmp/gitleaks dir . --redact --no-banner --report-format json --report-path /tmp/leaks.json --exit-code 0
+          python3 - <<'PY'
+          import json,pathlib
+          rows=json.loads(pathlib.Path('/tmp/leaks.json').read_text())
+          safe=[{k:r.get(k) for k in ('RuleID','Description','File','StartLine','EndLine','StartColumn','EndColumn','Fingerprint')} for r in rows]
+          p=pathlib.Path('docs/grooming/v4-2026-09-10/publication-scan.json');p.write_text(json.dumps({'findings':safe,'policy':'Scanner matches are not assumed to be valid credentials. No matched secret values are logged or published.'},indent=2)+'\n');print(p.read_text())
+          PY
+      - name: Commit redacted findings
+        run: |
+          git config user.name 'Rig grooming audit'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/grooming/v4-2026-09-10/publication-scan.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'docs(security): record only redacted publication-scan locations'
+          git pull --rebase origin docs/full-grooming-2026-09-10
+          git push origin HEAD:docs/full-grooming-2026-09-10
+      - name: Package the public working tree for local review
+        run: git archive --format=tar.gz HEAD -o /tmp/rig-grooming-public-tree.tar.gz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: v4-public-review-source
+          path: /tmp/rig-grooming-public-tree.tar.gz
+          retention-days: 7

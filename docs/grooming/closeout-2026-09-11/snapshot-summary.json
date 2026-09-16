@@ -1,0 +1,196 @@
+{
+  "checked_at": "2026-09-10T23:15:21.609538+00:00",
+  "run_id": "34541300125",
+  "repositories": {
+    "agent-tools": {
+      "id": 1269421952,
+      "canonical_repository": "ultrabricks/agent-tools",
+      "head": "33934284ef258c3548611ac5ffc71b2e37bd4ea0",
+      "issues": 431,
+      "open": 244,
+      "prs": 314,
+      "merged_prs": 273,
+      "comments": 324,
+      "preflight": {
+        "ready": 423,
+        "concurrent_edit_preserved": 5,
+        "new-since-plan": 3
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "89a52ffcae9d48c102d4919e635029c01b631b1fd79a8eee2fafa8b37a9ebd4d"
+    },
+    "dev-cli": {
+      "id": 1304027880,
+      "canonical_repository": "ultrabricks/dev-cli",
+      "head": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "issues": 21,
+      "open": 6,
+      "prs": 9,
+      "merged_prs": 7,
+      "comments": 9,
+      "preflight": {
+        "ready": 21
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "cbe9724acf0353ebc0f35d1f6939606e742fc9884d2b6a286cc490e724fd4d53"
+    },
+    "draw-cli": {
+      "id": 1261406608,
+      "canonical_repository": "alex-mextner/draw-cli",
+      "head": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "issues": 11,
+      "open": 3,
+      "prs": 13,
+      "merged_prs": 12,
+      "comments": 8,
+      "preflight": {
+        "ready": 11
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "573a20f902644bc5c27bf2e3b86de7dbc5aabcc4e3b02b215af3951164d071bb"
+    },
+    "harness-cli": {
+      "id": 1360550167,
+      "canonical_repository": "ultrabricks/harness-cli",
+      "head": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "issues": 21,
+      "open": 10,
+      "prs": 9,
+      "merged_prs": 7,
+      "comments": 11,
+      "preflight": {
+        "no-previous-public-plan": 21
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "9441ead7e340ab2f9b0bed513a7ee53d337ca36b57885dedf467d1c7a9cb5bcd"
+    },
+    "pm-cli": {
+      "id": 1300077282,
+      "canonical_repository": "ultrabricks/pm-cli",
+      "head": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+      "issues": 20,
+      "open": 9,
+      "prs": 9,
+      "merged_prs": 8,
+      "comments": 6,
+      "preflight": {
+        "ready": 20
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "ff8e65ff2000aae9f4cb67eb8d5f3c2fd98ed87c5d3dd06edbcb048ac8916242"
+    },
+    "qa-cli": {
+      "id": 1361425617,
+      "canonical_repository": "ultrabricks/qa-cli",
+      "head": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+      "issues": 8,
+      "open": 1,
+      "prs": 5,
+      "merged_prs": 5,
+      "comments": 18,
+      "preflight": {
+        "ready": 8
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "e79102ad05274bca1fd9e94045123a783d967fd033478906fbd649cc5d5fe89b"
+    },
+    "research-cli": {
+      "id": 1281255310,
+      "canonical_repository": "ultrabricks/research-cli",
+      "head": "b72836d235b104690b1f98376a6156363f50d85b",
+      "issues": 12,
+      "open": 3,
+      "prs": 7,
+      "merged_prs": 7,
+      "comments": 8,
+      "preflight": {
+        "ready": 12
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "2fa7bffe65b8cd9d820aef12ec7437858096d30b33ad9482d8a1ec0766a621a8"
+    },
+    "review-cli": {
+      "id": 1261272159,
+      "canonical_repository": "ultrabricks/review-cli",
+      "head": "5430f9361468bf9bd1a66a4d4be8198024f989ba",
+      "issues": 347,
+      "open": 216,
+      "prs": 167,
+      "merged_prs": 149,
+      "comments": 167,
+      "preflight": {
+        "ready": 347
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "56047bf5d8189a81b37484920787e60bec7ac19d496a6afec996bb23cf4606e9"
+    },
+    "rig-cli": {
+      "id": 1269680459,
+      "canonical_repository": "ultrabricks/rig-cli",
+      "head": "0e231117e38af4f074b07fcb00ea7fd807e6db12",
+      "issues": 356,
+      "open": 185,
+      "prs": 182,
+      "merged_prs": 172,
+      "comments": 223,
+      "preflight": {
+        "ready": 355,
+        "new-since-plan": 1
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "8bd277449afe5999290d1a10a330bc4af21115aadc6e493259923fc490586333"
+    },
+    "stt-cli": {
+      "id": 1353687987,
+      "canonical_repository": "ultrabricks/stt-cli",
+      "head": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+      "issues": 33,
+      "open": 24,
+      "prs": 9,
+      "merged_prs": 7,
+      "comments": 16,
+      "preflight": {
+        "ready": 33
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "6fa51cd637076682a6aabf9e164a71832e3494599178c6838219da49ade5da5e"
+    },
+    "task-cli": {
+      "id": 1270088634,
+      "canonical_repository": "ultrabricks/task-cli",
+      "head": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+      "issues": 135,
+      "open": 74,
+      "prs": 59,
+      "merged_prs": 59,
+      "comments": 57,
+      "preflight": {
+        "ready": 135
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "7d89bf32cd292856f3196a23ca14c2640514ece406798cfb89c0958fc8b81662"
+    },
+    "tg-cli": {
+      "id": 1247072189,
+      "canonical_repository": "ultrabricks/tg-cli",
+      "head": "b640b65e7b30321ec8c14259896212f1fe78626f",
+      "issues": 234,
+      "open": 126,
+      "prs": 166,
+      "merged_prs": 152,
+      "comments": 147,
+      "preflight": {
+        "ready": 229,
+        "invalid-saved-plan": 1,
+        "concurrent_edit_preserved": 2,
+        "new-since-plan": 2
+      },
+      "redacted_issues": [],
+      "source_archive_sha256": "e88f427e80c11bac640e6b13fe952108aae6f740eca09fb9893fa011f342c87c"
+    }
+  },
+  "errors": {},
+  "mutations": 0,
+  "finished_at": "2026-09-10T23:17:40.071780+00:00",
+  "complete": true
+}

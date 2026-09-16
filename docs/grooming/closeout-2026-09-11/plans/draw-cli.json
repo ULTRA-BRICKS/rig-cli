@@ -1,0 +1,380 @@
+[
+  {
+    "key": "draw-cli#24",
+    "number": 24,
+    "id": 5412866363,
+    "title": "[EPIC] draw-cli: complete backlog recovery and verified acceptance",
+    "expected_state": "open",
+    "expected_sha256": "b52cbd20df1c2bcc2284734f236b7f2367aff0859616321f70c01ca44322b4b9",
+    "expected_updated_at": "2026-09-10T13:35:43Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**[EPIC] draw-cli: complete backlog recovery and verified acceptance**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/telemetry.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [rig-cli#521](https://github.com/ultrabricks/rig-cli/issues/521). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- All original outcomes are verified or explicitly rescoped by the owner; a merge or a copied screenshot path is not acceptance.\n- Native parent links and preserved prior relationships are reconciled.\n- Source gaps and unsupported/live-platform checks remain visible.\n- Duplicate consolidation preserves every unique finding before closure.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n<!-- rig-grooming-parent:2026-09-10:draw-cli:root -->\n\n## User request — editorial quotation\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами с исправлением стилистики, орфографии и пунктуации. Всё влитое и сделанное нужно перепроверить.\n\nSource: current ChatGPT request, 2026-09-10. This is the recovery mandate, not the original feature request for every historical ticket. Original wording and linked source quotations are retained in the central registry.\n\n## Outcome\nEvery issue in alex-mextner/draw-cli has an explicit, source-grounded disposition, preserved technical scope, specification links and a verification status. Existing product epics remain owners of implementation; this epic indexes recovery/acceptance, not duplicate development.\n\nCoordinator: https://github.com/alex-mextner/rig-cli/issues/521\nSpecification catalog: https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/\nInventory and evidence: https://github.com/alex-mextner/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/full-2026-09-10/issues/draw-cli.json\n\n## Acceptance\n- [ ] All original outcomes are verified or explicitly rescoped by the owner; a merge or a copied screenshot path is not acceptance.\n- [ ] Native parent links and preserved prior relationships are reconciled.\n- [ ] Source gaps and unsupported/live-platform checks remain visible.\n- [ ] Duplicate consolidation preserves every unique finding before closure.\n\n## Example\nAn issue closed after a helper-level unit test remains historically closed, but the recovery record does not claim that its installed CLI or multi-agent integration passed. Verify that specific user workflow at a named revision before marking recovery complete.\n",
+    "record": {
+      "key": "draw-cli#24",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 24,
+      "title": "[EPIC] draw-cli: complete backlog recovery and verified acceptance",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "telemetry",
+      "classification": "epic",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "rig-cli#521"
+      ],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "b52cbd20df1c2bcc2284734f236b7f2367aff0859616321f70c01ca44322b4b9"
+    }
+  },
+  {
+    "key": "draw-cli#13",
+    "number": 13,
+    "id": 4806729990,
+    "title": "deploy.sh: resolve configured @{upstream} instead of hard-coded refs/remotes/origin/<branch>",
+    "expected_state": "open",
+    "expected_sha256": "3731d75f19a18296b7ea76fd48fcebcb82850c7013af7f26c39cdf2f4ed1719e",
+    "expected_updated_at": "2026-09-10T13:35:56Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**deploy.sh: resolve configured @{upstream} instead of hard-coded refs/remotes/origin/<branch>**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/provisioning.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- deploy works when the local branch's upstream is origin/main but the branch name differs (e.g. branch deployed tracking origin/main)\n- non-origin upstreams are rejected with a clear message\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\ndeferred P2 from the PR 12 review: the script probes refs/remotes/origin/${branch}; a checkout on branch 'deployed' tracking origin/main probes nonexistent origin/deployed, exits 1, and rig stops refreshing the tool\n\n## User impact\na user whose checkout uses a differently-named local branch loses tool freshness silently on every rig apply\n\n## Cost of inaction\nthe resolved PR thread is the only record and the edge case ships broken\n\n## Acceptance criteria\n- [ ] deploy works when the local branch's upstream is origin/main but the branch name differs (e.g. branch deployed tracking origin/main)\n- [ ] non-origin upstreams are rejected with a clear message\n\n## Screenshots\n(none)\n\n## Links\n- Session: session:2\n\n## Skipped gates\n- links: refs/remotes/origin/<branch> is a git ref path literal, not a repo/entity reference\n",
+    "record": {
+      "key": "draw-cli#13",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 13,
+      "title": "deploy.sh: resolve configured @{upstream} instead of hard-coded refs/remotes/origin/<branch>",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "provisioning",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "3731d75f19a18296b7ea76fd48fcebcb82850c7013af7f26c39cdf2f4ed1719e"
+    }
+  },
+  {
+    "key": "draw-cli#10",
+    "number": 10,
+    "id": 4742806665,
+    "title": "Deferred review findings from pipx packaging (PR #9)",
+    "expected_state": "open",
+    "expected_sha256": "5f9dbce10902072385bab936ca4599f6f3ac719b9d6e9c414571accbcb1e202b",
+    "expected_updated_at": "2026-09-10T13:35:50Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Deferred review findings from pipx packaging (PR #9)**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nВ исходной записи отсутствует явный checklist приёмки. До закрытия определить вход, ожидаемый результат и отрицательный случай из сохранённого описания; отсутствие checklist не является доказательством отсутствия кода.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **open**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\nDeferred review findings from the pipx-packaging work (PR #9). None are\nrelease-blocking; tracked here so they aren't silently dropped. Several of the\nsecurity items are about the **shared install-skill machinery**, which is common\nacross the `review` / `tg` / `draw` CLIs (cross-CLI), not draw-specific — fixing\nthem in one place ideally covers all three.\n\n## Security (shared install-skill machinery — cross-CLI: review / tg / draw)\n\n- **`.env` comment stripping can truncate a token containing `#`.** `cli.py`\n  `_load_env()` strips everything after `#` from a value (intended: inline `.env`\n  comments). HF tokens today don't contain `#`, so they're unaffected — but a token\n  that *did* contain `#` would be silently truncated with no warning. Consider only\n  treating `#` as a comment when preceded by whitespace, or documenting the limitation.\n- **`.env` permissions are never checked.** A world-readable\n  `~/.config/draw-cli/.env` would leak `HF_TOKEN`. Warn on lax mode (e.g. group/other\n  read bits set) and document `chmod 600 ~/.config/draw-cli/.env`.\n- **install-skill blurb mechanism is a prompt-injection surface.** The installed\n  SessionStart hook `cat`s `~/.agents/skills/.blurbs/*.md` into every session's\n  context. That directory is shared across `review` / `tg` / `draw`; anything that\n  can write a `.md` there can inject instructions into all agent sessions. Consider an\n  allowlist of known blurb files and/or content hashes.\n- **`install_agent_skill(name)` doesn't validate `name` for path traversal.** Safe\n  today (the only caller hardcodes `\"draw\"`), but `name` flows into\n  `~/.agents/skills/<name>` / `.blurbs/<name>.md` path construction. If this ever takes\n  external input, a `name` like `../../...` would escape. Validate/whitelist the name.\n\n## Minor / cleanup (draw-cli)\n\n- Lazy stdlib-only imports (`re`, `shutil`, `json`, `pathlib`) inside the install-skill\n  helpers could move to module top — they're stdlib, so no lazy-heavy-import benefit;\n  they're scattered for locality only.\n- `cli.py`'s `ImportError` message hardcodes the GitHub URL\n  (`git+https://github.com/alex-mextner/draw-cli`) while `install.sh` parameterizes it\n  via `GITHUB_USER` / `REPO`. Drift risk if the repo ever moves; consider a single source.\n- `bin/draw` has no `if __name__ == \"__main__\":` guard (it `raise SystemExit(main())`\n  at module top). Harmless for a shim, but inconsistent with the package modules.\n- Duplicated `sys.path` bootstrap across `tests/test_smoke.py` and `tests/test_version.py`\n  → could move to a `tests/conftest.py`.\n- No full test coverage for the harness-mutating install-skill code\n  (`_ensure_sessionstart_hook`, `_append_marked`, `install_agent_skill`) — it edits\n  `~/.claude/settings.json` and writes skill files; worth a tmp-home test.\n\n## install.sh (optional cleanup deferred from PR #9)\n\n- `install.sh` calls `command -v \"$TOOL\"` twice; could collapse into a single variable.\n  Left untouched in PR #9 (not obviously safe to refactor blind).\n",
+    "record": {
+      "key": "draw-cli#10",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 10,
+      "title": "Deferred review findings from pipx packaging (PR #9)",
+      "provider_state": "open",
+      "state_reason": null,
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "5f9dbce10902072385bab936ca4599f6f3ac719b9d6e9c414571accbcb1e202b"
+    }
+  },
+  {
+    "key": "draw-cli#21",
+    "number": 21,
+    "id": 5396636577,
+    "title": "chore(rig): enable worktree-only guard for the primary checkout",
+    "expected_state": "closed",
+    "expected_sha256": "2bbef37b230506f20e5c14cca86594198957ac92d7da0fc6d2c8ad2f8ef62cd4",
+    "expected_updated_at": "2026-09-10T13:36:04Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**chore(rig): enable worktree-only guard for the primary checkout**\n\n### Сохранённая постановка проблемы\n\nEnroll agent_hooks.worktree_only: true in rig.yaml so the primary draw-cli checkout is guarded against direct edits, forcing all work through rig worktree create per the documented AGENTS.md worktree lifecycle.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/worktrees.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- rig.yaml has agent_hooks.worktree_only: true\n- primary draw-cli checkout stays clean after enabling the guard\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nEnroll agent_hooks.worktree_only: true in rig.yaml so the primary draw-cli checkout is guarded against direct edits, forcing all work through rig worktree create per the documented AGENTS.md worktree lifecycle.\n\n## Why (motivation)\nHistorically many stray sibling worktree dirs accumulated across the rig ecosystem because nothing enforced the worktree convention at the repo level.\n\n## User impact\nAgents/CI attempting to edit the primary draw-cli checkout directly are blocked, keeping it clean and preventing future stray worktrees.\n\n## Cost of inaction\nStray worktrees keep accumulating and the primary checkout drifts dirty.\n\n## Acceptance criteria\n- [x] rig.yaml has agent_hooks.worktree_only: true — proof: ![proof](rig.yaml on main already has agent_hooks.worktree_only: true (landed via #19 squash-merge, commit bf7d095, which bundled this PR's commit). Primary draw-cli checkout ('git status') is clean. PR #16 closed as redundant rather than merged since its diff is now empty against main.)\n- [x] primary draw-cli checkout stays clean after enabling the guard — proof: ![proof](rig.yaml on main already has agent_hooks.worktree_only: true (landed via #19 squash-merge, commit bf7d095, which bundled this PR's commit). Primary draw-cli checkout ('git status') is clean. PR #16 closed as redundant rather than merged since its diff is now empty against main.)\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "draw-cli#21",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 21,
+      "title": "chore(rig): enable worktree-only guard for the primary checkout",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "worktrees",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "2bbef37b230506f20e5c14cca86594198957ac92d7da0fc6d2c8ad2f8ef62cd4"
+    }
+  },
+  {
+    "key": "draw-cli#23",
+    "number": 23,
+    "id": 5397480541,
+    "title": "feat: ChatGPT subscription images via Codex CLI (PR https://github.com/alex-mextner/draw-cli/pull/20)",
+    "expected_state": "closed",
+    "expected_sha256": "0ca1cd4ea8ad65e2e6e0b6c0ffc0439cef44cf03a61b7157a9338694c4f62ef9",
+    "expected_updated_at": "2026-09-10T13:36:10Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**feat: ChatGPT subscription images via Codex CLI (PR https://github.com/alex-mextner/draw-cli/pull/20)**\n\n### Сохранённая постановка проблемы\n\nShip https://github.com/alex-mextner/draw-cli/pull/20: adds draw --provider chatgpt (codex alias), generating images via the installed Codex CLI authenticated with a ChatGPT subscription, no separate API key needed.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанные PR на момент сверки:\n- [draw-cli#20](https://github.com/alex-mextner/draw-cli/pull/20) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- The pull request is merged to main\n- CI is green on main after merge\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nShip https://github.com/alex-mextner/draw-cli/pull/20: adds draw --provider chatgpt (codex alias), generating images via the installed Codex CLI authenticated with a ChatGPT subscription, no separate API key needed.\n\n## Why (motivation)\nThe pull request was opened 2026-09-09 with an adversarial review and RED-to-GREEN TDD history documented in docs/adversarial-review.md, and is a leftover open PR from a prior session that needs to be driven to merge.\n\n## User impact\nUsers without an OpenAI API key can generate images through their existing ChatGPT/Codex CLI subscription instead of only the Hugging Face backend.\n\n## Cost of inaction\nThe feature stays stuck in an open pull request indefinitely and the branch/worktree keeps accumulating as leftover state.\n\n## Acceptance criteria\n- [x] The pull request is merged to main — proof: ![proof](https://github.com/alex-mextner/draw-cli/pull/20 merged as commit 23a5caa17745be426bce1288bbef9a8ba4c90272 (state: MERGED, mergedAt 2026-09-10T01:30:08Z))\n- [x] CI is green on main after merge — proof: ![proof](CI check-runs on main@23a5caa17745be426bce1288bbef9a8ba4c90272 all completed/success: update-pip-graph, CodeQL Self-Gate (actions + javascript-typescript), pytest (py3.9 + py3.12), ChatGPT adapter (macOS, offline), gitleaks)\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/draw-cli/pull/20\n- Merge commit: https://github.com/alex-mextner/draw-cli/commit/23a5caa17745be426bce1288bbef9a8ba4c90272\n\n## Skipped gates\n- post-merge-acceptance: Criteria are inherently post-merge (PR merged to main; CI green on main after merge) — cannot be proven before the merge that creates them.\n",
+    "record": {
+      "key": "draw-cli#23",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 23,
+      "title": "feat: ChatGPT subscription images via Codex CLI (PR https://github.com/alex-mextner/draw-cli/pull/20)",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [
+        "[draw-cli#20](https://github.com/alex-mextner/draw-cli/pull/20) — merged"
+      ],
+      "snapshot_body_sha256": "0ca1cd4ea8ad65e2e6e0b6c0ffc0439cef44cf03a61b7157a9338694c4f62ef9"
+    }
+  },
+  {
+    "key": "draw-cli#22",
+    "number": 22,
+    "id": 5396855437,
+    "title": "feat: SD 3.5 APIs and local inference with native Apple Silicon/GGUF backend (PR https://github.com/alex-mextner/draw-cli/pull/14)",
+    "expected_state": "closed",
+    "expected_sha256": "d53a7d661f962636a7f2007ab4b074914e1ac5090d9f8126a227cee889e2b9d7",
+    "expected_updated_at": "2026-09-10T13:36:07Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**feat: SD 3.5 APIs and local inference with native Apple Silicon/GGUF backend (PR https://github.com/alex-mextner/draw-cli/pull/14)**\n\n### Сохранённая постановка проблемы\n\nShip https://github.com/alex-mextner/draw-cli/pull/14: adds Stable Diffusion 3.5 Large via hosted APIs (HF, Stability AI), local Diffusers, and a native Apple Silicon backend, while keeping existing HF/FLUX defaults compatible.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанные PR на момент сверки:\n- [draw-cli#14](https://github.com/alex-mextner/draw-cli/pull/14) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- The pull request is merged to main\n- CI is green on main after merge\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nShip https://github.com/alex-mextner/draw-cli/pull/14: adds Stable Diffusion 3.5 Large via hosted APIs (HF, Stability AI), local Diffusers, and a native Apple Silicon backend, while keeping existing HF/FLUX defaults compatible.\n\n## Why (motivation)\nThe pull request has been open since 2026-09-05 with full CI passing (188 tests on Python 3.9/3.12) and is a leftover open PR from a prior session that needs to be driven to merge.\n\n## User impact\nUsers get SD3.5 Large image generation via three additional backends on top of the existing HF/FLUX default.\n\n## Cost of inaction\nThe feature stays stuck in an open pull request indefinitely and the branch/worktree keeps accumulating as leftover state.\n\n## Acceptance criteria\n- [x] The pull request is merged to main — proof: ![proof](https://github.com/alex-mextner/draw-cli/pull/14 merged as commit 478005ab4f00384204d3251c43fe472f9f9bf945 (state: MERGED, mergedAt 2026-09-10T00:53:45Z))\n- [x] CI is green on main after merge — proof: ![proof](CI check-runs on main@478005ab4f00384204d3251c43fe472f9f9bf945 all completed/success: update-pip-graph, CodeQL Self-Gate (actions + javascript-typescript), pytest (py3.9 + py3.12), gitleaks)\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/draw-cli/pull/14\n- Merge commit: https://github.com/alex-mextner/draw-cli/commit/478005ab4f00384204d3251c43fe472f9f9bf945\n\n## Skipped gates\n- post-merge-acceptance: Criteria are inherently post-merge (PR merged to main; CI green on main after merge) — cannot be proven before the merge that creates them.\n",
+    "record": {
+      "key": "draw-cli#22",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 22,
+      "title": "feat: SD 3.5 APIs and local inference with native Apple Silicon/GGUF backend (PR https://github.com/alex-mextner/draw-cli/pull/14)",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [
+        "[draw-cli#14](https://github.com/alex-mextner/draw-cli/pull/14) — merged"
+      ],
+      "snapshot_body_sha256": "d53a7d661f962636a7f2007ab4b074914e1ac5090d9f8126a227cee889e2b9d7"
+    }
+  },
+  {
+    "key": "draw-cli#17",
+    "number": 17,
+    "id": 5390522089,
+    "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+    "expected_state": "closed",
+    "expected_sha256": "1a5bb79cda9f56e9bd9aa7984140fd7305a4538d098e5644a00bc50e5c546561",
+    "expected_updated_at": "2026-09-10T13:36:02Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config**\n\n### Сохранённая постановка проблемы\n\ngh ship refuses draw-cli PRs that have zero GitHub reviews. The durable off-switch is a committed repo-root .ship-config with SHIP_EXTERNAL_REVIEW=0 on the PR base branch. origin/main currently has no .ship-config: git show origin/main:.ship-config returns fatal path does not exist. Env SHIP_EXTERNAL_REVIEW=0 is ignored after https://github.com/alex-mextner/agent-tools/issues/624.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/shipping.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанная работа: [agent-tools#600](https://github.com/ultrabricks/agent-tools/issues/600), [agent-tools#624](https://github.com/ultrabricks/agent-tools/issues/624). Это подтверждённые ссылки, не автоматически назначенные блокирующие зависимости.\n\nСвязанные PR на момент сверки:\n- [review-cli#451](https://github.com/ultrabricks/review-cli/pull/451) — merged\n- [agent-tools#609](https://github.com/ultrabricks/agent-tools/pull/609) — merged\n- [draw-cli#18](https://github.com/alex-mextner/draw-cli/pull/18) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- Repo-root .ship-config exists on the feature branch and contains exactly SHIP_EXTERNAL_REVIEW=0 followed by a newline. Proof: git show of that file on the branch.\n- A PR against main adds only that file, with a chore(ship) commit that Refs this ticket and does not use Closes, Fixes, or Resolves. Proof: the PR files tab shows only .ship-config.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\ngh ship refuses draw-cli PRs that have zero GitHub reviews. The durable off-switch is a committed repo-root .ship-config with SHIP_EXTERNAL_REVIEW=0 on the PR base branch. origin/main currently has no .ship-config: git show origin/main:.ship-config returns fatal path does not exist. Env SHIP_EXTERNAL_REVIEW=0 is ignored after https://github.com/alex-mextner/agent-tools/issues/624.\n\n## Why (motivation)\nSame leftover gate as the other CLIs. Documented config, not env: committed SHIP_EXTERNAL_REVIEW=0. Precedent: https://github.com/alex-mextner/tg-cli/commit/17431bf446dffd76016cf84704773a91806e93ba and merged https://github.com/alex-mextner/review-cli/pull/451. Durable key from https://github.com/alex-mextner/agent-tools/issues/600 and https://github.com/alex-mextner/agent-tools/pull/609.\n\n## User impact\nIf you try to land a draw-cli change with gh ship, the merge stops even when GitHub itself does not require an approving review. You sit waiting for an external review the repo already decided it does not want as a merge gate. Tiny chores cannot ship until someone posts a GitHub review. After the key is on origin/main, later PRs can ship without that extra forced review.\n\n## Cost of inaction\nEvery future draw-cli gh ship of a zero-review PR keeps failing. Agents and humans burn time posting dummy reviews or cannot merge at all. The intended SHIP_EXTERNAL_REVIEW=0 policy never takes effect because the env form is ignored.\n\n## Acceptance criteria\n- [x] Repo-root .ship-config exists on the feature branch and contains exactly SHIP_EXTERNAL_REVIEW=0 followed by a newline. Proof: git show of that file on the branch. — forced: one-line repo config and GitHub PR files tab; no rendered UI surface\n- [x] A PR against main adds only that file, with a chore(ship) commit that Refs this ticket and does not use Closes, Fixes, or Resolves. Proof: the PR files tab shows only .ship-config. — forced: one-line repo config and GitHub PR files tab; no rendered UI surface\n\n## Screenshots\n(none)\n\n## Links\n- PR: https://github.com/alex-mextner/draw-cli/pull/18\n- Merge commit: https://github.com/alex-mextner/draw-cli/commit/c3adfb2c5c6edad57952821b47550c7d6bd5ac72\n\n## Skipped gates\n- screenshots: no UI; one-line repo config file with no rendered surface\n",
+    "record": {
+      "key": "draw-cli#17",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 17,
+      "title": "Disable leftover SHIP_EXTERNAL_REVIEW via committed .ship-config",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "shipping",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [
+        "agent-tools#600",
+        "agent-tools#624"
+      ],
+      "implementation_prs": [
+        "[review-cli#451](https://github.com/ultrabricks/review-cli/pull/451) — merged",
+        "[agent-tools#609](https://github.com/ultrabricks/agent-tools/pull/609) — merged",
+        "[draw-cli#18](https://github.com/alex-mextner/draw-cli/pull/18) — merged"
+      ],
+      "snapshot_body_sha256": "1a5bb79cda9f56e9bd9aa7984140fd7305a4538d098e5644a00bc50e5c546561"
+    }
+  },
+  {
+    "key": "draw-cli#11",
+    "number": 11,
+    "id": 4802954157,
+    "title": "chore: add scripts/deploy.sh so rig apply keeps this tool fresh",
+    "expected_state": "closed",
+    "expected_sha256": "98046f8cbfa7c4e749d98e12e6e14b5febdbc46fb61a3c949bae4f2ba3c6c9f9",
+    "expected_updated_at": "2026-09-10T13:35:53Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**chore: add scripts/deploy.sh so rig apply keeps this tool fresh**\n\n### Сохранённая постановка проблемы\n\nAdd scripts/deploy.sh (safe fast-forward git pull of the live checkout). Reference implementation: tg-cli's scripts/deploy.sh at /Users/ultra/.files/repos/tg-cli/scripts/deploy.sh — refuse on dirty worktree, detached HEAD, or diverged branch; exit 0 on both up-to-date and successfully deployed.\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/provisioning.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nСвязанные PR на момент сверки:\n- [rig-cli#106](https://github.com/ultrabricks/rig-cli/pull/106) — merged\n\nПри повторной проверке использовать собственные критерии этого тикета, а не общий зелёный счётчик тестов. Исторические отметки ниже сохранены как история. Основные проверяемые результаты:\n- scripts/deploy.sh exists, does a safe fast-forward git pull of the checkout (refuse on dirty/detached/diverged), exit 0 on up-to-date/deployed\n- rig apply output shows [deploy.sh: ok] for this tool\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\nAdd scripts/deploy.sh (safe fast-forward git pull of the live checkout). Reference implementation: tg-cli's scripts/deploy.sh at /Users/ultra/.files/repos/tg-cli/scripts/deploy.sh — refuse on dirty worktree, detached HEAD, or diverged branch; exit 0 on both up-to-date and successfully deployed.\n\n## Why (motivation)\nrig-cli 0.8.0 (PR https://github.com/alex-mextner/rig-cli/pull/106) runs a tool's scripts/deploy.sh on every rig apply to keep the live checkout fresh; tg-cli has one, this repo does not, so it silently drifts stale\n\n## User impact\nthe user keeps running a stale installed CLI: new features and fixes already exist on origin/main but the user never sees them until they remember to manually pull the checkout\n\n## Cost of inaction\nstale-tool drift continues for every tool except tg\n\n## Acceptance criteria\n- [ ] scripts/deploy.sh exists, does a safe fast-forward git pull of the checkout (refuse on dirty/detached/diverged), exit 0 on up-to-date/deployed\n- [ ] rig apply output shows [deploy.sh: ok] for this tool\n\n## Screenshots\n(none)\n\n## Links\n- Session: session:2\n\n## Skipped gates\n- links: flagged tokens are file paths and shell exit semantics inside acceptance criteria, not references to external entities; the one real entity (rig-cli PR 106) is already a full URL\n",
+    "record": {
+      "key": "draw-cli#11",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 11,
+      "title": "chore: add scripts/deploy.sh so rig apply keeps this tool fresh",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "provisioning",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [
+        "[rig-cli#106](https://github.com/ultrabricks/rig-cli/pull/106) — merged"
+      ],
+      "snapshot_body_sha256": "98046f8cbfa7c4e749d98e12e6e14b5febdbc46fb61a3c949bae4f2ba3c6c9f9"
+    }
+  },
+  {
+    "key": "draw-cli#7",
+    "number": 7,
+    "id": 4721631899,
+    "title": "`draw --version` prints \"unknown\" when run via the installed symlink",
+    "expected_state": "closed",
+    "expected_sha256": "8f2bacc53b0d10c50b630854f09230d0066a9e006282e2993b913bc921336a5d",
+    "expected_updated_at": "2026-09-10T13:35:48Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**`draw --version` prints \"unknown\" when run via the installed symlink**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/execution.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nВ исходной записи отсутствует явный checklist приёмки. До закрытия определить вход, ожидаемый результат и отрицательный случай из сохранённого описания; отсутствие checklist не является доказательством отсутствия кода.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\nPR #6 added `draw --version`, but it prints `draw unknown` for the REAL installed invocation.\n\n## Root cause\n`draw` is on PATH as a symlink: `/Users/ultra/.files/bin/draw -> .../draw-cli/bin/draw`. `_version_from_pyproject()` derives the pyproject path from `__file__`, which under a symlinked invocation is the SYMLINK path (`~/.files/bin/draw`), so `dirname(dirname(__file__))` points at `~/.files` — no `pyproject.toml` there → returns `\"unknown\"`.\n\nThis is the `single-file-live-symlink-cli` pattern: the tool is run through a symlink to a checked-out repo. The metadata path also misses because draw-cli is not pip-installed as a dist.\n\n## Repro\n```\n$ draw --version\ndraw unknown        # expected: draw 0.2.0\n```\n\n## Fix\nResolve the symlink before deriving the repo root: `os.path.realpath(__file__)`. Add a regression test that invokes draw THROUGH a symlink (the path the existing tests skip) and asserts the real version.\n\n## Why it slipped CI\nTests + CI invoke `bin/draw` by its real path, never via a symlink, so the fallback path that breaks in production was never exercised through a link.\n",
+    "record": {
+      "key": "draw-cli#7",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 7,
+      "title": "`draw --version` prints \"unknown\" when run via the installed symlink",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "execution",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "8f2bacc53b0d10c50b630854f09230d0066a9e006282e2993b913bc921336a5d"
+    }
+  },
+  {
+    "key": "draw-cli#5",
+    "number": 5,
+    "id": 4721573195,
+    "title": "add `draw --version` reading the version dynamically from pyproject",
+    "expected_state": "closed",
+    "expected_sha256": "e653528694a166951d97c552843b013d0ed354185fb0695ef7398587ea3a433d",
+    "expected_updated_at": "2026-09-10T13:35:45Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**add `draw --version` reading the version dynamically from pyproject**\n\n### Сохранённая постановка проблемы\n\nAdd `draw --version` (and `-V`) that prints `draw <version>`, reading the version DYNAMICALLY (single source of truth = pyproject), matching the bump-version-on-release pattern (agent-tools#99; same as rig#71 / task#23 / 3d#10).\n\n*Это описание исходного случая, не новый результат воспроизведения.*\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/auxiliary.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nВ исходной записи отсутствует явный checklist приёмки. До закрытия определить вход, ожидаемый результат и отрицательный случай из сохранённого описания; отсутствие checklist не является доказательством отсутствия кода.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\ndraw-cli currently has NO `--version` flag — it is the only tool in the ecosystem missing it. `pyproject.toml` declares `0.1.0` but `bin/draw` prints no version anywhere.\n\n## What\nAdd `draw --version` (and `-V`) that prints `draw <version>`, reading the version DYNAMICALLY (single source of truth = pyproject), matching the bump-version-on-release pattern (agent-tools#99; same as rig#71 / task#23 / 3d#10).\n\n## How\n- `importlib.metadata.version(\"draw-cli\")` when installed as a dist.\n- Fallback to parsing `pyproject.toml` `[project] version` with a stdlib-scoped regex (NO `tomllib` — `requires-python = \">=3.9\"`, tomllib is 3.11+).\n- Do NOT hardcode the literal version string.\n\n## Acceptance\n- `draw --version` prints the pyproject version.\n- A drift-guard test pins the printed version == pyproject `[project] version` so it cannot drift.\n- ruff clean; version bumped on this feature ship (0.1.0 -> 0.2.0).\n",
+    "record": {
+      "key": "draw-cli#5",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 5,
+      "title": "add `draw --version` reading the version dynamically from pyproject",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "auxiliary",
+      "classification": "product-or-maintenance",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "e653528694a166951d97c552843b013d0ed354185fb0695ef7398587ea3a433d"
+    }
+  },
+  {
+    "key": "draw-cli#15",
+    "number": 15,
+    "id": 5376895814,
+    "title": "Review uncommitted worktree-only guard diff",
+    "expected_state": "closed",
+    "expected_sha256": "51fca984b389378e08964a15f852a741a9cda20187abc20ac5d2a365a3c7ba3e",
+    "expected_updated_at": "2026-09-10T13:35:59Z",
+    "body": "<!-- rig-grooming:v4:2026-09-10 -->\n\n<!-- rig-closeout:2026-09-11 -->\n\n## Задача и исходные требования\n\n**Review uncommitted worktree-only guard diff**\n\n### Источник постановки\n\n> Выполни полный груминг всех задач: консолидацию, связи, исправление и улучшение описаний. Добавь мои исходные запросы цитатами. Всё влитое и сделанное нужно перепроверить.\n\nЭто текущий запрос на груминг из этой переписки, с редакторской правкой, **не исходная постановка функции**. Для этой исторической записи оригинальный запрос однозначно не восстановлен. Предположительный пересказ не подставлен вместо цитаты.\n\n## Границы, связи и критерии\n\n[Спецификация направления](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/process.md) · [Обновлённая ретроспектива](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/specs/recovery/01-retrospective-v4.md) · [Эпик восстановления](https://github.com/ultrabricks/rig-cli/issues/521).\n\nЭто процессная запись ревью/проверки, а не самостоятельная функция. Сохранить её находки и ссылки на исправления. Не создавать новую реализацию по одному служебному заголовку; оригинальная история остаётся ниже.\n\n## Доказательства и текущий статус\n\nGitHub при сверке: **closed**. Текущая ревизия реализации: [`23a5caa17745`](https://github.com/alex-mextner/draw-cli/tree/23a5caa17745be426bce1288bbef9a8ba4c90272). Груминг не переоткрывает и не закрывает задачу только из-за её названия, старого checkbox или недоступного локального скриншота.\n\n[Повторные тесты и границы проверки](https://github.com/ultrabricks/rig-cli/blob/docs/full-grooming-2026-09-10/docs/grooming/closeout-2026-09-11/verification.md). Для принятия именно этой задачи нужны воспроизводимые шаги, фактический результат и ревизия. Ссылка на PR означает наличие изменений; изолированные тесты не подменяют проверку установленного CLI, native-сессии или аккаунта на машине пользователя.\n\n<!-- /rig-grooming:v4:2026-09-10 -->\n\n## Сохранённая техническая постановка и история\n\n## What\n\n\n## Why (motivation)\nThe requested review needs a durable record.\n\n## User impact\nRepository contributors need confidence that the guard will not interrupt their normal checkout workflow or leave protected files exposed.\n\n## Cost of inaction\nContributors could be blocked from working or lose the intended protection without anyone noticing before the change is accepted.\n\n## Acceptance criteria\n- [ ] Identify every actionable defect with a file:line citation and a triggering scenario.\n- [ ] State concrete failure modes checked if no actionable defects are found.\n\n## Screenshots\n(none)\n\n## Links\n- (none)\n",
+    "record": {
+      "key": "draw-cli#15",
+      "repo": "draw-cli",
+      "canonical_repository": "alex-mextner/draw-cli",
+      "number": 15,
+      "title": "Review uncommitted worktree-only guard diff",
+      "provider_state": "closed",
+      "state_reason": "completed",
+      "topic": "process",
+      "classification": "process-record",
+      "provenance": "original-feature-source-gap",
+      "quote_ids": [],
+      "quote_relationships": [],
+      "source_sha": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "verification_disposition": "specific-outcome-not-reaccepted",
+      "verification_flags": [
+        "Original feature request not established"
+      ],
+      "canonical": null,
+      "related_issues": [],
+      "implementation_prs": [],
+      "snapshot_body_sha256": "51fca984b389378e08964a15f852a741a9cda20187abc20ac5d2a365a3c7ba3e"
+    }
+  }
+]

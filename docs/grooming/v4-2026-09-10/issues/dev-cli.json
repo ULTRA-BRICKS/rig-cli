@@ -1,0 +1,360 @@
+[
+  {
+    "key": "dev-cli#1",
+    "repo": "dev-cli",
+    "number": 1,
+    "title": "Extract dev into standalone dev-cli repo",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#2",
+    "repo": "dev-cli",
+    "number": 2,
+    "title": "Security: command-substitution check bypassable via apostrophe inside double quotes",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established",
+      "No explicit acceptance checklist"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#3",
+    "repo": "dev-cli",
+    "number": 3,
+    "title": "Cleanup: dead status.* config branch, dev start orphaning, has-script/run e2e mismatch, docker scan early-return",
+    "provider_state": "open",
+    "topic": "resources",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#4",
+    "repo": "dev-cli",
+    "number": 4,
+    "title": "dev shot: capture-measure-attest visual proof that cannot be faked",
+    "provider_state": "closed",
+    "topic": "intake",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#6",
+    "repo": "dev-cli",
+    "number": 6,
+    "title": "dev shot: blankness check defeated by gradients, and thin-border false rejects",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#7",
+    "repo": "dev-cli",
+    "number": 7,
+    "title": "Review uncommitted visual-proof diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#9",
+    "repo": "dev-cli",
+    "number": 9,
+    "title": "dev shot's default scroll step produces captures its own quality gate rejects",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#10",
+    "repo": "dev-cli",
+    "number": 10,
+    "title": "dev-cli: safe cleanup commands gated by rules.yaml and review quorum",
+    "provider_state": "closed",
+    "topic": "roles",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#11",
+    "repo": "dev-cli",
+    "number": 11,
+    "title": "Review uncommitted cleanup command diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#13",
+    "repo": "dev-cli",
+    "number": 13,
+    "title": "Review pinned Ruff CI diff",
+    "provider_state": "closed",
+    "topic": "testing",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#14",
+    "repo": "dev-cli",
+    "number": 14,
+    "title": "Review staged Ruff version-pinning diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#15",
+    "repo": "dev-cli",
+    "number": 15,
+    "title": "dev-cli: add ecosystem tools section to README",
+    "provider_state": "closed",
+    "topic": "specs",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#16",
+    "repo": "dev-cli",
+    "number": 16,
+    "title": "Review uncommitted README ecosystem diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#19",
+    "repo": "dev-cli",
+    "number": 19,
+    "title": "dev-cli: 72 pre-existing ruff violations masked by an unpinned CI install",
+    "provider_state": "closed",
+    "topic": "execution",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#20",
+    "repo": "dev-cli",
+    "number": 20,
+    "title": "dev stop refuses to stop the process that is actually holding the port",
+    "provider_state": "open",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#21",
+    "repo": "dev-cli",
+    "number": 21,
+    "title": "Adversarial review of uncommitted safe-cleanup diff",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#22",
+    "repo": "dev-cli",
+    "number": 22,
+    "title": "Review uncommitted cleanup safety diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#23",
+    "repo": "dev-cli",
+    "number": 23,
+    "title": "Review uncommitted rig configuration diff",
+    "provider_state": "closed",
+    "topic": "process",
+    "classification": "process-record",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#25",
+    "repo": "dev-cli",
+    "number": 25,
+    "title": "Disable forced GitHub review on gh ship via .ship-config",
+    "provider_state": "closed",
+    "topic": "shipping",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#27",
+    "repo": "dev-cli",
+    "number": 27,
+    "title": "dev stop declares success and deletes state before the OS confirms the process exited",
+    "provider_state": "closed",
+    "topic": "auxiliary",
+    "classification": "product-or-maintenance",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  },
+  {
+    "key": "dev-cli#30",
+    "repo": "dev-cli",
+    "number": 30,
+    "title": "[EPIC] dev-cli: complete backlog recovery and verified acceptance",
+    "provider_state": "open",
+    "topic": "telemetry",
+    "classification": "epic",
+    "provenance": "original-feature-source-gap",
+    "quote_ids": [],
+    "source_sha": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+    "verification_disposition": "not-live-accepted",
+    "verification_flags": [
+      "Original feature source not established"
+    ],
+    "canonical": null
+  }
+]

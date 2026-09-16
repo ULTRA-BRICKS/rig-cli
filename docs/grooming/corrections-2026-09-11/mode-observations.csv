@@ -1,0 +1,57 @@
+case,cli_exit,expert_calls,moderator_calls,synthesis_calls,prompt_roles,personas,check_exit,credited_roles,check_passed,identity_check
+diff-m0-default-flag-poolNone-failnone,10,0,0,0,,,1,,false,ran
+diff-m0-explicit-flag-poolNone-failnone,10,0,0,0,,,1,,false,ran
+diff-m1-default-flag-poolNone-failnone,0,3,0,0,correctness;performance;security,,0,correctness;performance;security,true,ran
+diff-m1-explicit-flag-poolNone-failnone,0,3,0,0,correctness;performance;security,,0,correctness;performance;security,true,ran
+diff-m2-default-flag-poolNone-failnone,0,3,0,0,contracts;correctness;security,,0,contracts;correctness;security,true,ran
+diff-m2-explicit-flag-poolNone-failnone,0,2,0,0,,,1,,false,ran
+diff-m4-default-flag-poolNone-failnone,0,3,0,0,consistency;contracts;correctness,,0,consistency;contracts;correctness,true,ran
+diff-m4-explicit-flag-poolNone-failnone,0,4,0,0,,,1,,false,ran
+diff-m1-default-env-poolNone-failnone,0,3,0,0,correctness;performance;security,,0,correctness;performance;security,true,ran
+diff-m1-default-absent-poolNone-failnone,2,0,0,0,,,1,,false,ran
+diff-m2-explicit-flag-pool1-failnone,0,2,0,0,,,1,,false,ran
+diff-m2-explicit-flag-pool3-failnone,0,2,0,0,,,1,,false,ran
+diff-m2-explicit-flag-pool5-failnone,0,2,0,0,,,1,,false,ran
+diff-m1-explicit-flag-pool3-failcorrectness,1,3,0,0,correctness;performance;security,,1,performance;security,false,ran
+just-ask-m0-default-flag-poolNone-failnone,1,5,0,0,,,1,,false,ran
+just-ask-m0-explicit-flag-poolNone-failnone,1,6,0,0,correctness;performance;quality,,1,,false,ran
+just-ask-m1-default-flag-poolNone-failnone,0,1,0,0,,,1,,false,ran
+just-ask-m1-explicit-flag-poolNone-failnone,0,3,0,0,correctness;performance;security,,0,correctness;performance;security,true,ran
+just-ask-m2-default-flag-poolNone-failnone,0,2,0,0,,,1,,false,ran
+just-ask-m2-explicit-flag-poolNone-failnone,0,2,0,0,,,1,,false,ran
+just-ask-m4-default-flag-poolNone-failnone,0,2,0,0,,,1,,false,ran
+just-ask-m4-explicit-flag-poolNone-failnone,0,4,0,0,,,1,,false,ran
+just-ask-m1-default-env-poolNone-failnone,0,1,0,0,,,1,,false,ran
+just-ask-m1-default-absent-poolNone-failnone,2,0,0,0,,,1,,false,ran
+just-ask-m2-explicit-flag-pool1-failnone,0,2,0,0,,,1,,false,ran
+just-ask-m2-explicit-flag-pool3-failnone,0,2,0,0,,,1,,false,ran
+just-ask-m2-explicit-flag-pool5-failnone,0,2,0,0,,,1,,false,ran
+just-ask-m1-explicit-flag-pool3-failcorrectness,1,4,0,0,correctness;performance;security,,1,,false,ran
+quorum-m0-default-flag-poolNone-failnone,1,5,1,0,,Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+quorum-m0-explicit-flag-poolNone-failnone,1,6,1,0,correctness;performance;quality,correctness;performance;quality,1,,false,ran
+quorum-m1-default-flag-poolNone-failnone,0,1,1,0,,Pragmatic staff engineer,1,,false,ran
+quorum-m1-explicit-flag-poolNone-failnone,0,3,1,0,correctness;performance;security,correctness;performance;security,0,correctness;performance;security,true,ran
+quorum-m2-default-flag-poolNone-failnone,0,2,1,0,,Pragmatic staff engineer;Security-paranoid reviewer,1,,false,ran
+quorum-m2-explicit-flag-poolNone-failnone,0,2,1,0,,Pragmatic staff engineer;Security-paranoid reviewer,1,,false,ran
+quorum-m4-default-flag-poolNone-failnone,0,2,1,0,,Pragmatic staff engineer;Security-paranoid reviewer,1,,false,ran
+quorum-m4-explicit-flag-poolNone-failnone,0,4,1,0,,Developer-experience designer;Pragmatic staff engineer;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+quorum-m1-default-env-poolNone-failnone,0,1,1,0,,Pragmatic staff engineer,1,,false,ran
+quorum-m1-default-absent-poolNone-failnone,2,0,0,0,,,1,,false,ran
+quorum-m2-explicit-flag-pool1-failnone,0,2,1,0,,Pragmatic staff engineer;Security-paranoid reviewer,1,,false,ran
+quorum-m2-explicit-flag-pool3-failnone,0,2,1,0,,Pragmatic staff engineer;Security-paranoid reviewer,1,,false,ran
+quorum-m2-explicit-flag-pool5-failnone,0,2,1,0,,Pragmatic staff engineer;Security-paranoid reviewer,1,,false,ran
+quorum-m1-explicit-flag-pool3-failcorrectness,1,4,1,0,correctness;performance;security,correctness;performance;security,1,,false,ran
+brainstorm-m0-default-flag-poolNone-failnone,5,5,0,0,,Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+brainstorm-m0-explicit-flag-poolNone-failnone,5,6,0,0,correctness;performance;quality,correctness;performance;quality,1,,false,ran
+brainstorm-m1-default-flag-poolNone-failnone,0,9,3,1,,Cost-conscious performance engineer;Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+brainstorm-m1-explicit-flag-poolNone-failnone,0,9,3,1,correctness;performance;security,correctness;performance;security,0,correctness;performance;security,true,ran
+brainstorm-m2-default-flag-poolNone-failnone,0,9,3,1,,Cost-conscious performance engineer;Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+brainstorm-m2-explicit-flag-poolNone-failnone,0,9,3,1,,Cost-conscious performance engineer;Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+brainstorm-m4-default-flag-poolNone-failnone,0,9,3,1,,Cost-conscious performance engineer;Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+brainstorm-m4-explicit-flag-poolNone-failnone,0,12,3,1,,Cost-conscious performance engineer;Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+brainstorm-m1-default-env-poolNone-failnone,0,9,3,1,,Cost-conscious performance engineer;Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+brainstorm-m1-default-absent-poolNone-failnone,2,0,0,0,,,1,,false,ran
+brainstorm-m2-explicit-flag-pool1-failnone,0,9,3,1,,Cost-conscious performance engineer;Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+brainstorm-m2-explicit-flag-pool3-failnone,0,9,3,1,,Cost-conscious performance engineer;Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+brainstorm-m2-explicit-flag-pool5-failnone,0,9,3,1,,Cost-conscious performance engineer;Developer-experience designer;Pragmatic staff engineer;Product-minded architect;Security-paranoid reviewer;Skeptical SRE,1,,false,ran
+brainstorm-m1-explicit-flag-pool3-failcorrectness,0,12,3,1,correctness;performance;security,correctness;performance;security,1,performance;security,false,ran

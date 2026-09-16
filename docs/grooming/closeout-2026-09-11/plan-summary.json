@@ -1,0 +1,146 @@
+{
+  "source_version": 4,
+  "snapshot_run": "34541300125",
+  "snapshot_checked_at": "2026-09-10T23:15:21.609538+00:00",
+  "repositories": {
+    "agent-tools": {
+      "canonical_repository": "ultrabricks/agent-tools",
+      "id": 1269421952,
+      "head": "33934284ef258c3548611ac5ffc71b2e37bd4ea0",
+      "issues": 431,
+      "planned": 431,
+      "manual": [],
+      "prs": 314,
+      "merged_prs": 273
+    },
+    "dev-cli": {
+      "canonical_repository": "ultrabricks/dev-cli",
+      "id": 1304027880,
+      "head": "b7550a1d0107c4334cfbbe67fffcf1d60c7dabd0",
+      "issues": 21,
+      "planned": 21,
+      "manual": [],
+      "prs": 9,
+      "merged_prs": 7
+    },
+    "draw-cli": {
+      "canonical_repository": "alex-mextner/draw-cli",
+      "id": 1261406608,
+      "head": "23a5caa17745be426bce1288bbef9a8ba4c90272",
+      "issues": 11,
+      "planned": 11,
+      "manual": [],
+      "prs": 13,
+      "merged_prs": 12
+    },
+    "harness-cli": {
+      "canonical_repository": "ultrabricks/harness-cli",
+      "id": 1360550167,
+      "head": "d238d13dd8859517800f5644c572859aa19f75d1",
+      "issues": 21,
+      "planned": 20,
+      "manual": [
+        {
+          "key": "harness-cli#18",
+          "reason": "Issue-specific rewrite applied separately; preserve it.",
+          "observed_body_sha256": "a64840ceb274dfe9a5a994412f41d13ea9e5eda631590262539ee332568280df"
+        }
+      ],
+      "prs": 9,
+      "merged_prs": 7
+    },
+    "pm-cli": {
+      "canonical_repository": "ultrabricks/pm-cli",
+      "id": 1300077282,
+      "head": "386cefe05a7880b3080c2cba5b8a335f43e2838f",
+      "issues": 20,
+      "planned": 20,
+      "manual": [],
+      "prs": 9,
+      "merged_prs": 8
+    },
+    "qa-cli": {
+      "canonical_repository": "ultrabricks/qa-cli",
+      "id": 1361425617,
+      "head": "d92752a9d70fe7217c95f89d39fd8cfaf2a66b52",
+      "issues": 8,
+      "planned": 8,
+      "manual": [],
+      "prs": 5,
+      "merged_prs": 5
+    },
+    "research-cli": {
+      "canonical_repository": "ultrabricks/research-cli",
+      "id": 1281255310,
+      "head": "b72836d235b104690b1f98376a6156363f50d85b",
+      "issues": 12,
+      "planned": 12,
+      "manual": [],
+      "prs": 7,
+      "merged_prs": 7
+    },
+    "review-cli": {
+      "canonical_repository": "ultrabricks/review-cli",
+      "id": 1261272159,
+      "head": "5430f9361468bf9bd1a66a4d4be8198024f989ba",
+      "issues": 347,
+      "planned": 347,
+      "manual": [],
+      "prs": 167,
+      "merged_prs": 149
+    },
+    "rig-cli": {
+      "canonical_repository": "ultrabricks/rig-cli",
+      "id": 1269680459,
+      "head": "0e231117e38af4f074b07fcb00ea7fd807e6db12",
+      "issues": 356,
+      "planned": 356,
+      "manual": [],
+      "prs": 182,
+      "merged_prs": 172
+    },
+    "stt-cli": {
+      "canonical_repository": "ultrabricks/stt-cli",
+      "id": 1353687987,
+      "head": "e3573bf2fcb0d3ab1650c44a3614dd69d1927f78",
+      "issues": 33,
+      "planned": 33,
+      "manual": [],
+      "prs": 9,
+      "merged_prs": 7
+    },
+    "task-cli": {
+      "canonical_repository": "ultrabricks/task-cli",
+      "id": 1270088634,
+      "head": "c663520e6335b90e16d0f16fc9df4efafc3db89a",
+      "issues": 135,
+      "planned": 135,
+      "manual": [],
+      "prs": 59,
+      "merged_prs": 59
+    },
+    "tg-cli": {
+      "canonical_repository": "ultrabricks/tg-cli",
+      "id": 1247072189,
+      "head": "b640b65e7b30321ec8c14259896212f1fe78626f",
+      "issues": 234,
+      "planned": 233,
+      "manual": [
+        {
+          "key": "tg-cli#118",
+          "reason": "Historical redacted before-image requires separate live reconciliation.",
+          "observed_body_sha256": "98a9015006871f7b2ba1371d0cccbb69052a78b638a5f3c9e21d904e3a20fa54"
+        }
+      ],
+      "prs": 166,
+      "merged_prs": 152
+    }
+  },
+  "tracker_mutations": 0,
+  "classification_is_not_acceptance": true,
+  "total_issues": 1629,
+  "planned": 1627,
+  "with_requirement_context": 485,
+  "without_recovered_feature_request": 1144,
+  "validation_gaps": []
+}
