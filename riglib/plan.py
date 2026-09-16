@@ -1289,14 +1289,20 @@ def _build_permissions(config: LoadedConfig, catalog: Catalog, plan: InstallPlan
     )
     kinds = _permissions_kinds(config, p)
     if p.get("settings_path") and len(kinds) > 1:
-        original = list(kinds)
-        supported = [kind for kind in kinds if harness_supported(kind)]
-        if supported:
-            kinds = [supported[0]]
-            skipped = [kind for kind in original if kind != kinds[0]]
+        # settings_path picks ONE settings file, which is only meaningful for kinds that write a
+        # config-array allowlist to it (HARNESS_ALLOWLISTS). A kind with an INDEPENDENT
+        # provisioning mechanism (pi's extension, codex's execpolicy, omp's guard) never reads
+        # settings_path at all, so it must never be dropped from `kinds` by this narrowing — doing
+        # so used to silently skip pi's entire permission-guard extension whenever settings_path
+        # was combined with e.g. `kinds: [claude-code, pi]`.
+        allowlist_kinds = [kind for kind in kinds if harness_supported(kind)]
+        if len(allowlist_kinds) > 1:
+            keep = allowlist_kinds[0]
+            skipped = [kind for kind in allowlist_kinds if kind != keep]
+            kinds = [kind for kind in kinds if kind not in skipped]
             plan.notes.append(
                 "permissions: settings_path override with multiple harnesses targets the first "
-                f"supported harness only ({kinds[0]}); skipped {', '.join(skipped)}"
+                f"supported harness only ({keep}); skipped {', '.join(skipped)}"
             )
 
     from .permissions import (
@@ -1469,6 +1475,7 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
         approval_supported,
         guard_extension_path_for,
         guard_supported,
+        harness_permission_extension,
         instruction_policy_supported,
     )
 
@@ -1562,7 +1569,16 @@ def _build_guard_policy(config: LoadedConfig, plan: InstallPlan) -> None:
                     options={"kind": kind},
                 )
             )
-        if (guard_supported(kind) or instruction_policy_supported(kind)) and configured_knobs:
+        # A kind with its OWN permission extension (pi) gets specific, accurate drop notes from
+        # `_build_pi_extension` for these same keys (its structured rule dialect vs. these raw
+        # claude-code-style strings) — this generic "no allowlist surface" note would otherwise
+        # duplicate it and, for deny/ask specifically, contradict it (pi DOES have an enforcement
+        # surface; the strings just don't translate into it).
+        if (
+            (guard_supported(kind) or instruction_policy_supported(kind))
+            and not harness_permission_extension(kind)
+            and configured_knobs
+        ):
             plan.notes.append(
                 f"permissions: {', '.join(configured_knobs)} "
                 f"{'is' if len(configured_knobs) == 1 else 'are'} inert for harness '{kind}' "

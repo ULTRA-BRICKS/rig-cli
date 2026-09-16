@@ -191,15 +191,9 @@ def _do_record_mode(action: Action, on_conflict: str) -> ActionResult:
 
 def _skill_backup_dir(skill_target: Path) -> Path:
     """Where a conflict-backup of an installed skill goes — a sibling ``.rig-backups/`` OUTSIDE
-    the scanned skills dir.
-
-    ``skill_target`` is ``<skills_target>/<name>`` (e.g. ``~/.agents/skills/naming``), so its
-    parent is the natively-scanned skills dir. A same-parent ``<name>.rig-bak-*/`` backup still
-    holds a ``SKILL.md`` and opencode (which auto-scans ``~/.agents/skills``) re-discovers it as
-    a duplicate skill (rig-cli#57). Putting the backup one level up — next to the skills dir,
-    not inside it — keeps the restore point without it ever being scanned as a skill.
-    """
-    return skill_target.parent.parent / ".rig-backups"
+    the scanned skills dir (``skill_target`` = ``<skills_target>/<name>``, e.g.
+    ``~/.agents/skills/naming``) — see :func:`fsutil.sibling_backup_dir` for why."""
+    return fsutil.sibling_backup_dir(skill_target)
 
 
 def _do_copy_skill(action: Action, on_conflict: str) -> ActionResult:
@@ -8573,13 +8567,23 @@ def pi_extension_policy_json(action: Action) -> str:
     return json.dumps(action.options["policy"], indent=2, sort_keys=True) + "\n"
 
 
+def _pi_extension_backup_dir(ext_target: Path) -> Path:
+    """Where a conflict-backup of the pi permission-guard extension goes — a sibling
+    ``.rig-backups/`` OUTSIDE the ``extensions/`` dir pi auto-scans (``ext_target`` =
+    ``<pi agent root>/extensions/<name>``) — same rationale as :func:`_skill_backup_dir`, see
+    :func:`fsutil.sibling_backup_dir`."""
+    return fsutil.sibling_backup_dir(ext_target)
+
+
 def _do_provision_pi_extension(action: Action, on_conflict: str) -> ActionResult:
     """Install the pi ``permission-guard`` extension + write the rig-owned policy it reads.
 
     Two idempotent, backup-noted steps (rig-cli pi permission parity):
 
     1. copy the extension dir (``pi-extensions/<name>/``) → pi's ``extensions/<name>/`` so pi
-       auto-discovers it. ``fsutil.copy_tree`` skips when identical, backs up on conflict.
+       auto-discovers it. ``fsutil.copy_tree`` skips when identical, backs up on conflict — the
+       backup lands OUTSIDE ``extensions/`` (:func:`_pi_extension_backup_dir`) so a stale/tampered
+       extension backup is never itself re-discovered as a duplicate extension.
     2. write the policy JSON → ``~/.pi/agent/rig-permission-policy.json`` (the file the extension
        loads; a missing/broken file makes the extension fall back to its baked baseline, so the
        dangerous denies fire either way).
@@ -8592,7 +8596,9 @@ def _do_provision_pi_extension(action: Action, on_conflict: str) -> ActionResult
     backup: Path | None = None
     statuses: list[str] = []
 
-    ext_out = fsutil.copy_tree(action.source, action.target, on_conflict)
+    ext_out = fsutil.copy_tree(
+        action.source, action.target, on_conflict, backup_dir=_pi_extension_backup_dir(action.target)
+    )
     statuses.append(ext_out.status)
     notes.append(f"extension {ext_out.detail}")
     if ext_out.backup:
@@ -8607,13 +8613,13 @@ def _do_provision_pi_extension(action: Action, on_conflict: str) -> ActionResult
     if policy_out.backup and backup is None:
         backup = policy_out.backup
 
-    # overall status precedence: `error` is the highest-priority outcome — a failure in EITHER step
-    # must never be masked by the other step's `backed_up`/`updated` (else a real failure reports
-    # success). Then backed_up > updated > created > skipped (any real change is not a skip). Every
-    # individual status is one of these 5 values today and `statuses` always has 2 entries, so
-    # "skipped" is expected to always match — but the explicit `"skipped"` default (rather than
-    # relying on that invariant to avoid `StopIteration`) means a future 6th status value fails
-    # safe into "skipped" instead of raising a raw, uninformative `StopIteration`.
+    # overall status precedence: backed_up > updated > created > skipped (any real change is not a
+    # skip). `WriteOutcome.status` (fsutil.py) is only ever "created"|"updated"|"skipped"|
+    # "backed_up" — never "error" (copy_tree/write_file raise on IO failure instead; caught by
+    # run_plan's outer exception handler, which reports "error" itself). "error" is kept first in
+    # this precedence tuple anyway as defense-in-depth: if a future status value is ever added
+    # without updating this tuple, an unrecognized value still falls safe into the explicit
+    # "skipped" default below rather than raising a raw, uninformative `StopIteration`.
     overall = next((s for s in ("error", "backed_up", "updated", "created", "skipped") if s in statuses), "skipped")
     return ActionResult(
         action, overall, f"permissions/pi-extension {action.options.get('extension')}: " + "; ".join(notes), backup

@@ -166,6 +166,22 @@ def omp_config_root(home: Path | None = None) -> Path:
     return expand_user_path(omp_agent_root())
 
 
+def _normalize_agent_dir_override(override: str) -> str:
+    """Normalize a raw ``PI_CODING_AGENT_DIR`` override to an absolute/``~``-anchored form.
+
+    Shared by :func:`omp_agent_root` and :func:`pi_agent_dir` — both read the SAME env var, so a
+    relative override (e.g. ``my-agent-dir``, or a traversal like ``../../tmp/x``) must resolve
+    to the SAME location for both, and must never be interpreted as repo-relative by
+    :func:`riglib.plan._expand` (which repo-anchors any non-``~``/non-absolute path). Anchoring a
+    relative value at ``~`` here means every consumer (plan ``_expand``, runner fallback
+    ``expand_user_path``) resolves the same absolute path regardless of the caller's cwd/repo.
+    """
+    p = expand_user_path(override)
+    if p.is_absolute():
+        return str(p)
+    return f"~/{override}"
+
+
 def omp_agent_root() -> str:
     """omp's agent dir (unexpanded), honoring ``PI_CODING_AGENT_DIR`` / ``PI_CONFIG_DIR``.
 
@@ -173,13 +189,7 @@ def omp_agent_root() -> str:
     :func:`omp_config_root`."""
     override = os.environ.get("PI_CODING_AGENT_DIR")
     if override:
-        # normalize to an absolute/~-anchored form so every consumer (plan ``_expand``,
-        # runner fallback ``expand_user_path``) resolves the SAME path — a relative value
-        # must not diverge between them.
-        p = expand_user_path(override)
-        if p.is_absolute():
-            return str(p)
-        return f"~/{override}"
+        return _normalize_agent_dir_override(override)
     config_dir = os.environ.get("PI_CONFIG_DIR")
     if config_dir:
         # documented as a DIRNAME under home, but tolerate ~/absolute forms (a raw join
@@ -223,9 +233,15 @@ def pi_agent_dir() -> str:
 
     This is the base dir pi resolves everything against (extensions/, AGENTS.md, and the
     rig-written permission policy). Honoring the env var means rig installs where pi actually
-    looks, mirroring :func:`codex_home` / ``RIG_CODEX_HOME``. Unexpanded — callers expand.
+    looks, mirroring :func:`codex_home` / ``RIG_CODEX_HOME``. A relative override is normalized
+    the SAME way :func:`omp_agent_root` normalizes it (both read this exact env var) — else a
+    relative value would resolve under the repo root via :func:`riglib.plan._expand` instead of
+    home, diverging from omp's resolution of the identical override. Unexpanded — callers expand.
     """
-    return os.environ.get("PI_CODING_AGENT_DIR") or "~/.pi/agent"
+    override = os.environ.get("PI_CODING_AGENT_DIR")
+    if override:
+        return _normalize_agent_dir_override(override)
+    return "~/.pi/agent"
 
 
 def pi_user_path(name: str) -> str:

@@ -140,9 +140,11 @@ def test_permission_tiers_cover_every_known_kind():
     from riglib.harness_skills import KNOWN_HARNESS_KINDS
 
     assert set(HARNESS_PERMISSION_TIERS) == set(KNOWN_HARNESS_KINDS)
-    # tier 1 = command-granular enforced; tier 3 = advisory. omp is tier 1 via the guard.
+    # tier 1 = command-granular enforced; tier 3 = advisory. omp is tier 1 via the guard;
+    # pi is tier 1 via the provisioned permission-guard extension (not the advisory AGENTS.md
+    # block it also carries).
     assert HARNESS_PERMISSION_TIERS["omp"] == 1
-    assert HARNESS_PERMISSION_TIERS["pi"] == 3
+    assert HARNESS_PERMISSION_TIERS["pi"] == 1
     assert HARNESS_PERMISSION_TIERS["commandcode"] == 3
     assert HARNESS_PERMISSION_TIERS["claude-code"] == 1
 

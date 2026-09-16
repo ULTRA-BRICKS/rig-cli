@@ -1009,8 +1009,8 @@ def execpolicy_rule_lines(kind: str, tools: list[str]) -> list[str]:
 def _derive_permission_tiers() -> dict[str, int]:
     """The tier of every known kind, DERIVED from registry membership (never hand-maintained —
     a kind listed tier 1 without a real enforcement surface would be a silent lie):
-    allowlist / execpolicy / guard surfaces → 1; approval posture WITHOUT a guard → 2;
-    advisory instruction policy → 3."""
+    allowlist / execpolicy / guard / permission-extension surfaces → 1; approval posture
+    WITHOUT a guard → 2; advisory instruction policy → 3."""
     tiers: dict[str, int] = {}
     for kind in (*HARNESS_ALLOWLISTS, *HARNESS_EXECPOLICY, *HARNESS_GUARD):
         tiers[kind] = 1
@@ -1018,6 +1018,12 @@ def _derive_permission_tiers() -> dict[str, int]:
         tiers.setdefault(kind, 2)  # tool-granular only when no command-granular guard
     for kind in HARNESS_INSTRUCTION_POLICY:
         tiers[kind] = 3
+    for kind in HARNESS_PERMISSION_EXTENSIONS:
+        # A provisioned extension (pi's permission-guard) IS command-granular enforcement, not
+        # advisory — overrides the tier-3 default a kind also gets from HARNESS_INSTRUCTION_POLICY
+        # (pi carries both: the extension enforces, the AGENTS.md block is a belt-and-suspenders
+        # advisory note; the extension is the real mechanism and must win the tier).
+        tiers[kind] = 1
     return tiers
 
 

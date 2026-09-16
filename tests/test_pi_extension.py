@@ -61,6 +61,22 @@ def test_pi_agent_dir_honors_env(monkeypatch):
     assert pi_user_path("extensions/x") == "/custom/pi/extensions/x"
 
 
+def test_pi_agent_dir_normalizes_relative_override_like_omp(monkeypatch):
+    """A relative ``PI_CODING_AGENT_DIR`` must anchor at home (``~/<rel>``), matching
+    ``omp_agent_root``'s normalization of the SAME env var — else `_expand` in plan.py would
+    repo-anchor pi's install targets while omp's resolve under home, diverging for one shared
+    override (and letting a `..`-laden value escape via repo-relative resolution)."""
+    from riglib.harness_skills import omp_agent_root
+
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", "my-agent-dir")
+    assert pi_agent_dir() == "~/my-agent-dir"
+    assert omp_agent_root() == "~/my-agent-dir"
+
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", "../../tmp/escape")
+    assert pi_agent_dir() == "~/../../tmp/escape"
+    assert pi_agent_dir() == omp_agent_root()
+
+
 def test_pi_instruction_file_is_agent_dir_not_config_pi(monkeypatch):
     monkeypatch.delenv("PI_CODING_AGENT_DIR", raising=False)
     # the corrected path — pi reads ~/.pi/agent/AGENTS.md, NOT ~/.config/pi/AGENTS.md
@@ -187,6 +203,53 @@ def test_plan_notes_allowlist_keys_ignored_for_pi(tmp_path, fake_agent_tools, mo
     cfg.data["permissions"]["extra"] = ["kubectl"]
     plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
     assert any("ignored for harness 'pi'" in n and "extra" in n for n in plan.notes)
+
+
+def test_plan_deny_note_for_pi_is_not_duplicated_by_the_generic_inert_note(
+    tmp_path, fake_agent_tools, monkeypatch
+):
+    # `_build_pi_extension`'s own "pi's policy rules are structured..." note must be the ONLY
+    # note for a dropped deny override — the generic "no allowlist surface" note (accurate for
+    # commandcode, which has no independent enforcement surface) would be both a duplicate AND,
+    # for pi specifically, factually wrong: pi DOES have an enforcement surface (the extension).
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _pi_cfg(repo, fake_agent_tools)
+    del cfg.data["permissions"]["kind"]
+    cfg.data["harness"] = {"enabled": True, "kind": "claude-code", "kinds": ["claude-code", "pi"]}
+    cfg.data["permissions"]["deny"] = "Bash(rm:*)"
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    pi_specific = [n for n in plan.notes if "raw deny entries dropped" in n and "pi" in n]
+    assert len(pi_specific) == 1, plan.notes
+    generic_inert = [
+        n for n in plan.notes if "inert for harness 'pi'" in n and "no allowlist surface" in n
+    ]
+    assert generic_inert == [], plan.notes
+
+
+def test_plan_settings_path_with_multiple_kinds_still_provisions_pi_extension(
+    tmp_path, fake_agent_tools, monkeypatch
+):
+    # Regression: `permissions.settings_path` combined with `harness.kinds: [claude-code, pi]`
+    # used to narrow the settings_path allowlist-target list down to `[claude-code]` BEFORE the
+    # main kinds loop even started, silently dropping pi from the ENTIRE loop — so its extension
+    # (pi's only real enforcement surface) was never provisioned, with no error. pi has no
+    # settings_path surface at all, so it must never be affected by that narrowing.
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "piroot"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    settings = repo / "custom-settings.json"
+    cfg = _pi_cfg(repo, fake_agent_tools)
+    del cfg.data["permissions"]["kind"]
+    cfg.data["harness"] = {"enabled": True, "kind": "claude-code", "kinds": ["claude-code", "pi"]}
+    cfg.data["permissions"]["settings_path"] = str(settings)
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    perm = [a for a in plan.actions if a.kind == "provision_permissions"]
+    assert [a.options["kind"] for a in perm] == ["claude-code"]
+    assert perm[0].target == settings
+    ext_actions = [a for a in plan.actions if a.kind == "provision_pi_extension"]
+    assert len(ext_actions) == 1, plan.actions
 
 
 def test_plan_honors_empty_deny_ask_override_for_pi(tmp_path, fake_agent_tools, monkeypatch):
@@ -416,6 +479,25 @@ def test_runner_backs_up_conflicting_policy(tmp_path, fake_agent_tools, monkeypa
     # the desired policy is now in place; the concrete backup path holds the stale content
     assert "stale" not in policy_file.read_text()
     assert "stale" in result.backup.read_text()
+
+
+def test_runner_extension_backup_lands_outside_auto_scanned_extensions_dir(
+    tmp_path, fake_agent_tools, monkeypatch
+):
+    """A conflicting extension backs up OUTSIDE ``extensions/`` — a same-parent backup would be
+    re-discovered by pi as a duplicate extension on the next run (the rig-cli#57 bug class,
+    already fixed once for skills' own ``~/.agents/skills`` auto-scan)."""
+    plan = _build_pi_plan(tmp_path, fake_agent_tools, monkeypatch)
+    piroot = tmp_path / "piroot"
+    ext_dir = piroot / "extensions" / "permission-guard"
+    ext_dir.mkdir(parents=True, exist_ok=True)
+    (ext_dir / "index.ts").write_text("stale extension\n")  # differs from source → will back up
+    report = run_plan(plan)
+    result = next(r for r in report.results if r.action.kind == "provision_pi_extension")
+    assert result.backup is not None
+    extensions_dir = piroot / "extensions"
+    assert extensions_dir not in result.backup.parents, result.backup
+    assert result.backup.parent == piroot / ".rig-backups"
 
 
 # ── drift ─────────────────────────────────────────────────────────────────────────
