@@ -26,7 +26,7 @@ Use one role-planning contract in the library and every model-executing mode. Pr
 
 Role coverage must not depend on whether models came from a default roster, an explicit list, a configured board or a preset. In multi-round modes, identify the round and the role's actual result. Do not count a repeated role in another round as a new distinct role.
 
-`task`, `stat` and other management commands consume evidence rather than run additional expert roles. For the four text execution commands observed in current main, a task code is ordinarily required through `--task` or `REVIEW_TASK_CODE`; it is not an exceptional condition restricting this feature.
+`task`, `stat` and other management commands consume evidence rather than run additional expert roles. Task association is optional under the 14 September 2026 requirement. Every executed run retains a stable ID and actual outcomes independently of task association. A task can be attached later without rerunning models or changing role coverage. The earlier mandatory `--task` / `REVIEW_TASK_CODE` behavior is historical evidence, not the desired contract. Current feature: [optional task association](https://git.hyperide.ai/ultrabricks/review-cli/issues/1).
 
 ## Current evidence, not desired behavior
 
@@ -56,6 +56,7 @@ Two explicitly selected models take different assignment paths again. A failed-r
 | Outcomes | All roles succeed; one role fails; route replacement; no eligible route |
 | Modes | Every execution mode and supported visual composition |
 | Evidence | Actual prompts/results, persisted records and the consuming CLI/library |
+| Task association | Omitted, supplied at execution, attached after completion; identical required roles and retained run identity |
 
 Tests must exercise actual planners and handlers. A handler stub inspecting an optional metadata field is a routing test, not evidence of expert execution. External provider/model fixtures are appropriate for hermetic integration tests; live accounts and installed-machine checks remain separate.
 
