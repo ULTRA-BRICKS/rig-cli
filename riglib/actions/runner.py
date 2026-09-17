@@ -1654,6 +1654,51 @@ def _valid_git_hosting_entries(kind: str) -> frozenset[str]:
     return frozenset(desired_entries(kind, list(DEFAULT_GIT_HOSTING_TOOLS)))
 
 
+def _receipt_grant_owners(receipt: dict, kind: str) -> dict[str, str]:
+    """The single, shared shape-dispatch + clamp :func:`receipt_granted_entries` and
+    :func:`receipt_granted_owners` both build on (review finding, rig-cli#549): the two public
+    functions must clamp IDENTICALLY — that agreement is a security invariant (an entry
+    ``receipt_granted_entries`` reports as revocable must always be exactly one
+    ``receipt_granted_owners`` also reports an owner for) — so the ``kind``-match,
+    :func:`_valid_git_hosting_entries` clamp, and legacy-list-vs-current-dict shape dispatch live
+    in exactly one place, never duplicated across the two callers.
+
+    Accepts either shape ``granted`` has ever been written in: the legacy flat list (template 1 —
+    real shipped receipts exist in this shape, predating any ownership tracking) or the current
+    ``{entry: owner}`` map (template 2, rig-cli#549). A legacy list entry, or a dict entry whose
+    owner value is missing/not a string (a hand-edited/adversarial receipt), maps to the ``""``
+    sentinel — "owner unknown". ``""`` can never equal a real ``str(action.source)`` (a repo root
+    is never the empty string), so an unknown-owner entry is fail-safe: never TRANSFERABLE via
+    ``never_receipt`` by any apply (no apply can prove it already owned it), only ever removable
+    by an explicit by-name revoke (:func:`explicit_git_hosting_revocation_entries`), which stays
+    unscoped by owner.
+
+    Known residual gap (rig-cli#549, accepted, not fixed here): every entry that predates this
+    change ships as ``""``-owned and STAYS ``""``-owned forever, even once re-written to the
+    template-2 shape — a kept prior entry's owner is carried forward verbatim
+    (:func:`_sync_permissions_receipt`'s ``owners = {e: ctx.prior_owners[e] for e in kept_prior}``),
+    so ``""`` never becomes anything else once recorded. This means the round-9 "an explicit same-repo
+    redeclaration always clears a receipted entry from tracking" contract (rig-cli#333) does not
+    apply to a pre-existing (legacy-shaped) grant: it stays revocable by ANY later `allow_gh:
+    false`, even the same repo's own, once that repo has explicitly redeclared the tool by name.
+    This is the unavoidable cost of closing rig-cli#549 for a receipt shape that was never
+    ownership-aware in the first place — there is no way to tell, from a bare entry name alone,
+    which repo originally earned a legacy grant, so treating it as "belongs to nobody" (revocable,
+    never silently launder-able) is the only fail-safe choice. It self-heals going forward: once
+    an entry is genuinely re-granted as a fresh default by some apply (``newly_added``), it is
+    stamped with that apply's real owner and behaves normally from then on.
+    """
+    if receipt.get("kind") != kind:
+        return {}
+    granted = receipt.get("granted")
+    valid = _valid_git_hosting_entries(kind)
+    if isinstance(granted, dict):
+        return {e: (o if isinstance(o, str) else "") for e, o in granted.items() if isinstance(e, str) and e in valid}
+    if isinstance(granted, list):
+        return {e: "" for e in granted if isinstance(e, str) and e in valid}
+    return {}
+
+
 def receipt_granted_entries(receipt: dict, kind: str) -> frozenset[str]:
     """The allow entries the receipt says rig itself granted as DEFAULTS for this exact ``kind``.
 
@@ -1663,14 +1708,21 @@ def receipt_granted_entries(receipt: dict, kind: str) -> frozenset[str]:
     but corrupted/adversarial/hand-edited receipt (``{"granted": ["Bash(kubectl:*)"]}``) must never
     be able to authorize revoking anything outside the tiny, fixed git-hosting-default universe —
     defense in depth on top of the write path only ever recording valid entries in the first place.
+
+    Accepts either shape ``granted`` has ever been written in — see :func:`_receipt_grant_owners`,
+    which this and :func:`receipt_granted_owners` both build on so the two can never disagree on
+    which entries are recognized. This function only ever reports entry NAMES, never ownership.
     """
-    if receipt.get("kind") != kind:
-        return frozenset()
-    granted = receipt.get("granted")
-    if not isinstance(granted, list):
-        return frozenset()
-    valid = _valid_git_hosting_entries(kind)
-    return frozenset(e for e in granted if isinstance(e, str) and e in valid)
+    return frozenset(_receipt_grant_owners(receipt, kind))
+
+
+def receipt_granted_owners(receipt: dict, kind: str) -> dict[str, str]:
+    """The ``{entry: owner}`` map for every entry :func:`receipt_granted_entries` reports for
+    ``kind`` — the repo identity (``str(action.source)``) the receipt credits with each grant, or
+    ``""`` ("unknown") for a legacy-shaped or malformed entry. See :func:`_receipt_grant_owners`
+    for the full shape/clamp/fail-safe contract this delegates to.
+    """
+    return _receipt_grant_owners(receipt, kind)
 
 
 def desired_default_allow_entries(action: Action) -> frozenset[str]:
@@ -1796,6 +1848,8 @@ class _PermissionRevocationContext:
     prior_granted: frozenset[str]
     to_revoke: frozenset[str]
     never_receipt: frozenset[str]
+    owner: str
+    prior_owners: dict[str, str]
 
 
 def _permission_revocation_context(action: Action, specs: list[PermissionSpec]) -> _PermissionRevocationContext:
@@ -1840,7 +1894,9 @@ def _permission_revocation_context(action: Action, specs: list[PermissionSpec]) 
             "desired_permission_specs() should always emit one for a supported harness kind"
         )
     receipt_file = permissions_receipt_file(action)
-    prior_granted = receipt_granted_entries(read_permissions_grant_receipt(receipt_file), kind)
+    receipt_data = read_permissions_grant_receipt(receipt_file)
+    prior_owners = receipt_granted_owners(receipt_data, kind)
+    prior_granted = frozenset(prior_owners)
     explicit_revoke = explicit_git_hosting_revocation_entries(action)
     to_revoke = (prior_granted & explicit_revoke) - frozenset(allow_spec.entries)
     never_receipt_tools = [
@@ -1861,6 +1917,8 @@ def _permission_revocation_context(action: Action, specs: list[PermissionSpec]) 
         prior_granted=prior_granted,
         to_revoke=to_revoke,
         never_receipt=never_receipt,
+        owner=str(action.source),
+        prior_owners=prior_owners,
     )
 
 
@@ -2103,19 +2161,22 @@ def _sync_permissions_receipt(
 ) -> None:
     """Write the sidecar receipt so it reflects what rig owns AFTER this apply.
 
-    ``granted`` = (previously receipted entries that are STILL ACTUALLY PRESENT after this apply)
-    ∪ (entries THIS apply's own desired set just added, i.e. were ABSENT before this run's merge).
-    Deliberately based on POST-MERGE PRESENCE (:func:`_default_allow_presence` on ``data``, which
-    already reflects the revoke + merge this same call made), never on
-    ``ctx.desired_default_allow`` alone (review finding, rig-cli#333 round 2): the settings file is
-    MACHINE-WIDE, so an UNRELATED sibling repo's apply — one that never mentions ``gh``/
-    ``allow_gh`` at all, just a narrower ``permissions.tools`` — must not reset the receipt to
-    "not granted" merely because ITS OWN resolved tool list happens to omit ``gh``; the entry is
-    still there, untouched, so it stays receipted. An entry that happens to match a rendering but
-    was ALREADY present before this run and was NEVER receipted (a hand add, or a grant that
-    predates this feature) is deliberately excluded from both sides — forward-only tracking, so
-    only a grant rig can prove it made is ever revocable. Writes nothing when there is nothing to
-    receipt (avoids a stray file on a machine that has never used the git-hosting default at all).
+    ``granted`` = (previously receipted entries whose ownership THIS apply doesn't just take back
+    via revocation or clear away via a same-owner explicit redeclaration, and that are STILL
+    ACTUALLY PRESENT after this apply) ∪ (entries THIS apply's own desired set just added, i.e.
+    were ABSENT before this run's merge) — each entry paired with the repo identity
+    (``str(action.source)``) that owns it (:func:`receipt_granted_owners`). Deliberately based on
+    POST-MERGE PRESENCE (:func:`_default_allow_presence` on ``data``, which already reflects the
+    revoke + merge this same call made), never on ``ctx.desired_default_allow`` alone (review
+    finding, rig-cli#333 round 2): the settings file is MACHINE-WIDE, so an UNRELATED sibling
+    repo's apply — one that never mentions ``gh``/``allow_gh`` at all, just a narrower
+    ``permissions.tools`` — must not reset the receipt to "not granted" merely because ITS OWN
+    resolved tool list happens to omit ``gh``; the entry is still there, untouched, so it stays
+    receipted under its ORIGINAL owner. An entry that happens to match a rendering but was
+    ALREADY present before this run and was NEVER receipted (a hand add, or a grant that predates
+    this feature) is deliberately excluded from both sides — forward-only tracking, so only a
+    grant rig can prove it made is ever revocable. Writes nothing when there is nothing to receipt
+    (avoids a stray file on a machine that has never used the git-hosting default at all).
 
     ``newly_added`` also excludes ``ctx.never_receipt`` (review findings, rig-cli#333 rounds 6-7):
     an entry the user explicitly asked for by name — raw ``permissions.allow`` or
@@ -2123,6 +2184,15 @@ def _sync_permissions_receipt(
     before rig's own default merge would have added it, was ALSO "absent before" — but it is the
     user's explicit, config-owned assertion (documented as never receipted), not something rig can
     claim credit for granting.
+
+    A PRIOR receipted entry only ever has its ownership CLEARED via ``ctx.never_receipt`` when
+    THIS apply's own identity (``ctx.owner``) already matches who the receipt credits with it
+    (rig-cli#549 review finding — see the ``transferable_prior`` comment below for the full
+    incident this closes: on a machine-wide shared settings file, a DIFFERENT repo's own explicit
+    declaration must never silently launder away this repo's receipted ownership). This keeps
+    round-9's own scenario intact: the SAME repo redeclaring an entry it already owns (``tools:
+    [gh]`` after an earlier plain-default grant) still transfers ownership to that explicit
+    declaration, in every apply where the redeclaration is present.
 
     ``revoked`` (the entries :func:`_revoke_stale_default_grants` actually removed THIS apply) is
     also subtracted, unconditionally (review finding, rig-cli#333 round 13): array-form revocation
@@ -2137,20 +2207,40 @@ def _sync_permissions_receipt(
     """
     present_after = _default_allow_presence(data, ctx.allow_spec)
     newly_added = (ctx.desired_default_allow - present_before) - ctx.never_receipt
-    # ``never_receipt`` is subtracted from the UNION, not just from ``newly_added`` (review
-    # finding, rig-cli#333 round 9): an entry can already be sitting in ``ctx.prior_granted`` from
-    # an EARLIER apply that granted it as a plain default, before THIS apply's config explicitly
-    # re-declares it via `tools`/`extra`/raw `allow`. Excluding ``never_receipt`` only from
-    # ``newly_added`` left that old receipt entry untouched forever, so a later, unrelated
-    # `allow_gh: false` would still revoke it — contradicting the documented "an explicit
-    # declaration is never revoked" contract the moment ownership transitions mid-lifecycle rather
-    # than at the very first apply. Subtracting from the union means an explicit declaration
-    # ALWAYS drops the entry from the receipt, in every apply where it's present, regardless of
-    # which earlier apply originally granted it.
-    granted = ((ctx.prior_granted | newly_added) - ctx.never_receipt - frozenset(revoked)) & present_after
-    if not granted and not ctx.receipt_file.exists():
+    # Owner-scoped clearing (rig-cli#549): an explicit declaration only clears a PRIOR receipted
+    # entry's ownership when THIS apply's identity already matches who the receipt credits with
+    # it — never merely because this apply's OWN `never_receipt` happens to name the same
+    # rendered string. The settings file is machine-wide: an unrelated sibling repo naming `gh`
+    # via its own `extra`/`tools`/raw `allow` (even as a total no-op merge, since `gh` was already
+    # present) must not silently launder away a DIFFERENT repo's rig-owned default grant — that
+    # repo's later `allow_gh: false` must still find and revoke it. Round-9's own same-repo
+    # redeclare-then-later-opt-out scenario is unaffected: there `ctx.owner` IS the receipt's
+    # recorded owner for the entry, so the transfer still happens exactly as before. The actual
+    # REVOKE decision (`to_revoke`, driven by an explicit by-name opt-out) stays UNSCOPED by
+    # owner — computed before this function ever runs — so ANY repo's opt-out can still trigger
+    # the real revocation of a grant owned by any other repo.
+    transferable_prior = frozenset(e for e in ctx.never_receipt if ctx.prior_owners.get(e) == ctx.owner)
+    kept_prior = ctx.prior_granted - transferable_prior
+    entries = (kept_prior | newly_added) - frozenset(revoked)
+    entries &= present_after
+    if not entries and not ctx.receipt_file.exists():
         return
-    content = json.dumps({"template": 1, "kind": ctx.kind, "granted": sorted(granted)}, indent=2) + "\n"
+    owners = {e: ctx.prior_owners[e] for e in kept_prior}
+    # Known residual gap (rig-cli#549 review finding, accepted, not fixed here): `newly_added`
+    # unconditionally stamps `ctx.owner` — the CURRENT applying repo — onto every entry in it.
+    # An entry can be in `ctx.prior_granted` (owned by repo A) yet ALSO in `newly_added` if it was
+    # physically absent from the settings file just before this merge (e.g. hand-removed) and this
+    # apply's own default merge re-adds it: ownership silently transfers A -> whichever repo's
+    # apply happened to re-add it, with no by-name declaration involved. This mirrors the
+    # pre-existing "forward-only tracking" trade-off this receipt has always made (an entry that
+    # was present-but-unreceipted before a run is never adopted into the receipt either) — telling
+    # "the original owner's grant, hand-removed and now restored" apart from "a genuinely new
+    # grant that happens to render identically" is not possible from presence alone. Impact is
+    # bounded: the actual REVOKE trigger (`to_revoke`, above) stays unscoped by owner regardless of
+    # who this stamps as owner, so a real opt-out is never blocked by it either way.
+    owners.update({e: ctx.owner for e in newly_added})
+    granted = {e: owners[e] for e in sorted(entries)}
+    content = json.dumps({"template": 2, "kind": ctx.kind, "granted": granted}, indent=2) + "\n"
     if ctx.receipt_file.is_file() and ctx.receipt_file.read_text(encoding="utf-8") == content:
         return  # already current — a true no-op re-apply must not even touch the receipt's mtime
     ctx.receipt_file.write_text(content, encoding="utf-8")
