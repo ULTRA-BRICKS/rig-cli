@@ -933,7 +933,7 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     # ── hook bridge (make agents-hooks/v1 descriptors FIRE in the harness) ─────────
     _build_hook_bridge(config, catalog, plan)
 
-    # ── omp idle-TTL keepalive (yielded helpers stay on the live roster) ──────────
+    # ── omp idle-TTL keepalive (new omp processes; live sessions keep spawn-cached TTL) ─
     _build_omp_idle_ttl(config, plan)
 
     # ── models (daily model-freshness checker schedule) ───────────────────────────
@@ -2261,10 +2261,12 @@ def _codex_extra_stop_hooks(config: LoadedConfig) -> list[str]:
 
 
 def _build_omp_idle_ttl(config: LoadedConfig, plan: InstallPlan) -> None:
-    """Plan ``task.agentIdleTtlMs: 0`` into omp's agent config so yielded helpers stay live.
+    """Plan ``task.agentIdleTtlMs: 0`` into omp's agent config for new omp processes.
 
     omp parks idle helpers after ``task.agentIdleTtlMs`` (default 420000 ms); parked agents
-    drop off the live hub roster. ``<= 0`` disables parking (docs/tools/task.md). Emitted
+    drop off the live hub roster. ``<= 0`` disables parking at Settings.init
+    (docs/tools/task.md). A live omp process keeps the spawn-cached TTL until restart;
+    the YAML write does not unpark helpers in an already-running session. Emitted
     whenever a configured harness kind is omp and the harness block is enabled.
     """
     if _enabled_harness_block(config) is None:
