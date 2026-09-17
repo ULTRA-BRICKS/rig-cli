@@ -852,6 +852,81 @@ def test_receipt_never_revokes_gh_from_an_unrelated_repos_narrower_tool_list(fak
     assert "Bash(gh:*)" in allow_after_b, "repo A's gh grant must survive repo B's unrelated apply"
 
 
+def test_allow_gh_false_still_revokes_despite_a_sibling_repos_explicit_extra_declaration(fake_agent_tools, tmp_path):
+    # rig-cli#549: repo A default-grants+receipts gh on a SHARED settings file. Repo B (a
+    # different repo, no allow_gh:false) applies against the SAME file with its own explicit
+    # `extra: [gh]` — a no-op merge (gh is already present) that must NOT silently launder gh's
+    # receipted ownership away from repo A. A later allow_gh:false (from repo A OR an unrelated
+    # repo C) against the shared file must still find and revoke the grant.
+    repo_a = tmp_path / "repo-a"; repo_a.mkdir()
+    repo_b = tmp_path / "repo-b"; repo_b.mkdir()
+    repo_c = tmp_path / "repo-c"; repo_c.mkdir()
+    shared_settings = tmp_path / "shared-settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    plan_a = build(_cfg(repo_a, fake_agent_tools, shared_settings), cat, project_type="unknown")
+    run_plan(plan_a)  # gh default-granted + receipted, owned by repo A
+    assert "Bash(gh:*)" in json.loads(shared_settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+
+    # repo B: unrelated repo, explicitly names gh via `extra` — no allow_gh:false, no revoke intent
+    plan_b = build(_cfg(repo_b, fake_agent_tools, shared_settings, tools=["git"], extra=["gh"]),
+                    cat, project_type="unknown")
+    run_plan(plan_b)  # a no-op merge (gh already present) — must not strip repo A's receipt
+
+    # repo C: unrelated repo, later explicitly opts out via allow_gh:false
+    plan_c = build(_cfg(repo_c, fake_agent_tools, shared_settings, allow_gh=False),
+                    cat, project_type="unknown")
+    extra = [d for d in detect(plan_c).by_direction("extra") if d.category == "permissions"]
+    assert any("Bash(gh:*)" in d.detail for d in extra), (
+        "repo A's gh grant must still be reported as revocable drift after repo B's unrelated "
+        f"explicit `extra` apply — receipt ownership must not have been laundered away: {extra}"
+    )
+    run_plan(plan_c)
+    allow_after = json.loads(shared_settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" not in allow_after, (
+        "allow_gh:false must still revoke repo A's default grant even though an unrelated "
+        "sibling repo (B) separately, explicitly named gh via `extra` in between"
+    )
+
+
+def test_legacy_shaped_receipt_stays_revocable_even_after_the_same_repo_explicitly_redeclares_it(
+    fake_agent_tools, tmp_path,
+):
+    # rig-cli#549 (review finding, accepted trade-off — see `_receipt_grant_owners`'s "Known
+    # residual gap" docstring): a receipt shipped in the LEGACY flat-list shape (template 1, no
+    # ownership at all — real machines have these) can never prove which repo originally earned
+    # the grant, so it maps to the `""` "owner unknown" sentinel — which can never match any real
+    # `str(action.source)`. That makes the entry fail-safe (never silently launder-able), but it
+    # also means the round-9 "an explicit same-repo redeclaration clears an entry from tracking"
+    # contract (proved for a FRESH, owned receipt by
+    # `test_explicit_redeclaration_clears_a_receipt_from_an_earlier_default_grant`) does not apply
+    # to a pre-existing legacy grant: it stays revocable by a later `allow_gh: false`, even the
+    # SAME repo's own, once that repo has explicitly redeclared the tool by name. Pinned here so
+    # it is a documented, deliberate choice, not silent drift.
+    repo = tmp_path / "repo"; repo.mkdir()
+    settings = repo / "settings.json"
+    settings.write_text(json.dumps({"permissions": {"allow": ["Bash(gh:*)"]}}), encoding="utf-8")
+    receipt = repo / "settings.json.claude-code.rig-permissions-grants.json"
+    receipt.write_text(
+        json.dumps({"template": 1, "kind": "claude-code", "granted": ["Bash(gh:*)"]}),
+        encoding="utf-8",
+    )
+    cat = Catalog.scan(str(fake_agent_tools))
+
+    # same repo explicitly redeclares gh via `tools` — a never-receipted, deliberate user assertion
+    plan1 = build(_cfg(repo, fake_agent_tools, settings, tools=["gh"]), cat, project_type="unknown")
+    run_plan(plan1)
+    assert "Bash(gh:*)" in json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+
+    # the same repo later opts out — with a FRESH (owned) receipt this would leave the explicit
+    # `tools` declaration untouched (round-9); with a legacy (unowned) receipt it is still revoked
+    plan2 = build(_cfg(repo, fake_agent_tools, settings, tools=["tg"], allow_gh=False),
+                  cat, project_type="unknown")
+    run_plan(plan2)
+    allow_after = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+    assert "Bash(gh:*)" not in allow_after
+
+
 def test_explicit_allow_wins_over_allow_gh_false_no_contradictory_revoked_report(fake_agent_tools, tmp_path):
     # round-2 review finding: a self-contradicting config — `allow_gh: false` alongside an explicit
     # `permissions.allow: ['Bash(gh:*)']` re-asserting the exact same entry — must not revoke it
