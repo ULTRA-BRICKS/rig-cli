@@ -22,15 +22,10 @@ SKILL_MD = """\
 ---
 name: rig
 description: >-
-  Set up a repository (and a dev machine) from a committed rig.yaml by applying
-  agent-tools content — skills, agent-hooks, git-hooks/dispatcher, CI gates, MCP. Use
-  when the user wants to bootstrap a repo's guardrails, reconcile it to its config,
-  check for config/disk drift, change a single setting, or install the toolchain
-  dependencies. Commands: `rig init` (scaffold rig.yaml + PREVIEW the plan; wizard or
-  --config/--yes; add --apply to also apply now), `rig apply` (PREVIEW-by-default reconcile;
-  bare = `rig apply info`, `rig apply commit` is what actually applies), `rig status` (two-way
-  drift), `rig config get|set` (read/change one key, then reconcile), `rig doctor` (dependency
-  bootstrap).
+  Set up a repo (and dev machine) from a committed rig.yaml applying agent-tools content —
+  skills, hooks, CI gates, MCP. Use to bootstrap guardrails, reconcile config, check drift,
+  or install toolchain deps. Commands: `rig init`, `rig apply` (PREVIEW; `commit` applies),
+  `rig status`, `rig config get|set`, `rig doctor`.
 metadata:
   author: alex-mextner
   repo: https://github.com/alex-mextner/rig-cli
