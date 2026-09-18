@@ -183,6 +183,10 @@ skills:
     enable: [backend, cli]          # install these by-type bundles wholesale
     items:
       by-type/bot/russian-pluralization: { enabled: false }   # fine-grained override
+  by_stack:
+    disable: [by-stack/mobile/swift/swift-concurrency]        # drop a selected skill
+    items:
+      by-stack/frontend/ts/react/vercel-react-patterns: { enabled: true }   # force one in
 ```
 
 | Key | Type | Default | Meaning |
@@ -195,10 +199,23 @@ skills:
 | `universal.disable` / `universal.enable` | list[str] | `[]` | deltas on `all` |
 | `by_type.enable` | list[str] | the detected project type | which `by-type/<kind>` bundles to install whole |
 | `by_type.items.<by-type/kind/name>.enabled` | bool | inherited | per-skill override |
+| `by_stack.disable` | list[str] | `[]` | drop a `by-stack/<l1>/<lang>[/<fw>]/<name>` item that would otherwise be selected |
+| `by_stack.items.<by-stack/l1/lang[/fw]/name>.enabled` | bool | inherited | force a skill in/out regardless of stack match |
 | `known` | list[str] | `[]` | skill dir names on disk that rig does NOT manage (hand-installed packs) — `rig status` reports them as known, not as drift. GLOBAL-layer (the skills dir is machine-wide): the wizard / config-web / `config set --global` write it to `~/.config/rig/config.yaml`. See [Provenance](#provenance). |
 
 If `by_type.enable` is empty and the detected project type is known, that type's bundle is
 auto-pulled.
+
+`by_stack` items are selected by the repo's stack preset — the top-level `stack` config key
+(`l1/lang[/framework]`) — a `by-stack/<l1>/<lang>[/<fw>]/<name>` skill is pulled in when its
+stack path is a prefix of the declared one (hierarchical: `mobile/swift/swiftui` also inherits
+`mobile/swift`-level skills — a MORE specific declared stack inherits its LESS specific
+ancestors, not the other way round). When no `stack` is declared, rig falls back to the same
+cheap signature-file guess `rig init` uses to seed one (`detect.detect_stack_preset`), mirroring
+the `by_type` project-type auto-pull above (both fallbacks are silent — neither emits a plan
+note when the guess fires). An
+explicit `stack:` config value always wins over the guess; `by_stack.disable` / per-item
+overrides apply the same either way.
 
 ### Harness skill discovery (why `harness_link`)
 

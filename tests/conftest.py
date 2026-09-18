@@ -283,13 +283,14 @@ def fake_agent_tools(tmp_path: Path) -> Path:
             root / "skills" / "by-type" / kind / skill / "SKILL.md",
             f"---\nname: {skill}\ndescription: {kind} skill {skill}\n---\n# {skill}\n",
         )
-    # by-stack skills: <l1>/<lang>[/<framework>]/<name>. Two example stacks + a lang-level skill,
-    # plus an l1-only SKILL.md the scanner MUST ignore (lang is required).
+    # by-stack skills: <l1>/<lang>[/<framework>]/<name>. Three example stacks (one with a
+    # lang-level skill each) plus an l1-only SKILL.md the scanner MUST ignore (lang required).
     for stack_path, skill in (
         ("mobile/swift/swiftui", "swiftui-mvvm"),
         ("mobile/swift", "swift-concurrency"),  # lang-level (inherited by any mobile/swift/*)
         ("frontend/ts/react", "vercel-react-patterns"),
         ("frontend/ts", "ts-strictness"),  # lang-level
+        ("backend/python", "python-typing"),  # lang-level; no framework example needed
     ):
         _write(
             root / "skills" / "by-stack" / Path(stack_path) / skill / "SKILL.md",

@@ -82,6 +82,8 @@ def build_scope_plan(scope: Scope) -> ScopePlan:
         env.is_git_repo = False  # the Global scope never has repo context — see docstring
         loaded = load(anchor, include_repo=False)
         catalog = Catalog.scan(loaded.agent_tools_source)
+        # project_type="unknown" AND no stack= (defaults None): $HOME is never a real repo, so
+        # neither by-type NOR by-stack auto-pull detection should run against it.
         plan = build(loaded, catalog, project_type="unknown")
         plan.actions = [
             a for a in plan.actions if writable_layer_for_category(a.category) == _GLOBAL_LAYER
@@ -96,7 +98,7 @@ def build_scope_plan(scope: Scope) -> ScopePlan:
         env = detect_environment(scope.repo_root)
         loaded = load(scope.repo_root, include_repo=True)
         catalog = Catalog.scan(loaded.agent_tools_source)
-        plan = build(loaded, catalog, project_type=env.project_type)
+        plan = build(loaded, catalog, project_type=env.project_type, stack_preset=env.stack_preset)
         # KNOWN, narrow edge case (flagged in review, deliberately not "fixed" here): a repo
         # scope with a committed rig.yaml but NO .git directory is unusual but possible.
         # `env.is_git_repo` is real (not forced) for a repo scope, unlike the Global scope above

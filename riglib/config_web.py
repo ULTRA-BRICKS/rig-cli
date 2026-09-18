@@ -508,7 +508,7 @@ def _build_plan_gate(repo_root: Path, *, include_repo: bool = True) -> None:
     env = detect_environment(repo_root.resolve())
     loaded = cfg.load(env.repo_root, include_repo=include_repo)
     catalog = Catalog.scan(loaded.agent_tools_source)
-    build(loaded, catalog, project_type=env.project_type)
+    build(loaded, catalog, project_type=env.project_type, stack_preset=env.stack_preset)
 
 
 def _validate_layer_in_isolation(layer_path: Path) -> None:

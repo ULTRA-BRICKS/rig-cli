@@ -42,6 +42,7 @@ def _env(*, is_git_repo: bool, repo_root: Path) -> Environment:
         is_git_repo=is_git_repo,
         stack="unknown",
         project_type="unknown",
+        stack_preset=None,
         skills_dirs={},
         global_hooks_path=None,
         dispatcher_installed=False,

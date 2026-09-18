@@ -41,8 +41,9 @@ class OsInfo:
 class Environment:
     repo_root: Path
     is_git_repo: bool
-    stack: str  # bun-node | python-uv | go | unknown
+    stack: str  # bun-node | python-uv | go | unknown (build TOOLCHAIN, not the stack preset below)
     project_type: str  # backend | frontend | cli | bot | library | monorepo | unknown
+    stack_preset: str | None  # l1/lang[/framework] best-guess (see detect_stack_preset), or None
     skills_dirs: dict[str, bool]  # candidate skills dir → exists?
     global_hooks_path: str | None  # git config --global core.hooksPath
     dispatcher_installed: bool
@@ -135,9 +136,14 @@ def detect_stack_preset(repo_root: Path) -> str | None:
 
     This is the stack-preset taxonomy (see docs/specs/2026-07-15-stack-presets.md), NOT the
     build-toolchain :func:`detect_stack` (which returns bun-node/python-uv/go). Cheap top-level
-    probes only — the guess is a suggestion the user confirms in ``rig init``, never an authority.
-    Framework-level guessing is shallow in the foundation (SwiftUI-vs-UIKit / python web framework
-    detection is a follow-up); most guesses stop at ``l1/lang``.
+    probes only. Computed once per :func:`detect_environment` call as ``Environment.stack_preset``
+    (mirroring ``Environment.project_type``'s role for by-type skills): ``rig init`` treats the
+    guess as a suggestion the user confirms and writes into ``stack:``, while ``plan.build``
+    callers pass it as the by-stack selection fallback whenever a repo declares no ``stack:`` —
+    so it stops being purely advisory in that path, and a freshly-added top-level file can change
+    which by-stack skills get provisioned on the next run. Framework-level guessing is shallow in
+    the foundation (SwiftUI-vs-UIKit / python web framework detection is a follow-up); most
+    guesses stop at ``l1/lang``.
     """
     swift = _detect_swift_stack(repo_root)
     if swift:
@@ -160,11 +166,16 @@ def _detect_swift_stack(repo_root: Path) -> str | None:
     """`mobile/swift` when a Swift package/Xcode project or top-level ``*.swift`` is present."""
     if (repo_root / "Package.swift").is_file():
         return "mobile/swift"
-    for entry in repo_root.iterdir():
-        if entry.suffix in (".xcodeproj", ".xcworkspace"):
-            return "mobile/swift"
-        if entry.suffix == ".swift" and entry.is_file():
-            return "mobile/swift"
+    try:
+        for entry in repo_root.iterdir():
+            if entry.suffix in (".xcodeproj", ".xcworkspace"):
+                return "mobile/swift"
+            if entry.suffix == ".swift" and entry.is_file():
+                return "mobile/swift"
+    except OSError:
+        # repo_root vanished, isn't a directory, or is unreadable — same fail-closed shape as
+        # _detect_node_stack's malformed-package.json guard below: no crash, just no guess.
+        pass
     return None
 
 
@@ -179,7 +190,14 @@ def _detect_node_stack(repo_root: Path) -> str | None:
         data = json.loads(pkg.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         data = {}
-    deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+    if not isinstance(data, dict):
+        data = {}
+    raw_deps = data.get("dependencies")
+    raw_dev_deps = data.get("devDependencies")
+    deps = {
+        **(raw_deps if isinstance(raw_deps, dict) else {}),
+        **(raw_dev_deps if isinstance(raw_dev_deps, dict) else {}),
+    }
     lang = "ts" if (repo_root / "tsconfig.json").is_file() else "js"
     if "react" in deps or "next" in deps:
         return f"frontend/{lang}/react"
@@ -251,6 +269,7 @@ def detect_environment(repo_root: Path | None = None, which_fn: WhichFn | None =
 
     stack = detect_stack(repo_root)
     ptype = detect_project_type(repo_root, stack)
+    stack_preset = detect_stack_preset(repo_root)
 
     home = Path(os.path.expanduser("~"))
     skills_dirs = {
@@ -282,6 +301,7 @@ def detect_environment(repo_root: Path | None = None, which_fn: WhichFn | None =
         is_git_repo=is_git,
         stack=stack,
         project_type=ptype,
+        stack_preset=stack_preset,
         skills_dirs=skills_dirs,
         global_hooks_path=global_hooks_path or None,
         dispatcher_installed=dispatcher_installed,

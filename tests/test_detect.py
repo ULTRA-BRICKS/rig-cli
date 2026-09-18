@@ -152,6 +152,40 @@ def test_stack_preset_none_when_unrecognized(tmp_path: Path):
     assert detect.detect_stack_preset(tmp_path) is None
 
 
+def test_stack_preset_nonexistent_repo_root_returns_none(tmp_path: Path):
+    """``_detect_swift_stack`` must not crash on a repo_root that doesn't exist — now that
+    ``detect_environment`` computes ``stack_preset`` unconditionally (used to be an opt-in
+    call from `rig init`/`rig status`'s warning path only), a bare `.iterdir()` failure here
+    would take down every `rig apply`/`rig status` call for a stale or mistyped -C path."""
+    missing = tmp_path / "does-not-exist"
+    assert detect.detect_stack_preset(missing) is None
+
+
+def test_stack_preset_node_null_dependencies_returns_none(tmp_path: Path):
+    """``_detect_node_stack`` must not crash on a well-formed-enough ``package.json`` whose
+    ``dependencies``/``devDependencies`` values are not mappings (e.g. ``null``, ``[]``) — the
+    same "hot-path detection must not throw" requirement as the swift-side fix above, since
+    this now runs on every ``detect_environment`` call, not just an opt-in warning path."""
+    (tmp_path / "package.json").write_text(
+        '{"name": "x", "dependencies": null}', encoding="utf-8"
+    )
+    assert detect.detect_stack_preset(tmp_path) is None
+
+
+def test_stack_preset_node_list_dev_dependencies_returns_none(tmp_path: Path):
+    (tmp_path / "package.json").write_text(
+        '{"name": "x", "devDependencies": []}', encoding="utf-8"
+    )
+    assert detect.detect_stack_preset(tmp_path) is None
+
+
+def test_stack_preset_node_non_object_package_json_returns_none(tmp_path: Path):
+    (tmp_path / "package.json").write_text("[]", encoding="utf-8")
+    assert detect.detect_stack_preset(tmp_path) is None
+    (tmp_path / "package.json").write_text("null", encoding="utf-8")
+    assert detect.detect_stack_preset(tmp_path) is None
+
+
 def test_stack_preset_swift_wins_over_node_and_is_well_formed(tmp_path: Path):
     # precedence: a Swift signal wins over a competing package.json, and every guess is a
     # taxonomy-valid stack string.
