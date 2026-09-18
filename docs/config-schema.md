@@ -2576,6 +2576,9 @@ tools:
     dev:    { repo: ~/xp/dev-cli }
     # a bare entry defaults repo to ~/xp/<name>-cli:
     # foo: {}
+    # a tool whose wrapper shells out to a Homebrew-installed binary declares that dependency —
+    # rig installs the missing formula before running install.sh:
+    fj:     { brew: [forgejo-cli] }
 ```
 
 | Key | Type | Default | Meaning |
@@ -2586,18 +2589,31 @@ tools:
 | `items.<name>.enabled` | bool | `true` | `false` = skip this one tool |
 | `items.<name>.repo` | str | `~/xp/<name>-cli` | the tool's checkout dir (holds its `install.sh`) |
 | `items.<name>.bin_dir` | str | `target` | override the managed PATH dir for this one tool |
+| `items.<name>.brew` | list[str] | `[]` | Homebrew formula(e) the tool depends on at **runtime** |
 
 **Idempotent + safe.** A tool already installed — its bin resolves (the managed symlink **or**
 anywhere on PATH, so a Homebrew `review` counts) **and** its skill blurb is advertised — is a
 **no-op** (`skipped`); rig does **not** re-run `install.sh`. rig never deletes a user's existing
 symlink. A tool that resolves but isn't advertised is (re-)installed only to wire up its skill.
 
+**Optional Homebrew runtime dependency (`brew`).** A tool's own `install.sh` only ever installs
+*itself* (locate/symlink/advertise) — it does not install packages the tool's WRAPPER shells out
+to. `items.<name>.brew` (default `[]`, additive/opt-in — a tool that omits it is completely
+unaffected) declares those Homebrew formula names. Before running `install.sh`, rig checks each
+declared formula with `brew list --formula <formula>` and runs `brew install <formula>` for any
+missing one. `brew` absent from PATH, or a `brew install` that itself fails, is a **hard error**
+for that tool (not a silent skip or a crash) — a wrapper whose runtime dependency isn't installed
+isn't a working tool no matter how `install.sh` went. Example: `fj` (the Forgejo CLI wrapper)
+depends on the `forgejo-cli` formula for the real `fj` binary it wraps.
+
 **Drift.** `rig status` flags (in the **GLOBAL** section) a declared tool whose bin doesn't resolve
 (**missing** — apply runs its `install.sh`) or that resolves but isn't advertised (**modified** —
-apply re-runs `install-skill`). `rig apply` reconciles.
+apply re-runs `install-skill`). A declared `brew` formula Homebrew does not report as installed is
+**also** flagged `missing`, independently of the bin/advertised state — one item per absent
+formula — and `rig apply` runs `brew install` to reconcile it.
 
 **Dry-run seam.** `RIG_TOOLS_DRY_RUN=1` reports what WOULD install without running any `install.sh`
-(used by the e2e suite so tests never shell out to a real tool installer).
+or `brew install` (used by the e2e suite so tests never shell out to a real tool installer or brew).
 
 ---
 

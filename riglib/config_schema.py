@@ -1150,6 +1150,15 @@ _TOOLS_ITEM_BLOCK = Block(
         "enabled": Leaf("boolean", "install this tool (default true)", default=True),
         "repo": Leaf("string", "the tool's checkout dir (holds install.sh); default ~/xp/<name>-cli"),
         "bin_dir": Leaf("string", "override the managed PATH dir for this one tool"),
+        "brew": Leaf(
+            "array",
+            "Homebrew formulae this tool depends on at RUNTIME (not installed by the tool's own "
+            "install.sh); rig installs any missing formula via `brew install` before running "
+            "install.sh, and `rig status` flags a declared-but-absent formula as drift. Fails "
+            "closed with an actionable error if `brew` itself is not on PATH. Default [] — no "
+            "package dependency declared, the existing behavior for every tool that omits this key.",
+            items_type="string",
+        ),
     },
 )
 

@@ -26,6 +26,7 @@ from .actions.runner import (
     ECOSYSTEM_README_END_MARKER,
     EXECPOLICY_BEGIN_MARKER,
     EXECPOLICY_END_MARKER,
+    _brew_installed_snapshot,
     _ci_companion_files,
     _find_marker_lines,
     _splice_managed_block,
@@ -3373,19 +3374,30 @@ def _check_tmux(action: Action, report: DriftReport) -> None:
 
 
 def _check_tools(action: Action, report: DriftReport) -> None:
-    """Flag drift on the personal CLI ecosystem (a declared tool not installed/advertised).
+    """Flag drift on the personal CLI ecosystem (a declared tool not installed/advertised/dependent).
 
     missing — a declared tool whose bin does NOT resolve (no managed symlink, not on PATH): the
-              ecosystem install never ran or was removed. ``rig apply`` runs its install.sh.
+              ecosystem install never ran or was removed. ``rig apply`` runs its install.sh. A
+              declared Homebrew formula (``brew:``) that Homebrew does NOT report as installed is
+              ALSO ``missing`` — one item per absent formula, checked independently of the bin/
+              advertised state (a formula can go missing — e.g. ``brew uninstall`` — without
+              touching the managed symlink at all). ``rig apply`` runs ``brew install`` for it —
+              UNLESS ``brew`` itself isn't on PATH, in which case the detail says so instead of
+              promising an action apply cannot perform (review finding).
     modified — a tool whose bin resolves but whose skill is NOT advertised (no blurb marker):
                it's reachable but agents can't auto-discover it; apply re-runs install.sh to wire
                up ``install-skill``.
-    Shares the desired-spec computation (:func:`tools.tool_status`) with the install handler, so
-    apply and status can never disagree. Cross-platform (no launchd); pure on-disk reads.
+    Shares the desired-spec computation (:func:`tools.tool_status`) with the install handler, and
+    the SAME single-probe ``brew list --formula`` snapshot (:func:`runner._brew_installed_snapshot`)
+    the install handler uses to decide whether to run ``brew install`` — ONE Homebrew shell-out for
+    the whole carrier (not one per declared formula, review finding), so apply and status can never
+    disagree. Cross-platform (no launchd); pure reads (no disk/Homebrew mutation).
     """
     from . import tools as toolsmod
 
     plan = toolsmod.plan_from_action_options(action.options)
+    any_brew = any(spec.brew_formulae for spec in plan.specs)
+    installed, brew_path = _brew_installed_snapshot() if any_brew else (frozenset(), None)
     for spec in plan.specs:
         st = toolsmod.tool_status(spec)
         if not st.bin_resolves:
@@ -3402,6 +3414,20 @@ def _check_tools(action: Action, report: DriftReport) -> None:
                     "modified", "tools", spec.name, spec.blurb_file,
                     f"tool '{spec.name}' installed but not advertised "
                     f"(no skill blurb at {spec.blurb_file}) — apply re-runs install-skill",
+                )
+            )
+        for formula in spec.brew_formulae:
+            if formula in installed:
+                continue
+            remedy = (
+                f"install Homebrew, then run `brew install {formula}`" if brew_path is None
+                else f"apply runs `brew install {formula}`"
+            )
+            report.items.append(
+                DriftItem(
+                    "missing", "tools", f"{spec.name}:{formula}", spec.repo,
+                    f"tool '{spec.name}' declares Homebrew formula '{formula}' but it is not "
+                    f"installed (`brew list --formula` does not report it) — {remedy}",
                 )
             )
 

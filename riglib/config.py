@@ -2924,7 +2924,8 @@ def _validate_tools(t: dict[str, Any]) -> None:
     opts in by listing tools under ``items``. Fail-closed, consistent with every other block, on:
     a non-mapping block, an unknown FIXED key (typo guard — the open ``items`` map keeps arbitrary
     tool NAMES valid), a non-bool ``enabled``, a non-string ``target``, a non-mapping ``items`` or
-    item, and a bad per-item ``enabled``/``repo``/``bin_dir`` type.
+    item, and a bad per-item ``enabled``/``repo``/``bin_dir``/``brew`` type (``brew`` is a list of
+    Homebrew formula names, checked with :func:`_check_str_list`).
     """
     if not isinstance(t, dict):
         raise ConfigError("tools must be a mapping", schema_path="tools")
@@ -2943,7 +2944,7 @@ def _validate_tools(t: dict[str, Any]) -> None:
 # The keys a tools.items.<name> entry accepts. Explicit set (mirrors LINTER_ITEM_KEYS) so the
 # validator rejects a per-item typo — _reject_unknown_keys can't, since block_child_keys only
 # walks .nested, never an open_map_item block.
-_TOOLS_ITEM_KEYS = {"enabled", "repo", "bin_dir"}
+_TOOLS_ITEM_KEYS = {"enabled", "repo", "bin_dir", "brew"}
 
 
 def _validate_tools_item(name: str, spec: Any) -> None:
@@ -2960,6 +2961,7 @@ def _validate_tools_item(name: str, spec: Any) -> None:
     _check_bool(spec, "enabled", f"{path}.enabled")
     _check_str(spec, "repo", f"{path}.repo")
     _check_str(spec, "bin_dir", f"{path}.bin_dir")
+    _check_str_list(spec, "brew", f"{path}.brew")
 
 
 # The keys the tg_ctl block accepts. Listed once so the validator rejects a typo (fail-closed,
