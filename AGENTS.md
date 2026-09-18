@@ -231,14 +231,18 @@ create`/`remove`/`gc` rows for the user-facing contract.
   merged/closed/no-pr-stale/active and removes only the safe classes; `rig status` reports a
   stale-worktree count using the same classifier. See `riglib/worktree_gc.py`'s module docstring.
 
-**Known gap (GH-329, tracked, not yet fixed here):** the agent-tools skill
-`skills/by-type/monorepo/worktree-isolation` — the one an agent reaches for when told to isolate
-parallel work — still teaches a RAW `git worktree add ../.worktrees/agent-$run_id -b
-work/$run_id` pattern (a sibling-of-repo location, one of the very conventions this section
-replaces) and never mentions `rig worktree create`. That skill lives in the agent-tools repo,
-which this repo consumes read-only (see "The integration seam" above) — rig-cli cannot fix it
-here. Needs a follow-up PR against agent-tools pointing the skill at `rig worktree create`
-wherever the target repo has one (falling back to raw `git worktree add` only when it doesn't).
+**Resolved gap (GH-329, closed by agent-tools#696):** the agent-tools skill
+`skills/by-type/monorepo/worktree-isolation` — the one an agent reaches for when told to
+isolate parallel work — used to teach a RAW `git worktree add
+../.worktrees/agent-$run_id -b work/$run_id` pattern as its only guidance and never
+mentioned `rig worktree create`. agent-tools PR #696 (merged, commit
+`31eaae6a4bf06d1ad2af99fe52731dc37407a867`) rewrote the skill's prose to state an explicit
+preference order: `rig worktree create <name>` where `rig` is available (the validated,
+canonical convention — `<repo>/.worktrees/<name>`, auto-registered in
+`.git/info/exclude`), then Claude Code's `EnterWorktree` tool, and only a raw `git
+worktree add` as the last resort — keeping the raw pattern as its fallback code sample,
+not its lead recommendation. Confirmed current in the live checkout at
+`skills/by-type/monorepo/worktree-isolation/SKILL.md`.
 
 ## Harness workflow guards (worktree-only + orchestrator-only)
 
@@ -293,9 +297,31 @@ value, so changing enforcement needs no re-apply):
   agent-tools#764, 2026-09-18.)
 
 All three are complementary to the pre-push `protect-main` git-hook: that blocks a *push* to
-main, these block the *authoring* / inline work that precedes it. Scope note: these are Claude
-Code agent-hooks specifically — a different harness (e.g. a raw Codex/script invocation) issuing
-`git checkout` is not intercepted by them; git itself has no `pre-checkout` hook to fall back on.
+main, these block the *authoring* / inline work that precedes it. Scope note:
+`pin-primary-worktree` (pre-bash) and `worktree-only-writes` (pre-write) are agents-hooks/v1
+descriptors — dispatched to a harness only via that harness's OWN bridge,
+`riglib/plan.py::_HOOK_BRIDGE_HARNESSES`. Today that dict has four entries: `claude-code`
+(`cc_hook_bridge`), `codex` (`codex_hook_bridge`), `opencode` (`opencode_hook_bridge`), and
+`omp` (`omp_hook_bridge`) — all four map both `pre-bash` and `pre-write` (agent-tools'
+`agent-hooks/README.md` hook-points table). So a `git checkout`/`switch` moving the primary
+worktree off the default branch, or an Edit/Write on it, IS intercepted under Codex,
+opencode, and omp too — not just Claude Code — once that harness kind is in
+`harness.kinds`, `agent_hooks`/`harness.hook_bridge` are enabled, and `rig apply` has run
+since. A harness session started BEFORE that apply won't have picked up the bridge (it
+reads its hook config at session start, not live) — "the bridge is live" always means "as
+of the last `rig apply` plus a fresh session," never a permanent guarantee. The harnesses
+with ZERO agents-hooks coverage today are `pi` and `commandcode` — no entry in
+`_HOOK_BRIDGE_HARNESSES`, surfaced by `rig apply`/`rig apply info` and `rig status` as
+`hook_bridge: skipped — kind '<kind>' has no supported agents-hooks bridge yet` — for
+those two, every agents-hooks/v1 descriptor including
+`worktree-only-writes`/`pin-primary-worktree` is inert with no fallback (`commandcode` has
+its own rich native worktree tooling instead — `-w`/`--worktree`, `/worktree`,
+`enter_worktree`/`exit_worktree` — entirely unseen by any agents-hooks/v1 descriptor;
+tracked separately as an agent-tools follow-up, not detailed here). What's still true
+regardless of harness: git itself has no `pre-checkout` hook, so a raw `git
+checkout`/`switch` issued from completely outside any harness's own tool-call surface (a
+bare shell, a cron job, a hand-run script with no bridge anywhere in the loop) is never
+intercepted.
 The primary-vs-linked-worktree distinction (`--git-dir` vs `--git-common-dir`) is the most fragile
 part of `pin-primary-worktree`'s logic — its regression coverage lives in agent-tools'
 `tests/test_pin_primary_worktree.py` (real temp repos + real `git worktree add` trees, not
