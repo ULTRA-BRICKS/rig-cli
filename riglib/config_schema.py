@@ -326,12 +326,18 @@ _AGENT_HOOKS_BLOCK = Block(
             "keep the orchestrator thin: the orchestrator-stays-thin hook warns on the first "
             "inline implementation Bash / code Edit by the main thread (delegate to a subagent), "
             "then blocks a repeat within its TTL. Read-only inspection (git status/ls/cat/grep/"
-            "find, git worktree list) is never gated; tg/review are sanctioned orchestration, also "
-            "never gated. ALL gh is delegated to a subagent too — gh ship, gh pr list/view/checks, "
-            "gh run, gh api included. Opt-OUT, default ON — set false to exempt a repo that "
+            "find, git worktree list) is never gated; tg/review/task are sanctioned orchestration, "
+            "also never gated. Most gh is still delegated to a subagent — gh pr merge/create/close/"
+            "edit, gh issue create/close/edit, gh release, any gh api mutation included. Two "
+            "exceptions run inline: an unchained gh ship <PR#> alone on the line, and a fixed "
+            "read-only allowlist (gh issue list/view, gh pr list/view/checks/diff, gh run "
+            "list/view/watch, gh repo view, GET-only gh api with no -f/--field, -F/--raw-field, "
+            "or --input). Opt-OUT, "
+            "default ON — set false to exempt a repo that "
             "legitimately works inline (e.g. 3d-cli). No self-service env bypass; a one-off is "
             "requested via RIG_HATCH_REQUEST_ORCHESTRATOR_STAYS_THIN=\"<justification>\" (tg "
-            "approval, deny-by-default; bare 1 rejected). (Alex tg#5743, tg#7103.)",
+            "approval, deny-by-default; bare 1 rejected). (Alex tg#5743, tg#7103; allowlist "
+            "enforced by agent-tools#764, 2026-09-18.)",
             default=True,
         ),
     },
