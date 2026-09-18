@@ -5735,18 +5735,27 @@ def _do_provision_tools(action: Action, on_conflict: str) -> ActionResult:
 
 
 def _provision_one_tool(spec: object, dry: bool) -> tuple[str, str]:
-    """Provision one tool: keep its checkout fresh, then install it if needed.
+    """Provision one tool: ensure its Homebrew deps, keep its checkout fresh, then install if needed.
 
     ``spec`` is a :class:`tools.ToolSpec`. The missing-repo guard runs FIRST: a repo with no
     ``install.sh`` is not a rig-provisioned tool → ``error``, and — crucially — we run NO script
     against it (a malformed/foreign ``tools.items.*.repo`` path never gets deploy.sh executed before
-    the error). FRESHNESS runs next: if the tool ships ``scripts/deploy.sh``, rig runs it to ff-pull
-    the checkout (:func:`_maybe_deploy_tool`, non-fatal, folded into the reported message) — BEFORE
-    the already-installed short-circuit, which is exactly what would otherwise hide a stale checkout.
-    Then the install decision: already-installed (bin resolves + advertised) → skipped; otherwise run
-    its install.sh (or, under dry-run, report). Returns ``(status, detail)`` — status ∈
-    installed/skipped/error. A deploy failure NEVER changes the status: a stale-but-installed tool
-    still reports skipped, so freshness rot surfaces as a warning, not an apply error.
+    the error). BREW FORMULAE run next (:func:`_ensure_brew_formulae`): a tool whose declared
+    Homebrew dependency is missing AND can't be installed (``brew`` absent, or ``brew install``
+    itself failed) is FATAL for this tool's provision, same as the missing-repo guard — a wrapper
+    whose runtime dependency isn't installed isn't a working tool no matter how install.sh went.
+    FRESHNESS runs next: if the tool ships ``scripts/deploy.sh``, rig runs it to ff-pull the
+    checkout (:func:`_maybe_deploy_tool`, non-fatal, folded into the reported message) — BEFORE the
+    already-installed short-circuit, which is exactly what would otherwise hide a stale checkout.
+    Then the install decision: already-installed (bin resolves + advertised) → ``skipped`` UNLESS a
+    real ``brew install`` just ran for this tool (``brew_changed``), in which case it reports
+    ``installed`` instead — a tool whose bin/skill were already current but whose runtime formula
+    was JUST installed performed a genuine mutation and must not be folded into "unchanged" (review
+    finding: `_ensure_brew_formulae` ran unconditionally before this check, so a real package
+    install was previously miscounted as a no-op). Otherwise run its install.sh (or, under dry-run,
+    report). Returns ``(status, detail)`` — status ∈ installed/skipped/error. A deploy failure NEVER
+    changes the status: a stale-but-installed tool still reports skipped/installed per the brew
+    signal above, so freshness rot surfaces as a warning, not an apply error.
     """
     from .. import tools as toolsmod
 
@@ -5754,9 +5763,14 @@ def _provision_one_tool(spec: object, dry: bool) -> tuple[str, str]:
     st = toolsmod.tool_status(spec)
     if not st.repo_present:
         return "error", f"{spec.name}: no install.sh at {spec.install_script} (repo missing?)"
-    note = _maybe_deploy_tool(spec, dry)
+    brew_error, brew_note, brew_changed = _ensure_brew_formulae(spec, dry)
+    if brew_error:
+        return "error", brew_error
+    deploy_note = _maybe_deploy_tool(spec, dry)
+    note = _combine_notes(brew_note, deploy_note)
     if st.installed:
-        return "skipped", _with_note(f"{spec.name} already installed ({spec.managed_bin})", note)
+        status = "installed" if brew_changed else "skipped"
+        return status, _with_note(f"{spec.name} already installed ({spec.managed_bin})", note)
     if dry:
         return "installed", _with_note(f"{spec.name} (dry-run — would run {spec.install_script})", note)
     rc, out = _run_tool_install(spec)
@@ -5785,6 +5799,123 @@ def _maybe_deploy_tool(spec: object, dry: bool) -> str:
         return "deploy.sh: ok"
     tail = out.strip().splitlines()[-1] if out.strip() else "(no output)"
     return f"deploy.sh WARN (rc={rc}): {tail}"
+
+
+# One `brew list --formula`/`brew install` invocation's budget. A DEDICATED constant (not shared
+# with `_tool_install_timeout_s()`, review finding: an earlier version claimed to share it but
+# `_brew_installed_snapshot`'s probe hardcoded 30s regardless of `RIG_TOOL_INSTALL_TIMEOUT_S`) — a
+# probe is a cheap read, not a clone+build, so it gets its own short, honest budget; only the
+# actual `brew install` mutation shares the tool-install timeout (it can be genuinely slow: cold
+# cache, source builds).
+_BREW_LIST_TIMEOUT_S = 30
+
+
+def _brew_installed_snapshot() -> tuple[frozenset[str], str | None]:
+    """ONE `brew list --formula` call enumerating every currently installed formula.
+
+    Returns ``(installed_formula_names, brew_path)``. Shared by every tool's every declared
+    formula in a single apply/status run (review finding: a PER-FORMULA `brew list --formula
+    <name>` probe made `rig status` shell out to Homebrew once per declared formula — on the
+    default-off `tools:` carrier's own steady-state no-op path — turning a "pure on-disk reads"
+    drift check into an O(formulae) subprocess fan-out with its own 30s timeout EACH; a single
+    `brew list --formula` (no name) lists every installed formula in one call, and membership is a
+    Python set lookup).
+
+    ``brew_path`` is ``None`` when ``brew`` itself isn't on PATH — callers use that (not an empty
+    ``installed_formula_names``) to give the actionable "install Homebrew first" message rather
+    than mistaking "brew missing" for "formula missing" (review finding: the drift message used to
+    unconditionally say "apply runs `brew install <formula>`" even when apply could not possibly
+    run it). When ``brew`` IS on PATH but the list itself times out or errors, this fails toward
+    "nothing confirmed installed" (empty set, ``brew_path`` still set) — the same conservative
+    default the old per-formula probe used: a real formula then either installs cleanly on retry or
+    the actual ``brew install`` call surfaces the concrete error. Never raises.
+    """
+    brew = shutil.which("brew")
+    if brew is None:
+        return frozenset(), None
+    try:
+        proc = subprocess.run(
+            [brew, "list", "--formula"],
+            capture_output=True,
+            text=True,
+            timeout=_BREW_LIST_TIMEOUT_S,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return frozenset(), brew
+    if proc.returncode != 0:
+        return frozenset(), brew
+    return frozenset(line.strip() for line in (proc.stdout or "").splitlines() if line.strip()), brew
+
+
+def _ensure_brew_formulae(spec: object, dry: bool) -> tuple[str, str, bool]:
+    """Ensure every Homebrew formula ``spec`` declares (``brew_formulae``) is installed.
+
+    Returns ``(error, note, changed)``. ``error`` is a short, actionable message when the tool
+    CANNOT be considered provisioned without a missing formula — ``brew`` itself absent from PATH,
+    or a ``brew install`` that itself failed — the caller (:func:`_provision_one_tool`)
+    short-circuits on it exactly like the missing-repo guard: a wrapper whose runtime OS dependency
+    isn't installed isn't a working tool no matter how ``install.sh`` went. ``note`` folds a short,
+    non-fatal status into the caller's detail the same way :func:`_maybe_deploy_tool`'s note does.
+    ``changed`` is True ONLY when a REAL ``brew install`` ran and succeeded — the caller uses it to
+    report the tool's overall status as ``installed`` even when the tool's own bin/skill were
+    already current, so a brew-only mutation is never miscounted as a no-op (review finding). A
+    tool that declares no formulae is untouched: all three return empty/False immediately.
+
+    Read-only under ``RIG_TOOLS_DRY_RUN`` — the presence probe (:func:`_brew_installed_snapshot`)
+    always runs (it never mutates), but a missing formula is reported via ``note`` only ("would
+    install"), never treated as fatal and never actually installed, matching the dry-run
+    no-mutation contract :func:`_maybe_deploy_tool` and the install decision itself already honor.
+    """
+    from .. import tools as toolsmod
+
+    assert isinstance(spec, toolsmod.ToolSpec)
+    if not spec.brew_formulae:
+        return "", "", False
+    installed, brew = _brew_installed_snapshot()
+    missing = [f for f in spec.brew_formulae if f not in installed]
+    if not missing:
+        return "", f"brew: {', '.join(spec.brew_formulae)} already installed", False
+    if dry:
+        return "", f"brew: would install {', '.join(missing)} (dry-run)", False
+    if brew is None:
+        return (
+            f"{spec.name}: brew is not on PATH — install Homebrew, then run "
+            f"`brew install {' '.join(missing)}` ({spec.name} depends on it at runtime)",
+            "", False,
+        )
+    rc, out = _run_brew_install(brew, missing)
+    if rc != 0:
+        tail = out.strip().splitlines()[-1] if out.strip() else "(no output)"
+        return f"{spec.name}: brew install {' '.join(missing)} exited {rc} — {tail}", "", False
+    return "", f"brew: installed {', '.join(missing)}", True
+
+
+def _run_brew_install(brew: str, formulae: list[str]) -> tuple[int, str]:
+    """Run ``brew install <formulae...>`` for every MISSING formula in ONE call (batched: shared
+    dependency resolution, one Homebrew startup, instead of one invocation per formula — review
+    finding). Returns ``(returncode, combined_output)``, never raises — mirrors
+    :func:`_run_tool_bash_script`'s never-raises contract so a hung/broken brew can't wedge or
+    crash apply.
+    """
+    timeout_s = _tool_install_timeout_s()
+    joined = " ".join(formulae)
+    try:
+        proc = subprocess.run(
+            [brew, "install", *formulae],
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
+        return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+    except subprocess.TimeoutExpired:
+        return 1, f"brew install {joined} timed out after {timeout_s}s"
+    except OSError as exc:
+        return 1, f"could not run brew install {joined}: {exc}"
+
+
+def _combine_notes(*parts: str) -> str:
+    """Join non-empty notes with '; ' for a single bracketed suffix via :func:`_with_note`."""
+    return "; ".join(p for p in parts if p)
 
 
 def _with_note(detail: str, note: str) -> str:

@@ -39,6 +39,12 @@ Invariants
   the skill blurb is present) is a no-op — rig does NOT re-run ``install.sh``. A bin that resolves
   ELSEWHERE (e.g. a Homebrew ``review``) but still WORKS is detected and left alone unless the
   skill is unadvertised. rig never deletes a user's existing symlink.
+- **Optional Homebrew runtime dependency.** ``tools.items.<name>.brew`` (default ``[]``) declares
+  formula(e) the tool's WRAPPER shells out to but that its own ``install.sh`` does not install
+  (e.g. ``fj`` depends on the ``forgejo-cli`` formula for the real ``fj`` binary it wraps). rig
+  installs any missing formula (``brew install <formula>``) BEFORE running install.sh; a tool
+  that declares none is completely unaffected. Absent ``brew`` on PATH is a clear, actionable
+  error for that tool, never a silent skip or a crash.
 
 This is a per-MACHINE concern (the tool ecosystem on this dev box), so the ``tools:`` block
 belongs in the GLOBAL layer (``~/.config/rig/config.yaml``), like ``harness``/``tmux``/
@@ -85,11 +91,15 @@ class ToolSpec:
     ``name`` is the command name (``tg``) and the skill-blurb stem. ``repo`` is the resolved
     absolute path to the tool's checkout (the dir holding ``install.sh``). ``bin_dir`` is the
     managed PATH dir the install symlinks into (so status can confirm the bin resolves there).
+    ``brew_formulae`` is the tool's declared Homebrew RUNTIME dependencies (``tools.items.<name>
+    .brew``, default empty) — a package the tool's wrapper shells out to but that its own
+    ``install.sh`` does not install; rig installs any missing formula before running install.sh.
     """
 
     name: str
     repo: Path
     bin_dir: Path
+    brew_formulae: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def install_script(self) -> Path:
@@ -141,8 +151,10 @@ def resolve_tool_specs(block: dict | None) -> list[ToolSpec]:
     get a surprise clone+install on the next apply.) Each ``items.<name>`` entry becomes a
     :class:`ToolSpec`; an item with ``enabled: false`` is skipped. ``repo`` defaults to
     ``~/xp/<name>-cli`` (the common layout) so a bare ``tg: {}`` works; ``tools.target`` (or a
-    per-item ``bin_dir``) overrides the managed PATH dir. Effect-free — paths are expanded, not
-    stat'd.
+    per-item ``bin_dir``) overrides the managed PATH dir. ``brew`` (a list of formula names, default
+    ``[]``) becomes ``brew_formulae`` — absent/malformed reads as no declared dependency, matching
+    every other array leaf's defensive coercion in this codebase (see ``_string_list`` in
+    ``project_tools.py``/``lint_policy.py``). Effect-free — paths are expanded, not stat'd.
     """
     if not block or not block.get("enabled"):
         return []
@@ -155,8 +167,25 @@ def resolve_tool_specs(block: dict | None) -> list[ToolSpec]:
             continue
         repo = _expand(str(spec.get("repo") or f"~/xp/{name}-cli"))
         bin_dir = _expand(str(spec["bin_dir"])) if spec.get("bin_dir") else default_bin
-        specs.append(ToolSpec(name=str(name), repo=repo, bin_dir=bin_dir))
+        brew_formulae = _brew_formulae(spec.get("brew"))
+        specs.append(ToolSpec(name=str(name), repo=repo, bin_dir=bin_dir, brew_formulae=brew_formulae))
     return specs
+
+
+def _brew_formulae(value: object) -> tuple[str, ...]:
+    """Coerce a ``brew:`` leaf value into a tuple of formula names.
+
+    The schema already enforces ``array[string]``; this defensive coercion mirrors the
+    ``_string_list`` precedent in ``project_tools.py``/``lint_policy.py`` (a non-list or
+    non-string entry is dropped rather than raised — the schema validator, not this resolver, is
+    the enforcement point). A `-`-leading entry is ALSO dropped (review finding): every formula
+    name flows straight into an argv list (``brew install <formula>``, never a shell), so a
+    flag-shaped value like ``--quiet`` would be parsed by brew as an OPTION, not a package name —
+    dropping it here fails closed instead of silently mis-invoking brew with a corrupted argv.
+    """
+    if not isinstance(value, list):
+        return ()
+    return tuple(v for v in value if isinstance(v, str) and v and not v.startswith("-"))
 
 
 def tool_status(spec: ToolSpec) -> ToolStatus:
@@ -210,12 +239,22 @@ def plan_from_action_options(options: dict) -> ToolPlan:
     stores each spec as a small dict; this rehydrates them so apply + drift work from typed specs.
     """
     specs = [
-        ToolSpec(name=s["name"], repo=Path(s["repo"]), bin_dir=Path(s["bin_dir"]))
+        ToolSpec(
+            name=s["name"],
+            repo=Path(s["repo"]),
+            bin_dir=Path(s["bin_dir"]),
+            brew_formulae=tuple(s.get("brew") or ()),
+        )
         for s in options.get("specs", [])
     ]
     return ToolPlan(specs=specs)
 
 
-def spec_to_option(spec: ToolSpec) -> dict[str, str]:
+def spec_to_option(spec: ToolSpec) -> dict[str, object]:
     """Serialize a spec into the JSON-ish dict the plan stores in ``Action.options``."""
-    return {"name": spec.name, "repo": str(spec.repo), "bin_dir": str(spec.bin_dir)}
+    return {
+        "name": spec.name,
+        "repo": str(spec.repo),
+        "bin_dir": str(spec.bin_dir),
+        "brew": list(spec.brew_formulae),
+    }
