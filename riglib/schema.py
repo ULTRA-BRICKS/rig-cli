@@ -296,6 +296,14 @@ AREAS: tuple[Area, ...] = (
         (
             _opt("ci.enabled", KIND_BOOL, True,
                  "Install CI gate workflows under .github/workflows. Off = write no CI files."),
+            _opt("ci.items.ship.require_external_review", KIND_BOOL, True,
+                 "Require a separate GitHub-side PR review. Machine-only policy; false affects only "
+                 "owners in external_review_owners. Tests, CLI review quorum and other gates remain enabled.",
+                 layer_override=GLOBAL),
+            _opt("ci.items.ship.external_review_owners", KIND_LIST, [],
+                 "Exact GitHub owner logins covered by the machine external-review opt-out. "
+                 "No wildcards; an empty list grants no opt-out. Consumed by the canonical gh ship.",
+                 layer_override=GLOBAL),
             _opt("ci.known", KIND_LIST, [],
                  "Workflow file stems this repo owns that collide with a catalog slot name (a "
                  "home-grown tests.yml) — `rig status` reports them as known, not as drift. A workflow "

@@ -3048,3 +3048,39 @@ linters:
 `rules.all: true` enables every known applicable rule. `enable` and `disable` apply individual overrides; `severity` is the final per-rule `off` / `warn` / `error` authority. `groups` toggles named rule families. `preview` controls the best-effort before/after finding-count summary shown when Rig changes the generated Oxlint policy.
 
 An explicit `linters.items.<name>` sets exactly one of `content` or `source`: `content` is repository-specific literal bytes, while `source` names a reusable file inside the configured agent-tools catalog.
+
+
+## Machine-owned external PR review policy
+
+The same Rig YAML schema is used for repository `rig.yaml` and the machine file
+`~/.config/rig/config.yaml` (`$XDG_CONFIG_HOME/rig/config.yaml`). These two policy
+keys are **machine-only**, not repository-overridable merge authority:
+
+```yaml
+ci:
+  items:
+    ship:
+      require_external_review: false
+      external_review_owners:
+        - alex-mextner
+```
+
+The canonical `agent-tools/ci/ship/ship.sh` reads this file on every invocation.
+It checks the **actual target repository** reported by `gh`, not the current
+checkout's owner. Only an exact listed owner is covered; no wildcard or empty
+list disables anything. Omission, `true`, invalid YAML/types, unsafe file
+permissions or an unreadable policy leave this gate enabled. The file must be
+owned by the invoking user and not group/world writable; it cannot be a symlink
+or reside inside the shipping checkout. Decisions are recorded in ship's audit.
+
+This controls only the extra requirement for a GitHub-side PR review. It does
+not disable local tests, CI-equivalent checks, code-review quorum, unresolved
+review-thread checks, secret scanning or GitHub permissions. Existing trusted
+base-branch `.ship-config` opt-outs remain compatible. An ambient
+`SHIP_EXTERNAL_REVIEW=0` variable is still not policy. `rig setup` and config-web
+route these keys to the Global layer; repo-local/explicit overrides are rejected.
+
+Set the boolean with `rig config set ci.items.ship.require_external_review false
+--global --no-apply` after configuring the owner list in the machine file. No
+broad `rig apply` is needed for runtime consumption, and no per-PR Telegram
+permission request is required once the explicit machine policy is valid.

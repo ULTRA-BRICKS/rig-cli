@@ -974,9 +974,17 @@ def test_dispatch_status_through_real_lib(tmp_path, monkeypatch):
     # per the lib's contract), not an AttributeError — proving run_action is the right entry point.
     import argparse as _ap
 
-    args = _ap.Namespace(config_web_verb="status", cwd=str(tmp_path), port=cw.DEFAULT_PORT,
-                         _config_web_parser=None)
-    rc = cws.dispatch_cli(args)
+    # A developer may legitimately run config-web on its default port. Test an
+    # unused ephemeral port rather than misclassifying that real listener.
+    import socket
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+        # Reserve without listen(): nobody can steal the port during the probe,
+        # while a real service-status check still correctly sees no listener.
+        args = _ap.Namespace(config_web_verb="status", cwd=str(tmp_path), port=port,
+                             _config_web_parser=None)
+        rc = cws.dispatch_cli(args)
     # nothing running → a NON-zero "not running" exit. Assert != 0 (not the literal 3) so the test
     # doesn't pin an external lib's exact exit-code constant — the point is the bridge reached
     # run_action and ran the verb, not an AttributeError.
@@ -1059,9 +1067,9 @@ def test_build_model_global_only_omits_repo_layer_areas(tmp_path, monkeypatch):
     cats = {a.category for a in model.areas}
     # the writable-GLOBAL categories (schema._GLOBAL_ONLY_CATEGORIES) plus the areas carrying a
     # per-option GLOBAL override (the machine-wide known-lists, rig-cli#372) — nothing else
-    assert cats <= {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tmux", "mode", "skills", "agent_hooks", "mcp"}
+    assert cats <= {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tmux", "mode", "skills", "agent_hooks", "mcp", "ci"}
     assert "harness" not in cats
-    assert "ci" not in cats
+    assert "ci" in cats  # only the two machine-owned ship policy fields
     # every field shown on the Global tab is GLOBAL-writable — a repo-layer option never leaks in
     assert all(f.layer == GLOBAL for a in model.areas for f in a.fields)
     assert model.global_only is True
@@ -1107,7 +1115,9 @@ def test_build_model_global_only_shows_the_global_known_lists(tmp_path, monkeypa
         assert [f.key for f in area.fields] == [f"{cat}.known"], cat  # ONLY the global option
         assert area.fields[0].layer == GLOBAL
         assert area.layer == GLOBAL  # the section badge matches the fields it shows here
-    assert "ci" not in by_cat  # ci.known is repo-layer
+    assert {f.key for f in by_cat["ci"].fields} == {
+        "ci.items.ship.require_external_review", "ci.items.ship.external_review_owners",
+    }  # ci.enabled / ci.known remain repo-only
     assert "harness" not in by_cat
 
 
