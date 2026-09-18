@@ -682,18 +682,18 @@ def test_build_report_multi_harness_and_filters(tmp_path):
         [{"ts": "2026-06-20T09:00:00Z", "name": "exec_command", "cmd": "ls"}],
     )
     # no filter → both harnesses
-    agg, meta, trend, _ = build_report(home=home)
+    agg, meta, trend, _, _ = build_report(home=home)
     assert set(meta["supported_harnesses"]) >= {"claude-code", "codex"}
     assert agg.by_harness["claude-code"] == 2 and agg.by_harness["codex"] == 1
 
     # --since cuts the codex row (it's after) but keeps... actually since filters before;
     # filter to only on/after 2026-06-15 → only the codex row survives.
     since = parse_date("2026-06-15")
-    agg2, meta2, _, _ = build_report(home=home, since=since)
+    agg2, meta2, _, _, _ = build_report(home=home, since=since)
     assert agg2.total == 1 and agg2.by_harness["codex"] == 1
 
     # --repo filter
-    agg3, _, _, _ = build_report(home=home, repos=["/Users/ultra/xp/demo"])
+    agg3, _, _, _, _ = build_report(home=home, repos=["/Users/ultra/xp/demo"])
     assert set(agg3.by_repo) == {"/Users/ultra/xp/demo"}
 
 

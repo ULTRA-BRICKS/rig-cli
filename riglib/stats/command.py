@@ -19,6 +19,7 @@ from .hatches import HatchAggregate, collect_hatches
 from .model import ToolInvocation
 from .render import RENDERERS
 from .sources import all_sources
+from .type_hatches import TypeHatchAggregate, scan_type_hatches
 
 
 class StatsError(Exception):
@@ -40,6 +41,7 @@ class Report(NamedTuple):
     meta: dict
     trend: TrendComparison | None
     hatches: HatchAggregate
+    type_hatches: TypeHatchAggregate  # TypeScript-source scan; distinct from `hatches` (gate-bypass events)
 
 
 def parse_date(value: str | None, *, end: bool = False) -> datetime | None:
@@ -183,7 +185,12 @@ def build_report(
     if result.notes:
         meta["note"] = "; ".join(result.notes)
     hatches = collect_hatches(home=home, since=since, until=until)
-    return Report(agg, meta, trend, hatches)
+    # An explicit --repo is scanned even with zero session-log activity there (a fresh
+    # machine with no harness logs yet must still see its type-hatch count). Falls back to
+    # the repos actually observed in the collected invocations otherwise.
+    scan_repos = repos if repos else list(agg.by_repo.keys())
+    type_hatches = scan_type_hatches(scan_repos)
+    return Report(agg, meta, trend, hatches, type_hatches)
 
 
 def _since_vs_prior_window(
@@ -271,7 +278,7 @@ def run(args) -> int:
     # --baseline narrows the report to the two buckets the adoption question is about
     # (built-in baseline vs our ecosystem), dropping external-advertised/other noise.
     categories = frozenset({"baseline", "ours"}) if getattr(args, "baseline", False) else None
-    agg, meta, trend, hatches = build_report(
+    agg, meta, trend, hatches, type_hatches = build_report(
         home=home,
         harnesses=harnesses,
         repos=getattr(args, "repo", None),
@@ -286,7 +293,7 @@ def run(args) -> int:
     # README promises json is "machine-readable data", and a script on a fresh box must get
     # parseable output, not a prose line. Human-facing tui short-circuits to a hint only when
     # hatches are empty too — overrides.log events must still render as Escape hatches.
-    if not meta["supported_harnesses"] and fmt == "tui" and hatches.total == 0:
+    if not meta["supported_harnesses"] and fmt == "tui" and hatches.total == 0 and type_hatches.total == 0:
         print("rig stats: no harness logs found on this machine.")
         for n in meta.get("notes", []):
             print(f"  - {n}")
@@ -296,8 +303,8 @@ def run(args) -> int:
         from .render import web
 
         port = getattr(args, "web_port", None) or 0
-        web.serve(agg, meta=meta, trend=trend, hatches=hatches, port=int(port))
+        web.serve(agg, meta=meta, trend=trend, hatches=hatches, type_hatches=type_hatches, port=int(port))
         return 0
 
-    print(RENDERERS[fmt](agg, meta=meta, trend=trend, hatches=hatches))
+    print(RENDERERS[fmt](agg, meta=meta, trend=trend, hatches=hatches, type_hatches=type_hatches))
     return 0

@@ -10,6 +10,7 @@ from __future__ import annotations
 from ..aggregate import Aggregate, TrendComparison, adoption_ratio
 from ..hatches import HatchAggregate
 from ..model import CATEGORIES
+from ..type_hatches import TypeHatchAggregate
 from ._util import shorten
 
 # fixed colours per category so bars/tables read consistently. These are RICH colour names;
@@ -31,11 +32,12 @@ def render(
     meta: dict | None = None,
     trend: TrendComparison | None = None,
     hatches: HatchAggregate | None = None,
+    type_hatches: TypeHatchAggregate | None = None,
 ) -> str:
     try:
         from rich.console import Console
     except ImportError:
-        return render_plain(agg, meta=meta, trend=trend, hatches=hatches)
+        return render_plain(agg, meta=meta, trend=trend, hatches=hatches, type_hatches=type_hatches)
 
     import io
     import shutil
@@ -57,6 +59,7 @@ def render(
     if trend is not None:
         console.print(_comparison_table(trend, Table))
     console.print(_hatches_panel(hatches or HatchAggregate(), Table, Panel))
+    console.print(_type_hatches_panel(type_hatches or TypeHatchAggregate(), Table, Panel))
     return buf.getvalue()
 
 
@@ -171,6 +174,7 @@ def render_plain(
     meta: dict | None = None,
     trend: TrendComparison | None = None,
     hatches: HatchAggregate | None = None,
+    type_hatches: TypeHatchAggregate | None = None,
 ) -> str:
     lines = ["rig stats — tool adoption", "=" * 40]
     lines.append(f"total tool calls : {agg.total}")
@@ -213,6 +217,7 @@ def render_plain(
             )
         lines.append(f"  adoption delta: {trend.adoption_delta():+.1%}")
     lines.extend(_hatches_plain_lines(hatches or HatchAggregate()))
+    lines.extend(_type_hatches_plain_lines(type_hatches or TypeHatchAggregate()))
     return "\n".join(lines)
 
 
@@ -261,4 +266,38 @@ def _hatches_plain_lines(hatches: HatchAggregate) -> list[str]:
             f"broken-gate={row.get('broken_gate', 0):<4} "
             f"lazy={row.get('lazy', 0):<4}"
         )
+    return lines
+
+
+def _type_hatches_panel(th: TypeHatchAggregate, Table, Panel):
+    if th.total == 0:
+        return Panel(
+            "Type escape hatches: 0",
+            title="[bold]Type escape hatches (TypeScript)[/bold]",
+            border_style="grey50",
+        )
+    table = Table(title="Type escape hatches", title_style="bold")
+    table.add_column("repo")
+    table.add_column("count", justify="right")
+    for repo, count in th.by_repo.items():
+        table.add_row(shorten(repo, 40), str(count))
+    kind = "  ".join(f"{k} {v}" for k, v in th.by_kind.items())
+    return Panel(
+        table,
+        title=f"[bold]Type escape hatches (TypeScript)[/bold]  total {th.total}  ({kind})",
+        border_style="grey50",
+    )
+
+
+def _type_hatches_plain_lines(th: TypeHatchAggregate) -> list[str]:
+    if th.total == 0:
+        return ["", "Type escape hatches (TypeScript): 0"]
+    kind = "  ".join(f"{k}={v}" for k, v in th.by_kind.items())
+    lines = [
+        "",
+        "Type escape hatches (TypeScript)",
+        f"  total={th.total}  files_scanned={th.files_scanned}  {kind}",
+    ]
+    for repo, count in th.by_repo.items():
+        lines.append(f"  {shorten(repo, 40):<40} {count:>6}")
     return lines

@@ -13,6 +13,7 @@ from datetime import datetime
 from ..aggregate import Aggregate, TrendComparison
 from ..hatches import HatchAggregate
 from ..model import CATEGORIES
+from ..type_hatches import TypeHatchAggregate
 
 
 def to_dict(
@@ -21,6 +22,7 @@ def to_dict(
     meta: dict | None = None,
     trend: TrendComparison | None = None,
     hatches: HatchAggregate | None = None,
+    type_hatches: TypeHatchAggregate | None = None,
 ) -> dict:
     def _iso(dt: datetime | None) -> str | None:
         return dt.isoformat() if dt else None
@@ -63,6 +65,7 @@ def to_dict(
             "adoption_delta": round(trend.adoption_delta(), 4),
         }
     out["hatches"] = (hatches or HatchAggregate()).to_dict()
+    out["type_hatches"] = (type_hatches or TypeHatchAggregate()).to_dict()
     return out
 
 
@@ -80,5 +83,6 @@ def render(
     meta: dict | None = None,
     trend: TrendComparison | None = None,
     hatches: HatchAggregate | None = None,
+    type_hatches: TypeHatchAggregate | None = None,
 ) -> str:
-    return json.dumps(to_dict(agg, meta=meta, trend=trend, hatches=hatches), indent=2)
+    return json.dumps(to_dict(agg, meta=meta, trend=trend, hatches=hatches, type_hatches=type_hatches), indent=2)
