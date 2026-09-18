@@ -34,6 +34,7 @@ from riglib.harness_mode import (
     harness_mode_rows,
 )
 from riglib.harness_skills import KNOWN_HARNESS_KINDS
+from riglib.omp_idle_ttl import DEFAULT_OMP_IDLE_TTL_MS
 from riglib.plan import build
 
 
@@ -949,7 +950,7 @@ def test_omp_adopted_config_gets_its_first_backup_recorded_on_convergence(fake_a
     import yaml
     after_adopt = yaml.safe_load(_omp_yml().read_text(encoding="utf-8"))
     assert after_adopt["tools"]["approvalMode"] == "always-ask"
-    assert after_adopt["task"]["agentIdleTtlMs"] == 0
+    assert after_adopt["task"]["agentIdleTtlMs"] == DEFAULT_OMP_IDLE_TTL_MS
     pre_convergence = _omp_yml().read_text(encoding="utf-8")
     res = [r for r in run_plan(_omp_plan(fake_agent_tools, repo, auto_mode=True)).results
            if r.action.kind == "provision_harness_approval"][0]

@@ -2888,15 +2888,22 @@ def _do_provision_harness_approval(action: Action, on_conflict: str) -> ActionRe
     )
 
 
-# ── omp idle-TTL keepalive (task.agentIdleTtlMs: 0 in ~/.omp/agent/config.yml) ─────────────
-# Yielded helpers go idle then park after task.agentIdleTtlMs (default 420000 ms) and drop
-# off the live hub roster. <= 0 disables parking for new omp processes (Settings.init).
-# A live omp process snapshots TTL at spawn and does not reload YAML writes — the write
-# does not unpark helpers in an already-running session. Additive YAML merge, never
-# clobbers a user-set positive TTL (drift only). Independent of the approval-posture receipt.
+# ── omp idle-TTL keepalive (task.agentIdleTtlMs grace window, ~/.omp/agent/config.yml) ────
+# Yielded helpers go idle then park after task.agentIdleTtlMs and drop off the *default*
+# hub list view (a parked peer stays fully reachable via hub send/history://.../agent://,
+# regardless of park state). rig's default (DEFAULT_OMP_IDLE_TTL_MS, 300000 ms / 5 min) is
+# shorter than omp's own stock 420000 ms default and bounds live-session growth, unlike the
+# old 0 (never park until process exit) that let idle helpers accumulate without bound.
+# harness.idle_ttl.ms overrides the default; harness.idle_ttl.ms: 0 still opts back into
+# the old never-park behavior. A live omp process snapshots TTL at spawn and does not
+# reload YAML writes — the write does not unpark helpers in an already-running session.
+# Additive YAML merge, never clobbers a user-set positive TTL (drift only). Independent of
+# the approval-posture receipt.
 
-OMP_IDLE_TTL_KEY = ("task", "agentIdleTtlMs")
-OMP_IDLE_TTL_VALUE = 0
+from ..omp_idle_ttl import DEFAULT_OMP_IDLE_TTL_MS, IDLE_TTL_KEY
+
+OMP_IDLE_TTL_KEY = IDLE_TTL_KEY
+OMP_IDLE_TTL_VALUE = DEFAULT_OMP_IDLE_TTL_MS
 OMP_IDLE_TTL_LIVE_SESSION_NOTE = "live omp processes keep spawn-cached TTL until restart"
 
 
@@ -2906,10 +2913,11 @@ def _idle_ttl_parking_disabled(value: object) -> bool:
 
 
 def _do_provision_omp_idle_ttl(action: Action, on_conflict: str) -> ActionResult:
-    """Merge ``task.agentIdleTtlMs: 0`` into omp config.yml — additive, never clobber."""
+    """Merge the resolved ``task.agentIdleTtlMs`` grace window into omp config.yml — additive, never clobber."""
     import yaml
 
     config_file = action.target
+    desired_value = action.options.get("ms", OMP_IDLE_TTL_VALUE)
     dotted = ".".join(OMP_IDLE_TTL_KEY)
     label = f"omp-idle-ttl/{action.item}"
     data: dict = {}
@@ -2941,10 +2949,15 @@ def _do_provision_omp_idle_ttl(action: Action, on_conflict: str) -> ActionResult
             action, "skipped",
             f"{label}: parking already disabled ({value!r}) in {config_file}; {OMP_IDLE_TTL_LIVE_SESSION_NOTE}",
         )
+    if state == "present" and value == desired_value:
+        return ActionResult(
+            action, "skipped",
+            f"{label}: {dotted} already {value!r} in {config_file}; {OMP_IDLE_TTL_LIVE_SESSION_NOTE}",
+        )
     if state == "present":
         return ActionResult(
             action, "skipped",
-            f"{label}: {dotted} is {value!r} (rig wants {OMP_IDLE_TTL_VALUE!r}; "
+            f"{label}: {dotted} is {value!r} (rig wants {desired_value!r}; "
             "apply never clobbers — change it by hand or remove the key)",
         )
 
@@ -2957,14 +2970,14 @@ def _do_provision_omp_idle_ttl(action: Action, on_conflict: str) -> ActionResult
         bak = fsutil.backup_path(config_file)
         shutil.copy2(str(config_file), str(bak))
         backup_note = f" (backed up prior → {bak})"
-    _set_nested(data, OMP_IDLE_TTL_KEY, OMP_IDLE_TTL_VALUE)
+    _set_nested(data, OMP_IDLE_TTL_KEY, desired_value)
     config_file.write_text(
         yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8",
     )
     status = "backed_up" if backup_note else ("updated" if existed else "created")
     return ActionResult(
         action, status,
-        f"{label}: set {dotted}={OMP_IDLE_TTL_VALUE} in {config_file}{backup_note}; {OMP_IDLE_TTL_LIVE_SESSION_NOTE}",
+        f"{label}: set {dotted}={desired_value} in {config_file}{backup_note}; {OMP_IDLE_TTL_LIVE_SESSION_NOTE}",
     )
 
 

@@ -2261,17 +2261,29 @@ def _codex_extra_stop_hooks(config: LoadedConfig) -> list[str]:
 
 
 def _build_omp_idle_ttl(config: LoadedConfig, plan: InstallPlan) -> None:
-    """Plan ``task.agentIdleTtlMs: 0`` into omp's agent config for new omp processes.
+    """Plan the omp ``task.agentIdleTtlMs`` grace-window write for new omp processes.
 
-    omp parks idle helpers after ``task.agentIdleTtlMs`` (default 420000 ms); parked agents
-    drop off the live hub roster. ``<= 0`` disables parking at Settings.init
-    (docs/tools/task.md). A live omp process keeps the spawn-cached TTL until restart;
-    the YAML write does not unpark helpers in an already-running session. Emitted
-    whenever a configured harness kind is omp and the harness block is enabled.
+    omp parks idle helpers after ``task.agentIdleTtlMs`` (product default 420000 ms);
+    parked agents drop off the *default* ``hub list`` view (a parked peer stays fully
+    reachable via ``hub send``/``history://``/``agent://`` regardless). rig's default,
+    :data:`riglib.omp_idle_ttl.DEFAULT_OMP_IDLE_TTL_MS` (300000 ms / 5 min), is shorter
+    than omp's own stock default and bounds live-session growth, unlike the old ``0``
+    (never park until process exit) that let idle helpers accumulate without bound.
+    Override with ``harness.idle_ttl.ms`` (``<= 0`` restores the old never-park
+    behavior), or skip entirely with ``harness.idle_ttl.enabled: false``. A live omp
+    process keeps the spawn-cached TTL until restart; the YAML write does not unpark
+    helpers in an already-running session. Emitted whenever a configured harness kind
+    is omp and the harness block is enabled.
     """
-    if _enabled_harness_block(config) is None:
+    from .omp_idle_ttl import resolve_idle_ttl_ms
+
+    h = _enabled_harness_block(config)
+    if h is None:
         return
     if "omp" not in _configured_harness_kinds(config):
+        return
+    desired_ms = resolve_idle_ttl_ms(h)
+    if desired_ms is None:
         return
     plan.actions.append(
         Action(
@@ -2280,7 +2292,7 @@ def _build_omp_idle_ttl(config: LoadedConfig, plan: InstallPlan) -> None:
             item="omp-idle-ttl",
             source=config.repo_root,
             target=_expand(_omp_user_path("config.yml"), config.repo_root),
-            options={"kind": "omp"},
+            options={"kind": "omp", "ms": desired_ms},
         )
     )
 

@@ -1,8 +1,12 @@
-"""omp idle-TTL keepalive — rig writes task.agentIdleTtlMs: 0 for new omp processes.
+"""omp idle-TTL keepalive — rig writes a task.agentIdleTtlMs grace window for new omp processes.
 
-After yield, omp adopts the helper and parks it after task.agentIdleTtlMs (default
-420000 ms). Parked agents drop off the live hub roster. <= 0 disables parking at
-Settings.init; a live omp process keeps the spawn-cached TTL until restart.
+After yield, omp adopts the helper and parks it after task.agentIdleTtlMs (product
+default 420000 ms). Parked agents drop off the *default* hub list view (a parked peer
+stays fully reachable via hub send/history://.../agent://). rig's default is 300000 ms
+(5 min): shorter than omp's own stock default, and bounded instead of the old 0's
+never-park-until-exit lifetime that let idle helpers accumulate without bound.
+harness.idle_ttl.ms overrides the default; harness.idle_ttl.ms: 0 restores the old
+never-park behavior; harness.idle_ttl.enabled: false skips provisioning entirely.
 Refs https://github.com/alex-mextner/rig-cli/issues/445
 Refs https://github.com/alex-mextner/rig-cli/issues/464
 """
@@ -57,6 +61,7 @@ def test_plan_emits_idle_ttl_for_omp(fake_agent_tools, tmp_path, monkeypatch):
     assert acts[0].target == home / ".omp" / "agent" / "config.yml"
     assert acts[0].category == "harness"
     assert acts[0].options["kind"] == "omp"
+    assert acts[0].options["ms"] == 300000
 
 
 def test_plan_skips_when_harness_disabled(fake_agent_tools, tmp_path, monkeypatch):
@@ -100,7 +105,7 @@ def test_plan_emits_when_omp_is_in_kinds(fake_agent_tools, tmp_path, monkeypatch
     assert acts[0].target == home / ".omp" / "agent" / "config.yml"
 
 
-def test_apply_writes_zero_preserving_siblings(fake_agent_tools, tmp_path, monkeypatch):
+def test_apply_writes_default_grace_window_preserving_siblings(fake_agent_tools, tmp_path, monkeypatch):
     home = tmp_path / "home"
     cfg_yml = home / ".omp" / "agent" / "config.yml"
     cfg_yml.parent.mkdir(parents=True)
@@ -113,7 +118,7 @@ def test_apply_writes_zero_preserving_siblings(fake_agent_tools, tmp_path, monke
     res = [r for r in report.results if r.action.kind == "provision_omp_idle_ttl"][0]
     assert res.status in {"created", "updated", "backed_up"}, res.detail
     data = _read_yml(cfg_yml)
-    assert data["task"]["agentIdleTtlMs"] == 0
+    assert data["task"]["agentIdleTtlMs"] == 300000
     assert data["theme"]["dark"] == "titanium"
 
 
@@ -209,5 +214,81 @@ def test_skip_still_writes_missing_key(fake_agent_tools, tmp_path, monkeypatch):
     plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
     res = [r for r in run_plan(plan).results if r.action.kind == "provision_omp_idle_ttl"][0]
     assert res.status in {"updated", "created", "backed_up"}, res.detail
-    assert _read_yml(cfg_yml)["task"]["agentIdleTtlMs"] == 0
+    assert _read_yml(cfg_yml)["task"]["agentIdleTtlMs"] == 300000
     assert _read_yml(cfg_yml)["tools"]["approvalMode"] == "yolo"
+
+
+def test_config_overrides_idle_ttl_ms(fake_agent_tools, tmp_path, monkeypatch):
+    """harness.idle_ttl.ms overrides the 300000 default, plumbed through to the write."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _cfg(repo, fake_agent_tools)
+    cfg.data["harness"]["idle_ttl"] = {"ms": 600000}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    acts = _actions(plan, "provision_omp_idle_ttl")
+    assert len(acts) == 1, plan.actions
+    assert acts[0].options["ms"] == 600000
+    run_plan(plan)
+    cfg_yml = home / ".omp" / "agent" / "config.yml"
+    assert _read_yml(cfg_yml)["task"]["agentIdleTtlMs"] == 600000
+
+
+def test_idle_ttl_disabled_via_config_skips_action(fake_agent_tools, tmp_path, monkeypatch):
+    """harness.idle_ttl.enabled: false skips provisioning entirely (no action emitted)."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _cfg(repo, fake_agent_tools)
+    cfg.data["harness"]["idle_ttl"] = {"enabled": False}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert not _actions(plan, "provision_omp_idle_ttl")
+
+
+def test_config_ms_zero_restores_never_park(fake_agent_tools, tmp_path, monkeypatch):
+    """harness.idle_ttl.ms: 0 still opts back into the old never-park behavior end to end."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _cfg(repo, fake_agent_tools)
+    cfg.data["harness"]["idle_ttl"] = {"ms": 0}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    run_plan(plan)
+    cfg_yml = home / ".omp" / "agent" / "config.yml"
+    assert _read_yml(cfg_yml)["task"]["agentIdleTtlMs"] == 0
+
+
+def test_legacy_negative_ttl_is_not_reported_as_drift_against_new_default(fake_agent_tools, tmp_path, monkeypatch):
+    """A pre-existing non-positive TTL (old never-park convention) is a standing choice
+    apply always preserves -- drift must agree it is clean, never a permanent mismatch
+    against the (now positive) resolved default it can never auto-fix."""
+    home = tmp_path / "home"
+    cfg_yml = home / ".omp" / "agent" / "config.yml"
+    cfg_yml.parent.mkdir(parents=True)
+    cfg_yml.write_text("task:\n  agentIdleTtlMs: -1\n", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    plan = build(_cfg(repo, fake_agent_tools), Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    res = [r for r in run_plan(plan).results if r.action.kind == "provision_omp_idle_ttl"][0]
+    assert res.status == "skipped", res.detail
+    drift = detect(plan)
+    assert not any(i.item == "omp-idle-ttl" for i in drift.items), drift.items
+
+
+def test_malformed_ms_shape_skips_provisioning(fake_agent_tools, tmp_path, monkeypatch):
+    """An idle_ttl.ms value rig cannot interpret (e.g. a string) skips provisioning
+    entirely, the same leniency resolve_exclude applies to a non-list exclude."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _cfg(repo, fake_agent_tools)
+    cfg.data["harness"]["idle_ttl"] = {"ms": "soon"}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert not _actions(plan, "provision_omp_idle_ttl")
+
+
