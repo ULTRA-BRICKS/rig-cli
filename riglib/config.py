@@ -1272,6 +1272,28 @@ def _validate_harness(h: dict[str, Any]) -> None:
                 f"harness.idle_ttl.ms must be an int, got {ms!r}",
                 schema_path="harness.idle_ttl.ms",
             )
+    # harness.codex_skills_budget — codex [skills].max_context_tokens (rig-cli, follow-up to the
+    # idle_ttl precedent). Default ON when the block is absent; enabled:false skips provisioning.
+    # max_context_tokens must be a positive int (no <=0 special case, unlike idle_ttl.ms — a
+    # budget of 0 has no meaning here). Fail-closed on types.
+    codex_skills_budget = h.get("codex_skills_budget")
+    if codex_skills_budget is not None:
+        if not isinstance(codex_skills_budget, dict):
+            raise ConfigError(
+                f"harness.codex_skills_budget must be a mapping, got {codex_skills_budget!r}",
+                schema_path="harness.codex_skills_budget",
+            )
+        _reject_unknown_keys(codex_skills_budget, "harness.codex_skills_budget")
+        budget_enabled = codex_skills_budget.get("enabled")
+        if budget_enabled is not None and not isinstance(budget_enabled, bool):
+            raise ConfigError(
+                f"harness.codex_skills_budget.enabled must be a bool, got {budget_enabled!r}",
+                schema_path="harness.codex_skills_budget.enabled",
+            )
+        _check_int_min(
+            codex_skills_budget, "max_context_tokens",
+            "harness.codex_skills_budget.max_context_tokens", 1,
+        )
 
 
 def _check_int_min(block: dict[str, Any], key: str, path: str, minimum: int) -> None:

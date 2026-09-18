@@ -168,6 +168,13 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "harness.idle_ttl.ms) into omp config.yml so a yielded helper gets time on the live "
         "roster before parking. Live sessions keep spawn-cached TTL until restart.",
     ),
+    "provision_codex_skills_budget": _tag(
+        "provision_codex_skills_budget", "permission_guard", AUDIENCE_AGENT,
+        "Writes skills.max_context_tokens (default 50000, user-overridable via "
+        "harness.codex_skills_budget.max_context_tokens) into codex config.toml so a sizeable "
+        "personal skill library is not truncated/omitted from Codex's model-visible catalog. "
+        "Only written when absent — never clobbers a value already on disk.",
+    ),
     "provision_schedule": _tag(
         "provision_schedule", "starts_reloads_service", AUDIENCE_BOTH,
         "Installs a launchd/cron schedule (e.g. the daily model-freshness check) that runs "

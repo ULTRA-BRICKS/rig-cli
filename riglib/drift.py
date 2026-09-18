@@ -536,6 +536,8 @@ def detect(
             _check_hook_bridge(action, report)
         elif action.kind == "provision_omp_idle_ttl":
             _check_omp_idle_ttl(action, report)
+        elif action.kind == "provision_codex_skills_budget":
+            _check_codex_skills_budget(action, report)
         elif action.kind == "provision_schedule":
             _check_schedule(action, report)
         elif action.kind == "provision_agents_symlink":
@@ -2488,6 +2490,87 @@ def _check_omp_idle_ttl(action: Action, report: DriftReport) -> None:
         # never overwrites (see _do_provision_omp_idle_ttl) regardless of desired_value
         # -- drift must treat it as clean too, or it would report permanent unfixable
         # drift for a value apply will never touch.
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      f"{dotted} is {value!r} (rig wants {desired_value!r}; apply never "
+                      "clobbers — change it by hand or remove the key)")
+        )
+
+
+def _check_codex_skills_budget(action: Action, report: DriftReport) -> None:
+    """Flag missing/mismatched skills.max_context_tokens against the resolved codex write.
+
+    A ``"missing"`` key is reported as ``"missing (apply sets N)"`` ONLY when apply will actually
+    write it. Two on-disk shapes apply refuses to text-edit (a genuine TOML multiline string, or
+    ``skills`` already defined via dotted keys/an inline table — see
+    :func:`riglib.actions.runner._skills_budget_unmanageable_reason`, shared with the writer) are
+    reported as ``"modified"`` with the SAME remediation instead — otherwise ``rig status`` would
+    promise a convergence ``rig apply`` never performs, looping forever (review finding: apply and
+    drift must classify these identically, not just agree on the desired VALUE).
+    """
+    from .actions.runner import (
+        CODEX_SKILLS_BUDGET_KEY,
+        CODEX_SKILLS_BUDGET_VALUE,
+        _skills_budget_unmanageable_reason,
+        _toml_parser,
+        approval_lookup,
+    )
+
+    path = action.target
+    dotted = ".".join(CODEX_SKILLS_BUDGET_KEY)
+    desired_value = action.options.get("max_context_tokens", CODEX_SKILLS_BUDGET_VALUE)
+    tomllib = _toml_parser()
+    if tomllib is None:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "no TOML parser on this Python — cannot verify skills.max_context_tokens")
+        )
+        return
+    if not path.is_file():
+        report.items.append(
+            DriftItem("missing", "harness", action.item, path,
+                      f"{dotted} not provisioned (apply sets {desired_value!r})")
+        )
+        return
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      f"cannot read {path}: {exc}")
+        )
+        return
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      "codex config.toml is malformed TOML")
+        )
+        return
+    state, value = approval_lookup(data, CODEX_SKILLS_BUDGET_KEY)
+    if state == "shape":
+        report.items.append(
+            DriftItem("modified", "harness", action.item, path,
+                      f"{dotted} parent '{value}' is not a table — fix it by hand")
+        )
+    elif state == "missing":
+        reason = _skills_budget_unmanageable_reason(text, data)
+        if reason:
+            report.items.append(
+                DriftItem("modified", "harness", action.item, path,
+                          f"{reason}; add `{dotted} = {desired_value}` by hand "
+                          "(apply will never do this automatically)")
+            )
+        else:
+            report.items.append(
+                DriftItem("missing", "harness", action.item, path,
+                          f"{dotted} not provisioned (apply sets {desired_value!r})")
+            )
+    elif value != desired_value:
+        # ANY differing on-disk value (lower or higher) is a standing choice apply never
+        # overwrites (see _do_provision_codex_skills_budget) -- surfaced here for visibility,
+        # never auto-fixed.
         report.items.append(
             DriftItem("modified", "harness", action.item, path,
                       f"{dotted} is {value!r} (rig wants {desired_value!r}; apply never "

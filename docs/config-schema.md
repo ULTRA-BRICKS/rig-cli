@@ -747,6 +747,18 @@ enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
   entirely with `harness.idle_ttl.enabled: false`
   ([rig-cli#445](https://github.com/alex-mextner/rig-cli/issues/445),
   [rig-cli#464](https://github.com/alex-mextner/rig-cli/issues/464)).
+- `kind: codex` also merges `skills.max_context_tokens` into `~/.codex/config.toml` (or
+  `$RIG_CODEX_HOME/config.toml`) with a **50000-token** default — Codex CLI truncates/omits
+  skill descriptions from its model-visible catalog once a personal skill library's rendered
+  text exceeds Codex's own (much smaller) stock budget for that catalog
+  ([openai/codex#24299](https://github.com/openai/codex/issues/24299)); 50000 was verified to
+  roughly double the visible description length and plateau around 40KB of rendered skill text.
+  Additive and idempotent, exactly like the omp idle-TTL write above: apply only writes the key
+  when it is ABSENT — a value already on disk (lower or higher than 50000) is never clobbered,
+  only reported as drift. Override with `harness.codex_skills_budget.max_context_tokens`, or
+  skip entirely with `harness.codex_skills_budget.enabled: false`. Fires whenever `codex` is ANY
+  configured harness kind (primary `kind` or an additive `kinds` entry), independent of whether
+  an auto/permission-mode intent was ever declared for it.
 
 Claude and Codex bridge commands run `PYTHONPATH=<agent-tools>/lib python3 -m <bridge_module>
 <Event>` from the harness config; opencode and omp load their respective JS/TS module, which

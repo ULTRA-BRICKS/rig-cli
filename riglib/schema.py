@@ -374,6 +374,17 @@ AREAS: tuple[Area, ...] = (
                  "Default 300000 (5 min): shorter than omp's own 420000 ms product default, "
                  "and bounded — unlike the pre-rig-cli#555 `0` that never parked and let idle "
                  "sessions accumulate without limit. `<= 0` restores that never-park behavior."),
+            _opt("harness.codex_skills_budget.enabled", KIND_BOOL, True,
+                 "When codex is a configured harness kind, provision skills.max_context_tokens "
+                 "into ~/.codex/config.toml (or $RIG_CODEX_HOME/config.toml) so a sizeable "
+                 "personal skill library is not truncated/omitted from Codex's model-visible "
+                 "catalog (openai/codex#24299). Off = leave the key alone."),
+            _opt("harness.codex_skills_budget.max_context_tokens", KIND_INT, 50000,
+                 "Codex's context budget (tokens) for rendering the skills catalog. Default "
+                 "50000 raises Codex's own smaller stock default (~5440-8000 chars observed) "
+                 "comfortably above any realistic personal skill library. Only WRITTEN when the "
+                 "key is absent — apply never clobbers a value already on disk, even a lower "
+                 "one; change it by hand or remove the key to let rig manage it again."),
         ),
     ),
     Area(

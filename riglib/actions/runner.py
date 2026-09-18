@@ -2982,6 +2982,185 @@ def _do_provision_omp_idle_ttl(action: Action, on_conflict: str) -> ActionResult
     )
 
 
+# ── codex skills-context budget (skills.max_context_tokens, ~/.codex/config.toml) ─────────
+# Codex CLI truncates/omits skill descriptions from its model-visible catalog once a personal
+# skill library's rendered text exceeds Codex's own (much smaller) context budget for that
+# catalog (openai/codex#24299). rig's default (CODEX_SKILLS_BUDGET_VALUE, 50000) was verified
+# (2026-09-18, InvestigateCodexSkillLoading) to roughly double visible description length and
+# plateau around 40KB. Additive TOML merge, never clobbers a value already on disk (drift only)
+# -- the same idle-TTL convention above, applied to a [skills] TABLE key instead of a root key
+# or a nested YAML mapping.
+
+from ..codex_skills_budget import DEFAULT_MAX_CONTEXT_TOKENS, SKILLS_BUDGET_KEY
+
+CODEX_SKILLS_BUDGET_KEY = SKILLS_BUDGET_KEY
+CODEX_SKILLS_BUDGET_VALUE = DEFAULT_MAX_CONTEXT_TOKENS
+
+
+def _toml_has_multiline_string(text: str) -> bool:
+    """True when ``text`` contains a genuine LINE-SPANNING TOML triple-quoted string — as
+    opposed to a ``\"\"\"``/``'''`` substring inside a ``#`` comment, inside an ordinary
+    single-line string, or a triple-quoted value balanced on ONE line (``x = \"\"\"abc\"\"\"``,
+    harmless to a line-based scanner). Only a delimiter whose match spans a newline is a real
+    risk: :func:`_toml_table_bounds` is line-based and has no triple-quote awareness at all, so a
+    ``[table]``-looking line trapped inside a genuine multiline string would be misread as a real
+    header. One left-to-right scan tracking comment/single-line-string state (the same state
+    :func:`_toml_code_part` tracks per line, extended across the whole file and to triple-quote
+    delimiters) — best-effort like the sibling TOML helpers, not a full parser.
+    """
+    i, n = 0, len(text)
+    single: str | None = None
+    while i < n:
+        if single is not None:
+            if text[i] == "\\" and single == '"':
+                i += 2
+                continue
+            if text[i] == single:
+                single = None
+            i += 1
+            continue
+        if text.startswith('"""', i) or text.startswith("'''", i):
+            marker = text[i:i + 3]
+            close = text.find(marker, i + 3)
+            end = close if close != -1 else n
+            if "\n" in text[i:end]:
+                return True
+            i = end + 3 if close != -1 else n
+            continue
+        ch = text[i]
+        if ch == "#":
+            nl = text.find("\n", i)
+            i = n if nl == -1 else nl + 1
+            continue
+        if ch in ("'", '"'):
+            single = ch
+            i += 1
+            continue
+        i += 1
+    return False
+
+
+def _skills_budget_unmanageable_reason(text: str, data: dict) -> str | None:
+    """Why the ``[skills]`` table in this TOML ``text``/parsed ``data`` cannot be safely
+    text-edited to add ``max_context_tokens``, or ``None`` when it can. SHARED by the writer
+    (:func:`_do_provision_codex_skills_budget`) and drift (:func:`riglib.drift._check_codex_skills_budget`)
+    so both classify the exact same two on-disk shapes identically — ``approval_lookup``'s
+    ``"missing"`` state alone does not distinguish "apply will create/append the key" from "apply
+    refuses and leaves it for the user"; without this shared check drift reports a permanent,
+    self-contradictory "missing (apply sets N)" for a value apply will never actually write.
+    """
+    table = CODEX_SKILLS_BUDGET_KEY[0]
+    if _toml_has_multiline_string(text):
+        return f"a TOML multiline string is present — rig cannot safely locate [{table}] text-level"
+    if _toml_table_bounds(text, table) is None and isinstance(data.get(table), dict):
+        return f"{table} is defined via dotted keys or an inline table (no literal [{table}] header)"
+    return None
+
+
+def _insert_toml_table_key(text: str, table: str, key: str, value: int) -> str:
+    """Insert ``key = value`` (a plain integer) into a top-level ``[table]``, preserving every
+    other byte. An existing literal ``[table]`` section (see :func:`_toml_table_bounds`) gets the
+    key appended at the end of its body — any trailing BLANK lines in that body are moved PAST
+    the new key so it never reads as attached to whatever blank run precedes the NEXT section (a
+    trailing COMMENT is not hoisted — table membership is header-driven, so this is cosmetic, not
+    a correctness gap); otherwise a brand-new ``[table]`` section is appended at EOF. Callers own
+    the two preconditions checked by :func:`_skills_budget_unmanageable_reason` before calling
+    this: ``text`` must contain no genuine multiline TOML string, and ``table`` must not already
+    exist as a dotted-key/inline-table entry with no literal header — both would let
+    :func:`_toml_table_bounds` return a false ``None`` and this function then append a colliding
+    duplicate ``[table]`` header. The writer's post-merge parse check is still the final safety
+    net regardless.
+    """
+    bounds = _toml_table_bounds(text, table)
+    if bounds is None:
+        prefix = text.rstrip("\n")
+        block = f"[{table}]\n{key} = {value}\n"
+        return (prefix + "\n\n" if prefix else "") + block
+    _, end = bounds
+    lines = text[:end].splitlines(keepends=True)
+    trailing_blank: list[str] = []
+    while lines and lines[-1].strip() == "":
+        trailing_blank.append(lines.pop())
+    head = "".join(lines)
+    if head and not head.endswith("\n"):
+        head += "\n"
+    return head + f"{key} = {value}\n" + "".join(reversed(trailing_blank)) + text[end:]
+
+
+def _do_provision_codex_skills_budget(action: Action, on_conflict: str) -> ActionResult:
+    """Merge ``skills.max_context_tokens`` into codex config.toml — additive, never clobber.
+
+    Idempotent (an equal value is ``skipped``); an existing file is always backed up before a
+    write (mirroring the TOML mode writer, not only on a differing value). A present value of ANY
+    magnitude — lower or higher than the resolved default — is left untouched forever: apply only
+    WRITES when the key is absent, the same convention :func:`_do_provision_omp_idle_ttl`
+    established for ``task.agentIdleTtlMs`` (drift still surfaces a mismatch; apply never
+    auto-fixes it). Two on-disk shapes :func:`_insert_toml_table_key`'s text-level editor cannot
+    safely handle (a genuine TOML multiline string, or ``skills`` already defined via dotted keys
+    / an inline table) are reported and left for the user rather than risked — see
+    :func:`_skills_budget_unmanageable_reason`, shared with drift so both surfaces agree.
+    """
+    config_file = action.target
+    desired_value = action.options.get("max_context_tokens", CODEX_SKILLS_BUDGET_VALUE)
+    dotted = ".".join(CODEX_SKILLS_BUDGET_KEY)
+    table, leaf = CODEX_SKILLS_BUDGET_KEY
+    label = f"codex-skills-budget/{action.item}"
+    tomllib = _toml_parser()
+    if tomllib is None:
+        return ActionResult(action, "error", f"{label}: {config_file} left untouched — {_TOML_UNVERIFIABLE_REMEDY}")
+    existed = config_file.is_file()
+    text = ""
+    data: dict = {}
+    if existed:
+        try:
+            text = config_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            return ActionResult(action, "error", f"{label}: cannot read {config_file}: {exc}")
+        try:
+            data = tomllib.loads(text)
+        except tomllib.TOMLDecodeError:
+            return ActionResult(
+                action, "error",
+                f"{label}: {config_file} is malformed TOML — fix it by hand; rig never rewrites a config it cannot parse",
+            )
+
+    state, value = approval_lookup(data, CODEX_SKILLS_BUDGET_KEY)
+    if state == "shape":
+        return ActionResult(action, "error", f"{label}: '{value}' is not a table in {config_file}")
+    if state == "present" and value == desired_value:
+        return ActionResult(action, "skipped", f"{label}: {dotted} already {value!r} in {config_file}")
+    if state == "present":
+        return ActionResult(
+            action, "skipped",
+            f"{label}: {dotted} is {value!r} (rig wants {desired_value!r}; "
+            "apply never clobbers — change it by hand or remove the key)",
+        )
+
+    # state == "missing": the key needs writing, but the text-level editor only understands a
+    # literal [table] header — the two shapes it cannot safely handle are reported, not risked.
+    reason = _skills_budget_unmanageable_reason(text, data)
+    if reason:
+        return ActionResult(
+            action, "skipped",
+            f"{label}: {config_file} — {reason}; add `{dotted} = {desired_value}` by hand",
+        )
+
+    merged = _insert_toml_table_key(text, table, leaf, desired_value)
+    try:
+        tomllib.loads(merged)  # never leave codex a config it cannot load
+    except tomllib.TOMLDecodeError:
+        return ActionResult(action, "error", f"{label}: merged {config_file} would not parse as TOML — left untouched")
+    backup_note = ""
+    if existed and _should_backup(on_conflict):
+        bak = fsutil.backup_path(config_file)
+        shutil.copy2(str(config_file), str(bak))
+        backup_note = f" (backed up prior → {bak})"
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(merged, encoding="utf-8")
+    status = "backed_up" if backup_note else ("updated" if existed else "created")
+    return ActionResult(action, status, f"{label}: set {dotted}={desired_value} in {config_file}{backup_note}")
+
+
 def _do_provision_omp_web_search(action: Action, on_conflict: str) -> ActionResult:
     """Additively merge ``providers.webSearchExclude`` into omp config.yml.
 
@@ -9512,6 +9691,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_pi_extension": _do_provision_pi_extension,
     "register_hook_bridge": _do_register_hook_bridge,
     "provision_omp_idle_ttl": _do_provision_omp_idle_ttl,
+    "provision_codex_skills_budget": _do_provision_codex_skills_budget,
     "provision_schedule": _do_provision_schedule,
     "provision_agents_symlink": _do_provision_agents_symlink,
     "provision_agents_orchestrator": _do_provision_agents_orchestrator,
