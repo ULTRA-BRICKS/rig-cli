@@ -67,6 +67,19 @@ def test_remove_deletes_worktree_and_branch(tmp_path):
     assert not _branch_exists(repo, "agent-1")
 
 
+def test_remove_deletes_owner_marker(tmp_path):
+    """rig-cli grooming#275: `remove()` must clean up the owner marker `create()` wrote, so a
+    later `create()` reusing the same name doesn't see a stale live/dead pid from a prior run."""
+    repo = _git_repo(tmp_path / "repo")
+    worktree.create(repo, "agent-1")
+    marker_path = repo / WORKTREES_DIR_NAME / ".owners" / "agent-1.json"
+    assert marker_path.is_file()
+
+    worktree.remove(repo, "agent-1")
+
+    assert not marker_path.exists()
+
+
 def test_remove_then_recreate_with_the_same_name_succeeds(tmp_path):
     """The actual user-facing contract every doc surface (README, module docstring, CLI
     description) justifies the branch-delete step with: skipping it makes a bare retry of

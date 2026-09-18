@@ -16,6 +16,8 @@ create`, including `--branch`/`--from`) end to end.
 
 from __future__ import annotations
 
+import json
+import os
 import shutil
 import subprocess
 import sys
@@ -120,6 +122,56 @@ def test_worktree_is_ignored_by_git_and_status_stays_clean(tmp_path):
     assert status.stdout.strip() == "", f"primary checkout dirtied: {status.stdout!r}"
 
 
+def test_owner_marker_written_after_successful_create(tmp_path):
+    """rig-cli grooming#275: a successful create() should leave a PID-based owner marker so a
+    LATER colliding create() can tell live from abandoned. Asserts the recorded pid matches
+    `os.getppid()` specifically (not merely "is an int") — since this test calls `create()`
+    in-process, a regression to `os.getpid()` (the intended semantic: the DISPATCHING process,
+    not this short-lived call itself) would otherwise pass silently."""
+    repo = _git_repo(tmp_path / "repo")
+    worktree.create(repo, "agent-1")
+
+    marker_path = repo / WORKTREES_DIR_NAME / ".owners" / "agent-1.json"
+    assert marker_path.is_file()
+    marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    assert marker["pid"] == os.getppid()
+
+
+def test_marker_write_failure_does_not_fail_an_otherwise_successful_create(tmp_path, monkeypatch):
+    """rig-cli grooming#275 review finding: `_write_owner_marker` is documented as best-effort —
+    a write failure (read-only FS, disk full, ...) must never turn a successful `create()` into
+    an error. Simulated by monkeypatching `Path.write_text` to raise for the marker path only."""
+    repo = _git_repo(tmp_path / "repo")
+    marker_path = repo / WORKTREES_DIR_NAME / ".owners" / "agent-1.json"
+    real_write_text = Path.write_text
+
+    def _failing_write_text(self, *args, **kwargs):
+        if self == marker_path:
+            raise OSError("simulated disk full")
+        return real_write_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", _failing_write_text)
+
+    res = worktree.create(repo, "agent-1")
+    assert res.status == "created"
+    assert res.exit_code == 0
+    assert res.path.is_dir()
+    assert not marker_path.exists()
+
+
+def test_owner_marker_covered_by_worktrees_exclude(tmp_path):
+    """The owner marker lives under ``.worktrees/.owners/`` — already covered by the existing
+    ``/.worktrees/`` exclude entry — so writing it must not dirty the primary checkout either."""
+    repo = _git_repo(tmp_path / "repo")
+    worktree.create(repo, "agent-1")
+    assert (repo / WORKTREES_DIR_NAME / ".owners" / "agent-1.json").is_file()
+
+    status = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True, check=True
+    )
+    assert status.stdout.strip() == "", f"primary checkout dirtied: {status.stdout!r}"
+
+
 def test_branch_override(tmp_path):
     repo = _git_repo(tmp_path / "repo")
     res = worktree.create(repo, "agent-1", branch="feature/x")
@@ -216,6 +268,40 @@ def test_dot_and_dotdot_names_are_rejected(tmp_path):
     assert worktree.create(repo, "..").status == "error"
 
 
+def test_owners_reserved_name_is_rejected(tmp_path):
+    """rig-cli grooming#275 review finding: a worktree literally named ``.owners`` would
+    collide with the owner-marker storage directory every OTHER worktree shares."""
+    repo = _git_repo(tmp_path / "repo")
+    res = worktree.create(repo, ".owners")
+
+    assert res.status == "error"
+    assert res.exit_code == errors.EXIT_CONFIG
+    assert not (repo / WORKTREES_DIR_NAME / ".owners").is_dir()
+
+
+def test_owners_reserved_name_is_rejected_case_insensitively(tmp_path):
+    """rig-cli grooming#275 review finding: on a case-insensitive-but-preserving filesystem
+    (macOS APFS default, NTFS), ``.OWNERS`` names the SAME on-disk directory as ``.owners`` — an
+    exact-match-only reservation would let it straight through to alias the marker directory."""
+    repo = _git_repo(tmp_path / "repo")
+    res = worktree.create(repo, ".OWNERS")
+
+    assert res.status == "error"
+    assert res.exit_code == errors.EXIT_CONFIG
+    assert not (repo / WORKTREES_DIR_NAME / ".OWNERS").exists()
+
+
+def test_owners_reserved_name_is_rejected_with_trailing_dot_or_space(tmp_path):
+    """rig-cli grooming#275 review finding: Windows silently strips trailing dots/spaces from a
+    filename at creation time, so ``.owners.``/``.owners `` would otherwise physically alias
+    ``.owners`` there — reject them the same as the exact name."""
+    repo = _git_repo(tmp_path / "repo")
+
+    assert worktree.create(repo, ".owners.").status == "error"
+    assert worktree.create(repo, ".owners ").status == "error"
+    assert not (repo / WORKTREES_DIR_NAME).exists()
+
+
 def test_target_already_exists_is_rejected(tmp_path):
     repo = _git_repo(tmp_path / "repo")
     (repo / WORKTREES_DIR_NAME / "agent-1").mkdir(parents=True)
@@ -224,6 +310,184 @@ def test_target_already_exists_is_rejected(tmp_path):
     assert res.status == "error"
     assert res.exit_code == errors.EXIT_CONFIG
     assert "already exists" in res.message
+
+
+def test_target_already_exists_with_live_owner_is_flagged_still_running(tmp_path):
+    """rig-cli grooming#275: when the marker's pid is genuinely alive, the refusal must say so
+    loudly (uppercase "STILL RUNNING") and name the pid, instead of a bare "already exists"."""
+    repo = _git_repo(tmp_path / "repo")
+    target = repo / WORKTREES_DIR_NAME / "agent-1"
+    target.mkdir(parents=True)
+    marker_path = repo / WORKTREES_DIR_NAME / ".owners" / "agent-1.json"
+    marker_path.parent.mkdir(parents=True)
+    pid = os.getpid()  # this test process itself — guaranteed alive for the test's duration
+    marker_path.write_text(json.dumps({"pid": pid, "created_at": "2026-01-01T00:00:00+00:00"}))
+
+    res = worktree.create(repo, "agent-1")
+    assert res.status == "error"
+    assert res.exit_code == errors.EXIT_CONFIG
+    assert "already exists" in res.message
+    assert "STILL RUNNING" in res.message
+    assert str(pid) in res.message
+
+
+def test_target_already_exists_with_dead_owner_is_flagged_abandoned(tmp_path):
+    """rig-cli grooming#275: when the marker's pid has already exited, the refusal must say it
+    looks abandoned rather than reusing the live-collision "STILL RUNNING" wording."""
+    repo = _git_repo(tmp_path / "repo")
+    target = repo / WORKTREES_DIR_NAME / "agent-1"
+    target.mkdir(parents=True)
+
+    proc = subprocess.Popen([sys.executable, "-c", "pass"])
+    proc.wait()
+    dead_pid = proc.pid
+
+    marker_path = repo / WORKTREES_DIR_NAME / ".owners" / "agent-1.json"
+    marker_path.parent.mkdir(parents=True)
+    marker_path.write_text(
+        json.dumps({"pid": dead_pid, "created_at": "2026-01-01T00:00:00+00:00"})
+    )
+
+    res = worktree.create(repo, "agent-1")
+    assert res.status == "error"
+    assert res.exit_code == errors.EXIT_CONFIG
+    assert "already exists" in res.message
+    assert "no longer running" in res.message
+    assert "STILL RUNNING" not in res.message
+
+
+def test_target_already_exists_with_malformed_marker_falls_back_to_generic_refusal(tmp_path):
+    """rig-cli grooming#275: a marker that isn't parseable JSON must never crash `create()` — it
+    falls back to the original generic refusal, same as a missing marker."""
+    repo = _git_repo(tmp_path / "repo")
+    target = repo / WORKTREES_DIR_NAME / "agent-1"
+    target.mkdir(parents=True)
+    marker_path = repo / WORKTREES_DIR_NAME / ".owners" / "agent-1.json"
+    marker_path.parent.mkdir(parents=True)
+    marker_path.write_text("not valid json{{{", encoding="utf-8")
+
+    res = worktree.create(repo, "agent-1")
+    assert res.status == "error"
+    assert res.exit_code == errors.EXIT_CONFIG
+    assert "already exists" in res.message
+    assert "STILL RUNNING" not in res.message
+    assert "no longer running" not in res.message
+
+
+def test_target_already_exists_with_non_positive_pid_falls_back_to_generic_refusal(tmp_path):
+    """rig-cli grooming#275: `pid <= 0` in the marker is never a real recorded owner
+    (`os.getppid()` is always positive) — `os.kill(0, 0)` would otherwise signal our OWN process
+    group and falsely report "STILL RUNNING" on a corrupted/adversarial marker."""
+    repo = _git_repo(tmp_path / "repo")
+    target = repo / WORKTREES_DIR_NAME / "agent-1"
+    target.mkdir(parents=True)
+    marker_path = repo / WORKTREES_DIR_NAME / ".owners" / "agent-1.json"
+    marker_path.parent.mkdir(parents=True)
+    marker_path.write_text(
+        json.dumps({"pid": 0, "created_at": "2026-01-01T00:00:00+00:00"}), encoding="utf-8"
+    )
+
+    res = worktree.create(repo, "agent-1")
+    assert res.status == "error"
+    assert res.exit_code == errors.EXIT_CONFIG
+    assert "already exists" in res.message
+    assert "STILL RUNNING" not in res.message
+
+
+def test_target_already_exists_with_oversized_pid_falls_back_to_generic_refusal(tmp_path):
+    """rig-cli grooming#275 review finding: a pid too large for the platform's `pid_t` makes
+    `os.kill` raise `OverflowError`, not `OSError` — must still fall back cleanly, not crash."""
+    repo = _git_repo(tmp_path / "repo")
+    target = repo / WORKTREES_DIR_NAME / "agent-1"
+    target.mkdir(parents=True)
+    marker_path = repo / WORKTREES_DIR_NAME / ".owners" / "agent-1.json"
+    marker_path.parent.mkdir(parents=True)
+    marker_path.write_text(
+        json.dumps({"pid": 10**30, "created_at": "2026-01-01T00:00:00+00:00"}), encoding="utf-8"
+    )
+
+    res = worktree.create(repo, "agent-1")
+    assert res.status == "error"
+    assert res.exit_code == errors.EXIT_CONFIG
+    assert "already exists" in res.message
+    assert "STILL RUNNING" not in res.message
+
+
+def test_target_already_exists_with_deeply_nested_marker_falls_back_to_generic_refusal(tmp_path):
+    """rig-cli grooming#275 review finding: a marker file containing adversarially deep JSON
+    nesting makes `json.loads` raise `RecursionError` before any `pid` field is even read — must
+    still fall back cleanly, not crash `create()`."""
+    repo = _git_repo(tmp_path / "repo")
+    target = repo / WORKTREES_DIR_NAME / "agent-1"
+    target.mkdir(parents=True)
+    marker_path = repo / WORKTREES_DIR_NAME / ".owners" / "agent-1.json"
+    marker_path.parent.mkdir(parents=True)
+    depth = 1_000_000
+    marker_path.write_text("[" * depth + "]" * depth, encoding="utf-8")
+
+    res = worktree.create(repo, "agent-1")
+    assert res.status == "error"
+    assert res.exit_code == errors.EXIT_CONFIG
+    assert "already exists" in res.message
+    assert "STILL RUNNING" not in res.message
+
+
+def test_pid_alive_treats_permission_error_as_alive(monkeypatch):
+    """`_pid_alive`'s documented "fail safe TOWARD alive" stance: an `OSError` other than
+    `ProcessLookupError` (e.g. `PermissionError` for a pid owned by another user) means the
+    process exists but can't be signaled, not that it's gone."""
+
+    def _raise_permission_error(pid, sig):
+        raise PermissionError("owned by another user")
+
+    monkeypatch.setattr(worktree.os, "kill", _raise_permission_error)
+    assert worktree._pid_alive(123) is True
+
+
+def test_pid_alive_skips_signal_on_non_posix(monkeypatch):
+    """rig-cli grooming#275 review finding: signal value 0 is `signal.CTRL_C_EVENT` on Windows,
+    so `os.kill(pid, 0)` there does not probe liveness — it delivers a REAL Ctrl+C to `pid`'s
+    console process group. Off POSIX, skip the syscall entirely and fail safe toward "alive"."""
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(worktree.os, "kill", lambda pid, sig: calls.append((pid, sig)))
+    monkeypatch.setattr(worktree.os, "name", "nt")
+
+    assert worktree._pid_alive(123) is True
+    assert calls == []
+
+
+def test_pid_alive_treats_non_positive_pid_as_alive_without_signaling(monkeypatch):
+    """rig-cli grooming#275 review finding: `_pid_alive` enforces `pid <= 0` -> "alive" itself
+    (not just relying on `_describe_existing_target`'s earlier check), so a future caller that
+    forgets that precondition still gets a safe, non-signaling result instead of a bogus
+    `os.kill(0, 0)`/negative-process-group probe."""
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(worktree.os, "kill", lambda pid, sig: calls.append((pid, sig)))
+
+    assert worktree._pid_alive(0) is True
+    assert worktree._pid_alive(-1) is True
+    assert calls == []
+
+
+def test_pid_alive_treats_oversized_pid_as_alive_not_a_crash():
+    """rig-cli grooming#275 review finding: `_pid_alive` catches `OverflowError` itself (not just
+    relying on `_describe_existing_target`'s except tuple), so a pid too large for the platform's
+    `pid_t` never propagates out of this function as a crash for any future direct caller."""
+    assert worktree._pid_alive(10**30) is True
+
+
+def test_target_already_exists_message_quotes_shell_metachars_in_name(tmp_path):
+    """rig-cli grooming#275 review finding: `_invalid_name_reason` allows spaces/semicolons/`$()`
+    in a worktree name, so the copy-pasteable `` `rig worktree remove <name>` `` hint MUST quote
+    it — an unquoted name here would turn an innocent copy-paste into arbitrary shell execution."""
+    repo = _git_repo(tmp_path / "repo")
+    name = "x; touch pwned"
+    (repo / WORKTREES_DIR_NAME / name).mkdir(parents=True)
+
+    res = worktree.create(repo, name)
+    assert res.status == "error"
+    assert "already exists" in res.message
+    assert "rig worktree remove 'x; touch pwned'" in res.message
 
 
 def test_git_worktree_add_failure_is_surfaced(tmp_path):

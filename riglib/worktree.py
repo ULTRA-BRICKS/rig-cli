@@ -52,9 +52,12 @@ exactly the failure this whole command exists to prevent.
 
 from __future__ import annotations
 
+import json
+import os
 import shlex
 import subprocess
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from . import errors
@@ -62,6 +65,13 @@ from .actions.runner import reconcile_worktrees_exclude
 from .config import WORKTREES_DIR_NAME
 
 _GIT_TIMEOUT_S = 60
+
+# Generous upper bound for a real owner pid recorded in an owner marker (see the "owner markers"
+# section below): comfortably above every real platform's actual `pid_t` range (Linux
+# `pid_max` tops out at 2**22 by default; macOS/BSD pids are far smaller), used to reject an
+# out-of-range marker `pid` BEFORE calling `_pid_alive` rather than let it read as a nonsensical
+# "STILL RUNNING" claim about a pid that could never have been a real process.
+_MAX_REASONABLE_PID = 2**31 - 1
 
 # Shared across the `create()`-failure hint below and `remove()`'s own branch-delete-failure
 # message: `git worktree remove` only detaches the worktree, it never touches the branch ref, so
@@ -126,12 +136,182 @@ def worktree_path(repo_root: Path, name: str) -> Path:
     return repo_root / WORKTREES_DIR_NAME / name
 
 
+# ── owner markers: disambiguate a live collision from an abandoned leftover ──────
+#
+# rig-cli grooming#275: `create()`'s "target already exists" refusal used to be a bare
+# string, giving the caller zero signal about whether the existing `.worktrees/<name>` was a
+# STILL-LIVE worktree another dispatched agent is actively using right now, or a long-abandoned
+# leftover that's safe to remove and reuse. The incident this closes: two dispatched agents
+# independently picked the same worktree name/branch, and the second one's `create()` silently
+# collided, picking up unrelated stray uncommitted changes from the first agent's still-running
+# task mid-work. A lightweight PID-based marker — written next to (never inside) the worktree
+# directory it describes — lets the refusal message say which situation the caller is actually
+# in, using POSIX signal-0 liveness probing (`os.kill(pid, 0)`) against the marker's recorded
+# pid, with no lock file or IPC required.
+_OWNERS_SUBDIR_NAME = ".owners"
+
+
+def _owner_marker_path(repo_root: Path, name: str) -> Path:
+    """Where the owner marker for worktree ``name`` lives: a SIBLING of the worktree directory
+    itself (``.worktrees/.owners/<name>.json``, never ``.worktrees/<name>/...``) so it survives
+    independently of whatever git or the agent does inside the worktree, and so it's covered by
+    the SAME ``/.worktrees/`` entry `reconcile_worktrees_exclude` already registers in
+    ``.git/info/exclude`` — no separate exclude wiring needed.
+    """
+    return repo_root / WORKTREES_DIR_NAME / _OWNERS_SUBDIR_NAME / f"{name}.json"
+
+
+def _write_owner_marker(repo_root: Path, name: str) -> None:
+    """Record the dispatching process as this worktree's owner. Best-effort: a marker write
+    failure (read-only filesystem, disk full, ...) must never fail an otherwise-successful
+    ``create()`` — the marker is a diagnostic aid for the NEXT collision, not a correctness
+    requirement for this one.
+
+    Records ``os.getppid()`` (the process that invoked this `rig` process — e.g. the dispatching
+    agent/shell), not ``os.getpid()`` (this short-lived `rig` invocation itself, which will have
+    exited long before a collision could be detected).
+    """
+    marker_path = _owner_marker_path(repo_root, name)
+    try:
+        marker_path.parent.mkdir(parents=True, exist_ok=True)
+        marker_path.write_text(
+            json.dumps(
+                {"pid": os.getppid(), "created_at": datetime.now(timezone.utc).isoformat()}
+            ),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+
+
+def _remove_owner_marker(repo_root: Path, name: str) -> None:
+    """Best-effort cleanup of ``name``'s owner marker once its worktree is actually gone."""
+    try:
+        _owner_marker_path(repo_root, name).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _pid_alive(pid: int) -> bool:
+    """Whether ``pid`` still refers to a live process, via POSIX signal-0 (`os.kill(pid, 0)`)
+    liveness probing — sends no actual signal, just checks whether delivery would succeed.
+
+    Fails safe TOWARD "alive" on an ambiguous result: `ProcessLookupError` is the only
+    unambiguous "gone" (the kernel has no such pid); any other `OSError` (e.g. `PermissionError`
+    for a pid owned by another user) means the process exists but we can't signal it, which is
+    still evidence it's running.
+
+    POSIX-only by design (guarded, not just documented): signal value ``0`` is numerically
+    ``signal.CTRL_C_EVENT`` on Windows, so `os.kill(pid, 0)` there does NOT probe liveness — it
+    delivers a REAL Ctrl+C to `pid`'s console process group, which could interrupt or kill the
+    very live owner this check exists to detect. Skip the syscall entirely off POSIX and fail
+    safe toward "alive" (matches this function's existing ambiguous-result stance) rather than
+    risk that side effect.
+
+    ``pid <= 0`` is likewise short-circuited to "alive" WITHOUT calling `os.kill` — pid ``0``
+    signals our OWN process group, and a negative pid signals a process GROUP rather than a
+    process, either of which could misreport. `_describe_existing_target` already validates this
+    before calling in, but the guard lives here too so this stays self-enforcing for any future
+    caller, not just the one caller disciplined enough to check first. For the same reason, a
+    `pid` too large for the platform's `pid_t` (`os.kill` raises `OverflowError`, not `OSError`)
+    is also caught here rather than left for the caller to catch.
+
+    Known limitation, accepted rather than fixed here: this is unqualified PID liveness, not
+    process identity. If the OS recycles the recorded pid for an unrelated process before the
+    worktree is revisited, or the owning process is a long-lived orchestrator that dispatches
+    every `create()` call (so every marker shares its always-alive pid), the "STILL RUNNING"
+    branch below can misfire on a genuinely abandoned worktree. `create()` still refuses the
+    collision in EVERY case regardless, so the blast radius is a misleading diagnostic string,
+    never incorrect worktree behavior or data loss.
+    """
+    if pid <= 0 or os.name != "posix":
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except (OSError, OverflowError):
+        return True
+    return True
+
+
+def _describe_existing_target(repo_root: Path, name: str, target: Path) -> str:
+    """The enriched "already exists" refusal message for `create()`, built from `name`'s owner
+    marker when one is readable. Every branch's returned string contains the literal substring
+    "already exists" (an existing test asserts it) so callers/tests can rely on that regardless
+    of which branch fired.
+
+    ``name`` is quoted with :func:`shlex.quote` everywhere it appears inside a copy-pasteable
+    `` `rig worktree remove ...` `` hint — matching :func:`_partial_state_cleanup_hint`'s
+    convention — since :func:`_invalid_name_reason` allows spaces, quotes, and shell metachars in
+    a worktree name: an unquoted name here would let a maliciously-named worktree turn an
+    innocent copy-paste into arbitrary shell execution.
+    ``created_at`` comes from the marker file, which is only ever partially trusted (see the
+    parsing `except` below) — rendered with ``!r`` rather than interpolated raw so a
+    hand-crafted marker can't smuggle terminal control sequences into the message.
+    """
+    base = f"{target} already exists"
+    marker_path = _owner_marker_path(repo_root, name)
+    quoted_name = shlex.quote(name)
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+        pid = int(marker["pid"])
+        created_at = str(marker["created_at"])
+        # `pid <= 0` is never a real owner pid we recorded (`os.getppid()` is always positive):
+        # `os.kill(0, 0)` signals our OWN process group (always "succeeds", falsely "alive"), and
+        # a negative pid targets a process GROUP rather than a process — both would otherwise
+        # slip past `_pid_alive` as a false "STILL RUNNING" on a corrupted/adversarial marker.
+        # A pid too large for any real platform's `pid_t` (`_MAX_REASONABLE_PID`) is validated
+        # here too, rather than left to `_pid_alive`'s own `OverflowError` catch: `_pid_alive`
+        # fails safe toward "alive" for a value it can't signal, which for THIS message would
+        # read as a nonsensical "pid 10**30 is still running, wait for it to finish" — the
+        # generic malformed-marker fallback below is the honest answer for a value this shape.
+        if not 0 < pid <= _MAX_REASONABLE_PID:
+            raise ValueError(f"marker pid out of range: {pid}")
+        alive = _pid_alive(pid)
+    except (OSError, ValueError, KeyError, TypeError, OverflowError, RecursionError):
+        # `RecursionError` specifically: a marker file is only ever partially trusted (see the
+        # module note above), and `json.loads` on adversarially deep nesting raises it before any
+        # `pid` check runs. Every other malformed shape already falls into this same generic
+        # fallback; this closes the last uncaught one.
+        return f"{base} — refusing to overwrite it; inspect it, or `rig worktree remove {quoted_name}` first"
+
+    if alive:
+        return (
+            f"{base} — created by pid {pid}, which is STILL RUNNING (since {created_at!r}). This "
+            f"looks like a second dispatch reusing a name a live worker already owns, which can "
+            f"corrupt one agent's uncommitted work with another's. Give this dispatch its own "
+            f"unique worktree name instead of reusing {name!r}, or wait for pid {pid} to finish "
+            f"and `rig worktree remove {quoted_name}` first"
+        )
+    return (
+        f"{base} — created by pid {pid} (since {created_at!r}), which is no longer running. This "
+        f"looks abandoned, not actively in use, but still refuses to overwrite it silently — "
+        f"inspect it, or `rig worktree remove {quoted_name}` first if you want to reuse the name"
+    )
+
+
 def _invalid_name_reason(name: str) -> str | None:
     """Reason ``name`` is unsafe as a single path segment under ``.worktrees/``, else ``None``.
 
     ``name`` becomes a literal directory component (``worktree_path``) and a default git branch
     name — reject anything that could escape ``.worktrees/`` (a path separator, ``.``/``..``) or
     is empty, rather than let a malformed name silently create a worktree somewhere unexpected.
+
+    ``_OWNERS_SUBDIR_NAME`` (``.owners``) is ALSO reserved: it is where owner markers for every
+    OTHER worktree live (:func:`_owner_marker_path`), a sibling of `.worktrees/<name>/` for every
+    name but this one. A worktree actually named ``.owners`` would make git create a real linked
+    worktree AT that same path, so every other worktree's marker read/write/remove would target
+    a file INSIDE that live checkout instead of a bare marker directory — corrupting the
+    occupant's tree on write and destroying every other worktree's owner history on
+    `git worktree remove --force .owners`. Compared
+    case-INSENSITIVELY (mirrors `riglib/config.py`'s ``p.lower() == ".git"``): on a
+    case-insensitive-but-preserving filesystem (macOS APFS default, NTFS), ``.OWNERS``/
+    ``.Owners``/etc. name the SAME on-disk directory as ``.owners`` — an exact-match check would
+    let a differently-cased name straight through to create a real linked worktree that physically
+    aliases the marker directory. Also compared after stripping TRAILING dots/spaces: Windows
+    silently strips trailing ``.``/`` `` from a filename at creation time, so ``.owners.`` or
+    ``.owners `` would otherwise alias ``.owners`` there too.
     """
     if not name or not name.strip():
         return "worktree name must not be empty"
@@ -139,6 +319,8 @@ def _invalid_name_reason(name: str) -> str | None:
         return f"worktree name {name!r} is not a valid directory name"
     if "/" in name or "\\" in name:
         return f"worktree name {name!r} must be a single path segment (no / or \\)"
+    if name.lower().rstrip(". ") == _OWNERS_SUBDIR_NAME:
+        return f"worktree name {name!r} is reserved for owner-marker storage"
     return None
 
 
@@ -279,7 +461,10 @@ def create(
     target = worktree_path(repo_root, name)
     if target.exists():
         return WorktreeResult(
-            "error", f"{target} already exists", path=target, exit_code=errors.EXIT_CONFIG
+            "error",
+            _describe_existing_target(repo_root, name, target),
+            path=target,
+            exit_code=errors.EXIT_CONFIG,
         )
     if _target_escapes_repo(repo_root, target):
         return WorktreeResult(
@@ -302,6 +487,7 @@ def create(
     add_error = _run_git_worktree_add(repo_root, target, branch_name, base_ref)
     if add_error is not None:
         return add_error
+    _write_owner_marker(repo_root, name)
 
     return WorktreeResult(
         "created",
@@ -575,6 +761,7 @@ def remove(repo_root: Path, name: str) -> WorktreeResult:
     remove_error = _run_git_worktree_remove(repo_root, target)
     if remove_error is not None:
         return remove_error
+    _remove_owner_marker(repo_root, name)
 
     if branch_name is None:
         return WorktreeResult(
