@@ -1215,6 +1215,30 @@ def _validate_harness(h: dict[str, Any]) -> None:
                     f"harness.web_search.exclude must be a list of non-empty strings, got {exclude!r}",
                     schema_path="harness.web_search.exclude",
                 )
+    # harness.idle_ttl — omp task.agentIdleTtlMs grace window (rig-cli#445/#464/#555).
+    # Default ON when the block is absent; enabled:false skips provisioning, ms overrides
+    # the grace window rig writes (<=0 restores the pre-#555 never-park behavior).
+    # Fail-closed on types.
+    idle_ttl = h.get("idle_ttl")
+    if idle_ttl is not None:
+        if not isinstance(idle_ttl, dict):
+            raise ConfigError(
+                f"harness.idle_ttl must be a mapping, got {idle_ttl!r}",
+                schema_path="harness.idle_ttl",
+            )
+        _reject_unknown_keys(idle_ttl, "harness.idle_ttl")
+        idle_ttl_enabled = idle_ttl.get("enabled")
+        if idle_ttl_enabled is not None and not isinstance(idle_ttl_enabled, bool):
+            raise ConfigError(
+                f"harness.idle_ttl.enabled must be a bool, got {idle_ttl_enabled!r}",
+                schema_path="harness.idle_ttl.enabled",
+            )
+        ms = idle_ttl.get("ms")
+        if ms is not None and (isinstance(ms, bool) or not isinstance(ms, int)):
+            raise ConfigError(
+                f"harness.idle_ttl.ms must be an int, got {ms!r}",
+                schema_path="harness.idle_ttl.ms",
+            )
 
 
 def _check_int_min(block: dict[str, Any], key: str, path: str, minimum: int) -> None:
