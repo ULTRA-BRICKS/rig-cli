@@ -432,6 +432,32 @@
           "description": "per-gate overrides (enabled / tier / variant / …) keyed by gate name",
           "additionalProperties": {
             "type": "object"
+          },
+          "properties": {
+            "ship": {
+              "type": [
+                "object",
+                "boolean"
+              ],
+              "properties": {
+                "require_external_review": {
+                  "type": "boolean",
+                  "default": true,
+                  "x-rig-global-only": true,
+                  "description": "Machine-only GitHub-side external-review policy; other ship gates are unchanged."
+                },
+                "external_review_owners": {
+                  "type": "array",
+                  "default": [],
+                  "x-rig-global-only": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
+                  },
+                  "description": "Exact owner logins covered by a false require_external_review; no wildcards."
+                }
+              }
+            }
           }
         }
       },

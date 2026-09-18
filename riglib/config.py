@@ -532,6 +532,19 @@ def load(
                 fix=f"move mode to {global_config_path()} or run `rig config set mode.name ... --global`",
                 schema_path="mode",
             )
+        if label != "global":
+            ci_items = data.get("ci", {})
+            for part in ("items", "ship"):
+                ci_items = ci_items.get(part, {}) if isinstance(ci_items, dict) else {}
+            if isinstance(ci_items, dict) and any(
+                key in ci_items for key in ("require_external_review", "external_review_owners")
+            ):
+                raise ConfigError(
+                    "ci.items.ship external-review policy is global-only",
+                    why="An unreviewed repository must not define its own machine-level merge authority",
+                    fix=f"move these policy keys to {global_config_path()}",
+                    schema_path="ci.items.ship",
+                )
         if label == "global" and data.get("internal_dev"):
             raise ConfigError(
                 "internal_dev is a repo-only config block",
@@ -737,6 +750,24 @@ def _validate_ci(ci: dict[str, Any]) -> None:
     items = ci.get("items", {})
     if not isinstance(items, dict):
         raise ConfigError("ci.items must be a mapping", schema_path="ci.items")
+    ship = items.get("ship", {})
+    if isinstance(ship, dict):
+        if "require_external_review" in ship and type(ship["require_external_review"]) is not bool:
+            raise ConfigError(
+                "ci.items.ship.require_external_review must be a bool",
+                schema_path="ci.items.ship.require_external_review",
+            )
+        if "external_review_owners" in ship:
+            owners = ship["external_review_owners"]
+            import re
+            owner_pattern = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?"
+            if not isinstance(owners, list) or not all(
+                isinstance(owner, str) and re.fullmatch(owner_pattern, owner) for owner in owners
+            ):
+                raise ConfigError(
+                    "ci.items.ship.external_review_owners must be a list of exact GitHub owner names",
+                    schema_path="ci.items.ship.external_review_owners",
+                )
     for name, spec in items.items():
         if not isinstance(spec, dict):
             continue

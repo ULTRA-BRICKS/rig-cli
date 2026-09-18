@@ -1418,6 +1418,23 @@ def json_schema() -> dict[str, Any]:
     props: dict[str, Any] = {name: leaf.to_node() for name, leaf in _TOP_LEAVES.items()}
     for name, block in BLOCKS.items():
         props[name] = block.to_node()
+    # Named ship-policy keys coexist with the open per-gate catalog map.
+    props["ci"]["properties"]["items"]["properties"] = {
+        "ship": {
+            "type": ["object", "boolean"],
+            "properties": {
+                "require_external_review": {
+                    "type": "boolean", "default": True, "x-rig-global-only": True,
+                    "description": "Machine-only GitHub-side external-review policy; other ship gates are unchanged.",
+                },
+                "external_review_owners": {
+                    "type": "array", "default": [], "x-rig-global-only": True,
+                    "items": {"type": "string", "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"},
+                    "description": "Exact owner logins covered by a false require_external_review; no wildcards.",
+                },
+            },
+        },
+    }
     props["mode"]["x-rig-global-only"] = True
     # `scope` is a removed legacy key the loader still TOLERATES (drops it) — whitelist it so a
     # not-yet-cleaned committed file doesn't trip an editor, but it is intentionally undocumented.
