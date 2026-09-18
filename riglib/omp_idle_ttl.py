@@ -46,6 +46,9 @@ def resolve_idle_ttl_ms(harness: dict[str, Any] | None) -> int | None:
     ``None`` means "emit no action" — either ``harness.idle_ttl.enabled: false``, or
     an ``idle_ttl.ms`` value in a shape rig does not understand (leniency mirroring
     :func:`riglib.omp_web_search.resolve_exclude`'s handling of a non-list ``exclude``).
+    ``ms`` must be a plain ``int`` (never ``bool``, and never ``float`` — a stray
+    ``.inf``/``.nan`` would otherwise reach ``int()`` and raise instead of failing
+    closed to "skip"; every other numeric rig.yaml leaf is integer-only too).
     """
     if not isinstance(harness, dict):
         return DEFAULT_OMP_IDLE_TTL_MS
@@ -57,6 +60,6 @@ def resolve_idle_ttl_ms(harness: dict[str, Any] | None) -> int | None:
     if "ms" not in block:
         return DEFAULT_OMP_IDLE_TTL_MS
     raw = block.get("ms")
-    if not isinstance(raw, (int, float)) or isinstance(raw, bool):
+    if not isinstance(raw, int) or isinstance(raw, bool):
         return None
-    return int(raw)
+    return raw

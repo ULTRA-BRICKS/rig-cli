@@ -17,7 +17,7 @@ from pathlib import Path
 
 from riglib.actions import run_plan
 from riglib.catalog import Catalog
-from riglib.config import LoadedConfig
+from riglib.config import ConfigError, LoadedConfig, validate
 from riglib.drift import detect
 from riglib.plan import build
 
@@ -290,5 +290,74 @@ def test_malformed_ms_shape_skips_provisioning(fake_agent_tools, tmp_path, monke
     cfg.data["harness"]["idle_ttl"] = {"ms": "soon"}
     plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
     assert not _actions(plan, "provision_omp_idle_ttl")
+
+
+# ── validation + schema registry (rig-cli#555 shipped harness.idle_ttl unvalidated: real
+# users setting it in rig.yaml hit "unknown harness key: idle_ttl" at validate() time, and
+# the hand-edited schema/rig.schema.json drifted from the config_schema.py registry that
+# `_reject_unknown_keys` sources from — closing both gaps here) ────────────────────────────
+def test_idle_ttl_block_validates_and_rejects_bad_types():
+    validate({"version": 1, "harness": {"kind": "omp", "idle_ttl": {"ms": 240000}}})
+    validate({"version": 1, "harness": {"kind": "omp", "idle_ttl": {"enabled": False}}})
+    validate({"version": 1, "harness": {"kind": "omp", "idle_ttl": {"ms": 0}}})
+    try:
+        validate({"version": 1, "harness": {"kind": "omp", "idle_ttl": {"ms": "soon"}}})
+    except ConfigError as exc:
+        assert "idle_ttl.ms" in str(exc)
+    else:
+        raise AssertionError("non-numeric ms must fail")
+    try:
+        validate({"version": 1, "harness": {"kind": "omp", "idle_ttl": {"enabled": "yes"}}})
+    except ConfigError as exc:
+        assert "idle_ttl.enabled" in str(exc)
+    else:
+        raise AssertionError("non-bool enabled must fail")
+    try:
+        validate({"version": 1, "harness": {"kind": "omp", "idle_ttl": {"bogus": True}}})
+    except ConfigError as exc:
+        assert "idle_ttl" in str(exc)
+    else:
+        raise AssertionError("unknown idle_ttl key must fail")
+    # ms must be a plain int — a stray float (including non-finite .inf/.nan, which
+    # `int()` cannot convert) or bool must fail closed at validate(), not reach the
+    # runtime resolver and raise OverflowError/ValueError out of `rig apply`.
+    for bad_ms in (1.9, float("inf"), float("-inf"), float("nan"), True):
+        try:
+            validate({"version": 1, "harness": {"kind": "omp", "idle_ttl": {"ms": bad_ms}}})
+        except ConfigError as exc:
+            assert "idle_ttl.ms" in str(exc)
+        else:
+            raise AssertionError(f"ms={bad_ms!r} must fail")
+
+
+def test_resolve_idle_ttl_ms_never_raises_on_non_finite_or_bool():
+    """Defense in depth for callers that bypass validate() (unit tests construct
+    LoadedConfig directly): a non-int ms must skip provisioning, never crash on
+    int(float('inf'))/int(float('nan'))."""
+    from riglib.omp_idle_ttl import resolve_idle_ttl_ms
+
+    for bad_ms in (float("inf"), float("-inf"), float("nan"), 1.9, True):
+        assert resolve_idle_ttl_ms({"idle_ttl": {"ms": bad_ms}}) is None
+    assert resolve_idle_ttl_ms({"idle_ttl": {"ms": 240000}}) == 240000
+
+
+def test_schema_registry_exposes_idle_ttl_keys():
+    from riglib.schema import coerce, option_for_key
+
+    enabled = option_for_key("harness.idle_ttl.enabled")
+    ms = option_for_key("harness.idle_ttl.ms")
+    assert enabled is not None and enabled.default is True
+    assert ms is not None and ms.default == 300000
+    assert coerce(enabled, "false") is False
+    assert coerce(ms, "180000") == 180000
+
+
+def test_json_schema_has_idle_ttl_node_in_sync_with_registry():
+    from riglib import config_schema
+
+    assert config_schema.schema_file_in_sync(), "schema/rig.schema.json must match the registry"
+    node = config_schema.json_schema()["properties"]["harness"]["properties"]["idle_ttl"]
+    assert node["properties"]["ms"]["default"] == 300000
+    assert node["additionalProperties"] is False
 
 

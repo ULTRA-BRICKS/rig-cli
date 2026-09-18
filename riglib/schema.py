@@ -355,6 +355,17 @@ AREAS: tuple[Area, ...] = (
                  "Provider ids omp web_search must never use, even as fallbacks. Additive — "
                  "names already on disk stay. An empty list opts out of the write. Default "
                  "excludes perplexity (anonymous path is a Sign-up wall)."),
+            _opt("harness.idle_ttl.enabled", KIND_BOOL, True,
+                 "When omp is a configured harness kind, provision task.agentIdleTtlMs (the "
+                 "idle-parking grace window) into the omp agent config.yml. Off = leave the "
+                 "key alone."),
+            _opt("harness.idle_ttl.ms", KIND_INT, 300000,
+                 "Milliseconds a yielded omp helper stays visible on the default `hub list` "
+                 "view before parking (a parked peer stays reachable via `hub send`/"
+                 "`history://`/`agent://` regardless — parking only trims the default list). "
+                 "Default 300000 (5 min): shorter than omp's own 420000 ms product default, "
+                 "and bounded — unlike the pre-rig-cli#555 `0` that never parked and let idle "
+                 "sessions accumulate without limit. `<= 0` restores that never-park behavior."),
         ),
     ),
     Area(

@@ -498,6 +498,22 @@ _HARNESS_BLOCK = Block(
                 ),
             },
         ),
+        "idle_ttl": Block(
+            doc="omp task.agentIdleTtlMs grace window, reconciled into ~/.omp/agent/config.yml.",
+            leaves={
+                "enabled": Leaf(
+                    "boolean",
+                    "provision task.agentIdleTtlMs when omp is a configured harness kind",
+                    default=True,
+                ),
+                "ms": Leaf(
+                    "integer",
+                    "idle-TTL grace window in ms before a yielded omp helper parks off hub list; "
+                    "default 300000 (5 min); <= 0 restores the old never-park behavior",
+                    default=300000,
+                ),
+            },
+        ),
     },
 )
 

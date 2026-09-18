@@ -780,7 +780,7 @@
               "default": true
             },
             "ms": {
-              "type": "number",
+              "type": "integer",
               "description": "idle-TTL grace window in ms before a yielded omp helper parks off hub list; default 300000 (5 min); <= 0 restores the old never-park behavior",
               "default": 300000
             }
