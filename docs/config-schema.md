@@ -733,11 +733,18 @@ enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
   `tool_call` (pre-execution) for `bash`/`edit`/`write`/`apply_patch`/`notebook`/`task`, and
   `tool_result` (post-execution, log-only) for the write tools — shelling into the Python
   dispatcher exactly like the opencode plugin does. A custom omp `settings_path` must end in
-  `.ts`. The same apply also merges `task.agentIdleTtlMs: 0` into `~/.omp/agent/config.yml`
-  (additive; never clobbers a user-set positive TTL). New omp processes pick this up at
-  Settings.init so yielded helpers stay on the live roster instead of parking after the
-  product default of 420000 ms; already-running omp processes keep the spawn-cached TTL
-  until restart ([rig-cli#445](https://github.com/alex-mextner/rig-cli/issues/445),
+  `.ts`. The same apply also merges `task.agentIdleTtlMs` into `~/.omp/agent/config.yml`
+  (additive; never clobbers a user-set positive TTL) with a **300000 ms (5 min) grace
+  window** — shorter than omp's own stock 420000 ms/7 min product default (a deliberate
+  choice, not an accidental inherit) and bounded, unlike an earlier `0` (never park until
+  process exit) that let idle/zombie helper sessions accumulate without bound. New omp
+  processes pick this up at Settings.init so a yielded helper stays on the *default* `hub
+  list` view long enough for a follow-up before parking (a parked peer stays fully
+  reachable regardless via `hub send`/`history://`/`agent://`); already-running omp
+  processes keep the spawn-cached TTL until restart. Override the window with
+  `harness.idle_ttl.ms` (`<= 0` restores the old never-park behavior), or skip provisioning
+  entirely with `harness.idle_ttl.enabled: false`
+  ([rig-cli#445](https://github.com/alex-mextner/rig-cli/issues/445),
   [rig-cli#464](https://github.com/alex-mextner/rig-cli/issues/464)).
 
 Claude and Codex bridge commands run `PYTHONPATH=<agent-tools>/lib python3 -m <bridge_module>

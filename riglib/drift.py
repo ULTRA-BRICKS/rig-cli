@@ -2426,7 +2426,7 @@ def _check_harness_approval(action: Action, report: DriftReport) -> None:
 
 
 def _check_omp_idle_ttl(action: Action, report: DriftReport) -> None:
-    """Flag missing/positive task.agentIdleTtlMs against the keepalive write."""
+    """Flag missing/mismatched task.agentIdleTtlMs against the resolved keepalive write."""
     import yaml
     from .actions.runner import (
         OMP_IDLE_TTL_KEY,
@@ -2437,10 +2437,11 @@ def _check_omp_idle_ttl(action: Action, report: DriftReport) -> None:
 
     path = action.target
     dotted = ".".join(OMP_IDLE_TTL_KEY)
+    desired_value = action.options.get("ms", OMP_IDLE_TTL_VALUE)
     if not path.is_file():
         report.items.append(
             DriftItem("missing", "harness", action.item, path,
-                      f"{dotted} not provisioned (apply sets {OMP_IDLE_TTL_VALUE!r})")
+                      f"{dotted} not provisioned (apply sets {desired_value!r})")
         )
         return
     try:
@@ -2475,12 +2476,16 @@ def _check_omp_idle_ttl(action: Action, report: DriftReport) -> None:
     elif state == "missing":
         report.items.append(
             DriftItem("missing", "harness", action.item, path,
-                      f"{dotted} not provisioned (apply sets {OMP_IDLE_TTL_VALUE!r})")
+                      f"{dotted} not provisioned (apply sets {desired_value!r})")
         )
-    elif not _idle_ttl_parking_disabled(value):
+    elif not (_idle_ttl_parking_disabled(value) or value == desired_value):
+        # A non-positive on-disk value is a standing "parking disabled" choice apply
+        # never overwrites (see _do_provision_omp_idle_ttl) regardless of desired_value
+        # -- drift must treat it as clean too, or it would report permanent unfixable
+        # drift for a value apply will never touch.
         report.items.append(
             DriftItem("modified", "harness", action.item, path,
-                      f"{dotted} is {value!r} (rig wants {OMP_IDLE_TTL_VALUE!r}; apply never "
+                      f"{dotted} is {value!r} (rig wants {desired_value!r}; apply never "
                       "clobbers — change it by hand or remove the key)")
         )
 

@@ -769,6 +769,23 @@
             }
           },
           "additionalProperties": false
+        },
+        "idle_ttl": {
+          "type": "object",
+          "description": "omp task.agentIdleTtlMs grace window, reconciled into ~/.omp/agent/config.yml.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "provision task.agentIdleTtlMs when omp is a configured harness kind",
+              "default": true
+            },
+            "ms": {
+              "type": "number",
+              "description": "idle-TTL grace window in ms before a yielded omp helper parks off hub list; default 300000 (5 min); <= 0 restores the old never-park behavior",
+              "default": 300000
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
