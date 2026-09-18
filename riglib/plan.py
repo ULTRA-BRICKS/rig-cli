@@ -479,8 +479,10 @@ def _item_enabled(cat_cfg: dict[str, Any], item: Item, *, type_enabled: bool) ->
     return type_enabled or item.default_enabled
 
 
-def _skills_enabled(config: LoadedConfig, catalog: Catalog, project_type: str) -> list[Item]:
-    """Skills get special handling: nested universal{} / by_type{} groups + type pull-in."""
+def _skills_enabled(
+    config: LoadedConfig, catalog: Catalog, project_type: str, stack_preset: str | None
+) -> list[Item]:
+    """Skills get special handling: nested universal{} / by_type{} groups + type/stack pull-in."""
     sk = config.category("skills")
     if sk.get("enabled") is False:
         return []
@@ -510,7 +512,10 @@ def _skills_enabled(config: LoadedConfig, catalog: Catalog, project_type: str) -
     bs_items_cfg = bs_cfg.get("items", {})
     if not isinstance(bs_items_cfg, dict):
         bs_items_cfg = {}
-    declared_stack = config.stack
+    # `stack` is the CALLER's detect_stack_preset guess (Environment.stack_preset), computed
+    # the same way/place as `project_type` — see detect.detect_environment. Declared config
+    # always wins; the guess is only a fallback when the repo declares no stack:.
+    effective_stack = config.stack or stack_preset
 
     for item in catalog.by_category("skills"):
         if item.group == "universal":
@@ -529,28 +534,28 @@ def _skills_enabled(config: LoadedConfig, catalog: Catalog, project_type: str) -
             if type_on:
                 out.append(item)
         elif item.group.startswith("by-stack/"):
-            if _by_stack_item_enabled(item, declared_stack, bs_disable, bs_items_cfg):
+            if _by_stack_item_enabled(item, effective_stack, bs_disable, bs_items_cfg):
                 out.append(item)
     return out
 
 
 def _by_stack_item_enabled(
     item: Item,
-    declared_stack: str | None,
+    effective_stack: str | None,
     disable: set[str],
     items_cfg: dict[str, Any],
 ) -> bool:
-    """Whether a by-stack skill is provisioned for the repo's declared stack.
+    """Whether a by-stack skill is provisioned for the repo's declared (or auto-detected) stack.
 
-    Auto-selected when the item's stack path is a PREFIX of the declared stack (hierarchical
-    inheritance — see :mod:`riglib.stack`), unless dropped via ``skills.by_stack.disable`` or a
+    Auto-selected when the item's stack path is a PREFIX of ``effective_stack`` (hierarchical
+    — see :mod:`riglib.stack`), unless dropped via ``skills.by_stack.disable`` or a
     ``skills.by_stack.items.<name>.enabled: false`` override. An explicit
     ``items.<name>.enabled: true`` FORCES the skill in even without a matching stack (the
     escape hatch for pulling one stack skill into an off-stack repo).
 
     NOTE: this is a deliberately-separate resolver from :func:`_item_enabled` (universal/by_type):
-    by_stack has no ``enable``/``all`` axis — selection is driven by the declared ``stack`` prefix
-    match, not a bundle-enable list — so the two do not share a code path. The only overlap is the
+    by_stack has no ``enable``/``all`` axis — selection is driven by the ``effective_stack`` prefix match,
+    not a bundle-enable list — so the two do not share a code path. The only overlap is the
     per-item ``enabled`` override + the ``disable`` list, kept explicit here for readability."""
     from .stack import stack_matches
 
@@ -559,9 +564,9 @@ def _by_stack_item_enabled(
         return bool(spec["enabled"])
     if item.name in disable:
         return False
-    if not declared_stack:
+    if not effective_stack:
         return False
-    return stack_matches(declared_stack, item.meta.get("stack", ""))
+    return stack_matches(effective_stack, item.meta.get("stack", ""))
 
 
 def _validate_item_names(config: LoadedConfig, catalog: Catalog) -> None:
@@ -729,7 +734,9 @@ def _catalog_by_leaf(catalog: Catalog, category: str) -> dict[str, tuple[Path, .
     return {leaf: tuple(paths) for leaf, paths in out.items()}
 
 
-def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknown") -> InstallPlan:
+def build(
+    config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknown", stack_preset: str | None = None
+) -> InstallPlan:
     """Build the ordered :class:`InstallPlan` from config + catalog."""
     plan = InstallPlan(
         on_conflict=str(config.defaults.get("on_conflict", "backup")),
@@ -753,7 +760,7 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     # Instruction-file harness (pi/commandcode) → no skill-link dir; record WHY so
     # ``rig status`` shows "uses <AGENTS.md>" instead of a silent empty skill-link area.
     plan.notes.extend(_skill_discovery_notes(config))
-    for item in _skills_enabled(config, catalog, project_type):
+    for item in _skills_enabled(config, catalog, project_type, stack_preset):
         installed = skills_target / item.path.name
         plan.actions.append(
             Action(

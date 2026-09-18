@@ -667,7 +667,8 @@ def test_compute_drift_report_reads_known_lists_through_the_cascade(fake_agent_t
     _plant_skill(repo / "skills-out", "hand-pack")
     loaded = _cfg(repo, fake_agent_tools, skills={"known": ["hand-pack"]})
     env = Environment(
-        repo_root=repo, is_git_repo=True, stack="unknown", project_type="unknown", skills_dirs={},
+        repo_root=repo, is_git_repo=True, stack="unknown", project_type="unknown", stack_preset=None,
+        skills_dirs={},
         global_hooks_path=None, dispatcher_installed=False, gh_authed=False, is_github_repo=False,
         os=OsInfo("darwin", "brew", "macOS"),
     )

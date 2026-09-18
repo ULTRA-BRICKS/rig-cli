@@ -435,7 +435,9 @@ def _build_wizard_class():
             """
             self._sync_and_validate()
             loaded = LoadedConfig(data=self.state.data, repo_root=self.repo_root)
-            return build(loaded, self._catalog, project_type=self.env.project_type)
+            return build(
+                loaded, self._catalog, project_type=self.env.project_type, stack_preset=self.env.stack_preset
+            )
 
         def _write_config(self, *, log_prefix: str) -> Path | None:
             """Back up any existing rig.yaml, write the current state, and log it.

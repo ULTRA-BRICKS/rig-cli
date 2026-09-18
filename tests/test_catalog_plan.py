@@ -256,6 +256,140 @@ def test_plan_no_stack_selects_no_by_stack_skills(fake_agent_tools, tmp_path):
     assert not any(s.startswith("by-stack/") for s in skills)
 
 
+# ── stack presets: auto-detection fallback (mirrors by-type's project_type auto-pull) ───
+# The caller resolves the guess via `detect.detect_environment(...).stack_preset` (computed the
+# same way/place as `env.project_type`) and hands it to `build(..., stack_preset=...)` — `build()`/
+# `_skills_enabled` never touch the filesystem themselves, exactly mirroring by-type's design.
+def test_plan_by_stack_auto_detected_from_swift_signature(fake_agent_tools, tmp_path):
+    """No explicit ``stack:`` — a ``Package.swift`` signature auto-pulls the matching
+    by-stack bundle, same as an undeclared ``project_type`` auto-pulls its by-type bundle."""
+    from riglib.detect import detect_environment
+
+    (tmp_path / "Package.swift").write_text("// swift-tools-version:5.9\n", encoding="utf-8")
+    env = detect_environment(tmp_path)
+    assert env.stack_preset == "mobile/swift"
+    cat = Catalog.scan(str(fake_agent_tools))
+    cfg = _cfg({"skills": {"by_type": {}}}, tmp_path)
+    plan = build(cfg, cat, project_type="unknown", stack_preset=env.stack_preset)
+    skills = {a.item for a in plan.actions if a.category == "skills"}
+    assert "by-stack/mobile/swift/swift-concurrency" in skills  # lang-level auto-detected
+    # Swift detection (_detect_swift_stack) only ever guesses to lang level, no framework
+    # heuristic — a deeper framework skill must NOT be pulled in from a bare Package.swift guess.
+    # (Node detection DOES guess to framework level — see the react test below.)
+    assert "by-stack/mobile/swift/swiftui/swiftui-mvvm" not in skills
+    assert "by-stack/frontend/ts/react/vercel-react-patterns" not in skills
+
+
+def test_plan_by_stack_auto_detected_from_node_framework_signature(fake_agent_tools, tmp_path):
+    """Node detection (unlike Swift's) guesses all the way to FRAMEWORK level: a
+    package.json + react + tsconfig.json signature auto-pulls both the framework-level item
+    AND the inherited lang-level one, with no ``stack:`` declared."""
+    import json
+
+    from riglib.detect import detect_environment
+
+    (tmp_path / "package.json").write_text(
+        json.dumps({"name": "x", "dependencies": {"react": "^18"}}), encoding="utf-8"
+    )
+    (tmp_path / "tsconfig.json").write_text("{}", encoding="utf-8")
+    env = detect_environment(tmp_path)
+    assert env.stack_preset == "frontend/ts/react"
+    cat = Catalog.scan(str(fake_agent_tools))
+    cfg = _cfg({"skills": {"by_type": {}}}, tmp_path)
+    plan = build(cfg, cat, project_type="unknown", stack_preset=env.stack_preset)
+    skills = {a.item for a in plan.actions if a.category == "skills"}
+    assert "by-stack/frontend/ts/react/vercel-react-patterns" in skills  # framework-level, exact
+    assert "by-stack/frontend/ts/ts-strictness" in skills  # inherited lang-level
+    assert "by-stack/mobile/swift/swift-concurrency" not in skills
+
+
+def test_plan_by_stack_explicit_stack_overrides_detection(fake_agent_tools, tmp_path):
+    """An explicit ``stack:`` config value wins even when the repo also carries a competing
+    signature file — detection is only a fallback guess, never an override."""
+    from riglib.detect import detect_environment
+
+    (tmp_path / "Package.swift").write_text("// swift-tools-version:5.9\n", encoding="utf-8")
+    env = detect_environment(tmp_path)
+    cat = Catalog.scan(str(fake_agent_tools))
+    cfg = _cfg({"stack": "frontend/ts", "skills": {"by_type": {}}}, tmp_path)
+    plan = build(cfg, cat, project_type="unknown", stack_preset=env.stack_preset)
+    skills = {a.item for a in plan.actions if a.category == "skills"}
+    assert "by-stack/frontend/ts/ts-strictness" in skills  # explicit stack, still selected
+    assert "by-stack/mobile/swift/swift-concurrency" not in skills  # NOT auto-detected over it
+
+
+def test_plan_by_stack_python_signature_detected_but_isolated_from_mobile(fake_agent_tools, tmp_path):
+    """A plain Python repo (a bare ``pyproject.toml``, no Swift/Xcode/mobile markers — mirroring
+    THIS actual rig-cli repo) is correctly detected as ``backend/python`` (NOT ``unknown``) and
+    auto-pulls its own by-stack bundle, but never leaks mobile/frontend skills into it."""
+    from riglib.detect import detect_environment
+
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n", encoding="utf-8")
+    env = detect_environment(tmp_path)
+    assert env.stack_preset == "backend/python"
+    cat = Catalog.scan(str(fake_agent_tools))
+    cfg = _cfg({"skills": {"by_type": {}}}, tmp_path)
+    plan = build(cfg, cat, project_type="unknown", stack_preset=env.stack_preset)
+    skills = {a.item for a in plan.actions if a.category == "skills"}
+    assert "by-stack/backend/python/python-typing" in skills  # correctly detected + selected
+    assert "by-stack/mobile/swift/swift-concurrency" not in skills
+    assert "by-stack/frontend/ts/ts-strictness" not in skills
+
+
+def test_plan_by_stack_build_ignores_filesystem_when_stack_preset_kwarg_omitted(fake_agent_tools, tmp_path):
+    """``build()`` never probes the filesystem itself — a signature file on disk has NO effect
+    unless the caller explicitly resolved and passed ``stack_preset=``. This is what keeps a
+    non-repo scope (e.g. config-web's Global tab, anchored at $HOME) from auto-pulling by-stack
+    skills from a stray file merely because nobody bothered to pass a guess in."""
+    (tmp_path / "Package.swift").write_text("// swift-tools-version:5.9\n", encoding="utf-8")
+    cat = Catalog.scan(str(fake_agent_tools))
+    cfg = _cfg({"skills": {"by_type": {}}}, tmp_path)
+    plan = build(cfg, cat, project_type="unknown")  # no stack_preset= kwarg at all
+    skills = {a.item for a in plan.actions if a.category == "skills"}
+    assert not any(s.startswith("by-stack/") for s in skills)
+
+
+def test_plan_by_stack_disable_beats_a_detected_stack(fake_agent_tools, tmp_path):
+    """``by_stack.disable`` drops a skill selected via the DETECTED (not declared) stack too —
+    the override axis is shared between the declared and auto-detected paths."""
+    from riglib.detect import detect_environment
+
+    (tmp_path / "Package.swift").write_text("// swift-tools-version:5.9\n", encoding="utf-8")
+    env = detect_environment(tmp_path)
+    cat = Catalog.scan(str(fake_agent_tools))
+    cfg = _cfg(
+        {
+            "skills": {
+                "by_stack": {"disable": ["by-stack/mobile/swift/swift-concurrency"]},
+                "by_type": {},
+            }
+        },
+        tmp_path,
+    )
+    plan = build(cfg, cat, project_type="unknown", stack_preset=env.stack_preset)
+    skills = {a.item for a in plan.actions if a.category == "skills"}
+    assert "by-stack/mobile/swift/swift-concurrency" not in skills  # disabled despite detection
+
+
+def test_plan_by_stack_forced_item_wins_even_when_nothing_detected(fake_agent_tools, tmp_path):
+    """``by_stack.items.<name>.enabled: true`` forces a skill in even when NEITHER a declared
+    stack NOR detection produced anything (``stack_preset`` param falsy) — the escape-hatch override
+    must not depend on there being a matching stack at all."""
+    cat = Catalog.scan(str(fake_agent_tools))
+    cfg = _cfg(
+        {
+            "skills": {
+                "by_stack": {"items": {"by-stack/mobile/swift/swift-concurrency": {"enabled": True}}},
+                "by_type": {},
+            }
+        },
+        tmp_path,
+    )
+    plan = build(cfg, cat, project_type="unknown", stack_preset=None)
+    skills = {a.item for a in plan.actions if a.category == "skills"}
+    assert "by-stack/mobile/swift/swift-concurrency" in skills  # forced in despite no stack at all
+
+
 def test_plan_by_stack_disable_drops_a_selected_skill(fake_agent_tools, tmp_path):
     cat = Catalog.scan(str(fake_agent_tools))
     cfg = _cfg(

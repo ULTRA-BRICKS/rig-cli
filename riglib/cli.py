@@ -847,7 +847,7 @@ def _load_plan(
     )
     catalog = Catalog.scan(loaded.agent_tools_source)
     ptype = project_type_override or env.project_type
-    plan = build(loaded, catalog, project_type=ptype)
+    plan = build(loaded, catalog, project_type=ptype, stack_preset=env.stack_preset)
     return plan, loaded, env
 
 
@@ -1527,7 +1527,7 @@ def _resolve_init_plan(args: argparse.Namespace, *, use_default: bool):
         if explicit != repo_yaml.resolve():
             pending_write = ("copy", explicit)
     catalog = Catalog.scan(loaded.agent_tools_source)
-    plan = build(loaded, catalog, project_type=env.project_type)
+    plan = build(loaded, catalog, project_type=env.project_type, stack_preset=env.stack_preset)
     return plan, loaded, env, repo_yaml, pending_write
 
 
