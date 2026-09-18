@@ -141,7 +141,7 @@ def _agent_hooks_target_for_kind(kind: str) -> str | None:
 class Action:
     """A single planned install step. ``kind`` selects the runner in ``actions/``."""
 
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | sync_hook_blurbs | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | provision_pi_extension | register_hook_bridge | provision_omp_idle_ttl | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight | provision_ship_task_prefix
+    kind: str  # copy_skill | link_skill_harness | install_agent_hook | sync_hook_blurbs | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | provision_pi_extension | register_hook_bridge | provision_omp_idle_ttl | provision_codex_skills_budget | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight | provision_ship_task_prefix
     category: str
     item: str
     source: Path  # carrier path in the agent-tools checkout
@@ -935,6 +935,7 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
 
     # ── omp idle-TTL keepalive (new omp processes; live sessions keep spawn-cached TTL) ─
     _build_omp_idle_ttl(config, plan)
+    _build_codex_skills_budget(config, plan)
 
     # ── models (daily model-freshness checker schedule) ───────────────────────────
     _build_models(config, catalog, plan)
@@ -2296,6 +2297,59 @@ def _build_omp_idle_ttl(config: LoadedConfig, plan: InstallPlan) -> None:
             source=config.repo_root,
             target=_expand(_omp_user_path("config.yml"), config.repo_root),
             options={"kind": "omp", "ms": desired_ms},
+        )
+    )
+
+
+def _build_codex_skills_budget(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the codex ``skills.max_context_tokens`` write for a sizeable personal skill library.
+
+    Codex CLI truncates/omits skill descriptions from its model-visible catalog once the
+    library's rendered text exceeds Codex's own (much smaller) context budget for that catalog
+    (openai/codex#24299) — a real gap on any machine whose skill library grows past Codex's stock
+    default. rig's default, :data:`riglib.codex_skills_budget.DEFAULT_MAX_CONTEXT_TOKENS`
+    (50000), was verified (2026-09-18, InvestigateCodexSkillLoading) to roughly double visible
+    description length and plateau around 40KB of rendered skill text. Override with
+    ``harness.codex_skills_budget.max_context_tokens``, or skip entirely with
+    ``harness.codex_skills_budget.enabled: false``. The write is ADDITIVE and never clobbers a
+    value already on disk (even a lower one the user set by hand, or a higher one) — only an
+    ABSENT key gets written, mirroring :func:`_build_omp_idle_ttl`. Emitted whenever a configured
+    harness kind is codex and the harness block is enabled.
+
+    Unlike the codex auto/permission-MODE write (``apply_harness``, opt-in — only fires once the
+    user declares an explicit ``auto_mode``/``mode`` intent), this fires unconditionally whenever
+    codex is ANY configured kind — the whole point of a machine-wide default rollout. That wider
+    blast radius means a Python without a TOML parser (3.10 without the ``tomli`` backport, which
+    ``pyproject.toml`` ships only in the ``test`` extra) MUST NOT turn a previously-green
+    ``rig apply`` red: skip emitting the action and leave a VISIBLE plan note instead of letting
+    the writer hit ``_toml_parser() is None`` and return an apply-failing ``error`` status for
+    every configured-codex machine on that Python.
+    """
+    from .codex_skills_budget import resolve_skills_budget_tokens, toml_parser_available
+
+    h = _enabled_harness_block(config)
+    if h is None:
+        return
+    if "codex" not in _configured_harness_kinds(config):
+        return
+    desired_tokens = resolve_skills_budget_tokens(h)
+    if desired_tokens is None:
+        return
+    if not toml_parser_available():
+        plan.notes.append(
+            "harness: codex skills-budget skipped — no TOML parser on this Python "
+            "(3.10 needs the `tomli` backport); install tomli to let rig manage "
+            "skills.max_context_tokens in ~/.codex/config.toml"
+        )
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_codex_skills_budget",
+            category="harness",
+            item="codex-skills-budget",
+            source=config.repo_root,
+            target=_expand(_codex_user_path("config.toml"), config.repo_root),
+            options={"kind": "codex", "max_context_tokens": desired_tokens},
         )
     )
 

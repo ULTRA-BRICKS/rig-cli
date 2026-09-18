@@ -796,7 +796,11 @@ def test_status_omp_row_tracks_the_permissions_approval_drift(fake_agent_tools, 
 @pytest.mark.parametrize("kind", ["codex", "opencode"])
 def test_undeclared_intent_on_additive_kind_writes_nothing_but_says_so(fake_agent_tools, tmp_path, monkeypatch, kind):
     """`kinds: [opencode]` with no auto_mode/mode (the skills-only additive shape) must not tighten
-    opencode to `ask` or create codex's config.toml behind the user's back."""
+    opencode to `ask`, nor write an `approvals_reviewer` MODE key into codex's config.toml behind
+    the user's back. Codex's config.toml MAY still exist afterward — the UNRELATED
+    codex_skills_budget provisioning (rig-cli, additive-by-default like omp idle-TTL) writes
+    `[skills].max_context_tokens` there whenever codex is ANY configured kind, independent of
+    whether an auto/permission-mode intent was ever declared; that write carries no MODE opinion."""
     monkeypatch.setenv("RIG_CODEX_HOME", str(tmp_path / "codex-home"))
     repo = tmp_path / "repo"; repo.mkdir()
     plan = _plan(fake_agent_tools, repo, kinds=[kind], settings_path=str(repo / ".claude/settings.json"))
@@ -804,7 +808,11 @@ def test_undeclared_intent_on_additive_kind_writes_nothing_but_says_so(fake_agen
     notes = [n for n in plan.notes if n.startswith(f"harness: {kind} auto-mode not declared")]
     assert notes, plan.notes
     run_plan(plan)
-    assert not (tmp_path / "codex-home" / "config.toml").exists()
+    codex_toml = tmp_path / "codex-home" / "config.toml"
+    if kind == "codex":
+        assert "approvals_reviewer" not in codex_toml.read_text(encoding="utf-8")
+    else:
+        assert not codex_toml.exists()
     assert not _opencode_json().exists()
     rows = {r.kind: r for r in harness_mode_rows(plan)}
     assert rows[kind].value is None and "not declared" in rows[kind].note

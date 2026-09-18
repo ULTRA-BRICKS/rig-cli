@@ -514,6 +514,26 @@ _HARNESS_BLOCK = Block(
                 ),
             },
         ),
+        "codex_skills_budget": Block(
+            doc="codex [skills].max_context_tokens budget, reconciled into ~/.codex/config.toml "
+                "(or $RIG_CODEX_HOME/config.toml).",
+            leaves={
+                "enabled": Leaf(
+                    "boolean",
+                    "provision skills.max_context_tokens when codex is a configured harness kind",
+                    default=True,
+                ),
+                "max_context_tokens": Leaf(
+                    "integer",
+                    "Codex's context budget (tokens) for rendering the model-visible skills "
+                    "catalog; default 50000 raises Codex's own smaller stock default so a "
+                    "sizeable personal skill library is not silently truncated/omitted "
+                    "(openai/codex#24299). Only WRITTEN when the key is absent -- apply never "
+                    "clobbers a value already on disk",
+                    default=50000,
+                ),
+            },
+        ),
     },
 )
 

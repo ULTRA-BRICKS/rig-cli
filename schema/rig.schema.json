@@ -812,6 +812,23 @@
             }
           },
           "additionalProperties": false
+        },
+        "codex_skills_budget": {
+          "type": "object",
+          "description": "codex [skills].max_context_tokens budget, reconciled into ~/.codex/config.toml (or $RIG_CODEX_HOME/config.toml).",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "provision skills.max_context_tokens when codex is a configured harness kind",
+              "default": true
+            },
+            "max_context_tokens": {
+              "type": "integer",
+              "description": "Codex's context budget (tokens) for rendering the model-visible skills catalog; default 50000 raises Codex's own smaller stock default so a sizeable personal skill library is not silently truncated/omitted (openai/codex#24299). Only WRITTEN when the key is absent -- apply never clobbers a value already on disk",
+              "default": 50000
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
