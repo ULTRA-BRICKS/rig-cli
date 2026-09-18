@@ -77,6 +77,7 @@ AREAS: tuple[Area, ...] = (
     Area("env", "shell environment variables", GLOBAL, ("env",)),
     Area("models", "model-freshness cron", GLOBAL, ("models",)),
     Area("tg_ctl", "tg-ctl inbound daemon", GLOBAL, ("tg_ctl",)),
+    Area("tgctl_reaper", "tgctl-reaper orphan sweep (macOS)", GLOBAL, ("tgctl_reaper",)),
     Area("tools", "personal CLI ecosystem (tg/review/task/draw/…)", GLOBAL, ("tools",)),
     # the machine-level agent-tools/env file (AGENT_TOOLS_ROOT): a GLOBAL artifact with no
     # standalone action — hence configured_by, not a category claim. It is written by whichever

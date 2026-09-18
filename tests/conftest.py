@@ -89,6 +89,11 @@ def _isolate_scheduler(monkeypatch):
 
         return ActionResult(action, "skipped", "tcc_watch/watch: daemon provisioner stubbed in tests")
 
+    def _noop_tgctl_reaper(action, on_conflict):
+        from riglib.actions.runner import ActionResult
+
+        return ActionResult(action, "skipped", "tgctl_reaper/sweep: sweep provisioner stubbed in tests")
+
     def _noop_tools(action, on_conflict):
         from riglib.actions.runner import ActionResult
 
@@ -123,6 +128,14 @@ def _isolate_scheduler(monkeypatch):
     # stubbed launchctl seams, which override this stub for those tests.
     monkeypatch.setattr(runner, "_do_provision_tcc_watch", _noop_tcc_watch)
     monkeypatch.setitem(runner._HANDLERS, "provision_tcc_watch", _noop_tcc_watch)
+    # tgctl_reaper: is ALSO in the DEFAULT scaffold (default-on, mirrors tg_ctl/tcc_watch), so an
+    # e2e `rig init --yes` would otherwise write a real
+    # ~/Library/LaunchAgents/com.hyperide.tgctl-omp-acp-reaper.plist AND shell out to the real
+    # `launchctl bootstrap`. Neutralize it suite-wide exactly like tg_ctl/tcc_watch; the dedicated
+    # tests (test_tgctl_reaper.py) call `_do_provision_tgctl_reaper` with their own HOME-isolated
+    # tmp dirs + stubbed launchctl seams, which override this stub for those tests.
+    monkeypatch.setattr(runner, "_do_provision_tgctl_reaper", _noop_tgctl_reaper)
+    monkeypatch.setitem(runner._HANDLERS, "provision_tgctl_reaper", _noop_tgctl_reaper)
     # tools: is DEFAULT-OFF (opt-in), so no default e2e plan emits a provision_tools action and
     # nothing here is strictly required. But a test that DOES enable a tools: block would otherwise
     # shell out to a real install.sh (clone/symlink/install-skill on the host). Neutralize it
@@ -139,6 +152,10 @@ def _isolate_scheduler(monkeypatch):
     # phantom drift in e2e tests. Neutralize the drift check suite-wide too (the dedicated
     # test_tg_ctl.py restores the real one). Symmetric with the provisioner stub.
     monkeypatch.setattr(driftmod, "_check_tg_ctl", lambda action, report: None)
+    # tgctl_reaper is default-on too, same phantom-drift concern as tg_ctl above (its provisioner
+    # is stubbed, so apply never writes it, leaving a permanent phantom drift in e2e tests).
+    # Neutralize it suite-wide too (the dedicated test_tgctl_reaper.py restores the real one).
+    monkeypatch.setattr(driftmod, "_check_tgctl_reaper", lambda action, report: None)
     # spotlight: is default-OFF, so no default e2e plan emits a provision_spotlight action. But a
     # test that DOES enable a spotlight: block on a macOS dev box would otherwise (1) shell out to
     # the real `launchctl load` on apply and (2) have its drift check probe the real launchctl for

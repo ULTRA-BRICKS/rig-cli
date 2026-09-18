@@ -993,6 +993,9 @@ def build(config: LoadedConfig, catalog: Catalog, *, project_type: str = "unknow
     # ── tcc_watch (rig-managed TCC dialog-watcher daemon LaunchAgent, Phase 1 detection) ──
     _build_tcc_watch(config, plan)
 
+    # ── tgctl_reaper (rig-managed periodic orphan-sweep LaunchAgent, agent-tools#697) ──
+    _build_tgctl_reaper(config, plan)
+
 # ── internal_dev (per-repo daemon auto-reload post-commit hook) ────────────────
     _build_internal_dev(config, plan)
     return plan
@@ -3463,6 +3466,46 @@ def _build_tcc_watch(config: LoadedConfig, plan: InstallPlan) -> None:
             # target is the launchd LABEL (not a filesystem path), like provision_tg_ctl.
             target=Path(t.get("label") or DEFAULT_LABEL),
             options={
+                "label": t.get("label"),
+                "config_dir": t.get("config_dir"),
+                "python_bin": t.get("python_bin"),
+            },
+        )
+    )
+
+
+def _build_tgctl_reaper(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed tgctl-reaper periodic orphan-sweep LaunchAgent, unless
+    ``enabled: false``.
+
+    Durable fix for the 2026-09-09 OOM incident (agent-tools#697) — see
+    :mod:`riglib.tgctl_reaper`'s module docstring for the full rationale and
+    :mod:`riglib.tgctl_reaper_daemon` for what the sweep actually does.
+
+    Default **ON** (like ``tg_ctl``/``tcc_watch``): an ABSENT or empty ``tgctl_reaper:`` block
+    still provisions the sweep, so `rig init` on a clean macOS machine sets it up with no config
+    at all. Only `enabled: false` opts out. Per-MACHINE concern (one reaper per machine), so the
+    block belongs in the GLOBAL layer (``~/.config/rig/config.yaml``) — but it cascades into the
+    merged config the same way every other GLOBAL-only block does.
+    """
+    from .tgctl_reaper import DEFAULT_INTERVAL_SECONDS, DEFAULT_LABEL
+
+    # An ABSENT key (None) defaults to provisioning (default-on). A PRESENT block (validate() has
+    # already guaranteed it is a mapping) opts in unless `enabled: false`.
+    t = config.data.get("tgctl_reaper") or {}
+    if t.get("enabled") is False:
+        return
+
+    plan.actions.append(
+        Action(
+            kind="provision_tgctl_reaper",
+            category="tgctl_reaper",
+            item="sweep",
+            source=config.repo_root,  # no carrier; rig generates the plist + copies the sweeper script
+            # target is the launchd LABEL (not a filesystem path), like provision_tcc_watch.
+            target=Path(t.get("label") or DEFAULT_LABEL),
+            options={
+                "interval_seconds": t.get("interval_seconds") or DEFAULT_INTERVAL_SECONDS,
                 "label": t.get("label"),
                 "config_dir": t.get("config_dir"),
                 "python_bin": t.get("python_bin"),

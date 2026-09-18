@@ -1323,6 +1323,24 @@ _TCC_WATCH_BLOCK = Block(
     },
 )
 
+_TGCTL_REAPER_BLOCK = Block(
+    doc="the tgctl-reaper periodic sweep for orphaned tg-ctl/omp test-fixture helpers "
+    "(agent-tools#697), a per-machine `StartInterval` LaunchAgent (macOS) that SIGKILLs "
+    "provably-orphaned `omp acp` test fixtures every `interval_seconds`.",
+    leaves={
+        "enabled": Leaf("boolean", "provision the tgctl-reaper LaunchAgent", default=True),
+        "interval_seconds": Leaf("integer", "seconds between sweeps", default=900, minimum=1),
+        "label": Leaf(
+            "string", "launchd Label / plist filename stem",
+            default="com.hyperide.tgctl-omp-acp-reaper",
+        ),
+        "config_dir": Leaf(
+            "string", "sweeper script + launchd logs dir", default="~/.config/rig/tgctl-reaper",
+        ),
+        "python_bin": Leaf("string", "the python3 binary the sweep runs under"),
+    },
+)
+
 _INTERNAL_DEV_BLOCK = Block(
     doc=(
         "internal development of the rig-ecosystem tools themselves (rig, tg-cli, review-cli, …): "
@@ -1394,6 +1412,7 @@ BLOCKS: dict[str, Block] = {
     "tools": _TOOLS_BLOCK,
     "tg_ctl": _TG_CTL_BLOCK,
     "tcc_watch": _TCC_WATCH_BLOCK,
+    "tgctl_reaper": _TGCTL_REAPER_BLOCK,
 
 "internal_dev": _INTERNAL_DEV_BLOCK,    "ship_delegator": _SHIP_DELEGATOR_BLOCK,
     "linters": _LINTERS_BLOCK,

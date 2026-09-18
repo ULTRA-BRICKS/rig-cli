@@ -88,6 +88,7 @@ tmux: { ... }                 # rig-managed tmux config (generate + migrate ~/.t
 gitignore: { ... }            # rig-managed block in the GLOBAL git excludesfile (ignores **/.claude/worktrees/ + the Spotlight sentinel in EVERY repo), default ON
 tg_ctl: { ... }               # tg-ctl inbound daemon as a macOS boot LaunchAgent, default ON (macOS-only)
 tcc_watch: { ... }            # TCC dialog-watcher daemon (Phase 1 detection-only), a macOS boot LaunchAgent, default ON (macOS-only)
+tgctl_reaper: { ... }         # tgctl-reaper periodic orphan-sweep LaunchAgent (StartInterval), default ON (macOS-only)
 ```
 
 If `agent_tools_source` is omitted, rig resolves it from `$RIG_AGENT_TOOLS_SOURCE`, then
@@ -2724,6 +2725,85 @@ replays canned/sample log lines — it never needs (or triggers) a real macOS pe
 
 ---
 
+## `tgctl_reaper`
+
+rig provisions the **tgctl-reaper periodic orphan sweep** — the durable fix for a real
+2026-09-09 OOM incident (agent-tools#697): tg-cli's ctl-omp-acp / ctl-omp-reply integration
+tests spawn throwaway `omp acp` children that, when a test run is interrupted, get reparented
+to launchd (`ppid == 1`) and sit idle at 0% CPU consuming RSS until something reaps them. This
+was previously a **manually-installed** LaunchAgent
+(`agent-tools/ops/tgctl-omp-acp-reaper/install.sh`, run by hand per machine); it is now a
+first-class `rig apply` provisioned target, reproducible across every machine and drift-checked
+like `tg_ctl`/`tcc_watch`.
+
+Unlike `tg_ctl`/`tcc_watch` (both `RunAtLoad` + `KeepAlive` resident daemons), this is a
+**`StartInterval`** periodic sweep — launchd runs the sweeper, it exits, and launchd starts it
+again `interval_seconds` later. Nothing stays resident between runs. **Default ON** (an absent
+or empty `tgctl_reaper:` block still provisions it, mirroring `tg_ctl`/`tcc_watch`). This is a
+**per-MACHINE** concern (one reaper per machine), so the block belongs in the **GLOBAL** layer
+(`~/.config/rig/config.yaml`) — never a committed repo `rig.yaml`. **macOS-only** (launchd); off
+darwin it is a no-op.
+
+```yaml
+tgctl_reaper:
+  enabled: true                                   # provision the sweep (default true; false = off)
+  interval_seconds: 900                            # seconds between sweeps (default 900 = 15 min)
+  # everything below is auto-discovered per-machine — override only if non-standard:
+  label: com.hyperide.tgctl-omp-acp-reaper         # launchd Label / plist filename stem (advanced)
+  config_dir: ~/.config/rig/tgctl-reaper           # sweeper script + launchd logs
+  python_bin: /usr/bin/python3                     # the python3 binary (default: `which python3` → system fallback)
+```
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `enabled` | bool | `true` | `false` = don't touch the reaper at all — rig emits no action |
+| `interval_seconds` | int | `900` | seconds between sweeps (launchd `StartInterval`); must be >= 1 |
+| `label` | str | `com.hyperide.tgctl-omp-acp-reaper` | launchd Label / plist filename stem — **reuses the manually-installed predecessor's exact label** so a re-apply on a machine that already ran `install.sh` by hand converges onto the SAME service instead of installing a duplicate |
+| `config_dir` | str | `~/.config/rig/tgctl-reaper` | where the sweeper script and the launchd out/err logs live |
+| `python_bin` | str | discovered | the python3 binary; default `which python3`, else the first of `/usr/bin/python3`, `/opt/homebrew/bin/python3`, `/usr/local/bin/python3` |
+
+**What rig writes.** `~/Library/LaunchAgents/com.hyperide.tgctl-omp-acp-reaper.plist` — a
+`StartInterval` agent (`RunAtLoad: false`) that runs `python3 <config_dir>/reap.py` every
+`interval_seconds` — plus the sweeper script itself, copied byte-for-byte from
+`riglib/tgctl_reaper_daemon.py` (the SAME module the unit suite exercises directly), so the
+deployed sweep and the tested reap logic can never drift apart.
+
+**Safety predicates the sweep enforces** (ALL required, positive match, never absence — see
+`riglib/tgctl_reaper_daemon.py`'s module docstring for the full rationale): `ppid == 1` (the
+owning process is provably gone), elapsed >= 15 minutes since reparenting, `0.0` `%cpu` (fully
+idle), an argv carrying a `/tgctl-<suffix>` temp-dir path token, AND an `omp acp` (token-boundary)
+invocation. The temp-dir marker matches an enumerated set of tg-cli mkdtemp prefixes (kept in
+sync with the predecessor script's `_TGCTL_MKDTEMP_PREFIXES`, which itself grew from the
+original `tgctl-omp-(acp|reply)-` allowlist after four newer test-fixture prefixes leaked past
+it undetected) — the marker alone still cannot over-match anything not already independently
+proven orphaned, since every other predicate is unchanged and still required, and an
+unenumerated `/tgctl-*` path (e.g. a worktree merely named `tgctl-...`) never matches at all.
+
+**(Re)load mechanism.** Like `tg_ctl`/`tcc_watch`, rig **(re)loads** the agent via `launchctl
+bootout`/`bootstrap` in the per-user `gui/<uid>` domain — a `StartInterval` agent still needs to
+be LOADED for the timer to fire at all, even though nothing stays resident between runs. A clean
+`rig init` starts the sweep without a reboot; a changed plist/script is picked up on the next
+`apply`.
+
+**Converging the manually-installed predecessor.** A machine that already ran
+`agent-tools/ops/tgctl-omp-acp-reaper/install.sh` by hand has a plist under the SAME label but a
+different script path/shape. `rig apply`'s normal backup-on-conflict path reconciles that
+difference on first apply: the differing plist is backed up (timestamped), then rewritten to the
+rig-rendered version.
+
+**Dry-run seam.** `RIG_TGCTL_REAPER_DRY_RUN=1` writes the managed plist + sweeper script into the
+configured (HOME-isolated) path but skips the live `launchctl bootstrap`/`bootout` mutation — so
+tests/smoke never touch the real launchd domain. Also engages automatically under a sandboxed
+HOME (rig-cli#116), same as every other launchd-backed daemon this repo provisions.
+
+**Full drift/status parity with `tg_ctl`.** Unlike `tcc_watch`'s documented "known gap: no `rig
+status` drift line yet", `tgctl_reaper` gets the SAME `rig status` treatment as `tg_ctl`: a
+dedicated `[GLOBAL] tgctl-reaper orphan sweep: …` line reporting installed / drifted /
+unsupported (off darwin), backed by a real `rig status` drift check (missing/modified on both
+the plist and the sweeper script, plus a not-loaded check) — not just "apply reconciles it".
+
+---
+
 ## `task`
 
 **task-cli's per-repo ticket-tracker routing** (CTO decision #4136.4: hyperide → Linear/HYP,
@@ -2918,7 +2998,7 @@ there is one emitter and the schema is never maintained in parallel (see "The JS
 - **REPO** options (`skills`, `agent_hooks`, `git_hooks`, `ci`, `mcp`, `harness`, `scripts`,
   `dev`, `models`, `github`, `agents_md`, `linters`, `project_tools`, `ecosystem_readme`) are
   written to the repo's `./rig.yaml` — the values the default scaffold commits.
-- **GLOBAL-only** options (`gitignore`, `tg_ctl`, `tcc_watch`, `tmux`, `mode`) are machine-wide blocks the
+- **GLOBAL-only** options (`gitignore`, `tg_ctl`, `tcc_watch`, `tgctl_reaper`, `tmux`, `mode`) are machine-wide blocks the
   scaffold never writes into a committed repo file; the wizard writes them to
   `~/.config/rig/config.yaml` only — it never lands a global-only block in a committed repo
   `rig.yaml`.
@@ -2985,7 +3065,7 @@ rig config set harness.auto_mode false --no-apply        # write only, print the
 strict**: an unknown FIXED key in *any* block — `defaults`, `skills`, `agent_hooks`, `git_hooks`
 (+ `dispatcher`), `ci`, `mcp`, `harness` (+ `hook_bridge` / `web_search`), `permissions`, `models` (+ `schedule`),
 `agents_md`, `scripts`, `dev` (+ `server` / `e2e`), `github` (+ `ruleset` / `merge` / `ghas` / `actions` / `browser`), `tmux` (+ every
-sub-block), `gitignore`, `tg_ctl`, `tcc_watch`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`),
+sub-block), `gitignore`, `tg_ctl`, `tcc_watch`, `tgctl_reaper`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`),
 `ecosystem_readme` — is rejected with the schema path of the offender, not silently ignored. (The open maps are
 top-level `scripts:`, the catalog-keyed `items:` / `fragments:` maps, plus `dev.e2e.jobs:` — see
 "Strict by default" above.) Bad-value rejections

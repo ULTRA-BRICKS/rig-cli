@@ -42,6 +42,7 @@ _CATEGORY_LAYER = {
     "tmux": GLOBAL,
     "env": GLOBAL,
     "tg_ctl": GLOBAL,
+    "tgctl_reaper": GLOBAL,
     "tools": GLOBAL,
     # the machine-level agent-tools/env file (AGENT_TOOLS_ROOT). The CHECK runs from the
     # repo-scoped ship_delegator action, but the artifact is machine-wide — its drift is the

@@ -4654,8 +4654,9 @@ def crontab_with_managed(contents: str, label: str, desired_pair: list[str]) -> 
 # live launchctl (or crontab) mutation, compare the resolved ``Path.home()`` with the uid's real
 # login home; when they differ, the action behaves exactly like its ``RIG_*_DRY_RUN`` env (artifact
 # written, live mutation skipped) and says so in its detail. Fail-closed: an unknown login home
-# counts as sandboxed. ONE predicate feeds all four launchd paths (schedule, tmux, tg_ctl,
-# spotlight) via their ``_*_dry_run`` predicates, and ``_live_skip_reason`` renders the note.
+# counts as sandboxed. ONE predicate feeds every launchd-backed provisioner's dry-run seam
+# (schedule, tmux, tg_ctl, tcc_watch, tgctl_reaper, spotlight) via their ``_*_dry_run`` predicates,
+# and ``_live_skip_reason`` renders the note.
 @functools.lru_cache(maxsize=1)
 def _real_login_home() -> Path | None:
     """The current uid's login home from the passwd database (resolved), or ``None`` if unknown.
@@ -6160,6 +6161,175 @@ def _do_provision_tcc_watch(action: Action, on_conflict: str) -> ActionResult:
                             f"tcc_watch/watch: launchd agent '{plan.label}' already installed and loaded")
     status = "backed_up" if headline_backup else "created"
     return ActionResult(action, status, f"tcc_watch/watch: {'; '.join(details)}", headline_backup)
+
+
+# ── tgctl-reaper periodic orphan-sweep LaunchAgent provisioning (macOS) ────────────
+def _tgctl_reaper_dry_run() -> bool:
+    """Honor RIG_TGCTL_REAPER_DRY_RUN — write the managed plist + sweeper script but make NO
+    live/destructive change. Mirrors :func:`_tcc_watch_dry_run`: under dry-run the managed
+    artifacts still land under the (HOME-isolated) path, but the gui-domain (re)load is skipped.
+    ALSO true automatically under a sandboxed HOME (:func:`_home_is_sandboxed`, rig-cli#116).
+    """
+    return _env_flag("RIG_TGCTL_REAPER_DRY_RUN") or _home_is_sandboxed()
+
+
+def tgctl_reaper_plan_from_action(action: Action):
+    """Rebuild the pure :class:`~riglib.tgctl_reaper.TgctlReaperPlan` an action describes.
+
+    Shared by the install handler, drift detection, and status so all three agree on the exact
+    desired plist/script from the action's options. ``Path.home()`` is the resolved HOME at
+    apply time (a test monkeypatches it to a tmp HOME). Lazy import keeps the actions package
+    import-light.
+    """
+    from ..tgctl_reaper import DEFAULT_INTERVAL_SECONDS, DEFAULT_LABEL, build_tgctl_reaper
+
+    opts = action.options
+    return build_tgctl_reaper(
+        home=Path.home(),
+        label=str(opts.get("label") or DEFAULT_LABEL),
+        interval_seconds=int(opts.get("interval_seconds") or DEFAULT_INTERVAL_SECONDS),
+        config_dir=opts.get("config_dir") or "~/.config/rig/tgctl-reaper",
+        python_bin=opts.get("python_bin") or None,
+    )
+
+
+def _do_provision_tgctl_reaper(action: Action, on_conflict: str) -> ActionResult:
+    """Provision the tgctl-reaper periodic orphan-sweep as a macOS LaunchAgent (idempotent).
+
+    The durable fix for the 2026-09-09 OOM incident (agent-tools#697) — see
+    :mod:`riglib.tgctl_reaper`'s module docstring. Mirrors :func:`_do_provision_tcc_watch`'s
+    shape (render -> backup-differing -> write -> (re)load) exactly, except the plist encodes a
+    ``StartInterval`` periodic sweep instead of a ``RunAtLoad``/``KeepAlive`` resident daemon —
+    launchd still needs the agent LOADED (bootstrapped) for the interval timer to run at all, it
+    just doesn't keep a process alive between runs:
+
+      - render ``~/Library/LaunchAgents/com.hyperide.tgctl-omp-acp-reaper.plist``;
+      - copy the sweeper script (``riglib/tgctl_reaper_daemon.py``, byte-for-byte) to
+        ``<config_dir>/reap.py`` so the installed sweep runs the SAME code the unit suite
+        exercises directly;
+      - back up any existing DIFFERING plist/script (on_conflict=backup) before rewrite — this
+        is also how a machine that ran the OLD manually-installed
+        ``agent-tools/ops/tgctl-omp-acp-reaper/install.sh`` (same launchd Label, different
+        script path/shape) converges onto the rig-managed artifact on first apply;
+      - ensure the config dir exists so launchd can open the logs;
+      - (re)load via ``launchctl bootout``/``bootstrap`` in the per-user gui domain.
+
+    macOS-only (launchd). Off darwin it is a ``skipped`` no-op (no Linux equivalent yet).
+    A re-apply that finds both artifacts byte-identical AND the agent loaded is a ``skipped``
+    no-op. ``RIG_TGCTL_REAPER_DRY_RUN`` writes the artifacts but skips every live launchd mutation.
+    """
+    plan = tgctl_reaper_plan_from_action(action)
+
+    if sys.platform != "darwin":
+        return ActionResult(
+            action, "skipped",
+            "tgctl_reaper/sweep: skipped (launchd is macOS-only; no Linux equivalent yet)",
+        )
+
+    details: list[str] = []
+    changed = False
+    headline_backup: Path | None = None
+    dry = _tgctl_reaper_dry_run()
+
+    # 1) ensure the config dir exists so launchd can open StandardOut/ErrorPath.
+    plan.config_dir.mkdir(parents=True, exist_ok=True)
+
+    # 2) write the sweeper script (idempotent on identical bytes; honors on_conflict).
+    desired_script = plan.render_sweeper_script()
+    script_already = plan.sweeper_script_path.is_file()
+    current_script = plan.sweeper_script_path.read_text(encoding="utf-8") if script_already else ""
+    if not (script_already and current_script == desired_script):
+        script_out = fsutil.write_file(plan.sweeper_script_path, desired_script, on_conflict)
+        if script_out.status == "error":
+            return ActionResult(action, "error", f"tgctl_reaper/sweep: {script_out.detail}", script_out.backup)
+        if script_out.backup:
+            headline_backup = headline_backup or script_out.backup
+            details.append(f"backed up prior sweeper script → {script_out.backup.name}")
+        if script_out.status != "skipped":
+            changed = True
+            details.append(f"wrote {plan.sweeper_script_path.name}")
+        plan.sweeper_script_path.chmod(0o755)
+
+    # 3) write the plist (idempotent on identical bytes; honors on_conflict for a differing one).
+    plan.plist_path.parent.mkdir(parents=True, exist_ok=True)
+    desired_plist = plan.render_plist()
+    plist_already = plan.plist_path.is_file()
+    current_plist = plan.plist_path.read_text(encoding="utf-8") if plist_already else ""
+
+    # The install-if-missing no-op: both artifacts present AND byte-identical → nothing left to
+    # do. Under dry-run / a sandboxed HOME (rig-cli#116) this is the WHOLE no-op — never probe
+    # the real launchd domain, and say so (mirrors tcc_watch's no-op path).
+    if plist_already and current_plist == desired_plist and not changed:
+        if dry:
+            return ActionResult(
+                action, "skipped",
+                f"tgctl_reaper/sweep: plist {plan.plist_path} already current "
+                f"({_live_skip_reason('RIG_TGCTL_REAPER_DRY_RUN', 'launchctl loaded-probe')})",
+            )
+        if _launchctl_gui_loaded(plan.label):
+            return ActionResult(
+                action, "skipped",
+                f"tgctl_reaper/sweep: launchd agent '{plan.label}' already installed and loaded",
+            )
+
+    plist_out = fsutil.write_file(plan.plist_path, desired_plist, on_conflict)
+    if plist_out.status == "error":
+        return ActionResult(action, "error", f"tgctl_reaper/sweep: {plist_out.detail}", plist_out.backup)
+    if plist_out.backup:
+        headline_backup = headline_backup or plist_out.backup
+        details.append(f"backed up prior plist → {plist_out.backup.name}")
+    # Conflict-skip: the existing plist DIFFERS but on_conflict=skip said don't write it. The
+    # desired agent never hit disk, so we must NOT (re)load the stale plist and must NOT report a
+    # change — surface the unresolved drift instead (mirrors the tcc_watch conflict-skip path).
+    if plist_out.status == "skipped" and plist_already and current_plist != desired_plist:
+        if changed:  # the sweeper script still changed — report it, plus the plist skip.
+            details.append(
+                f"{plan.plist_path.name} differs but on_conflict=skip — left unchanged "
+                f"(drift NOT reconciled; re-run with on_conflict=backup/overwrite)"
+            )
+            return ActionResult(action, "backed_up" if headline_backup else "created",
+                                f"tgctl_reaper/sweep: {'; '.join(details)}", headline_backup)
+        return ActionResult(
+            action, "skipped",
+            f"tgctl_reaper/sweep: launchd plist {plan.plist_path} differs but on_conflict=skip — "
+            f"left unchanged (drift NOT reconciled; re-run with on_conflict=backup/overwrite)",
+        )
+    if plist_out.status != "skipped":
+        changed = True
+        details.append(f"wrote {plan.plist_path.name}")
+
+    if dry:
+        return ActionResult(
+            action,
+            "backed_up" if headline_backup else ("created" if changed else "skipped"),
+            f"tgctl_reaper/sweep: {'; '.join(details) or 'artifacts already current'} "
+            f"({_live_skip_reason('RIG_TGCTL_REAPER_DRY_RUN', 'launchctl bootstrap')})",
+            headline_backup,
+        )
+
+    # 4) (re)load via the per-user gui domain so a changed plist is picked up without a reboot —
+    # a StartInterval agent still needs to be LOADED for launchd to run the timer at all.
+    needs_load = changed or not _launchctl_gui_loaded(plan.label)
+    if needs_load:
+        _launchctl_bootout(str(plan.plist_path))
+        rc = _launchctl_bootstrap(str(plan.plist_path))
+        if rc != 0:
+            return ActionResult(
+                action, "error",
+                f"tgctl_reaper/sweep: wrote artifacts but `launchctl bootstrap` failed (rc={rc})",
+                headline_backup,
+            )
+        if not changed:  # artifacts byte-identical but the agent wasn't loaded → loading IS the change.
+            changed = True
+            details.append(f"loaded launchd agent '{plan.label}'")
+        else:
+            details.append(f"(re)loaded launchd agent '{plan.label}'")
+
+    if not changed:
+        return ActionResult(action, "skipped",
+                            f"tgctl_reaper/sweep: launchd agent '{plan.label}' already installed and loaded")
+    status = "backed_up" if headline_backup else "created"
+    return ActionResult(action, status, f"tgctl_reaper/sweep: {'; '.join(details)}", headline_backup)
 
 
 # ── AGENTS.md / CLAUDE.md canonical + symlink ─────────────────────────────────────
@@ -9367,6 +9537,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_tools": _do_provision_tools,
     "provision_tg_ctl": _do_provision_tg_ctl,
     "provision_tcc_watch": _do_provision_tcc_watch,
+    "provision_tgctl_reaper": _do_provision_tgctl_reaper,
     "provision_bunfig": _do_provision_bunfig,
 
     "install_dev_reload_hook": _do_install_dev_reload_hook,

@@ -63,7 +63,7 @@ _HARNESS_KIND_CHOICES: tuple[str, ...] = tuple(
 # ``mode`` (machine-wide agent policy).
 # Routing a GLOBAL-only value into a committed repo rig.yaml is the footgun this map prevents.
 # A category absent here defaults to REPO (the conservative "it lives in the committed file").
-_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tmux", "mode"}
+_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tgctl_reaper", "tmux", "mode"}
 
 
 def writable_layer_for_category(category: str) -> str:
@@ -552,6 +552,20 @@ AREAS: tuple[Area, ...] = (
         ),
     ),
     Area(
+        "tgctl_reaper", "tgctl-reaper orphan sweep (macOS)",
+        "A `StartInterval` periodic sweep (default every 15 min) that SIGKILLs orphaned "
+        "`omp acp` tg-ctl test-fixture helpers left behind by interrupted test runs "
+        "(agent-tools#697) — never a persistent daemon.",
+        (
+            _opt("tgctl_reaper.enabled", KIND_BOOL, True,
+                 "Provision the tgctl-reaper sweep. GLOBAL-only (one per machine) — never "
+                 "written to a repo rig.yaml. macOS-only (launchd)."),
+            _opt("tgctl_reaper.interval_seconds", KIND_INT, 900,
+                 "Seconds between sweeps (launchd StartInterval). Default 900 (15 min), "
+                 "matching the predecessor manual install."),
+        ),
+    ),
+    Area(
         "internal_dev", "internal-dev daemon auto-reload",
         "A per-repo committed post-commit hook that gracefully reloads the daemon when a commit touches its source.",
         (
@@ -675,7 +689,7 @@ def set_path(data: dict[str, Any], dotted: str, value: Any) -> None:
 # when the block is missing/empty, or requires `enabled` to be truthy), NOT as enabled-by-default:
 # `_build_harness`/`_build_models` bail on a missing block, and the git-hooks dispatcher only runs
 # when `dispatcher.enabled` is truthy. The other default-ON categories (skills, agent_hooks, ci,
-# mcp, agents_md, github, gitignore, tg_ctl, tcc_watch) gate on `enabled is False`, so an absent block IS
+# mcp, agents_md, github, gitignore, tg_ctl, tcc_watch, tgctl_reaper) gate on `enabled is False`, so an absent block IS
 # active for them and the registry default is the correct live value. Keeping this in lockstep
 # with plan.py is what stops `rig setup`/`config get` from claiming auto-mode, the schedule, or the
 # dispatcher are on when `rig apply` would skip them. (tmux defaults OFF, so it needs no entry.)

@@ -36,6 +36,7 @@ from .actions.runner import (
     _schedule_dry_run,
     _spotlight_dry_run,
     _tg_ctl_dry_run,
+    _tgctl_reaper_dry_run,
     _tmux_dry_run,
     _resolve_excludes_target,
     build_hook_descriptor,
@@ -86,6 +87,7 @@ from .actions.runner import (
     SELF_MERGE_PERMISSIONS_ALLOW,
     skill_harness_link_target,
     tg_ctl_plan_from_action,
+    tgctl_reaper_plan_from_action,
     tmux_plan_from_action,
     env_plan_from_action,
 )
@@ -582,6 +584,8 @@ def detect(
             _check_tools(action, report)
         elif action.kind == "provision_tg_ctl":
             _check_tg_ctl(action, report)
+        elif action.kind == "provision_tgctl_reaper":
+            _check_tgctl_reaper(action, report)
         elif action.kind == "provision_spotlight":
             _check_spotlight(action, report)
         elif action.kind == "provision_bunfig":
@@ -3457,6 +3461,62 @@ def _check_tg_ctl(action: Action, report: DriftReport) -> None:
         report.items.append(
             DriftItem("missing", "tg_ctl", action.item, plan.plist_path,
                       f"tg-ctl LaunchAgent '{plan.boot_label}' installed but not loaded")
+        )
+
+
+def _check_tgctl_reaper(action: Action, report: DriftReport) -> None:
+    """Flag drift on the rig-managed tgctl-reaper periodic orphan-sweep LaunchAgent (macOS).
+
+    Full drift/status parity with ``tg_ctl`` (Alex explicitly wants durable "control" here, not
+    the weaker ``tcc_watch`` shortcut — see :mod:`riglib.tgctl_reaper`'s module docstring):
+
+    missing  — the plist is absent, OR present + byte-identical but the agent is NOT loaded in
+               the gui domain (launchd never picked it up → the StartInterval timer never fires).
+    modified — the plist OR the sweeper script on disk differs from the desired byte-exact
+               render (a hand edit, an upgrade that changed args/interval, or a machine that ran
+               the OLD manually-installed `agent-tools/ops/tgctl-omp-acp-reaper/install.sh` under
+               the SAME label with a different script path/shape). `rig apply` reconciles + (re)loads.
+    Off darwin (no launchd) tgctl-reaper provisioning is a no-op, so there is nothing to check.
+    Shares the desired-plist/script computation with the install handler, so apply and status
+    can never disagree.
+    """
+    if not _on_darwin():
+        return
+    plan = tgctl_reaper_plan_from_action(action)
+
+    desired_script = plan.render_sweeper_script()
+    if not plan.sweeper_script_path.is_file():
+        report.items.append(
+            DriftItem("missing", "tgctl_reaper", action.item, plan.sweeper_script_path,
+                      "tgctl-reaper sweeper script not installed")
+        )
+        return
+    if plan.sweeper_script_path.read_text(encoding="utf-8") != desired_script:
+        report.items.append(
+            DriftItem("modified", "tgctl_reaper", action.item, plan.sweeper_script_path,
+                      "tgctl-reaper sweeper script differs from the configured source")
+        )
+        return
+
+    desired_plist = plan.render_plist()
+    if not plan.plist_path.is_file():
+        report.items.append(
+            DriftItem("missing", "tgctl_reaper", action.item, plan.plist_path,
+                      "tgctl-reaper LaunchAgent not installed")
+        )
+        return
+    if plan.plist_path.read_text(encoding="utf-8") != desired_plist:
+        report.items.append(
+            DriftItem("modified", "tgctl_reaper", action.item, plan.plist_path,
+                      "tgctl-reaper LaunchAgent differs from the configured plist")
+        )
+        return
+    # Apply skips the bootstrap under dry-run / a sandboxed HOME (rig-cli#116), so status
+    # suppresses the matching live probe to stay consistent (as tg_ctl/spotlight/tmux already do).
+    if not _tgctl_reaper_dry_run() and not _launchctl_gui_loaded(plan.label):
+        report.items.append(
+            DriftItem("missing", "tgctl_reaper", action.item, plan.plist_path,
+                      f"tgctl-reaper LaunchAgent '{plan.label}' installed but not loaded")
         )
 
 

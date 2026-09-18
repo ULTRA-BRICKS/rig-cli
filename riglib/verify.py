@@ -311,6 +311,26 @@ def _verify_tg_ctl(action: Action) -> list[VerifyResult]:
     )
 
 
+# ── tgctl_reaper ─────────────────────────────────────────────────────────────────────
+@register_verifier("provision_tgctl_reaper")
+def _verify_tgctl_reaper(action: Action) -> list[VerifyResult]:
+    """The tgctl-reaper sweep LaunchAgent plist is present + loaded in the per-user GUI domain.
+
+    Mirrors :func:`_verify_tg_ctl` — a ``StartInterval`` agent still needs to be LOADED for the
+    timer to fire at all, so the loaded-check is exactly as load-bearing here as for a resident
+    daemon.
+    """
+    from .actions.runner import _launchctl_gui_loaded
+    from .tgctl_reaper import DEFAULT_LABEL
+
+    label = str(action.options.get("label") or DEFAULT_LABEL)
+    plist_path = Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"
+    return _verify_launchd_agent(
+        "tgctl_reaper", "sweep", label, plist_path, "RIG_TGCTL_REAPER_DRY_RUN",
+        loaded_check=_launchctl_gui_loaded,
+    )
+
+
 def _read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")

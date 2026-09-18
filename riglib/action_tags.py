@@ -292,6 +292,12 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Installs + (re)loads the tcc-watch TCC-dialog-watcher daemon's launchd LaunchAgent "
         "(Phase 1 detection-only) — a live machine-wide service, not scoped to one repo.",
     ),
+    "provision_tgctl_reaper": _tag(
+        "provision_tgctl_reaper", "starts_reloads_service", AUDIENCE_HUMAN,
+        "Installs + (re)loads the tgctl-reaper periodic orphan-sweep's launchd LaunchAgent "
+        "(a StartInterval sweep, not a persistent daemon) — a live machine-wide service, not "
+        "scoped to one repo.",
+    ),
 }
 
 # A defensive fallback for a kind this registry doesn't (yet) know — should never be hit once

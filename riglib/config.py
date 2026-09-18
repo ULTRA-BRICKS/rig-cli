@@ -70,6 +70,7 @@ _VALID_TOP_KEYS = {
     "tools",
     "tg_ctl",
     "tcc_watch",
+    "tgctl_reaper",
     "internal_dev",
     "ship_delegator",
     "linters",
@@ -666,6 +667,7 @@ def validate(data: dict[str, Any]) -> None:
     _validate_tools(data.get("tools", {}))
     _validate_tg_ctl(data.get("tg_ctl", {}))
     _validate_tcc_watch(data.get("tcc_watch", {}))
+    _validate_tgctl_reaper(data.get("tgctl_reaper", {}))
     _validate_internal_dev(data.get("internal_dev", {}))
     _validate_ship_delegator(data.get("ship_delegator", {}))
     _validate_linters(data.get("linters", {}))
@@ -3041,6 +3043,56 @@ def _validate_tcc_watch(t: dict[str, Any]) -> None:
             raise ConfigError(
                 f"tcc_watch.{strkey} must be a string, got {value!r}",
                 schema_path=f"tcc_watch.{strkey}",
+            )
+
+
+# The keys the tgctl_reaper block accepts. Listed once so the validator rejects a typo
+# (fail-closed, consistent with every other block).
+_TGCTL_REAPER_KEYS = {
+    "enabled",
+    "interval_seconds",
+    "label",
+    "config_dir",
+    "python_bin",
+}
+
+
+def _validate_tgctl_reaper(t: dict[str, Any]) -> None:
+    """Validate the ``tgctl_reaper`` block — rig-managed periodic sweep for orphaned tg-ctl/omp
+    test-fixture helpers (agent-tools#697; see :mod:`riglib.tgctl_reaper`'s module docstring for
+    the full rationale and :mod:`riglib.tgctl_reaper_daemon` for what the sweep actually does).
+
+    This is a per-MACHINE concern (one reaper per machine), so it belongs in the GLOBAL layer
+    (``~/.config/rig/config.yaml``), like ``tg_ctl``/``tcc_watch``/``tmux`` — NOT a committed
+    repo ``rig.yaml``. Default **ON** (like ``tg_ctl``/``tcc_watch``): an EMPTY/absent block
+    still provisions the sweep (a present block with ``enabled`` not false opts in). Fail-closed,
+    consistent with every other block, on: a non-mapping block, an unknown key (typo guard), a
+    non-bool ``enabled``, a non-int ``interval_seconds`` below 1, and a non-string
+    ``label``/``config_dir``/``python_bin``.
+    """
+    if not isinstance(t, dict):
+        raise ConfigError("tgctl_reaper must be a mapping", schema_path="tgctl_reaper")
+    if not t:
+        return
+    _reject_unknown_keys(t, "tgctl_reaper")
+    value = t.get("enabled")
+    if value is not None and not isinstance(value, bool):
+        raise ConfigError(
+            f"tgctl_reaper.enabled must be a bool, got {value!r}",
+            schema_path="tgctl_reaper.enabled",
+        )
+    interval = t.get("interval_seconds")
+    if interval is not None and (isinstance(interval, bool) or not isinstance(interval, int) or interval < 1):
+        raise ConfigError(
+            f"tgctl_reaper.interval_seconds must be an int >= 1, got {interval!r}",
+            schema_path="tgctl_reaper.interval_seconds",
+        )
+    for strkey in ("label", "config_dir", "python_bin"):
+        value = t.get(strkey)
+        if value is not None and not isinstance(value, str):
+            raise ConfigError(
+                f"tgctl_reaper.{strkey} must be a string, got {value!r}",
+                schema_path=f"tgctl_reaper.{strkey}",
             )
 
 

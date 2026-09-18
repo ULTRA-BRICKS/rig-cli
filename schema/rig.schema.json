@@ -1666,6 +1666,38 @@
       },
       "additionalProperties": false
     },
+    "tgctl_reaper": {
+      "type": "object",
+      "description": "the tgctl-reaper periodic sweep for orphaned tg-ctl/omp test-fixture helpers (agent-tools#697), a per-machine `StartInterval` LaunchAgent (macOS) that SIGKILLs provably-orphaned `omp acp` test fixtures every `interval_seconds`.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "provision the tgctl-reaper LaunchAgent",
+          "default": true
+        },
+        "interval_seconds": {
+          "type": "integer",
+          "description": "seconds between sweeps",
+          "default": 900,
+          "minimum": 1
+        },
+        "label": {
+          "type": "string",
+          "description": "launchd Label / plist filename stem",
+          "default": "com.hyperide.tgctl-omp-acp-reaper"
+        },
+        "config_dir": {
+          "type": "string",
+          "description": "sweeper script + launchd logs dir",
+          "default": "~/.config/rig/tgctl-reaper"
+        },
+        "python_bin": {
+          "type": "string",
+          "description": "the python3 binary the sweep runs under"
+        }
+      },
+      "additionalProperties": false
+    },
     "internal_dev": {
       "type": "object",
       "description": "internal development of the rig-ecosystem tools themselves (rig, tg-cli, review-cli, …): a per-repo COMMITTED opt-in that installs a post-commit git hook so a commit touching the daemon's source gracefully reloads the running daemon (tg-ctl restart) — zero manual restart.",

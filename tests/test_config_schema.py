@@ -248,6 +248,7 @@ def test_dev_schema_models_server_and_e2e_metadata():
         ("dev.e2e", getattr(config, "_DEV_E2E_KEYS", set())),
         ("dev.e2e.jobs", getattr(config, "_DEV_E2E_JOB_KEYS", set())),
         ("tg_ctl", config._TG_CTL_KEYS),
+        ("tgctl_reaper", config._TGCTL_REAPER_KEYS),
         ("github.ruleset", config._GITHUB_RULESET_KEYS),
         ("tmux", config._TMUX_TOP_KEYS),
         ("models", {"enabled", "schedule", "checker_path"}),

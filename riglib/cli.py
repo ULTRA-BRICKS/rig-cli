@@ -936,6 +936,7 @@ _CATEGORY_LABELS = {
     "tools": "tools",
     "tg_ctl": "tg-ctl",
     "tcc_watch": "tcc-watch",
+    "tgctl_reaper": "tgctl-reaper",
 }
 
 
@@ -1933,6 +1934,7 @@ _LIVE_ACTIVATION_KINDS = frozenset({
     "provision_tmux",
     "provision_tg_ctl",
     "provision_tcc_watch",
+    "provision_tgctl_reaper",
     "provision_schedule",
     "provision_spotlight",
     "provision_project_tool",
@@ -2211,6 +2213,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     # boot label / unsupported-off-darwin state). Printed under the summary as its detail.
     _print_schedule_status(effective_plan, report)
     _print_tg_ctl_status(effective_plan, report)
+    _print_tgctl_reaper_status(effective_plan, report)
     _print_tmux_autosave_status(effective_plan)
     _print_tmux_pty_pressure_status(effective_plan)
     _print_harness_mode_status(effective_plan, report)
@@ -2361,6 +2364,17 @@ def _area_state_core(area, plan, report, extra_configured_actions=()) -> str:
     # no drift: if some path ever DID surface drift off Darwin (a stale launchd plist from a prior
     # macOS run), "unsupported" must not mask it — fall through to the drift branch below.
     if area.key == "tg_ctl" and configured and missing == 0 and extra == 0:
+        from .drift import _on_darwin
+
+        if not _on_darwin():
+            return _dim("unsupported (macOS-only; no-op off darwin)")
+
+    # tgctl_reaper off Darwin: same rationale as tg_ctl above — the sweep is macOS-only.
+    if area.key == "tgctl_reaper" and configured and missing == 0 and extra == 0:
+        from .drift import _on_darwin
+
+        if not _on_darwin():
+            return _dim("unsupported (macOS-only; no-op off darwin)")
         from .drift import _on_darwin
 
         if not _on_darwin():
@@ -2573,6 +2587,35 @@ def _print_tg_ctl_status(plan, report) -> None:
         drifted = [d for d in report.items if d.category == "tg_ctl" and d.direction != "extra"]
         state = _warn(f"drifted ({drifted[0].detail})") if drifted else _ok("installed")
     print(f"\n  [GLOBAL] tg-ctl inbound daemon: {state}  " + _dim(f"(launchd boot agent, '{tg.boot_label}')"))
+
+
+def _print_tgctl_reaper_status(plan, report) -> None:
+    """Report the tgctl-reaper periodic orphan-sweep (GLOBAL): installed / drifted / unsupported.
+    Mirrors :func:`_print_tg_ctl_status`'s shape (full drift/status parity, unlike tcc_watch's
+    documented "known gap: no rig status drift line yet") minus a `boot`-like secondary knob:
+    ``tgctl_reaper.enabled: false`` (unlike tg_ctl's ``boot``) means NO action is ever emitted for
+    the plan at all (mirrors ``tcc_watch``), so there is no distinct "installed but disabled"
+    state to render here — the general area-summary "not configured" line already covers that.
+
+    A per-machine LaunchAgent, so it lives in the GLOBAL section of status (not per-repo).
+    Resolves the desired state through the SAME plan builder apply/drift use (so the label/
+    interval never drift). Off macOS the provisioner is a no-op, so status says 'unsupported' —
+    never a misleading 'installed'. Stays silent only when no ``provision_tgctl_reaper`` action
+    is in the plan (default-on, so that is unusual — keeps the helper defensive)."""
+    from .actions.runner import tgctl_reaper_plan_from_action
+    from .drift import _on_darwin
+
+    reaper_actions = [a for a in plan.actions if a.kind == "provision_tgctl_reaper"]
+    if not reaper_actions:
+        return
+    reaper = tgctl_reaper_plan_from_action(reaper_actions[0])  # shared resolution → label/interval
+    if not _on_darwin():
+        state = _dim("unsupported (macOS-only; no-op off darwin)")
+    else:
+        drifted = [d for d in report.items if d.category == "tgctl_reaper" and d.direction != "extra"]
+        state = _warn(f"drifted ({drifted[0].detail})") if drifted else _ok("installed")
+    print(f"\n  [GLOBAL] tgctl-reaper orphan sweep: {state}  "
+          + _dim(f"(launchd StartInterval={reaper.interval_seconds}s, '{reaper.label}')"))
 
 
 def _print_stale_worktree_status(repo_root: Path) -> None:
