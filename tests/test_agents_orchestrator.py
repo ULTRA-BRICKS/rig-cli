@@ -90,9 +90,18 @@ def _managed_block(text: str, begin: str, end: str) -> str:
 
 def _assert_gh_delegation(text: str) -> None:
     assert "gh" in text
-    for token in ("list", "view", "pr", "api", "run"):
-        assert token in text, token
-    assert "gh ship" in text
+    # Collapse whitespace before matching: the block hand-wraps a long sentence across several
+    # comment lines, so a checked phrase can straddle a newline in the checked-in text (the same
+    # hazard test_workflow_guard_knobs.py's sibling doc-lock test guards against).
+    collapsed = " ".join(ln.lstrip("#").strip() for ln in text.splitlines() if ln.strip())
+    # tokens distinguishing the NEW (2026-09-18) contract from the old "ALL gh is delegated, no
+    # allowlist" wording this block used to carry — a revert to the old text fails here. The full
+    # contiguous phrase (not a bare "gh ship" substring) so this can't accidentally latch onto the
+    # unrelated "After a successful `gh ship`..." sentence later in the same block.
+    assert "an unchained `gh ship <N>`" in collapsed
+    for shape in ("`gh issue` list/view", "`gh pr` list/view/checks/diff", "`gh run`",
+                  "`gh repo view`", "GET-only `gh api`", "-f/-F/--input"):
+        assert shape in collapsed, shape
     assert "tg --tag report" in text
     assert "quote the user's original words" in text
     assert "review just-ask" in text

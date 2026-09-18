@@ -190,12 +190,13 @@ def test_hand_copied_docs_document_the_tg_hatch_tokens_not_the_dead_env_bypass()
 
 
 def test_orchestrator_only_gh_delegation_documented_consistently():
-    """The (Alex tg#7103) contract — orchestrator-stays-thin delegates ALL `gh` (incl. `gh ship`,
-    `gh pr`) to a subagent, and warns on a first offense before blocking a repeat — must be stated
-    the same way across all four hand-copied prose surfaces (a Fable review finding: AGENTS.md
-    once said 'warned-then-blocked' while the other three just said 'blocks', understating the
-    real behavior; someone reverting one surface to the old wording would pass every other check
-    in this file)."""
+    """The (Alex tg#7103, 2026-09-18 read-only-gh relaxation) contract — orchestrator-stays-thin
+    delegates MOST `gh` to a subagent, with exactly two narrow inline-allowed exceptions (a
+    genuinely UNCHAINED `gh ship <PR#>`, and a FIXED read-only allowlist) — must be stated the
+    same way across all four hand-copied prose surfaces (a Fable review finding: AGENTS.md once
+    said 'warned-then-blocked' while the other three just said 'blocks', understating the real
+    behavior; someone reverting one surface to the pre-2026-09-18 'ALL gh is delegated, no
+    allowlist' wording would pass every other check in this file)."""
     repo_root = Path(__file__).resolve().parent.parent
     agents_md = (repo_root / "AGENTS.md").read_text()
     config_schema_md = (repo_root / "docs" / "config-schema.md").read_text()
@@ -207,17 +208,27 @@ def test_orchestrator_only_gh_delegation_documented_consistently():
         "riglib/config_schema.py (schema description)": props["orchestrator_only"]["description"],
     }
     for doc_name, raw_text in surfaces.items():
-        # Markdown line-wraps a long sentence, so "delegated to a subagent" can land split across
-        # a newline in the checked-in prose (AGENTS.md's 90-col wrapping does exactly this) —
-        # collapse whitespace before the substring check so wrapping doesn't produce a false fail.
+        # Markdown line-wraps a long sentence, so a substring can land split across a newline in
+        # the checked-in prose (AGENTS.md's 90-col wrapping does exactly this) — collapse
+        # whitespace before the substring check so wrapping doesn't produce a false fail.
         text = " ".join(raw_text.split())
+        lower = text.lower()
         # "gh ship"/"gh pr" alone would also match the OLD (pre-tg#7103) wording, where they meant
         # the OPPOSITE thing (allowed as inline orchestration) — assert the phrase that only holds
         # under the NEW contract, so a revert to the old wording actually fails this test.
-        assert "delegated to a subagent" in text and "gh ship" in text and "gh pr" in text, (
-            f"{doc_name} must say gh ship/gh pr are delegated to a subagent, not just mention them"
+        assert "delegated to a subagent" in text and "gh pr" in text, (
+            f"{doc_name} must say gh is delegated to a subagent, not just mention it"
         )
-        assert "warn" in text.lower(), f"{doc_name} must describe the warn-first-then-block behavior"
+        assert "warn" in lower, f"{doc_name} must describe the warn-first-then-block behavior"
+        # 2026-09-18-specific: neither phrase existed under the old "ALL gh, no exceptions but
+        # gh ship" wording, so a partial revert on any ONE surface fails here even though the
+        # weaker checks above still pass.
+        assert "unchained" in lower and "gh ship" in text, (
+            f"{doc_name} must document the unchained `gh ship <PR#>` exception"
+        )
+        assert "read-only allowlist" in lower, (
+            f"{doc_name} must document the fixed read-only gh allowlist (2026-09-18 relaxation)"
+        )
 
 
 def test_wizard_can_toggle_both_knobs():

@@ -275,12 +275,22 @@ value, so changing enforcement needs no re-apply):
   repeat within its TTL (both descriptors, `pre-bash` and `pre-write`, are provisioned — the
   catalog installs every descriptor a hook directory ships, not just the first alphabetically).
   Read-only inspection (`git status`/`ls`/`cat`/`grep`/`find`, `git worktree list`) is never
-  gated; `tg`/`review` are sanctioned orchestration, also never gated. **ALL `gh` is delegated to
-  a subagent, not inline orchestrator work** — `gh ship`, `gh pr list/view/checks`, `gh run`,
-  `gh api` included; the main thread issuing any of these is warned-then-blocked the same as any
-  other implementation-shaped Bash. Set `false` to exempt a repo. No self-service env bypass; a
-  one-off is requested via `RIG_HATCH_REQUEST_ORCHESTRATOR_STAYS_THIN="<justification>"` (tg
-  approval, deny-by-default; bare `1` rejected). (Alex tg#5743, tg#7103.)
+  gated; `tg`/`review`/`task` are sanctioned orchestration, also never gated. **Most `gh` is still
+  delegated to a subagent, not inline orchestrator work** — `gh pr merge/create/close/edit`, `gh
+  pr checkout`, `gh issue create/close/edit`, `gh release`, `gh workflow`, `gh secret`, and any
+  `gh api` mutation all warn-then-block the main thread the same as any other implementation-
+  shaped Bash. TWO narrow, explicit exceptions run inline, never gated: (1) a genuinely UNCHAINED
+  `gh ship <PR#>` — the whole, sole command on the line (agent-tools#159/#363); (2) a FIXED
+  read-only allowlist (Alex, 2026-09-18, session-authorized relaxation of the blanket gh gate) —
+  `gh issue list/view`, `gh pr list/view/checks/diff`, `gh run list/view/watch`, `gh repo view`,
+  and a `gh api` call carrying no `-X`/`--method` flag other than GET (absence also counts as
+  GET) and no `-f`/`--field`, `-F`/`--raw-field`, or `--input` data-payload flag — granted
+  per-segment like `tg`/`task`, so it chains freely with itself/other sanctioned commands, unlike
+  `gh ship`'s per-LINE-only grant. A gh invocation matching neither exception still
+  warn-then-blocks. Set `orchestrator_only: false` to exempt a repo entirely. No self-service env
+  bypass; a one-off is requested via `RIG_HATCH_REQUEST_ORCHESTRATOR_STAYS_THIN="<justification>"`
+  (tg approval, deny-by-default; bare `1` rejected). (Alex tg#5743, tg#7103; allowlist enforced by
+  agent-tools#764, 2026-09-18.)
 
 All three are complementary to the pre-push `protect-main` git-hook: that blocks a *push* to
 main, these block the *authoring* / inline work that precedes it. Scope note: these are Claude
@@ -374,15 +384,15 @@ commit locally. To close the LOCAL half:
 - Keep `cli.py` thin (argparse + dispatch); behavior lives in the sibling modules.
 
 # >>> rig-managed orchestrator (do not edit) >>>
-# Orchestrator, not worker. Do not implement inline. Do not run `gh` (list/view/pr/api/run
-# included) except a single `gh ship <N>`. Do not `git worktree add` — `rig worktree create`.
-# Read-only (`git status`, `ls`, `cat`, `grep`, `git worktree list`) is fine. Dispatch a
-# subagent for the rest. Skill: delegate-work-to-subagents. Hook: orchestrator-stays-thin.
+# Orchestrator, not worker. Do not implement inline. Do not run `gh` except an unchained
+# `gh ship <N>`, or read-only `gh issue` list/view, `gh pr` list/view/checks/diff, `gh run`
+# list/view/watch, `gh repo view`, GET-only `gh api` (no -f/-F/--input). Do not `git
+# worktree add` — `rig worktree create`.
+# Read-only (`git status`, `ls`, `cat`, `grep`, `git worktree list`) is fine. Dispatch a subagent for the rest. Skill: delegate-work-to-subagents. Hook: orchestrator-stays-thin.
 # Key reports MUST go to Telegram (`tg --tag report`): quote the user's original words, include ticket/PR URLs, name the measure already started, draft via `review just-ask`. Never "not in prod" with no next action.
 # After a successful `gh ship` of a load-bearing feature, merge is not done: (1) turn it on
 # in settings if it has a config knob, (2) `rig apply commit` on this machine, (3) prove it
-# WORKS on this machine (command output, Telegram, deny text — SHA/on-disk is not a proof),
-# (4) re-check the original user quote is solved.
+# WORKS on this machine (command output, Telegram, deny text — SHA/on-disk is not a proof), (4) re-check the original user quote is solved.
 # A helper yield is not done — do not tick the todo until the original ask is live-proven; wake parked helpers via hub send.
 # <<< rig-managed orchestrator (do not edit) <<<
 

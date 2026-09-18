@@ -262,12 +262,16 @@ AREAS: tuple[Area, ...] = (
                  "the first inline implementation (Bash / code Edits) by the main thread, "
                  "delegating to a subagent, then blocks a repeat within its TTL. Read-only "
                  "inspection (git status/ls/cat/grep/find, git worktree list) is never gated; "
-                 "tg/review are sanctioned orchestration, also never gated. ALL gh is delegated to "
-                 "a subagent too — gh ship, gh pr list/view/checks, gh run, gh api included. On by "
+                 "tg/review/task are sanctioned orchestration, also never gated. Most gh is still "
+                 "delegated to a subagent — gh pr merge/create/close/edit, gh issue create/close/edit, "
+                 "gh release, and any gh api mutation included. Two exceptions run inline: an unchained "
+                 "gh ship <PR#> alone on the line, and a fixed read-only allowlist (gh issue list/view, "
+                 "gh pr list/view/checks/diff, gh run list/view/watch, gh repo view, GET-only gh api "
+                 "with no -f/--field, -F/--raw-field, or --input). On by "
                  "default — set false to exempt a repo that works inline (e.g. 3d-cli). No "
                  "self-service env bypass; a one-off is requested via "
                  "RIG_HATCH_REQUEST_ORCHESTRATOR_STAYS_THIN=\"<justification>\" (tg approval, "
-                 "deny-by-default; bare 1 rejected)."),
+                 "deny-by-default; bare 1 rejected). Allowlist enforced by agent-tools#764, 2026-09-18."),
             _opt("agent_hooks.known", KIND_LIST, [],
                  "Hook ids (or full `<id>.<point>` descriptor stems) another installer wrote into the "
                  "hooks dir — `rig status` reports them as known, not as drift. Comma-separated; the "
