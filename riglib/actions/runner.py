@@ -669,7 +669,8 @@ def _do_install_ci(action: Action, on_conflict: str) -> ActionResult:
         if not ship.is_file():
             return ActionResult(action, "error", "ship.sh not found in catalog item")
         target = action.target / "ship"
-        out = fsutil.copy_file(ship, target, on_conflict)
+        from ..ship_launcher import ship_launcher_text
+        out = fsutil.write_file(target, ship_launcher_text(action.source), on_conflict)
         _chmod_x_if_changed(target, out)
         detail = f"ship {out.detail}"
         # NOTE: `gh_alias: true` on the ci ship item does NOT set the alias HERE. The `gh ship`
