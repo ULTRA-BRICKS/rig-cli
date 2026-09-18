@@ -1372,7 +1372,8 @@ def _check_ci(action: Action, report: DriftReport) -> None:
             )
             return
         src_ship = action.source / "ship.sh"
-        if src_ship.is_file() and ship.read_text(encoding="utf-8") != src_ship.read_text(encoding="utf-8"):
+        from .ship_launcher import ship_launcher_text
+        if src_ship.is_file() and ship.read_text(encoding="utf-8") != ship_launcher_text(action.source):
             report.items.append(
                 DriftItem("modified", "ci", "ship", ship, "installed ship differs from source")
             )
