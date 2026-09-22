@@ -228,6 +228,39 @@ def test_apply_writes_every_config_dir_and_reapply_is_noop(home, repo, fake_agen
     assert changed == [], [(r.action.item, r.status, r.detail) for r in changed]
 
 
+def test_bridge_outer_timeout_fans_out_to_every_config_dir(home, repo, fake_agent_tools):
+    # UB-25: the finite outer hook timeout must reach every claude-rotate account dir, not just
+    # ~/.claude — a session under CLAUDE_CONFIG_DIR=account-N would otherwise keep the 600s
+    # default and fail open on a long guard.
+    from riglib.actions.runner import HOOK_BRIDGE_TIMEOUT_S
+
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_config(home, repo, fake_agent_tools), cat, project_type="unknown")
+    assert not run_plan(plan).errors
+
+    targets = [home / ".claude" / "settings.json"] + [
+        home / ".claude-accounts" / name / "settings.json" for name in ("account-0", "account-1", "account-2")
+    ]
+    for path in targets:
+        hooks = json.loads(path.read_text())["hooks"]
+        managed = [
+            hk for blocks in hooks.values() for b in blocks for hk in b["hooks"] if "cc_hook_bridge" in hk["command"]
+        ]
+        assert managed, path
+        assert {hk.get("timeout") for hk in managed} == {HOOK_BRIDGE_TIMEOUT_S}, path
+
+    acct1 = home / ".claude-accounts" / "account-1" / "settings.json"
+    data = json.loads(acct1.read_text())
+    for blocks in data["hooks"].values():
+        for b in blocks:
+            for hk in b["hooks"]:
+                hk.pop("timeout", None)
+    acct1.write_text(json.dumps(data))
+    drifted = [i for i in detect(plan).items if i.direction == "modified" and "timeout" in i.detail]
+    assert drifted and {i.target for i in drifted} == {acct1}
+    assert {i.item for i in drifted} == {"hook-bridge@account-1"}
+
+
 # ── drift names the file ─────────────────────────────────────────────────────────────────────
 def test_drift_names_the_config_dir_missing_the_managed_keys(home, repo, fake_agent_tools):
     cat = Catalog.scan(str(fake_agent_tools))

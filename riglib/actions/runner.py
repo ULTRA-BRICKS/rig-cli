@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import json
+import math
 import os
 import shlex
 import shutil
@@ -3313,6 +3314,18 @@ def _do_provision_instruction_policy(action: Action, on_conflict: str) -> Action
 # A managed bridge candidate is identified by this module substring; the in-sync shape
 # still requires type="command" plus the exact command we would write.
 _BRIDGE_MARKER = "cc_hook_bridge"
+# Minimum OUTER `timeout` (seconds) on every rig-managed claude-code bridge hook (UB-25).
+# Claude Code kills a command hook at its `timeout` (600s when absent), and a timed-out
+# PreToolUse hook does NOT block: its output is discarded and the tool call proceeds. So the
+# outer timeout must outlast the bridge, or the harness cancels a guard before its deny lands.
+# Budget: cc_hook_bridge runs every descriptor for the point sequentially, each killed at its
+# own timeout_ms; the largest shipped is 960s (hatch-capable guards: the hatch helper's 900s
+# tg-ctl wait + 30s process margin, and `critical` hatches are bounded by it too). 1200 =
+# one full 960s descriptor + 240s for the remaining hooks, which return in milliseconds on
+# the normal path. Known limit: two hatch waits requested in ONE tool call (~1860s) exceed it.
+# A HIGHER operator-set value (int or float) is kept; only a missing, non-numeric, non-finite
+# (NaN/inf), or lower one is raised to this floor.
+HOOK_BRIDGE_TIMEOUT_S = 1200
 _CODEX_BRIDGE_BEGIN = "# >>> rig managed: codex hook bridge"
 _CODEX_BRIDGE_END = "# <<< rig managed: codex hook bridge"
 _CODEX_HOOK_EVENTS = ("PreToolUse", "PostToolUse", "Stop")
@@ -3787,13 +3800,48 @@ def find_managed_bridge_hook(blocks, matcher: str, marker: str = _BRIDGE_MARKER)
     return None
 
 
+def _bridge_timeout_problem(hook: dict) -> str | None:
+    """Why a managed hook's outer ``timeout`` is below the floor, or ``None`` when it is fine."""
+    value = hook.get("timeout")
+    if value is None:
+        return f"outer timeout is missing (need >= {HOOK_BRIDGE_TIMEOUT_S}s)"
+    # bool is an int subclass (`true` would read as 1s); NaN compares False against the floor
+    # and would pass as "fine"; inf is an unbounded wait. JSON floats like 3600.0 are valid.
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return f"outer timeout is not a finite number of seconds (need >= {HOOK_BRIDGE_TIMEOUT_S}s)"
+    if value < HOOK_BRIDGE_TIMEOUT_S:
+        return f"outer timeout {value}s is below the {HOOK_BRIDGE_TIMEOUT_S}s floor"
+    return None
+
+
+def managed_bridge_hook_drift_reason(hook: dict, command: str) -> str | None:
+    """Why a managed bridge hook differs from what apply writes, or ``None`` when in sync.
+
+    Shared by apply (:func:`_upsert_bridge`) and drift so both judge the same shape: the hook
+    type, the exact command, and an outer timeout at or above :data:`HOOK_BRIDGE_TIMEOUT_S`.
+    """
+    if hook.get("type") != "command" or str(hook.get("command", "")) != command:
+        return "type/command is stale (apply will rewrite)"
+    return _bridge_timeout_problem(hook)
+
+
 def managed_bridge_hook_in_sync(hook: dict, command: str) -> bool:
     """True when a managed bridge hook exactly matches the shape apply writes."""
-    return hook.get("type") == "command" and str(hook.get("command", "")) == command
+    return managed_bridge_hook_drift_reason(hook, command) is None
+
+
+def _claude_bridge_block(matcher: str, command: str) -> dict:
+    """A claude-code settings.json bridge block: :func:`_bridge_block` plus the outer timeout.
+
+    Kept separate from ``_bridge_block``, which the Codex TOML renderer shares — Codex hooks
+    have no such field (and ``_toml_inline`` does not render ints)."""
+    block = _bridge_block(matcher, command)
+    block["hooks"][0]["timeout"] = HOOK_BRIDGE_TIMEOUT_S
+    return block
 
 
 def _bridge_block(matcher: str, command: str) -> dict:
-    """One settings.json hook block for an (matcher, command) pair."""
+    """One hook block for an (matcher, command) pair (shared by the JSON and Codex TOML paths)."""
     block: dict = {"hooks": [{"type": "command", "command": command}]}
     if matcher:
         # an empty matcher (Stop) is omitted entirely → CC treats it as "match all".
@@ -4166,9 +4214,11 @@ def _do_register_omp_hook_bridge(action: Action, on_conflict: str) -> ActionResu
 def _upsert_bridge(blocks: list, matcher: str, command: str, on_conflict: str, marker: str = _BRIDGE_MARKER) -> str:
     """Insert/refresh OUR managed block for (matcher, command). Returns the outcome.
 
-    - already present with the same type+command → ``"noop"`` (idempotent).
-    - present with a different type or command → rewrite in place → ``"changed"``,
-      UNLESS ``on_conflict=skip`` → leave it, return ``"skipped-stale"``.
+    - already present with the same type+command and an outer timeout at/above the floor →
+      ``"noop"`` (idempotent).
+    - present with a different type/command or a missing/short timeout → rewrite in place →
+      ``"changed"``, UNLESS ``on_conflict=skip`` → leave it, return ``"skipped-stale"``. The
+      timeout is only ever RAISED to the floor: a higher operator value survives a rewrite.
     - absent → append a fresh managed block → ``"changed"``.
     """
     hk = find_managed_bridge_hook(blocks, matcher, marker)
@@ -4179,8 +4229,10 @@ def _upsert_bridge(blocks: list, matcher: str, command: str, on_conflict: str, m
             return "skipped-stale"
         hk["type"] = "command"
         hk["command"] = command
+        if _bridge_timeout_problem(hk) is not None:
+            hk["timeout"] = HOOK_BRIDGE_TIMEOUT_S
         return "changed"
-    blocks.append(_bridge_block(matcher, command))
+    blocks.append(_claude_bridge_block(matcher, command))
     return "changed"
 
 

@@ -62,7 +62,7 @@ from .actions.runner import (
     hook_bridge_entries,
     hook_bridge_module,
     hook_bridge_settings_file,
-    managed_bridge_hook_in_sync,
+    managed_bridge_hook_drift_reason,
     merge_codex_hook_bridge_toml,
     omp_hook_bridge_extension_target,
     opencode_hook_bridge_plugin_target,
@@ -2730,10 +2730,12 @@ def _check_hook_bridge(action: Action, report: DriftReport) -> None:
                     DriftItem("missing", "harness", action.item, config_file,
                               f"{hook_bridge_module(action)} not wired for {label}")
                 )
-            elif not managed_bridge_hook_in_sync(hk, command):
+                continue
+            reason = managed_bridge_hook_drift_reason(hk, command)
+            if reason is not None:
                 report.items.append(
                     DriftItem("modified", "harness", action.item, config_file,
-                              f"{hook_bridge_module(action)} hook for {label} is stale (apply will rewrite)")
+                              f"{hook_bridge_module(action)} hook for {label}: {reason}")
                 )
 
 

@@ -724,6 +724,20 @@ enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
   process, a condition, several things at once) — block in the **foreground** with a
   **heartbeat** loop that echoes at least every ~20s and keeps each Bash call under
   ~540s. Never Monitor from a subagent.
+  **Outer timeout (UB-25).** Every managed `cc_hook_bridge` entry also carries
+  `"timeout": 1200` (seconds). Claude Code kills a command hook at its `timeout` (600s when the
+  field is absent), and a PreToolUse hook that times out does NOT block: its output is
+  discarded and the tool call proceeds. The bridge runs every descriptor for a point in
+  sequence, each capped at its own `timeout_ms`; the largest shipped is 960s (hatch-capable
+  guards: the hatch helper's 900s approval wait plus a 30s margin). So without an explicit,
+  larger outer timeout, the harness could cancel a guard mid-approval and fail open. 1200s
+  covers one full 960s descriptor plus 240s for the remaining hooks, which return in
+  milliseconds on the normal path. Known limit: two hatch waits requested in the same tool call
+  (about 1860s) would exceed it. `rig apply` only ever raises the value: a missing, non-numeric,
+  non-finite (NaN/inf), or lower `timeout` on a managed entry is set to 1200, while a higher
+  operator-set value (int or float) is kept, and your own non-bridge hooks are never touched. `rig status` reports a missing or short
+  value as drift, per file, including every fanned-out `~/.claude-accounts/account-*`
+  `settings.json`.
 - `kind: codex` writes `codex_hook_bridge` into `~/.codex/config.toml` (or
   `$RIG_CODEX_HOME/config.toml`, or `settings_path`) as a managed `[hooks]` TOML block:
   `PreToolUse` matchers `Bash` and `apply_patch`, `PostToolUse` matcher `apply_patch`, and
