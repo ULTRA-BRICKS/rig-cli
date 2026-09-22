@@ -613,6 +613,24 @@ AREAS: tuple[Area, ...] = (
                  "punctuation — it is spliced directly in front of \"-<n>\"), or ship.sh ignores "
                  "the whole .ship-config file. Unset (default) = bare issue numbers are never "
                  "picked up as task codes (HYP-123/XX-123 codes are unaffected either way)."),
+            _opt("task.backend", KIND_ENUM, None,
+                 "task-cli's per-repo ticket-tracker backend: `github-issues` (bare #NNN), "
+                 "`linear`, or `tasks` (UB-23: the native Tasks-app, HTTPS REST). Unlike "
+                 "`code_prefix`, rig writes nothing to disk for this — task-cli reads it "
+                 "directly (tasklib.config.rig_task_overlay) with lower precedence than a "
+                 "repo's own native task.yaml.",
+                 choices=("github-issues", "linear", "tasks")),
+            _opt("task.tasks.url", KIND_STR, None,
+                 "the Tasks-app base URL (used when task.backend is `tasks`), e.g. "
+                 "https://tasks-ultrabricks.vercel.app."),
+            _opt("task.tasks.team", KIND_STR, None,
+                 "the Tasks-app team/workspace key (used when task.backend is `tasks`), "
+                 "e.g. UB, HYP."),
+            _opt("task.tasks.attachment_mode", KIND_ENUM, None,
+                 "how a screenshot/file gets attached to a Tasks-app ticket: `native` uploads "
+                 "it through the Tasks-app API, `link` registers an already-hosted URL as-is "
+                 "without re-uploading.",
+                 choices=("native", "link")),
         ),
     ),
     Area(

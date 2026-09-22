@@ -1211,7 +1211,9 @@ _TASK_BLOCK = Block(
         "schema only checks the KEY SET, not that kind of cross-field conflict. `code_prefix` is "
         "a SEPARATE, unrelated concern folded into the same top-level `task:` block (rig-cli#217): "
         "a repo-unique task-code prefix consumed by ship.sh's review-quorum gate, reconciled by "
-        "`rig apply` into `.ship-config` — see the leaf's own doc below."
+        "`rig apply` into `.ship-config` — see the leaf's own doc below. UB-23: `backend: tasks` "
+        "selects the native Tasks-app backend (HTTPS REST), configured via the nested `tasks:` "
+        "block (`url`/`team`/`attachment_mode`), mirroring `github:`/`linear:` below."
     ),
     # review finding (tg#11652, P2): `_validate_task_enum` returns early on `None` (so
     # `backend`/`attachment_mode`/`linear.attachment_mode` tolerate null) and the flat/nested
@@ -1248,7 +1250,7 @@ _TASK_BLOCK = Block(
             not_pattern=r"[^A-Z0-9]|^.{41,}$",
         ),
         "backend": Leaf(
-            ("string", "null"), "the tracker backend", enum=("github-issues", "linear", None)
+            ("string", "null"), "the tracker backend", enum=("github-issues", "linear", "tasks", None)
         ),
         "team": Leaf(("string", "null"), "flat shorthand for linear.team (e.g. HYP)"),
         "project": Leaf(("string", "null"), "flat shorthand for linear.project"),
@@ -1308,6 +1310,20 @@ _TASK_BLOCK = Block(
                 "attachment_mode": Leaf(
                     ("string", "null"),
                     "same as the flat `attachment_mode` shorthand above, nested form",
+                    enum=("link", "native", None),
+                ),
+            },
+            nullable=True,
+        ),
+        "tasks": Block(
+            doc="Tasks-app (native HTTPS REST) coordinates (used when backend: tasks).",
+            leaves={
+                "url": Leaf(("string", "null"), "the Tasks-app base URL, e.g. https://tasks-ultrabricks.vercel.app"),
+                "team": Leaf(("string", "null"), "the Tasks-app team/workspace key (e.g. UB, HYP)"),
+                "attachment_mode": Leaf(
+                    ("string", "null"),
+                    "how a screenshot/file gets attached to a Tasks-app ticket: 'native' uploads it "
+                    "through the Tasks-app API, 'link' registers an already-hosted URL as-is",
                     enum=("link", "native", None),
                 ),
             },

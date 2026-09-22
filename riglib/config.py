@@ -84,7 +84,7 @@ _VALID_CATEGORIES = {"skills", "agent_hooks", "git_hooks", "ci", "mcp"}
 _VALID_ON_CONFLICT = {"skip", "overwrite", "backup"}
 _VALID_TIERS = {"block", "warn"}
 _VALID_ON_ERROR = {"open", "closed"}
-_VALID_TASK_BACKENDS = {"github-issues", "linear"}
+_VALID_TASK_BACKENDS = {"github-issues", "linear", "tasks"}
 _VALID_TASK_ATTACHMENT_MODES = {"link", "native"}
 _VALID_LEGACY_AGENT_HOOK_TARGET_KINDS = {"claude-code", "generic"}
 _MCP_ITEM_KEYS = {"enabled", "server", "command", "args", "env"}
@@ -490,19 +490,163 @@ class LoadedConfig:
         return src if src is not None else self.primary_config_path
 
 
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _task_inheritance_ancestor_dirs(repo_root: Path) -> list[Path]:
+    """Directories eligible for ``task``-block inheritance, OUTERMOST first (rig-cli UB-23).
+
+    ``repo_root`` itself is excluded -- only its ancestors. Inside ``$HOME``, walks up to and
+    including ``$HOME`` and never above it (the intended ``~/xp``/``~/work`` folder-default
+    shape). Outside ``$HOME``, walks every ancestor except the filesystem root itself.
+    """
+    repo_root = repo_root.resolve()
+    home = Path(os.path.expanduser("~")).resolve()
+    if repo_root == home:
+        return []
+    nearest_first: list[Path] = []
+    if _is_within(repo_root, home):
+        for parent in repo_root.parents:
+            nearest_first.append(parent)
+            if parent == home:
+                break
+    else:
+        parents = list(repo_root.parents)
+        nearest_first = parents[:-1] if len(parents) > 1 else []
+    return list(reversed(nearest_first))
+
+
+def _load_task_block_from_layer(path: Path, overrides: dict[Path, dict[str, Any]]) -> dict[str, Any] | None:
+    """Read just the top-level ``task`` key from one config file (or its test override).
+
+    Returns ``None`` when the file doesn't exist (and has no override) or has no ``task`` key
+    at all. An explicit ``task: null`` is NOT treated as absent -- raises, same as the
+    top-level-null convention every other ``task:`` consumer in this repo follows.
+    """
+    resolved = path.resolve()
+    if resolved in overrides:
+        data = overrides[resolved]
+    elif path.is_file():
+        data = read_yaml_file(path)
+    else:
+        return None
+    if "task" not in data:
+        return None
+    task_block = data["task"]
+    if task_block is None:
+        raise ConfigError(
+            f"task must be a mapping (inherited from {path})",
+            why=f"{path} declares `task: null`",
+            fix=f"remove the `task:` key or give it a mapping in {path}",
+            schema_path="task",
+        )
+    return task_block
+
+
+def _ancestor_task_overlay(
+    repo_root: Path, overrides: dict[Path, dict[str, Any]]
+) -> tuple[dict[str, Any], list[Path]]:
+    """Merge the ``task`` (routing-only) block from every eligible ancestor's ``rig.yaml``.
+
+    OUTERMOST ancestor first, so the NEAREST ancestor wins among ancestors (rig-cli UB-23).
+    Only the ``task`` key is ever read from an ancestor file -- no other section leaks into a
+    descendant repo. ``code_prefix`` is stripped from every contributor: it is repo-unique ship
+    metadata, not routing, and must never be inherited. Each contributor is validated on its own
+    (:func:`_validate_task`) so a malformed ancestor config fails closed, naming that ancestor's
+    file. Returns ``({}, [])`` when nothing contributes -- callers must treat that as a no-op.
+
+    The second return value is every CONTRIBUTING ancestor's path, outermost-to-nearest (the
+    same cascade order the merge itself uses) -- an ancestor whose contribution is empty after
+    stripping ``code_prefix`` is not a real contributor and is excluded, so ``load()`` reports
+    only files that actually affected the result in ``LoadedConfig.layers``.
+    """
+    merged: dict[str, Any] = {}
+    contributing: list[Path] = []
+    for directory in _task_inheritance_ancestor_dirs(repo_root):
+        path = repo_config_path(directory)
+        task_block = _load_task_block_from_layer(path, overrides)
+        if task_block is None:
+            continue
+        if not isinstance(task_block, dict):
+            raise ConfigError(
+                f"task must be a mapping (inherited from {path})",
+                why=f"{path} declares a non-mapping `task:` block",
+                fix=f"fix the `task:` block in {path}",
+                schema_path="task",
+            )
+        try:
+            _validate_task(task_block)
+        except ConfigError as exc:
+            raise ConfigError(
+                f"invalid task block inherited from {path}: {exc.what}",
+                why=exc.why or f"{path}'s task block failed validation",
+                fix=exc.fix or f"fix the `task:` block in {path}",
+                schema_path=exc.schema_path or "task",
+            ) from exc
+        contribution = dict(task_block)
+        contribution.pop("code_prefix", None)
+        if not contribution:
+            continue
+        merged = _deep_merge(merged, contribution)
+        contributing.append(path.resolve())
+    return merged, contributing
+
+
+def _recombine_task_layers(
+    merged: dict[str, Any],
+    key_sources: dict[str, Path],
+    raw_task_by_label: dict[str, Any],
+    ancestor_task: dict[str, Any],
+    ancestor_task_source: Path | None,
+) -> None:
+    """Fold the ancestor ``task`` overlay into ``merged``/``key_sources`` in place (UB-23).
+
+    Final precedence per KEY (not whole-block replacement): ``global < ancestors < repo``. A
+    no-op when no ancestor contributed anything, so the zero-ancestor case stays byte-for-byte
+    identical to pre-UB-23 behavior. The ``isinstance`` guards below are defensive, not
+    load-bearing: a layer whose raw ``task`` value was itself malformed would already have
+    raised inside ``validate(merged)`` before this runs (``raw_task_by_label`` is captured
+    pre-validation, so it can't be assumed well-typed on its own).
+    """
+    if not ancestor_task:
+        return
+    global_layer_task = raw_task_by_label.get("global") or {}
+    repo_layer_task = raw_task_by_label.get("repo") or raw_task_by_label.get("config") or {}
+    if not isinstance(global_layer_task, dict):
+        global_layer_task = {}
+    if not isinstance(repo_layer_task, dict):
+        repo_layer_task = {}
+    final_task = _deep_merge(_deep_merge(dict(global_layer_task), ancestor_task), dict(repo_layer_task))
+    _validate_task(final_task)
+    merged["task"] = final_task
+    if "repo" not in raw_task_by_label and "config" not in raw_task_by_label and ancestor_task_source is not None:
+        key_sources["task"] = ancestor_task_source
+
+
 def load(
     repo_root: Path,
     *,
     explicit_config: Path | None = None,
     include_global: bool = True,
     include_repo: bool = True,
+    include_ancestors: bool = True,
     layer_overrides: dict[Path, dict[str, Any]] | None = None,
 ) -> LoadedConfig:
     """Cascade-load config for ``repo_root``.
 
     - ``explicit_config`` (from ``--config P``) replaces the per-repo layer with ``P``.
     - The global layer is always the base unless ``include_global=False``.
-    - ``include_repo=False`` skips the repo/config layer entirely, including ``explicit_config``.
+    - ``include_repo=False`` skips the repo/config layer entirely, including ``explicit_config``
+      AND the ``task``-block ancestor overlay (UB-23): ancestors are repo-scoped folder
+      defaults, not global config, so a caller asking for the GLOBAL layer only must not see
+      them leak in either -- the result stays GLOBAL-ONLY.
+    - ``include_ancestors=False`` skips the ``task``-block ancestor overlay (UB-23; see the
+      module docstring) — the global/repo layers still load normally.
     - The result is validated (fail-closed) before return.
     """
     repo_root = repo_root.resolve()
@@ -515,6 +659,9 @@ def load(
     # repo/explicit). A key the repo layer sets overwrites the global provenance — so the final
     # mapping names the file the user must edit to remove the offending key.
     key_sources: dict[str, Path] = {}
+    # Each layer's OWN (pre-merge, raw) `task` value, keyed by label -- used to recombine the
+    # `task` block around the ancestor overlay after the normal cascade validates (UB-23).
+    raw_task_by_label: dict[str, Any] = {}
 
     def _merge_layer(path: Path, label: str) -> None:
         """Merge one config file into the accumulator and record its key provenance + layer.
@@ -526,6 +673,8 @@ def load(
         nonlocal merged
         resolved_path = path.resolve()
         data = dict(overrides[resolved_path]) if resolved_path in overrides else read_yaml_file(path)
+        if "task" in data:
+            raw_task_by_label[label] = data["task"]
         if label == "repo" and "mode" in data:
             raise ConfigError(
                 "mode is a global-only config block",
@@ -561,10 +710,24 @@ def load(
             key_sources[k] = path
         layers.append(f"{label}:{path}")
 
+    # Ancestors are repo-scoped folder defaults, not global config -- gated by BOTH flags so a
+    # caller that excludes the repo scope (`include_repo=False`, e.g. a GLOBAL-only read) never
+    # sees them leak in (the gap this fix closes; ancestors used to be gated by
+    # `include_ancestors` alone, independent of `include_repo`).
+    ancestor_task, ancestor_task_sources = (
+        _ancestor_task_overlay(repo_root, overrides) if (include_ancestors and include_repo) else ({}, [])
+    )
+
     if include_global:
         gpath = global_config_path()
         if gpath.is_file() or gpath.resolve() in overrides:
             _merge_layer(gpath, "global")
+
+    # Report every contributing ancestor in `LoadedConfig.layers`, in cascade order (outermost
+    # first, matching the merge itself) -- inserted between the global and repo entries so the
+    # list reads in the same `global < ancestors < repo` order the precedence follows.
+    for ancestor_path in ancestor_task_sources:
+        layers.append(f"ancestor:{ancestor_path}")
 
     if include_repo:
         if explicit_config is not None:
@@ -579,6 +742,8 @@ def load(
                 _merge_layer(rpath, "repo")
 
     validate(merged)
+    ancestor_task_source = ancestor_task_sources[-1] if ancestor_task_sources else None
+    _recombine_task_layers(merged, key_sources, raw_task_by_label, ancestor_task, ancestor_task_source)
     merged.pop("scope", None)  # `scope` is a removed legacy key — drop it so it never
     # lingers in loaded.data, gets re-serialized, or is mistaken for a live setting.
     key_sources.pop("scope", None)
@@ -3143,8 +3308,11 @@ def _validate_task(t: dict[str, Any]) -> None:
     ``tasklib/projects.py:projects_from_config``; the other three mappings), not their contents.
     Fail-closed, consistent with every other block, on: a non-mapping block, an unknown key
     (typo guard), a bad ``backend``/``attachment_mode`` enum, non-string flat coordinates
-    (``team``/``project``/``repo``), non-mapping ``github``/``linear`` sections, and unknown keys
-    or a bad ``attachment_mode`` enum WITHIN ``linear``.
+    (``team``/``project``/``repo``), non-mapping ``github``/``linear``/``tasks`` sections, and
+    unknown keys or a bad ``attachment_mode`` enum WITHIN ``linear``/``tasks``. UB-23:
+    ``backend: "tasks"`` selects the native Tasks-app backend (HTTPS REST), with its own nested
+    ``tasks`` section (``url``/``team``/``attachment_mode``) validated the same way as
+    ``github``/``linear``.
 
     Every enum check below does an ``isinstance(value, str)`` check BEFORE the ``in
     _VALID_TASK_...`` membership test (review finding): ``_VALID_TASK_BACKENDS`` and
@@ -3196,6 +3364,17 @@ def _validate_task(t: dict[str, Any]) -> None:
         if value is not None and not isinstance(value, str):
             raise ConfigError(f"task.linear.{strkey} must be a string, got {value!r}", schema_path=f"task.linear.{strkey}")
     _validate_task_enum(linear.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.linear.attachment_mode")
+
+    tasks_block = t.get("tasks")
+    tasks_block = {} if tasks_block is None else tasks_block  # same null->{} normalization as github/linear above
+    if not isinstance(tasks_block, dict):
+        raise ConfigError("task.tasks must be a mapping", schema_path="task.tasks")
+    _reject_unknown_keys(tasks_block, "task.tasks")
+    for strkey in ("url", "team"):
+        value = tasks_block.get(strkey)
+        if value is not None and not isinstance(value, str):
+            raise ConfigError(f"task.tasks.{strkey} must be a string, got {value!r}", schema_path=f"task.tasks.{strkey}")
+    _validate_task_enum(tasks_block.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.tasks.attachment_mode")
 
     projects = t.get("projects")
     if projects is not None and not isinstance(projects, list):
