@@ -3338,7 +3338,11 @@ def _validate_task(t: dict[str, Any]) -> None:
     for strkey in ("team", "project", "repo"):
         value = t.get(strkey)
         if value is not None and not isinstance(value, str):
-            raise ConfigError(f"task.{strkey} must be a string, got {value!r}", schema_path=f"task.{strkey}")
+            # type name only, never the value: under backend: forgejo the flat `repo` is the
+            # forgejo.repo shorthand, which falls under the same no-echo rule.
+            raise ConfigError(
+                f"task.{strkey} must be a string, got {type(value).__name__}", schema_path=f"task.{strkey}"
+            )
     _validate_task_enum(t.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.attachment_mode")
     if t.get("backend") == "forgejo":
         _validate_forgejo_repo(t.get("repo"), "task.repo")
@@ -3464,13 +3468,14 @@ def _validate_forgejo_repo(repo: Any, schema_path: str = "task.forgejo.repo") ->
     user wrote — the nested ``task.forgejo.repo`` or the flat ``task.repo`` shorthand, which
     task-cli also fans out onto ``forgejo.repo``.
     """
+    # Never echo the value (same rule as the url): a pasted token lands here too, and the
+    # message is printed/logged.
     if repo is None:
         return
-    if not isinstance(repo, str):
-        raise ConfigError(f"{schema_path} must be a string, got {repo!r}", schema_path=schema_path)
-    if repo != _FORGEJO_REPO_AUTO and not _FORGEJO_REPO_RE.fullmatch(repo):
+    if not isinstance(repo, str) or (repo != _FORGEJO_REPO_AUTO and not _FORGEJO_REPO_RE.fullmatch(repo)):
         raise ConfigError(
-            f"{schema_path} must be 'auto' or an owner/name shape, got {repo!r}",
+            f"{schema_path} must be 'auto' or an owner/name string",
+            why="the value is not echoed: a rejected repo value may carry a pasted credential",
             fix="use a value like ultrabricks/rig-cli, or 'auto' to resolve from the git remote",
             schema_path=schema_path,
         )

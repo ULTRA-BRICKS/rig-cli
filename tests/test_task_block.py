@@ -629,6 +629,58 @@ def test_task_forgejo_url_credential_error_never_echoes_the_secret(url):
     assert "s3cr3t-value" not in f"{err} {err.why} {err.fix}"
 
 
+_SECRET = "SYNTHSECRET-7f3a"  # gitleaks:allow - synthetic leak marker, not a credential
+
+
+def _chain_text(err: BaseException) -> str:
+    """str + repr of an exception and everything in its __cause__/__context__ chain."""
+    parts: list[str] = []
+    seen: set[int] = set()
+    todo: list[BaseException | None] = [err]
+    while todo:
+        exc = todo.pop()
+        if exc is None or id(exc) in seen:
+            continue
+        seen.add(id(exc))
+        parts += [str(exc), repr(exc), str(getattr(exc, "why", "") or ""), str(getattr(exc, "fix", "") or "")]
+        todo += [exc.__cause__, exc.__context__]
+    return "\n".join(parts)
+
+
+@pytest.mark.parametrize(
+    "task_block",
+    [
+        pytest.param({"forgejo": {"url": f"ftp://{_SECRET}.example"}}, id="url-scheme"),
+        pytest.param({"forgejo": {"url": f"http://{_SECRET}.example"}}, id="url-http"),
+        pytest.param({"forgejo": {"url": f"https://[::1{_SECRET}"}}, id="url-ipv6"),
+        pytest.param({"forgejo": {"url": f"https://git.example:{_SECRET}"}}, id="url-port-non-numeric"),
+        pytest.param({"forgejo": {"url": "https://git.example:99999"}}, id="url-port-out-of-range"),
+        pytest.param({"forgejo": {"url": f"https://user:{_SECRET}@git.example"}}, id="url-userinfo"),
+        pytest.param({"forgejo": {"url": f"https://git.example?token={_SECRET}"}}, id="url-query"),
+        pytest.param({"forgejo": {"url": f"https://git.example#{_SECRET}"}}, id="url-fragment"),
+        pytest.param({"forgejo": {"url": f"https://git.example/{_SECRET}/api/v1"}}, id="url-api-v1"),
+        pytest.param({"forgejo": {"url": f"https://git.example/{_SECRET}/"}}, id="url-trailing-slash"),
+        pytest.param({"forgejo": {"url": [f"https://{_SECRET}"]}}, id="url-list"),
+        pytest.param({"forgejo": {"url": {"k": _SECRET}}}, id="url-dict"),
+        pytest.param({"forgejo": {"url": True}}, id="url-bool"),
+        pytest.param({"forgejo": {"url": 443}}, id="url-int"),
+        pytest.param({"forgejo": {"repo": f"{_SECRET}/a/b"}}, id="repo-shape"),
+        pytest.param({"forgejo": {"repo": f"ghp_{_SECRET}"}}, id="repo-pasted-token"),
+        pytest.param({"forgejo": {"repo": [_SECRET]}}, id="repo-list"),
+        pytest.param({"forgejo": {"repo": {"k": _SECRET}}}, id="repo-dict"),
+        pytest.param({"backend": "forgejo", "repo": f"{_SECRET}/a/b"}, id="flat-repo-shape"),
+        pytest.param({"backend": "forgejo", "repo": [_SECRET]}, id="flat-repo-list"),
+    ],
+)
+def test_task_forgejo_errors_never_echo_the_supplied_value(task_block):
+    # UB-25: a rejected forgejo url/repo is exactly where a pasted credential hides, and the
+    # message is printed by rig status/config set/config-web and lands in logs. No branch may
+    # carry the value — not str/repr, not the why/fix, not a chained parser exception.
+    with pytest.raises(ConfigError) as excinfo:
+        validate({"version": 1, "task": task_block})
+    assert _SECRET not in _chain_text(excinfo.value)
+
+
 def test_task_forgejo_url_malformed_ipv6_host_fails_closed_not_crash():
     # urlsplit raises a raw ValueError on an unterminated IPv6 netloc; it must surface as the
     # 3-part ConfigError, never a traceback.
