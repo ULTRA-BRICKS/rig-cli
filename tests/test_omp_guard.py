@@ -413,6 +413,8 @@ def test_instruction_policy_creates_file_with_advisory_block(fake_agent_tools, t
     # a nonexistent boundary stops self-guarding — the dangerous lie the panel flagged)
     assert "advisory" in text and "not enforced" in text
     assert "gh pr merge" in text and "pkill" in text
+    assert 'tg-ctl ask "<question>"' in text
+    assert "non-zero" in text and "denied" in text
 
 
 def test_instruction_policy_splices_preserving_user_content(fake_agent_tools, tmp_path, monkeypatch):

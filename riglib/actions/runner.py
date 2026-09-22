@@ -3263,6 +3263,8 @@ def instruction_policy_block_text(action: Action) -> str:
         "# the agent must self-enforce (the same baseline other harnesses enforce below the model):",
         f"# DENY: {deny}",
         f"# ASK (confirm with the operator first): {ask}",
+        '# Ask/approve through Telegram: tg-ctl ask "<question>" [--timeout SEC].',
+        "# Exit 0 means approved; any non-zero exit means denied/no answer — never assume approval.",
         INSTRUCTION_POLICY_END_MARKER,
     ])
 
