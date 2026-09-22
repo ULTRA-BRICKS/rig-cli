@@ -3292,3 +3292,104 @@ between the `global:<path>` and `repo:<path>` entries — matching the `global <
 ancestors < repo` cascade order, outermost ancestor first. An ancestor consulted but
 contributing nothing (no `rig.yaml`, no `task:` key, or a `task:` block that only set
 `code_prefix`) is not listed.
+
+### `backend: forgejo` — native Forgejo issues (UB-25)
+
+A fourth tracker backend value: native Forgejo issues on a self-hosted instance (e.g.
+`git.hyperide.ai`). This is a real issue backend, not an alias of `github-issues`. The canonical
+name is exactly `forgejo`; there is no `fj` alias. Coordinates live under `task.forgejo`:
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `forgejo.url` | str or null | — | the Forgejo instance base URL, e.g. `https://git.hyperide.ai`. Must be `https://` with a host (and a numeric port, if any), no whitespace, no query/fragment, no `@` or `%` (so no embedded `user:token@` credentials, plain or percent-escaped), and must NOT end in `/api/v1` or `/`. A rejection never echoes the value, since a malformed base URL is where a pasted token tends to hide. Why the suffixes matter: task-cli derives the API base by appending `/api/v1`, so either suffix would produce a doubled path and is rejected. |
+| `forgejo.repo` | str or null | — | this repo's issue store as `owner/name` (e.g. `ultrabricks/rig-cli`), or `auto` to resolve it from the repo's own git `origin` at runtime. Anything else (`owner/`, `a/b/c`, any whitespace including a trailing newline, `AUTO`) is rejected. |
+| `forgejo.attachment_mode` | str or null | — | `native` (upload through the Forgejo API) or `link` (register an already-hosted URL as-is) |
+| `forgejo` | object or null | — | the nested section; a bare `forgejo:` header (null) is tolerated the same as absent, `forgejo: false` is rejected |
+
+All three leaves are also registered as wizard options (`riglib/schema.py`, `task` Area), so
+`rig setup` and `rig config set` accept them. The default backend contract for a repo is:
+
+```yaml
+task:
+  backend: forgejo
+  forgejo:
+    url: https://git.hyperide.ai
+    repo: owner/name
+    attachment_mode: native
+```
+
+#### Cascade contract for `task.forgejo`
+
+**The contract, in one sentence:** an explicit `task.forgejo.repo` is inherited normally from
+ancestor configs in BOTH rig and task-cli, and only `code_prefix` is stripped; `repo: auto` is the
+documented workspace fallback for when each repo should resolve its own origin.
+
+In detail: `task.forgejo` cascades exactly like every other `task` routing key, in both rig and
+task-cli: `global < ancestors (outermost first, nearest wins) < repo`, merged per key. An explicit
+`owner/name` in an ancestor `rig.yaml` IS inherited by every repo underneath that does not set its
+own. rig and task-cli must resolve the same file to the same value, so rig neither strips, refuses,
+nor warns about an inherited explicit `repo`.
+
+Because of that, the rule is:
+
+- A folder-default ancestor sets `backend`, `forgejo.url`, and `forgejo.repo: auto`. Each repo
+  underneath then resolves its own `owner/name` from its own `origin` remote.
+- An explicit `forgejo.repo: owner/name` belongs only in the repo's OWN `rig.yaml`. It overrides
+  an inherited `auto`.
+- An explicit `owner/name` in a folder-level ancestor therefore routes every repo beneath it
+  that does not override `repo` into that one repository. That is intended when the ancestor is
+  a primary checkout (its `rig.yaml` is a legitimate ancestor of its own `.worktrees/<name>`
+  worktrees and carries exactly such a value); for a workspace folder, use `auto`.
+
+Per-repo explicit example (the repo pins its own issue store):
+
+```yaml
+# ~/xp/rig-cli/rig.yaml
+task:
+  backend: forgejo
+  forgejo:
+    url: https://git.hyperide.ai
+    repo: ultrabricks/rig-cli
+    attachment_mode: native
+```
+
+Inheritance-fallback example (a folder default supplies the backend and instance; each repo
+supplies only its own identity, or nothing at all to fall back to `auto`):
+
+```yaml
+# ~/work/rig.yaml (folder default)
+task:
+  backend: forgejo
+  forgejo:
+    url: https://git.hyperide.ai
+    repo: auto
+```
+
+```yaml
+# ~/work/hyperide/rig.yaml (inherits backend + url; pins its own repo)
+task:
+  forgejo:
+    repo: hyperide/hyperide
+```
+
+A sibling repo under `~/work` with no `task:` block of its own inherits `repo: auto` and resolves
+its issue store from its own `origin`.
+
+#### Migrating a repo to `forgejo`
+
+There is no dedicated migration command. The existing single-key editor handles it: each call
+writes one nested key, validates the result, and rolls back on a validation failure. It is
+idempotent (re-running with the same value changes nothing). To move a repo off a stale
+`github-issues` or `linear` override:
+
+```sh
+rig config set task.backend forgejo
+rig config set task.forgejo.url https://git.hyperide.ai     # omit when an ancestor already sets it
+rig config set task.forgejo.repo owner/name                  # or `auto`
+```
+
+`rig config set` never removes a leftover `task.github`/`task.linear` section or a flat
+`task.repo`; delete those by hand. Remove a flat `task.repo` in particular: rig documents it as
+shorthand for `github.repo`, but task-cli's Forgejo branch also fans it out onto `forgejo.repo`.
+For that reason, under `backend: forgejo` rig applies the same `owner/name`-or-`auto` check to a
+flat `task.repo` as to `task.forgejo.repo`.

@@ -129,6 +129,88 @@ def test_code_prefix_is_never_inherited_from_an_ancestor(home: Path):
     assert loaded.data["task"]["code_prefix"] == "REPO-OWN"
 
 
+def test_forgejo_block_cascades_from_ancestor_including_repo(home: Path):
+    # UB-25 cascade contract: rig must treat `task.forgejo` exactly like task-cli's own loader,
+    # whose ancestor walk strips ONLY code_prefix — so forgejo.repo, like url/attachment_mode,
+    # IS inherited. That is why a folder default sets `repo: auto` (see the next test) and leaves
+    # an explicit owner/name to each repo's own rig.yaml.
+    _w(
+        home / "outer" / "rig.yaml",
+        "version: 1\ntask:\n  backend: forgejo\n  forgejo:\n    url: https://git.hyperide.ai\n"
+        "    repo: ultrabricks/outer-repo\n    attachment_mode: native\n",
+    )
+    repo = home / "outer" / "repo"
+    repo.mkdir(parents=True)
+
+    loaded = config.load(repo)
+
+    assert loaded.data["task"] == {
+        "backend": "forgejo",
+        "forgejo": {
+            "url": "https://git.hyperide.ai",
+            "repo": "ultrabricks/outer-repo",
+            "attachment_mode": "native",
+        },
+    }
+
+
+def test_malformed_flat_repo_under_inherited_forgejo_backend_fails_closed(home: Path):
+    # the flat-`repo` shape check is gated on backend: forgejo; when the backend comes from an
+    # ancestor and the malformed flat repo from the child, the MERGED task block must still be
+    # rejected (the merged-task re-validation catches it, not the per-file pass).
+    _w(home / "outer" / "rig.yaml", "version: 1\ntask:\n  backend: forgejo\n")
+    repo = home / "outer" / "repo"
+    _w(repo / "rig.yaml", "version: 1\ntask:\n  repo: a/b/c\n")
+
+    with pytest.raises(ConfigError, match="task.repo"):
+        config.load(repo)
+
+
+def test_forgejo_repo_auto_from_ancestor_is_inherited(home: Path):
+    _w(
+        home / "work" / "rig.yaml",
+        "version: 1\ntask:\n  backend: forgejo\n  forgejo:\n    url: https://git.hyperide.ai\n"
+        "    repo: auto\n",
+    )
+    repo = home / "work" / "some-repo"
+    repo.mkdir(parents=True)
+
+    loaded = config.load(repo)
+
+    assert loaded.data["task"]["forgejo"] == {"url": "https://git.hyperide.ai", "repo": "auto"}
+
+
+def test_forgejo_repo_local_value_overrides_ancestor_auto(home: Path):
+    _w(
+        home / "outer" / "rig.yaml",
+        "version: 1\ntask:\n  backend: forgejo\n  forgejo:\n    url: https://git.hyperide.ai\n"
+        "    repo: auto\n",
+    )
+    repo = home / "outer" / "repo"
+    _w(repo / "rig.yaml", "version: 1\ntask:\n  forgejo:\n    repo: ultrabricks/repo\n")
+
+    loaded = config.load(repo)
+
+    assert loaded.data["task"]["forgejo"] == {"url": "https://git.hyperide.ai", "repo": "ultrabricks/repo"}
+
+
+def test_forgejo_url_and_backend_cascade_from_ancestor_fallback(home: Path):
+    # docs example: a repo supplies only its own forgejo.repo and relies on an ancestor's
+    # task.backend / forgejo.url (the shared Forgejo instance URL).
+    _w(
+        home / "work" / "rig.yaml",
+        "version: 1\ntask:\n  backend: forgejo\n  forgejo:\n    url: https://git.hyperide.ai\n",
+    )
+    repo = home / "work" / "hyperide"
+    _w(repo / "rig.yaml", "version: 1\ntask:\n  forgejo:\n    repo: ultrabricks/hyperide\n")
+
+    loaded = config.load(repo)
+
+    assert loaded.data["task"]["backend"] == "forgejo"
+    assert loaded.data["task"]["forgejo"]["url"] == "https://git.hyperide.ai"
+    assert loaded.data["task"]["forgejo"]["repo"] == "ultrabricks/hyperide"
+
+
 def test_ancestor_above_home_boundary_is_not_consulted(tmp_path: Path, home: Path):
     # An rig.yaml one level ABOVE the isolated $HOME must never be walked — the ancestor
     # walk inside $HOME stops AT $HOME, never above it.

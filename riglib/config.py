@@ -23,6 +23,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
+from urllib.parse import urlsplit
 
 from .harness_skills import KNOWN_HARNESS_KINDS as _KNOWN_HARNESS_KINDS
 from .permissions import (
@@ -84,8 +85,11 @@ _VALID_CATEGORIES = {"skills", "agent_hooks", "git_hooks", "ci", "mcp"}
 _VALID_ON_CONFLICT = {"skip", "overwrite", "backup"}
 _VALID_TIERS = {"block", "warn"}
 _VALID_ON_ERROR = {"open", "closed"}
-_VALID_TASK_BACKENDS = {"github-issues", "linear", "tasks"}
+_VALID_TASK_BACKENDS = {"github-issues", "linear", "tasks", "forgejo"}
 _VALID_TASK_ATTACHMENT_MODES = {"link", "native"}
+_FORGEJO_REPO_AUTO = "auto"  # resolve task.forgejo.repo from the repo's own git remote at runtime
+_FORGEJO_REPO_RE = re.compile(r"\A[^/\s]+/[^/\s]+\Z")  # owner/name; \A..\Z so no call style admits a suffix
+_FORGEJO_URL_FIX = "use a bare https base URL, e.g. https://git.hyperide.ai"
 _VALID_LEGACY_AGENT_HOOK_TARGET_KINDS = {"claude-code", "generic"}
 _MCP_ITEM_KEYS = {"enabled", "server", "command", "args", "env"}
 _VALID_TMUX_APPLY = {"import", "block"}
@@ -3308,11 +3312,14 @@ def _validate_task(t: dict[str, Any]) -> None:
     ``tasklib/projects.py:projects_from_config``; the other three mappings), not their contents.
     Fail-closed, consistent with every other block, on: a non-mapping block, an unknown key
     (typo guard), a bad ``backend``/``attachment_mode`` enum, non-string flat coordinates
-    (``team``/``project``/``repo``), non-mapping ``github``/``linear``/``tasks`` sections, and
-    unknown keys or a bad ``attachment_mode`` enum WITHIN ``linear``/``tasks``. UB-23:
-    ``backend: "tasks"`` selects the native Tasks-app backend (HTTPS REST), with its own nested
-    ``tasks`` section (``url``/``team``/``attachment_mode``) validated the same way as
-    ``github``/``linear``.
+    (``team``/``project``/``repo``), non-mapping ``github``/``linear``/``tasks``/``forgejo``
+    sections, and unknown keys or a bad ``attachment_mode`` enum WITHIN ``linear``/``tasks``/
+    ``forgejo``. UB-23: ``backend: "tasks"`` selects the native Tasks-app backend (HTTPS REST),
+    with its own nested ``tasks`` section (``url``/``team``/``attachment_mode``) validated the
+    same way as ``github``/``linear``. UB-25: ``backend: "forgejo"`` selects the native Forgejo
+    backend, with a nested ``forgejo`` section (``url``/``repo``/``attachment_mode``); ``url``
+    and ``repo`` also get shape checks (see :func:`_validate_forgejo_url` /
+    :func:`_validate_forgejo_repo`).
 
     Every enum check below does an ``isinstance(value, str)`` check BEFORE the ``in
     _VALID_TASK_...`` membership test (review finding): ``_VALID_TASK_BACKENDS`` and
@@ -3333,6 +3340,8 @@ def _validate_task(t: dict[str, Any]) -> None:
         if value is not None and not isinstance(value, str):
             raise ConfigError(f"task.{strkey} must be a string, got {value!r}", schema_path=f"task.{strkey}")
     _validate_task_enum(t.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.attachment_mode")
+    if t.get("backend") == "forgejo":
+        _validate_forgejo_repo(t.get("repo"), "task.repo")
 
     # review finding (2 rounds): `t.get("github", {})` only falls back to `{}` when the KEY is
     # ABSENT — an explicit `github:` header with nothing under it (a common YAML placeholder, or
@@ -3376,6 +3385,17 @@ def _validate_task(t: dict[str, Any]) -> None:
             raise ConfigError(f"task.tasks.{strkey} must be a string, got {value!r}", schema_path=f"task.tasks.{strkey}")
     _validate_task_enum(tasks_block.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.tasks.attachment_mode")
 
+    forgejo_block = t.get("forgejo")
+    forgejo_block = {} if forgejo_block is None else forgejo_block  # same null->{} normalization as github/linear/tasks above
+    if not isinstance(forgejo_block, dict):
+        raise ConfigError("task.forgejo must be a mapping", schema_path="task.forgejo")
+    _reject_unknown_keys(forgejo_block, "task.forgejo")
+    _validate_forgejo_url(forgejo_block.get("url"))
+    _validate_forgejo_repo(forgejo_block.get("repo"))
+    _validate_task_enum(
+        forgejo_block.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.forgejo.attachment_mode"
+    )
+
     projects = t.get("projects")
     if projects is not None and not isinstance(projects, list):
         raise ConfigError(f"task.projects must be a list, got {projects!r}", schema_path="task.projects")
@@ -3385,8 +3405,79 @@ def _validate_task(t: dict[str, Any]) -> None:
             raise ConfigError(f"task.{objkey} must be a mapping, got {value!r}", schema_path=f"task.{objkey}")
 
 
+def _forgejo_url_problem(url: str) -> str | None:
+    """The first reason ``url`` is not a usable Forgejo BASE URL, or ``None`` when it is.
+
+    The returned text NEVER contains the value itself: a rejected base URL is exactly where a
+    credential tends to hide (``user:token@``, ``?access_token=``, a truncated ``oauth2:token``),
+    and the message is printed by ``rig status``/``config set``/config-web and ends up in logs.
+    Order matters only for message quality — every branch is fail-closed.
+    """
+    if "@" in url or "%" in url:
+        return "must not embed credentials or percent-escapes (user:token@host, %40)"
+    if any(c.isspace() for c in url):
+        return "must not contain whitespace"
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+        _ = parts.port  # raises ValueError on a non-numeric port, e.g. a truncated "oauth2:token"
+    except ValueError:  # also an unterminated IPv6 netloc ("https://[::1")
+        return "must be an https URL with a valid host[:port]"
+    if parts.scheme != "https" or not host:
+        return "must be an https URL with a host"
+    if "?" in url or "#" in url:  # a query/fragment would also hide an /api/v1 suffix
+        return "must not carry a query or fragment"
+    if url.rstrip("/").lower().endswith("/api/v1"):
+        return "must not include the /api/v1 suffix (task-cli appends it to derive the API base)"
+    if url.endswith("/"):
+        return "must not end with '/' (task-cli appends /api/v1, which would double the slash)"
+    return None
+
+
+def _validate_forgejo_url(url: Any) -> None:
+    """Validate ``task.forgejo.url`` (UB-25): a bare ``https://host[:port][/path]`` base URL.
+    The Forgejo REST API base is DERIVED at runtime by appending ``/api/v1``, so a value that
+    already carries it (or a trailing ``/``, query, or fragment) would produce a broken path.
+    See :func:`_forgejo_url_problem` for the full rule set and why the value is never echoed.
+    """
+    if url is None:
+        return
+    if not isinstance(url, str):
+        raise ConfigError(
+            f"task.forgejo.url must be a string, got {type(url).__name__}", schema_path="task.forgejo.url"
+        )
+    problem = _forgejo_url_problem(url)
+    if problem is not None:
+        raise ConfigError(
+            f"task.forgejo.url {problem}",
+            why="the value is not echoed: a rejected base URL may carry a credential",
+            fix=_FORGEJO_URL_FIX,
+            schema_path="task.forgejo.url",
+        )
+
+
+def _validate_forgejo_repo(repo: Any, schema_path: str = "task.forgejo.repo") -> None:
+    """Validate a Forgejo repo coordinate (UB-25): optional, but when given must be either the
+    ``auto`` sentinel (resolve from the repository's own git remote at runtime — task-cli's
+    default, same sentinel as ``github.repo``) or an ``owner/name`` shape: exactly two non-empty,
+    whitespace-free segments separated by exactly one ``/``. ``schema_path`` names the key the
+    user wrote — the nested ``task.forgejo.repo`` or the flat ``task.repo`` shorthand, which
+    task-cli also fans out onto ``forgejo.repo``.
+    """
+    if repo is None:
+        return
+    if not isinstance(repo, str):
+        raise ConfigError(f"{schema_path} must be a string, got {repo!r}", schema_path=schema_path)
+    if repo != _FORGEJO_REPO_AUTO and not _FORGEJO_REPO_RE.fullmatch(repo):
+        raise ConfigError(
+            f"{schema_path} must be 'auto' or an owner/name shape, got {repo!r}",
+            fix="use a value like ultrabricks/rig-cli, or 'auto' to resolve from the git remote",
+            schema_path=schema_path,
+        )
+
+
 def _validate_task_enum(value: Any, valid: set[str], schema_path: str) -> None:
-    """Shared enum check for the ``task`` block's three link/native + backend enums (review
+    """Shared enum check for the ``task`` block's five link/native + backend enums (review
     finding: isinstance-before-membership, so a non-hashable value fails closed with a clean
     ConfigError rather than a raw TypeError from the ``in`` check against ``valid``)."""
     if value is None:
