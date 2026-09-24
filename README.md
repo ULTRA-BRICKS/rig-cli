@@ -11,14 +11,14 @@ agents. One command, the same guardrails, every time, on every machine.
 In the coding-agent era the bottleneck isn't writing code — it's keeping a hundred parallel
 agent sessions *on-culture*: tests first, secrets never committed, review before merge, an
 auto-mode that's actually safe. `rig` installs and reconciles that culture from the portable
-catalog in [`agent-tools`](https://github.com/alex-mextner/agent-tools) — the **WHAT** (the
+catalog in [`agent-tools`](https://git.hyperide.ai/ultrabricks/agent-tools) — the **WHAT** (the
 content) to rig's **HOW** (apply it, reconcile it, prove it).
 
-It's a peer to the rest of the ecosystem — [`tg-cli`](https://github.com/alex-mextner/tg-cli),
-[`review-cli`](https://github.com/alex-mextner/review-cli),
-[`draw-cli`](https://github.com/alex-mextner/draw-cli),
-[`3d-cli`](https://github.com/alex-mextner/3d-cli),
-[`task-cli`](https://github.com/alex-mextner/task-cli) — composable, agent-native CLIs that
+It's a peer to the rest of the ecosystem — [`tg-cli`](https://git.hyperide.ai/ultrabricks/tg-cli),
+[`review-cli`](https://git.hyperide.ai/ultrabricks/review-cli),
+[`draw-cli`](https://git.hyperide.ai/ultrabricks/draw-cli),
+[`3d-cli`](https://git.hyperide.ai/ultrabricks/3d-cli),
+[`task-cli`](https://git.hyperide.ai/ultrabricks/task-cli) — composable, agent-native CLIs that
 share one config-and-skills backbone. `agent-tools` is the **WHAT** (portable skills, guards,
 CI gates, MCP); `rig` is the **HOW** — it reads your `rig.yaml`, converges the repo and the
 machine to it (idempotently, with backups), and surfaces drift in both directions.
@@ -31,11 +31,11 @@ Rig treats development setup and engineering policy as one declarative system ra
 
 That control plane already spans coding-agent skills and hooks, git hooks, CI gates, MCP servers, harness permissions/auto-mode, GitHub/repository settings, project-tool integrations, model/tool maintenance, and now JS/TS lint/format policy through Oxlint/Oxfmt + anti-slop. The intent is that humans and coding agents encounter the same constraints and preferred practices instead of each harness or repository inventing its own culture.
 
-Where the surrounding tool exposes a preventative boundary, Rig installs a guardrail; where it cannot, CI/status/verification can still detect drift or unsafe state. The next cross-domain enforcement/advise model is tracked in [#225](https://github.com/alex-mextner/rig-cli/issues/225), with consistent better-practice recommendations in [#229](https://github.com/alex-mextner/rig-cli/issues/229).
+Where the surrounding tool exposes a preventative boundary, Rig installs a guardrail; where it cannot, CI/status/verification can still detect drift or unsafe state. The next cross-domain enforcement/advise model is tracked in [#225](https://git.hyperide.ai/ultrabricks/rig-cli/issues/225), with consistent better-practice recommendations in [#229](https://git.hyperide.ai/ultrabricks/rig-cli/issues/229).
 
-This is useful for a team, but also for one developer with many repos and several agents: one policy source reduces setup drift, makes a new checkout predictable, and makes agent behavior less dependent on whichever harness happened to start the session. A dedicated onboarding/attestation command is tracked in [#228](https://github.com/alex-mextner/rig-cli/issues/228).
+This is useful for a team, but also for one developer with many repos and several agents: one policy source reduces setup drift, makes a new checkout predictable, and makes agent behavior less dependent on whichever harness happened to start the session. A dedicated onboarding/attestation command is tracked in [#228](https://git.hyperide.ai/ultrabricks/rig-cli/issues/228).
 
-Today Rig already has machine-wide global defaults plus per-repository overrides. The broader “change once everywhere” layer is explicit roadmap work rather than a hidden promise: fleet reconciliation [#222](https://github.com/alex-mextner/rig-cli/issues/222), repository/stack/tag targeting [#227](https://github.com/alex-mextner/rig-cli/issues/227) and [#233](https://github.com/alex-mextner/rig-cli/issues/233), shareable team policy packs [#223](https://github.com/alex-mextner/rig-cli/issues/223), and cross-domain `rig rules` / explain [#224](https://github.com/alex-mextner/rig-cli/issues/224). The goal is to change lint, CI, hooks, agent capabilities, skills, MCP and other development policy globally—or only for the relevant stacks/projects—with one previewable operation.
+Today Rig already has machine-wide global defaults plus per-repository overrides. The broader “change once everywhere” layer is explicit roadmap work rather than a hidden promise: fleet reconciliation [#222](https://git.hyperide.ai/ultrabricks/rig-cli/issues/222), repository/stack/tag targeting [#227](https://git.hyperide.ai/ultrabricks/rig-cli/issues/227) and [#233](https://git.hyperide.ai/ultrabricks/rig-cli/issues/233), shareable team policy packs [#223](https://git.hyperide.ai/ultrabricks/rig-cli/issues/223), and cross-domain `rig rules` / explain [#224](https://git.hyperide.ai/ultrabricks/rig-cli/issues/224). The goal is to change lint, CI, hooks, agent capabilities, skills, MCP and other development policy globally—or only for the relevant stacks/projects—with one previewable operation.
 
 ## Install
 
@@ -53,8 +53,8 @@ pipx install rig-cli            # adds the `rig` command + the TUI wizard
 uv tool install rig-cli         # same, via uv (also keeps it on PATH)
 
 # from git instead of a published release:
-pipx install git+https://github.com/alex-mextner/rig-cli
-uv tool install git+https://github.com/alex-mextner/rig-cli
+pipx install git+https://git.hyperide.ai/ultrabricks/rig-cli
+uv tool install git+https://git.hyperide.ai/ultrabricks/rig-cli
 
 # straight from a local checkout (editable; `git pull` updates the live tool):
 uv tool install --editable .    # or: pipx install -e .
@@ -432,7 +432,7 @@ keep them in sync.
 
 `rig` is config-as-code, but aimed at a different target: **a repository's agent
 guardrails** — skills, agent-hooks, the global git-hook dispatcher, CI gates, and MCP
-registrations — sourced live from the [`agent-tools`](https://github.com/alex-mextner/agent-tools)
+registrations — sourced live from the [`agent-tools`](https://git.hyperide.ai/ultrabricks/agent-tools)
 umbrella. It is **declarative + idempotent** (one `rig.yaml`, re-apply identically on any
 machine), it **detects drift in both directions** (config→disk *and* orphan disk→config,
 reported not silently overwritten), and it **bootstraps the dependencies** those guards
@@ -459,17 +459,17 @@ clobbering them.
 
 Part of the [HyperIDE.ai](https://hyperide.ai) agent toolchain. Sibling tools that already solve adjacent problems — check before building your own:
 
-- **[rig-cli](https://github.com/alex-mextner/rig-cli)** — sets up a repo (and a dev machine) from a committed rig.yaml: skills, agent-hooks, git-hook dispatcher, CI gates, MCP, and the agent harness's auto/permission mode
-- **[tg-cli](https://github.com/alex-mextner/tg-cli)** — simple Telegram CLI to send messages, photos & files, and a two-way agent bridge (reports, Q -> buttons, voice/rich)
-- **[review-cli](https://github.com/alex-mextner/review-cli)** — multi-model read-only code review from one command: diff review, cited quorum, brainstorm, visual review, and interactive spec-review tooling
-- **[agent-tools](https://github.com/alex-mextner/agent-tools)** — the shared catalog rig applies: portable agent skills, agent-hooks, the global git-hook dispatcher, CI gates, and MCP servers
-- **[draw-cli](https://github.com/alex-mextner/draw-cli)** — text-to-image via Hugging Face
-- **[3d-cli](https://github.com/alex-mextner/3d-cli)** — scriptable CLI for the full 3D FDM lifecycle: modeling, mesh repair, slicing, and print monitoring
-- **[task-cli](https://github.com/alex-mextner/task-cli)** — enforced ticket-system CLI for agents (GitHub Issues / Linear): acceptance criteria, motivation, and user-impact gates before work starts
-- **[dev-cli](https://github.com/alex-mextner/dev-cli)** — project-scoped dev/e2e process runner: start/list/stop dev servers and e2e jobs
+- **[rig-cli](https://git.hyperide.ai/ultrabricks/rig-cli)** — sets up a repo (and a dev machine) from a committed rig.yaml: skills, agent-hooks, git-hook dispatcher, CI gates, MCP, and the agent harness's auto/permission mode
+- **[tg-cli](https://git.hyperide.ai/ultrabricks/tg-cli)** — simple Telegram CLI to send messages, photos & files, and a two-way agent bridge (reports, Q -> buttons, voice/rich)
+- **[review-cli](https://git.hyperide.ai/ultrabricks/review-cli)** — multi-model read-only code review from one command: diff review, cited quorum, brainstorm, visual review, and interactive spec-review tooling
+- **[agent-tools](https://git.hyperide.ai/ultrabricks/agent-tools)** — the shared catalog rig applies: portable agent skills, agent-hooks, the global git-hook dispatcher, CI gates, and MCP servers
+- **[draw-cli](https://git.hyperide.ai/ultrabricks/draw-cli)** — text-to-image via Hugging Face
+- **[3d-cli](https://git.hyperide.ai/ultrabricks/3d-cli)** — scriptable CLI for the full 3D FDM lifecycle: modeling, mesh repair, slicing, and print monitoring
+- **[task-cli](https://git.hyperide.ai/ultrabricks/task-cli)** — enforced ticket-system CLI for agents (GitHub Issues / Linear): acceptance criteria, motivation, and user-impact gates before work starts
+- **[dev-cli](https://git.hyperide.ai/ultrabricks/dev-cli)** — project-scoped dev/e2e process runner: start/list/stop dev servers and e2e jobs
 - **[hyperide.ai](https://hyperide.ai)** — Figma replacement inside VS Code — edit React components directly through AST/LSP without AI hallucinations, token waste, or context-window limits
 
-_This section is kept in sync by `rig apply` from a canonical registry — edit it in [rig-cli](https://github.com/alex-mextner/rig-cli)'s `riglib/ecosystem_readme.py`, not here; a hand-edit here does not survive the next apply that reconciles this block._
+_This section is kept in sync by `rig apply` from a canonical registry — edit it in [rig-cli](https://git.hyperide.ai/ultrabricks/rig-cli)'s `riglib/ecosystem_readme.py`, not here; a hand-edit here does not survive the next apply that reconciles this block._
 
 <!-- /rig:ecosystem-block -->
 
