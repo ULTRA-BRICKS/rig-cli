@@ -23,7 +23,7 @@ description: >-
   a "what shipped" summary, or a Slack report of recent merges. e.g. `rig daily`.
 metadata:
   author: alex-mextner
-  repo: https://github.com/alex-mextner/rig-cli
+  repo: https://git.hyperide.ai/ultrabricks/rig-cli
 ---
 
 # rig daily — merged-PR "what shipped" report

@@ -27,6 +27,10 @@ def _isolate_home(monkeypatch, tmp_path):
     home = tmp_path / "isolated-home"
     home.mkdir(exist_ok=True)
     monkeypatch.setenv("HOME", str(home))
+    # Python on Windows expands ``~`` from USERPROFILE and ignores HOME, so HOME alone isolates
+    # nothing there: a run on Windows rewrote the developer's real ~/.claude/settings.json and
+    # created ~/.agents, ~/.codex, ~/bin/ship... Pin USERPROFILE to the same throwaway home.
+    monkeypatch.setenv("USERPROFILE", str(home))
     # Also pin XDG_CONFIG_HOME under the throwaway home. The global-excludes default
     # (``~/.config/git/ignore``) expands ``~/.config`` via ``$XDG_CONFIG_HOME`` when set — so a
     # developer who exports XDG_CONFIG_HOME globally would otherwise have a full-plan e2e test

@@ -28,7 +28,7 @@ description: >-
   `rig status`, `rig config get|set`, `rig doctor`.
 metadata:
   author: alex-mextner
-  repo: https://github.com/alex-mextner/rig-cli
+  repo: https://git.hyperide.ai/ultrabricks/rig-cli
 ---
 
 # rig — the dev-environment umbrella driver
@@ -129,18 +129,54 @@ def _link_into_harness(name: str, installed_skill_dir: Path, harness_dir_raw: st
     link = harness_dir / name
     try:
         link.parent.mkdir(parents=True, exist_ok=True)
-        if link.is_symlink():
+        if link.is_symlink() or _is_junction(link):
             if link.resolve() == dest:
                 print(f"{name}: harness link already current → {link}")
                 return
-            link.unlink()
-            link.symlink_to(dest)
+            _remove_link(link)
+            _link_dir(link, dest)
             print(f"{name}: re-pointed harness link → {link}")
             return
         if link.exists():
             print(f"{name}: a real dir/file exists at {link} — left untouched (not a {name} symlink)")
             return
-        link.symlink_to(dest)
+        _link_dir(link, dest)
         print(f"{name}: linked into harness dir → {link}")
     except OSError as exc:
         print(f"{name}: warning — could not create harness skill link {link}: {exc}")
+
+
+# Windows refuses symlinks to a user without Developer Mode (or admin): ERROR_PRIVILEGE_NOT_HELD.
+_ERROR_PRIVILEGE_NOT_HELD = 1314
+
+
+def _link_dir(link: Path, dest: Path) -> None:
+    """Point ``link`` at the directory ``dest``: a symlink, or on Windows without symlink rights a
+    directory junction — it needs no privilege and harnesses read through it like a symlink."""
+    try:
+        link.symlink_to(dest, target_is_directory=True)
+        return
+    except OSError as exc:
+        if getattr(exc, "winerror", None) != _ERROR_PRIVILEGE_NOT_HELD:
+            raise
+    import _winapi  # Windows-only; reached only after a Windows privilege error
+
+    _winapi.CreateJunction(str(dest), str(link))
+
+
+def _is_junction(path: Path) -> bool:
+    isjunction = getattr(os.path, "isjunction", None)  # Python 3.12+
+    if isjunction is not None:
+        return isjunction(path)
+    try:  # older Pythons: IO_REPARSE_TAG_MOUNT_POINT (st_reparse_tag exists on Windows only)
+        return getattr(os.lstat(path), "st_reparse_tag", 0) == 0xA0000003
+    except OSError:
+        return False
+
+
+def _remove_link(link: Path) -> None:
+    # rmdir drops a junction itself; unlink on one would fail, and rmtree would empty the target.
+    if _is_junction(link):
+        os.rmdir(link)
+    else:
+        link.unlink()

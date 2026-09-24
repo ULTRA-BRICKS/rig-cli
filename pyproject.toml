@@ -46,7 +46,7 @@ test = ["pytest", "tomli; python_version < '3.11'"]
 rig = "riglib.fleet_entrypoint:main"
 
 [project.urls]
-Homepage = "https://github.com/alex-mextner/rig-cli"
+Homepage = "https://git.hyperide.ai/ultrabricks/rig-cli"
 
 # Explicit package list (NOT setuptools flat-layout autodiscovery, which would silently
 # pull stray top-level dirs into the wheel). actions/ and tui/ are SUBpackages of riglib.

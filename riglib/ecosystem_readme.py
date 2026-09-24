@@ -53,22 +53,22 @@ class EcosystemTool:
 # hand-editing a target README's block.
 ECOSYSTEM_TOOLS: tuple[EcosystemTool, ...] = (
     EcosystemTool(
-        "rig-cli", "https://github.com/alex-mextner/rig-cli",
+        "rig-cli", "https://git.hyperide.ai/ultrabricks/rig-cli",
         "sets up a repo (and a dev machine) from a committed rig.yaml: skills, agent-hooks, "
         "git-hook dispatcher, CI gates, MCP, and the agent harness's auto/permission mode",
     ),
     EcosystemTool(
-        "tg-cli", "https://github.com/alex-mextner/tg-cli",
+        "tg-cli", "https://git.hyperide.ai/ultrabricks/tg-cli",
         "simple Telegram CLI to send messages, photos & files, and a two-way agent bridge "
         "(reports, Q -> buttons, voice/rich)",
     ),
     EcosystemTool(
-        "review-cli", "https://github.com/alex-mextner/review-cli",
+        "review-cli", "https://git.hyperide.ai/ultrabricks/review-cli",
         "multi-model read-only code review from one command: diff review, cited quorum, "
         "brainstorm, visual review, and interactive spec-review tooling",
     ),
     EcosystemTool(
-        "agent-tools", "https://github.com/alex-mextner/agent-tools",
+        "agent-tools", "https://git.hyperide.ai/ultrabricks/agent-tools",
         "the shared catalog rig applies: portable agent skills, agent-hooks, the global "
         "git-hook dispatcher, CI gates, and MCP servers",
     ),
@@ -82,12 +82,12 @@ ECOSYSTEM_TOOLS: tuple[EcosystemTool, ...] = (
         "print monitoring",
     ),
     EcosystemTool(
-        "task-cli", "https://github.com/alex-mextner/task-cli",
+        "task-cli", "https://git.hyperide.ai/ultrabricks/task-cli",
         "enforced ticket-system CLI for agents (GitHub Issues / Linear): acceptance criteria, "
         "motivation, and user-impact gates before work starts",
     ),
     EcosystemTool(
-        "dev-cli", "https://github.com/alex-mextner/dev-cli",
+        "dev-cli", "https://git.hyperide.ai/ultrabricks/dev-cli",
         "project-scoped dev/e2e process runner: start/list/stop dev servers and e2e jobs",
     ),
     EcosystemTool(
@@ -100,7 +100,7 @@ ECOSYSTEM_TOOLS: tuple[EcosystemTool, ...] = (
 
 _MANAGED_NOTICE = (
     "_This section is kept in sync by `rig apply` from a canonical registry — edit it in "
-    "[rig-cli](https://github.com/alex-mextner/rig-cli)'s `riglib/ecosystem_readme.py`, not here; a "
+    "[rig-cli](https://git.hyperide.ai/ultrabricks/rig-cli)'s `riglib/ecosystem_readme.py`, not here; a "
     "hand-edit here does not survive the next apply that reconciles this block._"
 )
 

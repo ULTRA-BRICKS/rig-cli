@@ -786,6 +786,10 @@ def _add_worktree_gc_subparser(wsub: "argparse._SubParsersAction") -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .stdio import ensure_utf8_stdio
+
+    # bin/rig and `python -m riglib` land here without passing through fleet_entrypoint.
+    ensure_utf8_stdio()
     parser = build_parser()
     args = parser.parse_args(argv)
     if not args.command:
