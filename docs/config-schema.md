@@ -2579,20 +2579,20 @@ elsewhere).
 
 ---
 
-## `forge`
+## `fj`
 
-Forgejo access for this machine (GLOBAL; see `riglib/forge.py`). The ecosystem lives on Forgejo
+Forgejo access for this machine (GLOBAL; see `riglib/fj.py`). The ecosystem lives on Forgejo
 (`git.hyperide.ai`), whose CLI `fj` otherwise needs `--host` outside a clone and can only log in
 with a hand-made token. A **present** block opts in; `host` is then required.
 
 ```yaml
-forge:
+fj:
   host: git.hyperide.ai        # login target + FJ_FALLBACK_HOST
-  # install_fj: true           # brew on macOS; sha256-pinned release binary on Linux / Windows
-  # fj_version: "0.6.0"
+  # install: true              # brew on macOS; sha256-pinned release binary on Linux / Windows
+  # version: "0.6.0"
   # bin_dir: ~/.local/bin      # where the downloaded fj goes (must be on PATH)
   # git_credentials: true      # Git Credential Manager OAuth for https://<host>
-  # fj_client_id: …            # default: Forgejo's built-in `tea` OAuth app
+  # client_id: …               # default: Forgejo's built-in `tea` OAuth app
   # git_client_id: …           # default: Forgejo's built-in Git Credential Manager OAuth app
 ```
 
@@ -2600,33 +2600,28 @@ forge:
 |-----|------|---------|---------|
 | `enabled` | bool | — | block **presence** opts in; `false` opts out |
 | `host` | str | — (required) | the Forgejo host; a scheme/trailing path is stripped |
-| `install_fj` | bool | `true` | install fj when it is not on PATH |
-| `fj_version` | str | `0.6.0` | release rig downloads (only versions with a pinned sha256) |
+| `install` | bool | `true` | install fj when it is not on PATH |
+| `version` | str | `0.6.0` | release rig downloads (only versions with a pinned sha256) |
 | `bin_dir` | str | `~/.local/bin` | destination of the downloaded fj |
 | `git_credentials` | bool | `true` | write GCM generic-OAuth settings for `https://<host>` |
-| `fj_client_id` | str | Forgejo `tea` app | OAuth client fj logs in with |
-| `git_client_id` | str | Forgejo GCM app | OAuth client GCM logs in with |
+| `client_id` | str | Forgejo `tea` app | OAuth client `fj auth login` uses |
+| `git_client_id` | str | Forgejo GCM app | OAuth client GCM uses |
 
-`rig apply` (one `provision_forge` action): installs fj when missing; lists each login host in
-fj's `client_ids` file (`~/.config/forgejo-cli/client_ids`; `%APPDATA%\Cyborus\forgejo-cli\config\client_ids`
-on Windows) with the client ID of Forgejo's **built-in public OAuth app** — every instance ships
-them (`[oauth2] DEFAULT_APPLICATIONS`), so no admin has to register anything; sets
-`FJ_FALLBACK_HOST=https://<host>` (through the `env` area on macOS/Linux — a hand-set
-`env.vars.FJ_FALLBACK_HOST` wins —, as a user environment variable via `setx` on Windows); and, when
-git's credential helper is Git Credential Manager, writes its `credential.https://<host>.oauth*`
-settings. Lines rig does not own in `client_ids` are kept. `rig status` reports the same steps as
-drift. `RIG_FORGE_DRY_RUN=1` makes apply report instead of act.
+`rig apply` (one `provision_fj` action): installs fj when missing; lists each host in fj's
+`client_ids` file (`~/.config/forgejo-cli/client_ids`; `%APPDATA%\Cyborus\forgejo-cli\config\client_ids`
+on Windows) with the client ID of Forgejo's **built-in public OAuth app** — every instance ships them
+(`[oauth2] DEFAULT_APPLICATIONS`), so no admin registers anything; sets `FJ_FALLBACK_HOST=https://<host>`
+(through the `env` area on macOS/Linux — a hand-set `env.vars.FJ_FALLBACK_HOST` wins —, as a user
+environment variable via `setx` on Windows); and, when git's credential helper is Git Credential
+Manager, writes its `credential.https://<host>.oauth*` settings. Lines rig does not own in
+`client_ids` are kept. `rig status` reports the same steps as drift. `RIG_FJ_DRY_RUN=1` makes apply
+report instead of act.
 
-`rig forge login` does the same provisioning, then `fj auth login` — the browser opens, press
-*Authorize* — and, with GCM, one `git credential fill` so git gets its own browser login. The host
-comes from `--host`, else `forge.host` (a repo `rig.yaml` may set its own), else an https `origin`
-remote. Headless: `rig forge login --token-stdin` reads a Forgejo access token from stdin. fj
-refreshes its OAuth token by itself; Forgejo expires an unused refresh token after its
-`[oauth2] REFRESH_TOKEN_EXPIRATION_TIME` (default 730 h) — a machine idle that long logs in again.
-`rig forge status` shows fj, login and pending steps.
-
-The older `tools.items.fj: { brew: [forgejo-cli] }` recipe (below) was for a personal `fj` wrapper
-checkout; with `forge` the stock fj needs no wrapper.
+Logging in is then the stock commands: `fj auth login` (browser → *Authorize*) and, for git, the first
+`git push` (GCM opens the browser once). A repo `rig.yaml` with its own `fj.host` adds that host on
+`rig apply` inside the repo; `FJ_FALLBACK_HOST` keeps pointing at the GLOBAL host. fj refreshes its
+OAuth token itself; Forgejo drops a refresh token unused for `[oauth2] REFRESH_TOKEN_EXPIRATION_TIME`
+(default 730 h) — a machine idle that long runs `fj auth login` again. Headless: `fj auth add-token`.
 
 ---
 
@@ -2658,7 +2653,7 @@ tools:
     # foo: {}
     # a tool whose wrapper shells out to a Homebrew-installed binary declares that dependency —
     # rig installs the missing formula before running install.sh:
-    fj:     { brew: [forgejo-cli] }
+    mytool: { brew: [some-formula] }
 ```
 
 | Key | Type | Default | Meaning |
@@ -2683,8 +2678,8 @@ unaffected) declares those Homebrew formula names. Before running `install.sh`, 
 declared formula with `brew list --formula <formula>` and runs `brew install <formula>` for any
 missing one. `brew` absent from PATH, or a `brew install` that itself fails, is a **hard error**
 for that tool (not a silent skip or a crash) — a wrapper whose runtime dependency isn't installed
-isn't a working tool no matter how `install.sh` went. Example: `fj` (the Forgejo CLI wrapper)
-depends on the `forgejo-cli` formula for the real `fj` binary it wraps.
+isn't a working tool no matter how `install.sh` went. (Forgejo's `fj` itself needs no wrapper —
+the [`fj`](#fj) block installs and sets it up.)
 
 **Drift.** `rig status` flags (in the **GLOBAL** section) a declared tool whose bin doesn't resolve
 (**missing** — apply runs its `install.sh`) or that resolves but isn't advertised (**modified** —

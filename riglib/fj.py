@@ -5,7 +5,7 @@ What this is
 The ecosystem lives on Forgejo (``git.hyperide.ai``). Out of the box its CLI ``fj``
 (forgejo-cli) is unfriendly: outside a clone it needs ``--host`` on every call, and ``fj auth
 login`` only does a browser login for a hard-coded list of public instances — everywhere else it
-tells you to go mint a token by hand. git over HTTPS has the same problem. The ``forge:`` block
+tells you to go mint a token by hand. git over HTTPS has the same problem. The ``fj:`` block
 fixes all of it, per machine:
 
 - **install fj** when it is missing — ``brew install forgejo-cli`` on macOS, the official release
@@ -17,13 +17,13 @@ fixes all of it, per machine:
   fj stores the OAuth token and refreshes it itself;
 - **one-click login for git** — the same trick for Git Credential Manager (the credential helper
   Git for Windows ships): rig writes GCM's generic-OAuth settings for ``https://<host>``, so the
-  first ``git push`` (or ``rig forge login``) opens the browser once and GCM keeps the token;
+  first ``git push`` opens the browser once and GCM keeps the token;
 - **no more ``--host``** — ``FJ_FALLBACK_HOST=https://<host>`` for every shell (via the ``env``
   area on macOS/Linux, a user environment variable on Windows).
 
 This module is stdlib-only. The planning helpers are pure; the few effectful helpers (download +
 install fj, read/write the Windows user environment) are called only by the runner
-(``actions/runner.py`` ``_do_provision_forge``) and by ``rig forge login``.
+(``actions/runner.py`` ``_do_provision_fj``).
 """
 
 from __future__ import annotations
@@ -69,8 +69,8 @@ DEFAULT_BIN_DIR = "~/.local/bin"
 _HOST_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::\d{1,5})?$")
 
 
-class ForgeError(Exception):
-    """A forge provisioning step failed in a way the user must act on."""
+class FjError(Exception):
+    """A fj provisioning step failed in a way the user must act on."""
 
 
 # ── config ──────────────────────────────────────────────────────────────────────────────────
@@ -96,8 +96,8 @@ def is_valid_host(raw: Any) -> bool:
     return True
 
 
-def forge_options_from_config(block: dict[str, Any], *, fallback_host: str | None = None) -> dict[str, Any]:
-    """Resolve a validated ``forge:`` block into the options a ``provision_forge`` action carries.
+def fj_options_from_config(block: dict[str, Any], *, fallback_host: str | None = None) -> dict[str, Any]:
+    """Resolve a validated ``fj:`` block into the options a ``provision_fj`` action carries.
 
     ``hosts`` is every host fj/git should be able to log in to (the block's ``host`` first, then
     ``fallback_host`` — the GLOBAL layer's host — when a repo overrides it). ``fallback_host`` is
@@ -109,11 +109,11 @@ def forge_options_from_config(block: dict[str, Any], *, fallback_host: str | Non
     return {
         "hosts": hosts,
         "fallback_host": fallback,
-        "install_fj": bool(block.get("install_fj", True)),
-        "fj_version": str(block.get("fj_version", DEFAULT_FJ_VERSION)),
+        "install": bool(block.get("install", True)),
+        "version": str(block.get("version", DEFAULT_FJ_VERSION)),
         "bin_dir": str(block.get("bin_dir", DEFAULT_BIN_DIR)),
         "git_credentials": bool(block.get("git_credentials", True)),
-        "fj_client_id": str(block.get("fj_client_id", FORGEJO_TEA_CLIENT_ID)),
+        "client_id": str(block.get("client_id", FORGEJO_TEA_CLIENT_ID)),
         "git_client_id": str(block.get("git_client_id", FORGEJO_GCM_CLIENT_ID)),
     }
 
@@ -237,18 +237,18 @@ def find_fj(bin_dir: str | None = None) -> str | None:
 
 def pending_changes(options: dict[str, Any], *, windows: bool | None = None) -> list[tuple[str, str, Path, str]]:
     """Every provisioning step still to do, as ``(direction, item, target, detail)`` — the ONE
-    comparison both ``rig apply`` (``_do_provision_forge``) and ``rig status`` use. Read-only."""
+    comparison both ``rig apply`` (``_do_provision_fj``) and ``rig status`` use. Read-only."""
     if windows is None:
         windows = os.name == "nt"
     todo: list[tuple[str, str, Path, str]] = []
     bin_dir = Path(os.path.expanduser(options["bin_dir"]))
 
-    if options["install_fj"] and not find_fj(options["bin_dir"]):
+    if options["install"] and not find_fj(options["bin_dir"]):
         todo.append(("missing", "fj", bin_dir, "fj is not installed (apply installs it)"))
 
     cid_path = client_ids_path()
     existing = cid_path.read_text(encoding="utf-8") if cid_path.is_file() else ""
-    if desired_client_ids_text(existing, options["hosts"], options["fj_client_id"]) != _normalized(existing):
+    if desired_client_ids_text(existing, options["hosts"], options["client_id"]) != _normalized(existing):
         direction = "modified" if existing else "missing"
         todo.append((direction, "client_ids", cid_path,
                      f"fj can't log in to {', '.join(options['hosts'])} in the browser yet (no OAuth client ID)"))
@@ -281,21 +281,21 @@ def apply_changes(options: dict[str, Any], todo: list[tuple[str, str, Path, str]
     errors: list[str] = []
     if "fj" in items:
         try:
-            done.append(install_fj(options["fj_version"], options["bin_dir"]))
-        except ForgeError as exc:
+            done.append(install_fj(options["version"], options["bin_dir"]))
+        except FjError as exc:
             errors.append(str(exc))
     if "client_ids" in items:
         path = client_ids_path()
         existing = path.read_text(encoding="utf-8") if path.is_file() else ""
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(desired_client_ids_text(existing, options["hosts"], options["fj_client_id"]), encoding="utf-8")
+        path.write_text(desired_client_ids_text(existing, options["hosts"], options["client_id"]), encoding="utf-8")
         done.append(f"fj browser login enabled for {', '.join(options['hosts'])} ({path})")
     if FALLBACK_HOST_VAR in items:
         url = fallback_host_url(options["fallback_host"])
         try:
             set_windows_user_env(FALLBACK_HOST_VAR, url)
             done.append(f"{FALLBACK_HOST_VAR}={url} (new shells)")
-        except ForgeError as exc:
+        except FjError as exc:
             errors.append(str(exc))
     if "git-credential" in items:
         for host in options["hosts"]:
@@ -313,11 +313,11 @@ def _normalized(text: str) -> str:
     return text if not text or text.endswith("\n") else text + "\n"
 
 
-# ── effectful helpers (runner / `rig forge login` only) ─────────────────────────────────────
+# ── effectful helpers (runner only) ───────────────────────────────────────────────
 
 
 def install_fj(version: str, bin_dir: str, *, system: str | None = None, fetch=None) -> str:
-    """Install fj; return a one-line note. Raises :class:`ForgeError` with the remedy on failure.
+    """Install fj; return a one-line note. Raises :class:`FjError` with the remedy on failure.
 
     macOS → ``brew install forgejo-cli``. Linux/Windows → download the pinned release archive,
     verify its sha256, and extract the single ``fj``/``fj.exe`` binary into ``bin_dir``.
@@ -326,23 +326,23 @@ def install_fj(version: str, bin_dir: str, *, system: str | None = None, fetch=N
     if system == "darwin":
         brew = shutil.which("brew")
         if not brew:
-            raise ForgeError("fj: Homebrew is not on PATH — install it (https://brew.sh), then `brew install forgejo-cli`")
+            raise FjError("fj: Homebrew is not on PATH — install it (https://brew.sh), then `brew install forgejo-cli`")
         res = subprocess.run([brew, "install", "forgejo-cli"], capture_output=True, text=True, timeout=900)
         if res.returncode != 0:
-            raise ForgeError(f"fj: `brew install forgejo-cli` exited {res.returncode}: {res.stderr.strip()[-300:]}")
+            raise FjError(f"fj: `brew install forgejo-cli` exited {res.returncode}: {res.stderr.strip()[-300:]}")
         return "installed fj via `brew install forgejo-cli`"
 
     asset = fj_release_asset(system)
     if asset is None:
-        raise ForgeError(f"fj: no release binary for {system}/{platform.machine()} — `cargo install forgejo-cli`")
+        raise FjError(f"fj: no release binary for {system}/{platform.machine()} — `cargo install forgejo-cli`")
     pinned = FJ_RELEASE_SHA256.get(version, {}).get(asset)
     if not pinned:
-        raise ForgeError(f"fj: version {version} has no pinned sha256 in rig — use forge.fj_version: {DEFAULT_FJ_VERSION}")
+        raise FjError(f"fj: version {version} has no pinned sha256 in rig — use fj.version: {DEFAULT_FJ_VERSION}")
     url = FJ_RELEASE_URL.format(version=version, asset=asset)
     data = (fetch or _fetch)(url)
     digest = hashlib.sha256(data).hexdigest()
     if digest != pinned:
-        raise ForgeError(f"fj: sha256 mismatch for {url} (got {digest}, want {pinned}) — not installed")
+        raise FjError(f"fj: sha256 mismatch for {url} (got {digest}, want {pinned}) — not installed")
 
     name = "fj.exe" if asset.endswith(".zip") else "fj"
     if asset.endswith(".zip"):
@@ -352,7 +352,7 @@ def install_fj(version: str, bin_dir: str, *, system: str | None = None, fetch=N
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
             member = tf.extractfile(name)
             if member is None:
-                raise ForgeError(f"fj: {asset} has no `{name}` entry")
+                raise FjError(f"fj: {asset} has no `{name}` entry")
             binary = member.read()
 
     dest_dir = Path(os.path.expanduser(bin_dir))
@@ -387,4 +387,4 @@ def set_windows_user_env(name: str, value: str) -> None:
     (Cygwin, Git Bash, PowerShell) see it."""
     res = subprocess.run(["setx", name, value], capture_output=True, text=True, timeout=30)
     if res.returncode != 0:
-        raise ForgeError(f"setx {name} exited {res.returncode}: {(res.stderr or res.stdout).strip()}")
+        raise FjError(f"setx {name} exited {res.returncode}: {(res.stderr or res.stdout).strip()}")

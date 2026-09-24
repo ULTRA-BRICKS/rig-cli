@@ -593,8 +593,8 @@ def detect(
             _check_spotlight(action, report)
         elif action.kind == "provision_bunfig":
             _check_bunfig(action, report)
-        elif action.kind == "provision_forge":
-            _check_forge(action, report)
+        elif action.kind == "provision_fj":
+            _check_fj(action, report)
         elif action.kind == "provision_ship_task_prefix":
             _check_ship_task_prefix(action, report)
         elif action.kind == "install_dev_reload_hook":
@@ -1596,12 +1596,12 @@ def _check_global_excludes(action: Action, report: DriftReport) -> None:
         )
 
 
-def _check_forge(action: Action, report: DriftReport) -> None:
-    """Flag missing Forgejo access via the SAME :func:`forge.pending_changes` apply acts on."""
-    from . import forge
+def _check_fj(action: Action, report: DriftReport) -> None:
+    """Flag missing Forgejo access via the SAME :func:`fj.pending_changes` apply acts on."""
+    from . import fj
 
-    for direction, item, target, detail in forge.pending_changes(action.options):
-        report.items.append(DriftItem(direction, "forge", item, target, detail))
+    for direction, item, target, detail in fj.pending_changes(action.options):
+        report.items.append(DriftItem(direction, "fj", item, target, detail))
 
 
 def _check_bunfig(action: Action, report: DriftReport) -> None:

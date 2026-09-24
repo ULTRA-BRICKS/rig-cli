@@ -41,7 +41,7 @@ _CATEGORY_LAYER = {
     "bun": GLOBAL,
     "tmux": GLOBAL,
     "env": GLOBAL,
-    "forge": GLOBAL,
+    "fj": GLOBAL,
     "tg_ctl": GLOBAL,
     "tgctl_reaper": GLOBAL,
     "tools": GLOBAL,

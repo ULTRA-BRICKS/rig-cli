@@ -284,8 +284,8 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "provision_bunfig", "edits_file", AUDIENCE_HUMAN,
         "Splices linker=isolated and globalStore=true into ~/.bunfig.toml.",
     ),
-    "provision_forge": _tag(
-        "provision_forge", "installs_system_tool", AUDIENCE_HUMAN,
+    "provision_fj": _tag(
+        "provision_fj", "installs_system_tool", AUDIENCE_HUMAN,
         "Installs fj when missing, lists the Forgejo host in fj's client_ids for one-click OAuth login, "
         "sets FJ_FALLBACK_HOST (Windows user env) and Git Credential Manager OAuth settings.",
     ),
