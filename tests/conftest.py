@@ -31,6 +31,8 @@ def _isolate_home(monkeypatch, tmp_path):
     # nothing there: a run on Windows rewrote the developer's real ~/.claude/settings.json and
     # created ~/.agents, ~/.codex, ~/bin/ship... Pin USERPROFILE to the same throwaway home.
     monkeypatch.setenv("USERPROFILE", str(home))
+    # %APPDATA% too: Windows tools keep per-user config there (fj reads its client_ids from it).
+    monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
     # Also pin XDG_CONFIG_HOME under the throwaway home. The global-excludes default
     # (``~/.config/git/ignore``) expands ``~/.config`` via ``$XDG_CONFIG_HOME`` when set — so a
     # developer who exports XDG_CONFIG_HOME globally would otherwise have a full-plan e2e test
