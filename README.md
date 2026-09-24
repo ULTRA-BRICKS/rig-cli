@@ -129,6 +129,7 @@ reference: [docs/config-schema.md](docs/config-schema.md#fj).
 | `rig setup` | **The interactive configuration wizard.** In a terminal it shows what is enabled across every reconciled area, lets you change any option (with an inline hint per option) in the local `rig.yaml` AND the global `~/.config/rig/config.yaml`, then applies. Non-interactive (piped / no TTY) it prints usage for `init`/`apply`/`config get\|set`. |
 | `rig config get\|set` | **The headless counterpart to the wizard.** `get` reads one nested key. `set <dot.path> <value>` is **preview-by-default**: it validates the prospective config entirely in memory, shows the config change + resulting reconcile plan, and writes nothing. Add **`--commit`** to write the change and execute that same validated plan; `--no-apply` is the explicit legacy write-only mode. `--global` targets `~/.config/rig/config.yaml`. |
 | `rig env list\|set\|del` | **Machine-wide `env.vars` keys** (search API keys, `COLORTERM`, …). Always writes `~/.config/rig/config.yaml` (the same path as `rig config set --global env.vars.KEY`). `set`/`del` write + reconcile by default so `~/.config/rig/env/rig.env.sh` updates; omit VALUE to read stdin (keeps the secret out of argv/history). `list` **masks** values (`***` + last 4); `--show` prints them in full. **Both files are plaintext** — this is not a secret store. |
+| `rig profile init\|sync\|status` | **Carry your global config between machines** through a **private** git repo (`<forge>/<login>/.rig-profile`) holding `~/.config/rig/config.yaml`. `init [URL]` clones it (or seeds an empty repo with this machine's file and pushes) and records `profile.repo`; without a URL it uses `profile.repo`, else `https://<host>/<fj login>/.rig-profile` when `fj whoami` knows the login. `sync` is two-way: only local changed → commit + push; only remote changed → pull (the local file is backed up first); both changed → **refused**, nothing written — pick a side with `--take local\|remote`. `status [--fetch]` says which side changed, writing nothing (exit `3` when not in sync). `profile.auto_sync: true` makes `rig apply commit` sync first (non-fatal). Pushes warn about `env.vars` secrets and are refused to a repo the forge reports as public. See [below](#rig-profile--carry-your-global-config-between-machines). |
 | `rig config-web` | **A machine-wide web console** — one browser tab per rig-managed repo (discovered from the repository registry) plus a Global tab for `~/.config/rig/config.yaml` alone. Each tab renders every area with its live effective value, tagged with the layer an edit lands in, next to a **drift panel** (the same two-way engine `rig status` uses). An edit routes to the **owning layer** and is written by the **same engine** as `rig config set`/the wizard (fail-closed validation) — then the page offers an **interactive apply**: a plan preview (mirrors `rig apply info`, each action tagged with what kind of change it is — creates a file, installs a hook, changes a permission, etc.), confirm-or-skip individual actions, then live per-phase progress as the **same shared engine** (`plan.build` + `run_plan`) `rig apply`/`rig init` use actually applies them. A stale preview (config changed since you looked) is refused rather than silently applied; only one apply runs at a time. Lifecycle is the shared `agenttools-service` manager: `run` (foreground) / `start` (background daemon) / `status` / `stop` / `enable` (install launchd-macOS / systemd-`--user`-Linux autostart + start) / `disable`. Binds `127.0.0.1` only, with a same-origin (CSRF) + Host (DNS-rebinding) guard on every mutating/compute-triggering request. A bare `rig config-web` prints help, never launches. `--port`, `-C <repo>`. **The lifecycle verbs need the `agenttools-service` lib** (an agent-tools nested lib, not on PyPI): `uv pip install --python <rig's interpreter> -e <agent-tools>/lib/agenttools_daemon -e <agent-tools>/lib/agenttools_service` (the `--python` target makes the libs land where rig imports them; the error message prints the exact interpreter path). Without it, `rig --help` and every other command still work; a lifecycle verb fails closed with that install hint. |
 | `rig evolve` | **Project evolution portal.** Serve a local browser UI with a git activity histogram, proportional file treemap, clickable selection, and provider health. The first slice is file-level and read-only; symbol/LSP/provider overlays build on the same API. Lifecycle uses the shared `agenttools-service` verbs: `run` / `start` / `status` / `stop` / `enable` / `disable`. A bare `rig evolve` prints help, never launches. `--port`, `-C <repo>`. |
 | `rig install-skill` | Register the `rig` agent skill so skills-directory harnesses auto-discover it (currently Claude Code and Codex). |
@@ -277,6 +278,56 @@ The config **cascades by location** (no scope flag):
 Dicts merge recursively (per-repo wins); lists/scalars replace wholesale. See
 [`docs/config-schema.md`](docs/config-schema.md) for every key. A worked example is
 [`rig.yaml`](./rig.yaml) at the repo root (this repo dogfoods its own config).
+
+### Global git settings — `git:`
+
+The global config can provision `git config --global` too, so a fresh machine gets your identity
+and git defaults from the same file as everything else:
+
+```yaml
+git:
+  config:
+    user.name: Alex Ultra
+    user.email: someone@example.com
+    pull.rebase: true
+    init.defaultBranch: main
+```
+
+`rig apply commit` sets each key that is missing or different (bools as `true`/`false`), records the
+prior value of anything it overwrote, and never unsets a key you set by hand; `rig status` reports
+each drifting key. The block is **global-only** — a repo `rig.yaml` that declares `git:` is rejected,
+because keys like `core.sshCommand` run code. Details:
+[`docs/config-schema.md#git`](docs/config-schema.md#git).
+
+### `rig profile` — carry your global config between machines
+
+Your global config lives in one file, so it can travel through one **private** git repo:
+
+```bash
+fj repo create .rig-profile --private          # once, on the forge (rig does not create repos)
+rig profile init https://git.hyperide.ai/<login>/.rig-profile   # machine A: seeds the empty repo
+rig profile init https://git.hyperide.ai/<login>/.rig-profile   # machine B: adopts it
+rig profile sync                                # after a change on either side
+rig profile status --fetch                      # which side changed? (writes nothing)
+```
+
+- **Two-way, never a silent merge.** rig compares the local file, the repo's copy, and the snapshot
+  of the last sync. Only local changed → commit + push. Only the repo changed → pull, after backing
+  the local file up as `config.yaml.rig-bak-<stamp>`. Both changed → refused with both paths printed;
+  merge by hand into the local file and `rig profile sync --take local`, or keep the repo's with
+  `--take remote`. Both files are validated before they cross, so a broken config is never pushed or
+  adopted.
+- **The repo must be private.** `env.vars` (`rig env`) often holds API keys and the file is plaintext.
+  Every push of a config with `env.vars` warns (naming the keys), and a push is refused when the forge
+  reports the repo as public to an anonymous API request.
+- **Commits use this machine's git identity** — provision it with the `git:` block above. With none,
+  the push fails and names `git.config.user.name` / `user.email`.
+- **`profile.auto_sync: true`** (`rig profile init --auto-sync`) makes `rig apply commit` sync before it
+  builds the plan; a failure warns and applies the local file. A preview never syncs.
+- The checkout is `~/.config/rig/profile/repo/` (rig-owned) and the snapshot `~/.config/rig/profile/state.json`
+  (never committed). `init` records `profile.repo` through the same writer as `rig config set --global`,
+  which does not keep YAML comments. A push to `main` passes the agent-tools `protect-main` hook through
+  its audited `PUSH_MAIN_OK` hatch (a one-file config repo has no PR flow).
 
 ### Autonomous mode — global agent operating policy
 

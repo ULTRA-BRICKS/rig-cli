@@ -995,6 +995,9 @@ def build(
     # ── fj (Forgejo: install fj, one-click OAuth login for fj + git, default host) ─
     _build_fj(config, plan)
 
+    # ── git (global git settings via `git config --global`) ──────────────────────────
+    _build_git(config, plan)
+
     # ── tools (the personal CLI ecosystem: tg/review/task/draw/…) ──────────────────
     _build_tools(config, plan)
 
@@ -3398,6 +3401,30 @@ def _build_bun(config: LoadedConfig, plan: InstallPlan) -> None:
             item="bunfig",
             source=config.repo_root,
             target=target,
+        )
+    )
+
+
+def _build_git(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the global git settings (``git.config`` → ``git config --global``).
+
+    A PRESENT block opts in (like ``env``); an absent block, ``enabled: false``, or a block that
+    declares no keys emits NO action. ONE action carries every key (drift still reports per key).
+    GLOBAL-only — the loader already refused a ``git`` block from any other layer.
+    """
+    from . import gitconfig
+
+    entries = gitconfig.desired_config(config.data.get("git"))
+    if not entries:
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_git_config",
+            category="git",
+            item="config",
+            source=config.repo_root,
+            target=gitconfig.global_gitconfig_path(),
+            options={"config": entries},
         )
     )
 

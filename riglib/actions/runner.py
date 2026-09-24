@@ -5137,6 +5137,26 @@ def _set_git_global(key: str, value: str) -> int:
     return res.returncode
 
 
+def _git_global_get(key: str) -> str | None:
+    """``git config --global --get <key>`` VERBATIM (only git's trailing newline dropped), or None.
+
+    Unlike :func:`_git_global` it keeps leading/trailing spaces and an empty value, so the ``git:``
+    area's value compare (``riglib.gitconfig.resolve_key``) never reads a stripped value as drift.
+    ``None`` = unset (rc 1), no global gitconfig yet, or git missing — all "not set" to the caller.
+    """
+    try:
+        res = subprocess.run(
+            ["git", "config", "--global", "--get", key],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if res.returncode != 0:
+        return None
+    out = res.stdout
+    return out[:-1] if out.endswith("\n") else out
+
+
 # ── tmux configuration provisioning (generate + migrate) ───────────────────────────
 def tmux_plan_from_action(action: Action):
     """Rebuild the pure :class:`~riglib.tmux.TmuxPlan` an action describes.
@@ -9713,6 +9733,70 @@ def _do_provision_bunfig(action: Action, on_conflict: str) -> ActionResult:
     out = fsutil.write_file(target, result.new_content, on_conflict)
     return ActionResult(action, out.status, out.detail, out.backup)
 
+
+def _do_provision_git_config(action: Action, on_conflict: str) -> ActionResult:
+    """Set every declared ``git.config`` key with ``git config --global <key> <value>``.
+
+    Idempotent: a key git already holds with the same meaning (``riglib.gitconfig.resolve_key``,
+    bool/int-aware) is left alone. A key set by hand to a DIFFERENT value is overwritten and its
+    prior value + the exact restore command are recorded in the detail (a scalar has no file to
+    back up — the same contract the dispatcher uses for ``core.hooksPath``); ``on_conflict=skip``
+    leaves such a key untouched instead. Never unsets anything. A failed write (git missing, or a
+    multi-valued key git refuses to overwrite) is an ``error`` naming the key.
+    """
+    from .. import gitconfig
+
+    states = gitconfig.resolve(action.options)
+    if not states:
+        return ActionResult(action, "skipped", "git: no keys declared")
+    created: list[str] = []
+    updated: list[str] = []
+    kept: list[str] = []
+    failed: list[str] = []
+    notes: list[str] = []
+    current_count = 0
+    for st in states:
+        if st.state == "ok":
+            current_count += 1
+            continue
+        if st.state == "modified" and on_conflict == "skip":
+            kept.append(st.key)
+            continue
+        rc = _set_git_global(st.key, st.desired)
+        if rc != 0:
+            why = "git refused (a multi-valued key? rig sets single values only)" if rc == 5 else f"exit {rc}"
+            failed.append(f"{st.key} ({why})")
+            continue
+        if st.state == "missing":
+            created.append(st.key)
+        else:
+            updated.append(st.key)
+            prior = st.current if st.current is not None else ""
+            notes.append(
+                f"prior {st.key}={prior!r} (restore with: git config --global "
+                f"{shlex.quote(st.key)} {shlex.quote(prior)})"
+            )
+    parts: list[str] = []
+    if created:
+        parts.append(f"set {', '.join(created)}")
+    if updated:
+        parts.append(f"updated {', '.join(updated)}")
+    if kept:
+        parts.append(f"left differing {', '.join(kept)} (on_conflict=skip)")
+    if failed:
+        parts.append(f"FAILED {', '.join(failed)}")
+    if current_count:
+        parts.append(f"{current_count} already current")
+    detail = "git: " + "; ".join(parts + notes)
+    if failed:
+        return ActionResult(action, "error", detail)
+    if updated:
+        return ActionResult(action, "updated", detail)
+    if created:
+        return ActionResult(action, "created", detail)
+    return ActionResult(action, "skipped", detail)
+
+
 def _do_install_dev_reload_hook(action: Action, on_conflict: str) -> ActionResult:
     """Install the per-repo post-commit daemon auto-reload hook (+ global composer trampoline).
 
@@ -9874,6 +9958,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_tgctl_reaper": _do_provision_tgctl_reaper,
     "provision_bunfig": _do_provision_bunfig,
     "provision_fj": _do_provision_fj,
+    "provision_git_config": _do_provision_git_config,
 
     "install_dev_reload_hook": _do_install_dev_reload_hook,
 }

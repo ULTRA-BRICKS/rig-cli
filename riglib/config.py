@@ -44,6 +44,17 @@ from .shell_env import ENV_VAR_KEY_PATTERN as _ENV_VAR_KEY_PATTERN
 
 CONFIG_FILENAME = "rig.yaml"
 
+# Blocks that may ONLY come from the GLOBAL layer (~/.config/rig/config.yaml). Unlike the
+# write-routing-only global blocks (bun/spotlight/…, `schema._GLOBAL_ONLY_CATEGORIES`), these are
+# REJECTED at load time from any other layer: `git.config` can set code-executing keys
+# (core.sshCommand, core.fsmonitor, credential.helper, `!` aliases) machine-wide, and `profile`
+# points `rig apply` at a repo whose config it pulls — a committed (possibly adversarial) repo
+# rig.yaml must be able to do neither. Name → one-line reason for the error's `why`.
+_GLOBAL_LAYER_ONLY_BLOCKS: dict[str, str] = {
+    "git": "git.config writes the machine's GLOBAL git config (`git config --global`)",
+    "profile": "profile points rig at the repo your GLOBAL config is synced with",
+}
+
 _VALID_TOP_KEYS = {
     "version",
     "defaults",
@@ -68,6 +79,8 @@ _VALID_TOP_KEYS = {
     "spotlight",
     "bun",
     "fj",
+    "git",
+    "profile",
     "tools",
     "tg_ctl",
     "tcc_watch",
@@ -535,6 +548,16 @@ def load(
                 schema_path="mode",
             )
         if label != "global":
+            for block, reason in _GLOBAL_LAYER_ONLY_BLOCKS.items():
+                if block in data:
+                    raise ConfigError(
+                        f"{block} is a global-only config block",
+                        why=f"{path} is loaded as the {label} layer, but {reason} — a repo "
+                        "(or --config) layer must not set it",
+                        fix=f"move {block} to {global_config_path()} "
+                        f"(e.g. `rig config set {block}.<key> <value> --global`)",
+                        schema_path=block,
+                    )
             ci_items = data.get("ci", {})
             for part in ("items", "ship"):
                 ci_items = ci_items.get(part, {}) if isinstance(ci_items, dict) else {}
@@ -666,6 +689,8 @@ def validate(data: dict[str, Any]) -> None:
     _validate_spotlight(data.get("spotlight", {}))
     _validate_bun(data.get("bun", {}))
     _validate_fj(data.get("fj", {}))
+    _validate_git(data.get("git", {}))
+    _validate_profile(data.get("profile", {}))
     _validate_tools(data.get("tools", {}))
     _validate_tg_ctl(data.get("tg_ctl", {}))
     _validate_tcc_watch(data.get("tcc_watch", {}))
@@ -2545,6 +2570,121 @@ def _validate_fj(f: dict[str, Any]) -> None:
         v = f.get(key)
         if v is not None and (not isinstance(v, str) or not v.strip() or "\n" in v):
             raise ConfigError(f"fj.{key} must be a non-empty single-line string", schema_path=f"fj.{key}")
+
+
+def _validate_git(g: dict[str, Any]) -> None:
+    """Validate the ``git`` block — global git settings written with ``git config --global``.
+
+    GLOBAL-only (the loader rejects it from any other layer). A PRESENT block opts in (like
+    ``env``); only an ABSENT block or ``enabled: false`` is a no-op. Fail-closed on: a non-mapping
+    block / ``config``, an unknown key, a non-bool ``enabled``, a key that is not git's
+    ``section.name`` / ``section.subsection.name`` shape (:func:`riglib.gitconfig.parse_key`), two
+    keys git would treat as the same key (section/name are case-insensitive), a key another rig
+    area owns (``core.hooksPath`` / ``core.excludesfile``), and a value that is not a single-line
+    string, a bool or an int (a nested mapping gets a "use dotted keys" fix; a list — a
+    multi-valued key — is out of scope).
+    """
+    from .gitconfig import RESERVED_KEYS, canonical_key, parse_key
+
+    if not isinstance(g, dict):
+        raise ConfigError("git must be a mapping", schema_path="git")
+    if not g:
+        return
+    _reject_unknown_keys(g, "git")
+    _check_bool(g, "enabled", "git.enabled")
+    cfg = g.get("config")
+    if cfg is None:
+        return
+    if not isinstance(cfg, dict):
+        raise ConfigError(
+            f"git.config must be a mapping of dotted git keys to values, got {cfg!r}",
+            fix="e.g. `git: {config: {user.name: Alex, pull.rebase: true}}`",
+            schema_path="git.config",
+        )
+    seen: dict[str, str] = {}
+    for key, value in cfg.items():
+        if isinstance(value, dict):
+            raise ConfigError(
+                f"git.config.{key} is a nested mapping",
+                why="git.config keys are FLAT dotted git keys, not nested YAML sections (note: "
+                "`rig config set git.config.user.name …` builds exactly this nesting — its path "
+                "syntax splits on every dot)",
+                fix=f"edit the global config and write `{key}.<name>: <value>` "
+                "(e.g. `user.name: Alex`, not `user: {name: Alex}`)",
+                schema_path="git.config",
+            )
+        if parse_key(key) is None:
+            raise ConfigError(
+                f"git.config key {key!r} is not a valid git config key",
+                why="a git key is section.name or section.subsection.name; section and name start "
+                "with a letter and hold only letters, digits and '-'; no line breaks anywhere",
+                fix="e.g. user.name, pull.rebase, init.defaultBranch, url.https://host/.insteadOf",
+                schema_path="git.config",
+            )
+        canon = canonical_key(key)
+        if canon in RESERVED_KEYS:
+            raise ConfigError(
+                f"git.config.{key} is managed by another rig block",
+                why=RESERVED_KEYS[canon],
+                fix=f"remove {key} from git.config and configure it in its owning block",
+                schema_path="git.config",
+            )
+        if canon in seen:
+            raise ConfigError(
+                f"git.config declares {seen[canon]!r} and {key!r}, which git treats as the same key",
+                why="git compares the section and name of a key case-insensitively",
+                fix="keep one spelling",
+                schema_path="git.config",
+            )
+        seen[canon] = key
+        if isinstance(value, (bool, int)):
+            continue
+        if isinstance(value, str):
+            if any(ch in value for ch in ("\r", "\n", "\x00")):
+                raise ConfigError(
+                    f"git.config.{key} must be a single line, got {value!r}",
+                    why="each value is one `git config --global <key> <value>` call; drift compares "
+                    "it line-for-line",
+                    schema_path="git.config",
+                )
+            continue
+        kind ="a list (multi-valued keys are not supported)" if isinstance(value, list) else repr(value)
+        raise ConfigError(
+            f"git.config.{key} must be a string, bool or int, got {kind}",
+            fix="quote the value to pass it through verbatim (e.g. core.compression: \"9\")",
+            schema_path="git.config",
+        )
+
+
+def _validate_profile(p: dict[str, Any]) -> None:
+    """Validate the ``profile`` block — where ``rig profile sync`` keeps the global config.
+
+    GLOBAL-only (the loader rejects it from any other layer). Fail-closed on a non-mapping block,
+    an unknown key, a non-bool ``auto_sync``, and a ``repo`` that is not a non-empty single-line
+    string or that starts with ``-`` (it is handed to ``git clone`` — an option-looking URL is
+    refused outright rather than trusted to the ``--`` separator alone).
+    """
+    if not isinstance(p, dict):
+        raise ConfigError("profile must be a mapping", schema_path="profile")
+    if not p:
+        return
+    _reject_unknown_keys(p, "profile")
+    _check_bool(p, "auto_sync", "profile.auto_sync")
+    repo = p.get("repo")
+    if repo is None:
+        return
+    if (
+        not isinstance(repo, str)
+        or not repo.strip()
+        or repo.strip() != repo
+        or repo.startswith("-")
+        or any(ch in repo for ch in ("\r", "\n", "\x00"))
+    ):
+        raise ConfigError(
+            f"profile.repo must be a git URL (one line, no surrounding spaces), got {repo!r}",
+            fix="e.g. https://git.hyperide.ai/<login>/.rig-profile",
+            schema_path="profile.repo",
+        )
 
 
 

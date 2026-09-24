@@ -224,6 +224,9 @@ def _isolate_global_git_config(monkeypatch):
     for mod in (runner, driftmod):
         monkeypatch.setattr(mod, "_git_global", lambda key: store.get(key), raising=False)
     monkeypatch.setattr(runner, "_set_git_global", lambda key, value: store.__setitem__(key, value) or 0)
+    # the `git:` area's verbatim reader (riglib.gitconfig imports it lazily from runner, so the
+    # runner attribute is the one seam). Same store: an e2e apply's writes read back as current.
+    monkeypatch.setattr(runner, "_git_global_get", lambda key: store.get(key))
 
 
 @pytest.fixture(autouse=True)

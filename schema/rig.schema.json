@@ -1615,6 +1615,49 @@
       },
       "additionalProperties": false
     },
+    "git": {
+      "type": "object",
+      "description": "GLOBAL git settings: each `config` entry is written with `git config --global <key> <value>` (bools as true/false), idempotently; keys set by hand are never unset. GLOBAL-only — rejected from a repo rig.yaml.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "provision the global git settings — block PRESENCE opts in; only an explicit false opts out"
+        },
+        "config": {
+          "type": "object",
+          "description": "dotted git keys (section.name / section.subsection.name) → value (string, bool or int)",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "boolean",
+              "integer"
+            ]
+          },
+          "propertyNames": {
+            "pattern": "^[A-Za-z][A-Za-z0-9-]*(\\.[^\\r\\n\\x00]+)?\\.[A-Za-z][A-Za-z0-9-]*$"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "x-rig-global-only": true
+    },
+    "profile": {
+      "type": "object",
+      "description": "`rig profile`: the (PRIVATE) git repo ~/.config/rig/config.yaml is synced through, both ways. Written by `rig profile init`. GLOBAL-only — rejected from a repo rig.yaml.",
+      "properties": {
+        "repo": {
+          "type": "string",
+          "description": "the profile repo URL, e.g. https://git.hyperide.ai/<login>/.rig-profile (must be private)"
+        },
+        "auto_sync": {
+          "type": "boolean",
+          "description": "`rig apply commit` runs `rig profile sync` first (a failure warns and applies the local file)",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "x-rig-global-only": true
+    },
     "tools": {
       "type": "object",
       "description": "the personal CLI tool ecosystem (tg/review/task/draw/…) rig installs + advertises at apply, by running each tool's own install.sh. rig also keeps a provisioned checkout FRESH: if a tool repo ships scripts/deploy.sh, apply runs it (ff-only git pull) even when already installed — opt-in per tool, non-fatal. Default OFF (opt-in): list tools under items. A per-MACHINE concern — belongs in the GLOBAL layer, not a committed rig.yaml.",

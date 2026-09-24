@@ -265,6 +265,17 @@ def _verify_bunfig(action: Action) -> list[VerifyResult]:
     )]
 
 
+@register_verifier("provision_git_config")
+def _verify_git_config(action: Action) -> list[VerifyResult]:
+    """Every declared ``git.config`` key reads back from ``git config --global`` with its value."""
+    from . import gitconfig
+
+    return [
+        VerifyResult("git", st.key, st.state == "ok", st.detail)
+        for st in gitconfig.resolve(action.options)
+    ]
+
+
 
 
 # ── tmux (retrofit) ─────────────────────────────────────────────────────────────────────

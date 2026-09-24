@@ -595,6 +595,8 @@ def detect(
             _check_bunfig(action, report)
         elif action.kind == "provision_fj":
             _check_fj(action, report)
+        elif action.kind == "provision_git_config":
+            _check_git_config(action, report)
         elif action.kind == "provision_ship_task_prefix":
             _check_ship_task_prefix(action, report)
         elif action.kind == "install_dev_reload_hook":
@@ -1602,6 +1604,22 @@ def _check_fj(action: Action, report: DriftReport) -> None:
 
     for direction, item, target, detail in fj.pending_changes(action.options):
         report.items.append(DriftItem(direction, "fj", item, target, detail))
+
+
+def _check_git_config(action: Action, report: DriftReport) -> None:
+    """Flag each declared ``git.config`` key that is unset / different in the global gitconfig.
+
+    One :class:`DriftItem` PER KEY (item = the dotted key) so ``rig status`` names exactly which
+    setting drifted. Uses the SAME :func:`riglib.gitconfig.resolve` apply and verify use. Keys the
+    user set by hand that the config does not declare are never reported (the config→disk rule).
+    """
+    from . import gitconfig
+
+    for st in gitconfig.resolve(action.options):
+        if st.state == "ok":
+            continue
+        direction = "missing" if st.state == "missing" else "modified"
+        report.items.append(DriftItem(direction, "git", st.key, action.target, st.detail))
 
 
 def _check_bunfig(action: Action, report: DriftReport) -> None:

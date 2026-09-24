@@ -379,6 +379,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_config_parser(sub)
     _add_env_parser(sub)
+    _add_profile_parser(sub)
 
     # `config-web` — a local web UI over the SAME config engine as the wizard / `config set`.
     # Its lifecycle (run/start/stop/status/enable/disable + OS autostart) is delegated to the
@@ -448,6 +449,61 @@ def _add_config_parser(sub: "argparse._SubParsersAction") -> None:
         "--plan", action="store_true",
         help="list every planned action (default: a per-carrier summary for a large plan)",
     )
+
+
+def _add_profile_parser(sub: "argparse._SubParsersAction") -> None:
+    """`rig profile init|sync|status` — sync the GLOBAL config through a private git repo.
+
+    The engine (three-way compare, clone/seed, push/pull, visibility + env.vars guards) lives in
+    :mod:`riglib.profile`; this only declares the surface.
+    """
+    pp = sub.add_parser(
+        "profile",
+        help="sync ~/.config/rig/config.yaml through a PRIVATE git repo, both ways (init/sync/status)",
+        description="Carry the GLOBAL rig config between machines through a private git repo "
+        "(<forge>/<login>/.rig-profile) holding config.yaml. `init` clones it (or seeds an empty "
+        "one), `sync` moves changes both ways and refuses when both sides changed, `status` says "
+        "which side changed without writing. The repo MUST be private: env.vars can hold API keys.",
+    )
+    pp.set_defaults(_profile_parser=pp)
+    psub = pp.add_subparsers(dest="profile_command", metavar="<init|sync|status>")
+
+    pi = psub.add_parser(
+        "init",
+        help="clone the profile repo (or seed an empty one with the local config) and record it",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="exit codes:\n  0 synced\n  1 git/network failure or a refused push (public repo)\n"
+        "  2 no URL / invalid config / no git identity\n  3 local and remote differ — pick a side "
+        "with `rig profile sync --take local|remote`",
+    )
+    pi.add_argument(
+        "url", nargs="?",
+        help="profile repo URL (default: profile.repo from the global config, else "
+        "https://<host>/<fj login>/.rig-profile when `fj whoami` knows the login)",
+    )
+    pi.add_argument("--host", help="forge host for the derived default URL (default: fj's host, "
+                    "$FJ_FALLBACK_HOST, else git.hyperide.ai)")
+    pi.add_argument(
+        "--auto-sync", dest="auto_sync", action=argparse.BooleanOptionalAction, default=None,
+        help="record profile.auto_sync (`rig apply commit` syncs first); default: keep, else false",
+    )
+
+    ps = psub.add_parser(
+        "sync",
+        help="two-way sync: push a local change, pull a remote change, refuse when both changed",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="exit codes:\n  0 in sync / pushed / pulled\n  1 git/network failure or a refused push\n"
+        "  2 not initialized / invalid config / no git identity\n  3 conflict (nothing written)",
+    )
+    ps.add_argument(
+        "--take", choices=("local", "remote"),
+        help="resolve a conflict: local = push this machine's file; remote = adopt the repo's "
+        "(the local file is backed up first)",
+    )
+
+    pst = psub.add_parser("status", help="show which side changed since the last sync (writes nothing)")
+    pst.add_argument("--fetch", action="store_true",
+                     help="fetch the remote first (default: compare against the last-fetched state)")
 
 
 def _add_env_parser(sub: "argparse._SubParsersAction") -> None:
@@ -770,6 +826,7 @@ def main(argv: list[str] | None = None) -> int:
         "export": cmd_export,
         "config": cmd_config,
         "env": cmd_env,
+        "profile": cmd_profile,
         "schema": cmd_schema,
         "install-skill": cmd_install_skill,
         "spotlight-sweep": cmd_spotlight_sweep,
@@ -1779,6 +1836,13 @@ def cmd_apply(args: argparse.Namespace) -> int:
     from .catalog import CatalogError
     from .config import ConfigError
     from .plan import PlanError
+    from .profile import auto_sync_enabled
+
+    mode = _resolve_apply_mode(args)
+    # profile.auto_sync: sync the global config BEFORE the plan is built (a pull can change the very
+    # file the plan reads). Commit only — a preview mutates nothing, not even the profile.
+    if mode == "commit":
+        _apply_auto_sync_profile()
 
     try:
         plan, loaded, env = _load_plan(args.cwd, args.config)
@@ -1798,8 +1862,11 @@ def cmd_apply(args: argparse.Namespace) -> int:
         wanted = _scope_categories(args.only)
         plan.actions = [a for a in plan.actions if _action_in_only_scope(a, wanted)]
 
-    if _resolve_apply_mode(args) == "info":
-        return _apply_info(plan, args)
+    if mode == "info":
+        rc = _apply_info(plan, args)
+        if auto_sync_enabled():
+            print(_dim("  (profile.auto_sync is on: `rig apply commit` syncs the profile first)"))
+        return rc
     return _apply_commit(plan, args)
 
 
@@ -3311,6 +3378,98 @@ def _cmd_config_set(args: argparse.Namespace) -> int:
         ok_line=f"set {config_path} = {_fmt_scalar(value)}  → {target}",
         preview_hint="(preview only: config and disk are unchanged; add --commit to write + reconcile)",
     )
+
+
+def _profile_notify(level: str, text: str) -> None:
+    """Render one live message from :mod:`riglib.profile` (warnings to stderr, loud)."""
+    if level == "warn":
+        print(_warn(text), file=sys.stderr, flush=True)
+    elif level == "error":
+        print(_err(text), file=sys.stderr, flush=True)
+    else:
+        print(_dim(text), flush=True)
+
+
+def _print_profile_outcome(outcome) -> int:
+    style = {"pushed": _ok, "pulled": _ok, "in_sync": _ok, "nothing": _dim}.get(outcome.result, _err)
+    prefix = "profile: CONFLICT — " if outcome.result == "conflict" else "profile: "
+    print(style(prefix + outcome.detail))
+    for level, text in outcome.messages:
+        _profile_notify(level, text)
+    return outcome.code
+
+
+def _print_profile_error(exc) -> int:
+    print(_err(f"error: {exc.what}"), file=sys.stderr)
+    if exc.fix:
+        print(_ok("  fix: ") + exc.fix, file=sys.stderr)
+    return exc.code
+
+
+def cmd_profile(args: argparse.Namespace) -> int:
+    """`rig profile init|sync|status` — thin dispatch; the engine is :mod:`riglib.profile`."""
+    from . import profile
+
+    command = getattr(args, "profile_command", None)
+    if not command:
+        print(_err("error: `rig profile` needs a subcommand: init, sync, or status"), file=sys.stderr)
+        print(_dim("  rig profile init [URL]         # clone (or seed) the private profile repo"), file=sys.stderr)
+        print(_dim("  rig profile sync [--take …]    # push/pull ~/.config/rig/config.yaml"), file=sys.stderr)
+        print(_dim("  rig profile status [--fetch]   # which side changed (writes nothing)"), file=sys.stderr)
+        return 2
+    try:
+        if command == "init":
+            return _print_profile_outcome(
+                profile.init(args.url, host=args.host, auto_sync=args.auto_sync, notify=_profile_notify)
+            )
+        if command == "sync":
+            return _print_profile_outcome(profile.sync(take=args.take, notify=_profile_notify))
+        st = profile.status(fetch=args.fetch)
+    except profile.ProfileError as exc:
+        return _print_profile_error(exc)
+    verdicts = {
+        "in_sync": _ok("in sync"),
+        "push": _warn("local changed — `rig profile sync` pushes it"),
+        "pull": _warn("remote changed — `rig profile sync` pulls it (local file backed up)"),
+        "conflict": _err("CONFLICT — both changed; resolve with `rig profile sync --take local|remote`"),
+    }
+    print(f"profile: {st.url}")
+    print(_dim(f"  checkout: {st.checkout}"))
+    print(f"  local  ({profile.local_config_path()}): {st.local}")
+    print(f"  remote ({profile.PROFILE_FILE} in the repo): {st.remote}")
+    print(f"  last sync: {st.synced_at or 'never'}")
+    print(f"  state: {verdicts[st.verdict]}")
+    if not args.fetch:
+        print(_dim("  (compared against the last-fetched remote; --fetch to refresh)"))
+    return 0 if st.verdict == "in_sync" else profile.EXIT_CONFLICT
+
+
+def _apply_auto_sync_profile() -> None:
+    """`profile.auto_sync: true` → sync the global config before `rig apply commit` builds its plan.
+
+    Non-fatal by contract: any failure (network, push refused, conflict, not initialized) prints a
+    warning and the apply continues with the LOCAL file as it is on disk.
+    """
+    from . import profile
+
+    if not profile.auto_sync_enabled():
+        return
+    try:
+        outcome = profile.sync(noninteractive=True, notify=_profile_notify)
+    except profile.ProfileError as exc:
+        print(_warn(f"profile auto_sync skipped: {exc.what} — applying the local config"), file=sys.stderr)
+        if exc.fix:
+            print(_dim(f"  fix: {exc.fix}"), file=sys.stderr)
+        return
+    except Exception as exc:  # noqa: BLE001 — auto-sync must never break apply
+        print(_warn(f"profile auto_sync failed ({type(exc).__name__}: {exc}) — applying the local config"),
+              file=sys.stderr)
+        return
+    if outcome.result == "conflict":
+        print(_warn(f"profile auto_sync: {outcome.detail} — applying the local config"), file=sys.stderr)
+        print(_dim("  resolve with `rig profile sync --take local|remote`"), file=sys.stderr)
+        return
+    print(_dim(f"profile auto_sync: {outcome.detail}"))
 
 
 def cmd_env(args: argparse.Namespace) -> int:

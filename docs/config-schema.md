@@ -88,6 +88,8 @@ agents_md: { ... }            # AGENTS.md (canonical) + CLAUDE.md (symlink), def
 github: { ... }               # repo settings: ruleset/merge/ghas/actions via gh api + browser via agent-browser, default ON
 tmux: { ... }                 # rig-managed tmux config (generate + migrate ~/.tmux.conf), opt-in
 gitignore: { ... }            # rig-managed block in the GLOBAL git excludesfile (ignores **/.claude/worktrees/ + the Spotlight sentinel in EVERY repo), default ON
+git: { ... }                  # GLOBAL git settings via `git config --global` (identity, pull/branch defaults); GLOBAL layer ONLY
+profile: { ... }              # `rig profile`: the PRIVATE repo this global config syncs through; GLOBAL layer ONLY
 tg_ctl: { ... }               # tg-ctl inbound daemon as a macOS boot LaunchAgent, default ON (macOS-only)
 tcc_watch: { ... }            # TCC dialog-watcher daemon (Phase 1 detection-only), a macOS boot LaunchAgent, default ON (macOS-only)
 tgctl_reaper: { ... }         # tgctl-reaper periodic orphan-sweep LaunchAgent (StartInterval), default ON (macOS-only)
@@ -2482,6 +2484,91 @@ Verify checks both `[install]` keys.
 
 ---
 
+## `git`
+
+Provisions this machine's **global git settings** — identity, pull/branch defaults, URL rewrites —
+with `git config --global <key> <value>`, so a new machine gets the same git behavior from the same
+config. **GLOBAL layer only**: `~/.config/rig/config.yaml`. The loader **rejects** a `git` block from
+a repo `rig.yaml` (or a `--config` file) with exit `2`, because several git keys execute code
+(`core.sshCommand`, `core.fsmonitor`, `credential.helper`, `!`-aliases) and a cloned repo must never
+be able to rewrite your global git config through `rig apply`.
+
+```yaml
+git:
+  enabled: true                  # optional — block PRESENCE opts in; only `false` opts out
+  config:                        # dotted git keys → value
+    user.name: Alex Ultra
+    user.email: someone@example.com
+    pull.rebase: true            # bools are written as true/false
+    init.defaultBranch: main
+    url.https://git.hyperide.ai/.insteadOf: hy:   # a subsection may hold dots and slashes
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `enabled` | bool | — (see below) | opts OUT when explicitly `false`. Like `env`, a PRESENT `git:` block with `enabled` unset opts in; an absent block is a no-op. |
+| `config` | map[git key → string\|bool\|int] | `{}` | each entry is one `git config --global <key> <value>`. Bools are written `true`/`false`, ints as digits. |
+
+**Keys** follow git's own shape: `section.name` or `section.subsection.name`. Section and name start
+with a letter and hold only letters, digits and `-` (git compares them case-insensitively, so
+`user.name` and `User.Name` in one block is rejected as a duplicate); the subsection is everything
+between the first and last dot and may hold dots and slashes. Rejected fail-closed (exit `2`, schema
+path `git.config`): a malformed key, a nested mapping instead of a dotted key (`user: {name: …}` —
+write `user.name: …`), a value with a line break, a list (multi-valued keys such as
+`remote.*.fetch` are out of scope), a float/null (quote it), and **`core.hooksPath` /
+`core.excludesfile`** — the `git_hooks` dispatcher and the `gitignore` block own those, and two
+owners would fight on every apply. Edit these keys in the YAML file directly: `rig config set`'s
+path syntax splits on every dot, so `rig config set git.config.user.name …` would build a nested
+`user: {name: …}` mapping (rejected with a message saying so).
+
+**Apply** sets every key that is unset or differs; a key already holding a value that means the same
+to git is left alone (`yes`/`on`/`1` match a desired `true`; `1k` matches `1024`). A value you set by
+hand to something else is overwritten, and the result detail records the prior value with the exact
+restore command (`prior user.email='old@…' (restore with: git config --global user.email old@…)`);
+`defaults.on_conflict: skip` leaves such a key untouched instead. rig **never unsets** a key: keys in
+`~/.gitconfig` that the config does not declare are not drift and are never touched.
+
+**Drift / verify.** `rig status` reports one row per declared key that is missing or different
+(`git/pull.rebase: global pull.rebase is 'false', config wants 'true'`); the post-apply verify reads
+every key back. All three (apply, drift, verify) share one classifier (`riglib/gitconfig.py`).
+`$GIT_CONFIG_GLOBAL` is honored (git's own `--global` resolution decides the file).
+
+---
+
+## `profile`
+
+Where `rig profile` keeps this machine's **global config** in sync with your other machines: a
+**private** git repo (conventionally `https://git.hyperide.ai/<login>/.rig-profile`) holding one file,
+`config.yaml` — a copy of `~/.config/rig/config.yaml`. **GLOBAL layer only**, rejected from a repo
+`rig.yaml` like `git`. Written by `rig profile init`; see the README's
+[`rig profile`](../README.md#rig-profile--carry-your-global-config-between-machines) section for the
+workflow.
+
+```yaml
+profile:
+  repo: https://git.hyperide.ai/alex/.rig-profile   # the PRIVATE profile repo
+  auto_sync: false                                   # true: `rig apply commit` syncs first
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `repo` | string | — | the profile repo URL (https, ssh, or a local path). One line, no leading `-`. `rig profile init` records it and never rewrites an existing value (machines may spell one repo as ssh vs https). |
+| `auto_sync` | bool | `false` | `rig apply commit` runs `rig profile sync` BEFORE building its plan (a pull changes the very file the plan reads). Non-fatal: a network/push failure or a conflict prints a warning and the apply continues with the local file. A preview (`rig apply` / `apply info`) never syncs. |
+
+**The repo MUST be private.** The file travels in plaintext and `env.vars` (see [`env`](#env)) often
+holds API keys. Every push of a config carrying `env.vars` warns (loudly the first time on each
+machine, naming the keys, never the values), and a push is **refused** when the forge reports the repo
+as public to an anonymous API request (Forgejo/Gitea `/api/v1/repos/<owner>/<repo>`, GitHub
+`api.github.com/repos/…`; skipped with a note when that cannot be checked, e.g. offline or a local
+path). Write access to the repo is write access to this machine's global rig config — and, through
+the `git` block, its global git config — so guard it like your dotfiles.
+
+**What lives where.** The checkout is `~/.config/rig/profile/repo/` (rig-owned: never edit it by
+hand); the last-synced snapshot hash is `~/.config/rig/profile/state.json`, **beside** the checkout,
+never committed. Both follow `$XDG_CONFIG_HOME`.
+
+---
+
 
 
 ## `spotlight`
@@ -3158,7 +3245,7 @@ rig config set harness.auto_mode false --no-apply        # write only, print the
 strict**: an unknown FIXED key in *any* block — `defaults`, `skills`, `agent_hooks`, `git_hooks`
 (+ `dispatcher`), `ci`, `mcp`, `harness` (+ `hook_bridge` / `web_search`), `permissions`, `models` (+ `schedule`),
 `agents_md`, `scripts`, `dev` (+ `server` / `e2e`), `github` (+ `ruleset` / `merge` / `ghas` / `actions` / `browser`), `tmux` (+ every
-sub-block), `gitignore`, `tg_ctl`, `tcc_watch`, `tgctl_reaper`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`),
+sub-block), `gitignore`, `git`, `profile`, `tg_ctl`, `tcc_watch`, `tgctl_reaper`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`),
 `ecosystem_readme` — is rejected with the schema path of the offender, not silently ignored. (The open maps are
 top-level `scripts:`, the catalog-keyed `items:` / `fragments:` maps, plus `dev.e2e.jobs:` — see
 "Strict by default" above.) Bad-value rejections
@@ -3178,7 +3265,10 @@ that contains a rig-managed marker line, or that has a blank or multi-line entry
 `tg_ctl.enabled`/`boot`/`codex_usage_hook`, a non-string
 `tg_ctl.label`/`bun_path`/`tg_ctl_path`/`config_dir`, a bad
 `project_tools.haft.workflow.mode`, a non-list/string item in `project_tools.serena.languages` or
-`project_tools.serena.ignored_paths`, and an `agent_tools_source` that is not an agent-tools
+`project_tools.serena.ignored_paths`, a malformed / reserved / duplicate `git.config` key or a
+non-scalar / multi-line value, a `profile.repo` that is not a one-line URL, a non-bool
+`profile.auto_sync`, a **`git` or `profile` block in any layer but the global config** (they are
+GLOBAL-only by load-time enforcement, like `mode`), and an `agent_tools_source` that is not an agent-tools
 checkout. Every rejection is the **3-part error** (what / why + schema path / fix) and
 exits `2`. `--dry-run` prints the resolved plan and exits 0 without writing.
 

@@ -39,6 +39,7 @@ _CATEGORY_LAYER = {
     "gitignore": GLOBAL,
     "spotlight": GLOBAL,
     "bun": GLOBAL,
+    "git": GLOBAL,
     "tmux": GLOBAL,
     "env": GLOBAL,
     "fj": GLOBAL,
