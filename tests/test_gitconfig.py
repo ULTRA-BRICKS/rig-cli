@@ -178,6 +178,16 @@ def test_loader_rejects_git_block_from_explicit_config_layer(tmp_path):
         load(tmp_path, explicit_config=other)
 
 
+def test_loader_treats_the_global_file_passed_explicitly_as_global(tmp_path):
+    """`config set --global` validates the global file as `explicit_config`; it is still GLOBAL."""
+    from riglib.config import global_config_path
+
+    gpath = global_config_path()
+    _write(gpath, "version: 1\ngit: {config: {user.name: X}}\nprofile: {repo: https://h/u/.rig-profile}\n")
+    loaded = load(gpath.parent, explicit_config=gpath, include_global=False)
+    assert loaded.data["git"]["config"]["user.name"] == "X"
+
+
 def test_loader_accepts_git_and_profile_from_global_layer(tmp_path):
     from riglib.config import global_config_path
 

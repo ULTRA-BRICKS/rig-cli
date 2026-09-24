@@ -2553,7 +2553,7 @@ profile:
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `repo` | string | — | the profile repo URL (https, ssh, or a local path). One line, no leading `-`. `rig profile init` records it and never rewrites an existing value (machines may spell one repo as ssh vs https). |
-| `auto_sync` | bool | `false` | `rig apply commit` runs `rig profile sync` BEFORE building its plan (a pull changes the very file the plan reads). Non-fatal: a network/push failure or a conflict prints a warning and the apply continues with the local file. A preview (`rig apply` / `apply info`) never syncs. |
+| `auto_sync` | bool | `false` | `rig apply commit` runs `rig profile sync` BEFORE building its plan (a pull changes the very file the plan reads). Non-fatal: a network/push failure or a conflict prints a warning and the apply continues with the local file. A pull is announced as a warning, since the plan that runs is then built from a config you did not preview. A preview (`rig apply` / `apply info`) never syncs. |
 
 **The repo MUST be private.** The file travels in plaintext and `env.vars` (see [`env`](#env)) often
 holds API keys. Every push of a config carrying `env.vars` warns (loudly the first time on each

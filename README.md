@@ -323,7 +323,8 @@ rig profile status --fetch                      # which side changed? (writes no
 - **Commits use this machine's git identity** — provision it with the `git:` block above. With none,
   the push fails and names `git.config.user.name` / `user.email`.
 - **`profile.auto_sync: true`** (`rig profile init --auto-sync`) makes `rig apply commit` sync before it
-  builds the plan; a failure warns and applies the local file. A preview never syncs.
+  builds the plan; a failure warns and applies the local file, and a pull is flagged as a warning
+  (that plan comes from a config you did not preview). A preview never syncs.
 - The checkout is `~/.config/rig/profile/repo/` (rig-owned) and the snapshot `~/.config/rig/profile/state.json`
   (never committed). `init` records `profile.repo` through the same writer as `rig config set --global`,
   which does not keep YAML comments. A push to `main` passes the agent-tools `protect-main` hook through

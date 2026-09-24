@@ -3469,6 +3469,11 @@ def _apply_auto_sync_profile() -> None:
         print(_warn(f"profile auto_sync: {outcome.detail} — applying the local config"), file=sys.stderr)
         print(_dim("  resolve with `rig profile sync --take local|remote`"), file=sys.stderr)
         return
+    if outcome.result == "pulled":
+        # the plan about to run is built from a config the user has not previewed — say so loudly
+        print(_warn(f"profile auto_sync: {outcome.detail}"))
+        print(_warn("  the plan below is built from the PULLED config (preview: `rig apply`)"))
+        return
     print(_dim(f"profile auto_sync: {outcome.detail}"))
 
 

@@ -222,6 +222,17 @@ def _upstream_ref(repo: Path, branch: str) -> str | None:
     return ref if _git(["rev-parse", "--verify", "-q", ref], cwd=repo).returncode == 0 else None
 
 
+def _remote_file(repo: Path, branch: str) -> bytes | None:
+    """The REMOTE side: ``config.yaml`` on ``origin/<branch>``; None when the remote has no branch.
+
+    Never HEAD: a local commit with no upstream (a first push that failed half-way, a deleted
+    remote branch) is exactly content the remote does NOT have — reading it as the remote side
+    would turn "never pushed" into a silent "in sync".
+    """
+    upstream = _upstream_ref(repo, branch)
+    return _file_at(repo, upstream) if upstream else None
+
+
 def _file_at(repo: Path, rev: str) -> bytes | None:
     """``config.yaml`` as stored at ``rev`` (raw blob bytes), or None when absent / no such rev."""
     try:
@@ -468,12 +479,15 @@ def _push_local(
     before = _git(["rev-parse", "--verify", "-q", "HEAD"], cwd=repo).stdout.strip() or None
     (repo / PROFILE_FILE).write_bytes(normalized)
     _git_ok(["add", "--", PROFILE_FILE], cwd=repo)
-    host = socket.gethostname() or "unknown host"
-    commit = _git(identity + ["commit", "--quiet", "-m", f"rig profile: {PROFILE_FILE} from {host}"], cwd=repo)
-    if commit.returncode != 0:
-        _rollback(repo, before)
-        tail = (commit.stderr or commit.stdout).strip()
-        raise ProfileError(f"the profile commit failed (a pre-commit hook?): {tail[-400:]}")
+    # nothing staged = HEAD already holds this content but the remote does not (a stray local
+    # commit, or a remote branch deleted under us): no new commit — just push what HEAD has.
+    if _git(["diff", "--cached", "--quiet"], cwd=repo).returncode != 0:
+        host = socket.gethostname() or "unknown host"
+        commit = _git(identity + ["commit", "--quiet", "-m", f"rig profile: {PROFILE_FILE} from {host}"], cwd=repo)
+        if commit.returncode != 0:
+            _rollback(repo, before)
+            tail = (commit.stderr or commit.stdout).strip()
+            raise ProfileError(f"the profile commit failed (a pre-commit hook?): {tail[-400:]}")
     push_env = None
     if branch in ("main", "master"):
         # agent-tools' protect-main pre-push hook blocks direct pushes to main; its documented,
@@ -571,7 +585,7 @@ def sync(*, take: str | None = None, noninteractive: bool = False, notify: Notif
     _converge_to_remote(repo, branch, force=take is not None)
 
     local = _read_bytes(local_config_path())
-    remote = _file_at(repo, "HEAD") if _has_commits(repo) else None
+    remote = _remote_file(repo, branch)
     d_local, d_remote = digest(local), digest(remote)
     snapshot = state.get("synced_sha256")
 
@@ -625,9 +639,7 @@ def status(*, fetch: bool = False) -> Status:
         _fetch(repo, noninteractive=True)
     state = read_state()
     snapshot = state.get("synced_sha256") if state.get("repo") == url else None
-    branch = current_branch(repo)
-    upstream = _upstream_ref(repo, branch)
-    remote = _file_at(repo, upstream) if upstream else (_file_at(repo, "HEAD") if _has_commits(repo) else None)
+    remote = _remote_file(repo, current_branch(repo))
     local = _read_bytes(local_config_path())
     d_local, d_remote = digest(local), digest(remote)
 
@@ -753,7 +765,7 @@ def init(
     state = read_state()
     if state.get("repo") != url:
         write_state({"repo": url})
-    remote = _file_at(repo, "HEAD") if _has_commits(repo) else None
+    remote = _remote_file(repo, current_branch(repo))
     local = _read_bytes(local_config_path())
 
     if remote is None:

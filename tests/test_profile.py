@@ -345,14 +345,50 @@ def test_push_to_a_public_repo_is_refused(world, monkeypatch):
     assert world.remote_commits() == 0
 
 
+def _reject_pushes(world) -> Path:
+    hook = world.remote / "hooks" / "pre-receive"
+    hook.write_text("#!/bin/sh\necho 'rejected by test' >&2\nexit 1\n", encoding="utf-8", newline="\n")
+    hook.chmod(0o755)
+    return hook
+
+
+def test_rejected_first_push_to_an_empty_remote_never_reads_as_in_sync(world):
+    """A seed whose push fails must leave nothing that a later sync mistakes for "already pushed"."""
+    local = world.machine("a")
+    _write(local, BASE_CONFIG)
+    hook = _reject_pushes(world)
+    with pytest.raises(profile.ProfileError, match="push to"):
+        profile.init(world.url, notify=world.notify)
+    assert world.remote_commits() == 0
+    repo = profile.checkout_dir()
+    assert subprocess.run(["git", "-C", str(repo), "rev-parse", "-q", "--verify", "HEAD"],
+                          capture_output=True).returncode != 0  # rolled back to unborn
+    assert profile.status().verdict == "push"
+    hook.unlink()
+    assert profile.sync(notify=world.notify).result == "pushed"
+    assert yaml.safe_load(world.remote_file()) == _load(local)
+
+
+def test_a_local_commit_without_upstream_is_not_the_remote_side(world):
+    """Even if a stray commit survives in the checkout, the remote side is origin/<branch> only."""
+    local = world.machine("a")
+    _write(local, BASE_CONFIG)
+    profile.record_profile_block(world.url, None, world.notify)
+    repo = profile.checkout_dir()
+    _git("clone", "--quiet", world.url, str(repo))
+    (repo / "config.yaml").write_bytes(local.read_bytes().replace(b"\r\n", b"\n"))
+    _git("add", "config.yaml", cwd=repo)
+    _git("commit", "--quiet", "-m", "stray, never pushed", cwd=repo)
+    assert profile.sync(notify=world.notify).result == "pushed"
+    assert world.remote_commits() >= 1
+
+
 def test_rejected_push_rolls_back_and_keeps_the_snapshot(world):
     local = world.machine("a")
     _write(local, BASE_CONFIG)
     profile.init(world.url, notify=world.notify)
     snapshot = profile.read_state()["synced_sha256"]
-    hook = world.remote / "hooks" / "pre-receive"
-    hook.write_text("#!/bin/sh\necho 'rejected by test' >&2\nexit 1\n", encoding="utf-8", newline="\n")
-    hook.chmod(0o755)
+    hook = _reject_pushes(world)
     local.write_text(local.read_text(encoding="utf-8") + "bun: {enabled: true}\n", encoding="utf-8")
     with pytest.raises(profile.ProfileError, match="push to"):
         profile.sync(notify=world.notify)
@@ -496,6 +532,28 @@ def test_cli_init_sync_status_round_trip(world, capsys):
     local.write_text(local.read_text(encoding="utf-8") + "bun: {enabled: true}\n", encoding="utf-8")
     assert main(["profile", "status"]) == 3
     assert "local changed" in capsys.readouterr().out
+
+
+def test_global_config_edits_still_work_with_global_only_blocks(world, fake_agent_tools, tmp_path, monkeypatch):
+    """`config set --global` / `env set` validate the global file as an explicit layer; its
+    `git`/`profile` blocks must stay legal there (they are only illegal in a repo/--config layer)."""
+    import riglib.actions as actions_pkg
+    from riglib.actions.runner import ApplyReport
+
+    monkeypatch.setattr(actions_pkg, "run_plan", lambda plan, **_kw: ApplyReport(results=[]))
+    local = world.machine("a")
+    _write(local, f"version: 1\nagent_tools_source: {fake_agent_tools.as_posix()}\n"
+                  "git:\n  config:\n    pull.rebase: true\n"
+                  f"profile:\n  repo: {world.url}\n")
+    repo = tmp_path / "repo"
+    _write(repo / "rig.yaml", f"version: 1\nagent_tools_source: {fake_agent_tools.as_posix()}\n"
+                              "skills: {enabled: false}\n")
+    assert main(["config", "set", "profile.auto_sync", "true", "--global", "--no-apply", "-C", str(repo)]) == 0
+    assert _load(local)["profile"]["auto_sync"] is True
+    assert main(["env", "set", "EXAMPLE_VAR", "value", "-C", str(repo)]) == 0
+    assert _load(local)["env"]["vars"]["EXAMPLE_VAR"] == "value"
+    # and a repo-local `config set` of a global-only key is still refused
+    assert main(["config", "set", "profile.auto_sync", "false", "--no-apply", "-C", str(repo)]) != 0
 
 
 def _auto_sync_machine(world, fake_agent_tools) -> Path:

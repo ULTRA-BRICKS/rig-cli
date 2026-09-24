@@ -595,7 +595,14 @@ def load(
             rpath = explicit_config.resolve()
             if not rpath.is_file() and rpath not in overrides:
                 raise ConfigError(f"--config file not found: {rpath}")
-            label = "repo" if rpath == repo_config_path(repo_root).resolve() else "config"
+            if rpath == repo_config_path(repo_root).resolve():
+                label = "repo"
+            elif rpath == global_config_path().resolve():
+                # the global file passed explicitly (`config set --global`/`env set` validate it in
+                # isolation this way) is still the GLOBAL layer — its global-only blocks are legal.
+                label = "global"
+            else:
+                label = "config"
             _merge_layer(rpath, label)
         else:
             rpath = repo_config_path(repo_root)
