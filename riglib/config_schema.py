@@ -1026,6 +1026,25 @@ _SPOTLIGHT_BLOCK = Block(
     },
 )
 
+_FORGE_BLOCK = Block(
+    doc=(
+        "Forgejo access (GLOBAL, per machine): install `fj`, one-click browser login for fj and git "
+        "through Forgejo's built-in OAuth apps, and `FJ_FALLBACK_HOST` so `fj` never needs `--host`. "
+        "A PRESENT block opts in; a repo rig.yaml may set `host` to log in to a different instance."
+    ),
+    leaves={
+        "enabled": Leaf("boolean", "provision Forgejo access — block PRESENCE opts in; false opts out"),
+        "host": Leaf("string", "the Forgejo host (`git.hyperide.ai`) — login target and FJ_FALLBACK_HOST"),
+        "install_fj": Leaf("boolean", "install fj when missing (brew on macOS, pinned release binary elsewhere)", default=True),
+        "fj_version": Leaf("string", "fj release to install where rig downloads it", default="0.6.0"),
+        "bin_dir": Leaf("string", "where the downloaded fj goes (must be on PATH)", default="~/.local/bin"),
+        "git_credentials": Leaf("boolean", "configure Git Credential Manager OAuth for https://<host>", default=True),
+        "fj_client_id": Leaf("string", "OAuth client ID fj logs in with (default: Forgejo's built-in `tea` app)"),
+        "git_client_id": Leaf("string", "OAuth client ID GCM logs in with (default: Forgejo's built-in GCM app)"),
+    },
+)
+
+
 _BUN_BLOCK = Block(
     doc="GLOBAL bunfig: splice [install] linker=isolated and globalStore=true.",
     leaves={
@@ -1438,6 +1457,7 @@ BLOCKS: dict[str, Block] = {
     "gitignore": _GITIGNORE_BLOCK,
     "spotlight": _SPOTLIGHT_BLOCK,
     "bun": _BUN_BLOCK,
+    "forge": _FORGE_BLOCK,
     "tools": _TOOLS_BLOCK,
     "tg_ctl": _TG_CTL_BLOCK,
     "tcc_watch": _TCC_WATCH_BLOCK,

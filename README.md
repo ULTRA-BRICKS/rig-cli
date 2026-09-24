@@ -89,39 +89,35 @@ from git otherwise).
 - Keep an agent-tools checkout where rig looks for one (`~/work/agent-tools`, `~/xp/agent-tools`,
   `~/agent-tools`), or point at it: `rig config set --global agent_tools_source <path> --commit`.
 
-### Forgejo (`fj`) — log in once, never type `--host`
+### Forgejo (`fj`) — one command, one click
 
 The ecosystem lives on Forgejo at **git.hyperide.ai**; its CLI is `fj`
-([forgejo-cli](https://codeberg.org/forgejo-contrib/forgejo-cli), ≥ 0.6.0).
+([forgejo-cli](https://codeberg.org/forgejo-contrib/forgejo-cli)). rig sets it up for you:
 
-1. **Install `fj`:** `brew install forgejo-cli` on macOS; on Linux/Windows take `fj` / `fj.exe` from
-   the [releases](https://codeberg.org/forgejo-contrib/forgejo-cli/releases) into `~/.local/bin`
-   (or `cargo install forgejo-cli`).
-2. **Default host.** Inside a clone whose remote is on git.hyperide.ai, `fj` finds the host on its
-   own. Everywhere else it needs `--host`, unless `FJ_FALLBACK_HOST` is set:
+```bash
+rig config set --global forge.host git.hyperide.ai --commit   # once per machine (or put it in your .rig-profile)
+rig forge login                                                # browser opens → press Authorize
+```
 
-   ```bash
-   rig env set FJ_FALLBACK_HOST https://git.hyperide.ai    # macOS/Linux (zsh) — rig manages it
-   setx FJ_FALLBACK_HOST https://git.hyperide.ai           # Windows — new shells pick it up
-   ```
-3. **Log in.** `fj auth login` (browser OAuth) only knows hosts with a registered OAuth app, and
-   git.hyperide.ai has none yet, so for now log in with a token:
-   - open <https://git.hyperide.ai/user/settings/applications> → **Generate new token** (scopes:
-     *repository*, *issue*, *organization*: read & write; *user*: read);
-   - `fj auth add-token` and paste it (with `FJ_FALLBACK_HOST` unset:
-     `fj --host git.hyperide.ai auth add-token`);
-   - check it: `fj whoami`. Optionally `fj auth use-ssh true` so `fj repo clone` uses ssh.
+That is all. `rig apply` (and `rig forge login` itself) then:
 
-   To make `fj auth login` a one-click browser login instead, an instance admin registers an OAuth2
-   application (redirect URI `http://127.0.0.1:26218/`, *confidential client* off) and every
-   machine lists its client ID in fj's `client_ids` file as `git.hyperide.ai <client-id>`
-   (`~/.config/forgejo-cli/client_ids` on macOS/Linux, `%APPDATA%\Cyborus\forgejo-cli\config\client_ids`
-   on Windows).
+- **installs fj** — `brew install forgejo-cli` on macOS, the sha256-pinned release binary into
+  `~/.local/bin` on Linux and Windows (Cygwin / Git Bash included);
+- **makes `fj auth login` a browser login** — every Forgejo instance ships built-in public OAuth apps,
+  and rig lists one for the host in fj's `client_ids`: no token to mint, no app for an admin to
+  register. fj refreshes the token itself;
+- **logs git in the same way** — with Git Credential Manager (bundled with Git for Windows) rig adds
+  its OAuth settings for `https://<host>`, so `git push` never asks for a password;
+- **drops `--host`** — `FJ_FALLBACK_HOST=https://<host>` in every shell (the `env` area on
+  macOS/Linux, a user environment variable on Windows). Inside a clone fj still uses its remote.
 
-`tools.items.fj: { brew: [forgejo-cli] }` in the global config (see
-[docs/config-schema.md](docs/config-schema.md#tools)) is for the personal `fj` **wrapper** checkout
-(`~/xp/fj-cli`): rig brew-installs `forgejo-cli`, then runs that checkout's `install.sh`. It is
-macOS-only (Homebrew) and needs that checkout to exist — plain `fj` above works everywhere.
+Inside a repo, `rig forge login` picks the host from that repo's `rig.yaml` (`forge.host`), else the
+global config, else an https `origin`. Headless machines: `rig forge login --token-stdin` with an
+access token from `https://<host>/user/settings/applications`. `rig forge status` shows what is set
+up; `rig status` reports it as drift. Full reference: [docs/config-schema.md](docs/config-schema.md#forge).
+
+No `fj` wrapper is needed any more: `tools.items.fj: { brew: [forgejo-cli] }` was for a personal
+wrapper checkout (`~/xp/fj-cli`) and can go.
 
 ## Commands
 
@@ -135,6 +131,7 @@ macOS-only (Homebrew) and needs that checkout to exist — plain `fj` above work
 | `rig setup` | **The interactive configuration wizard.** In a terminal it shows what is enabled across every reconciled area, lets you change any option (with an inline hint per option) in the local `rig.yaml` AND the global `~/.config/rig/config.yaml`, then applies. Non-interactive (piped / no TTY) it prints usage for `init`/`apply`/`config get\|set`. |
 | `rig config get\|set` | **The headless counterpart to the wizard.** `get` reads one nested key. `set <dot.path> <value>` is **preview-by-default**: it validates the prospective config entirely in memory, shows the config change + resulting reconcile plan, and writes nothing. Add **`--commit`** to write the change and execute that same validated plan; `--no-apply` is the explicit legacy write-only mode. `--global` targets `~/.config/rig/config.yaml`. |
 | `rig env list\|set\|del` | **Machine-wide `env.vars` keys** (search API keys, `COLORTERM`, …). Always writes `~/.config/rig/config.yaml` (the same path as `rig config set --global env.vars.KEY`). `set`/`del` write + reconcile by default so `~/.config/rig/env/rig.env.sh` updates; omit VALUE to read stdin (keeps the secret out of argv/history). `list` **masks** values (`***` + last 4); `--show` prints them in full. **Both files are plaintext** — this is not a secret store. |
+| `rig forge login\|status` | **Forgejo in one click.** Installs `fj` if needed, makes `fj auth login` and git HTTPS logins a browser *Authorize* (Forgejo's built-in OAuth apps — nothing to register), sets `FJ_FALLBACK_HOST` so `fj` never needs `--host`. Host from `--host`, the repo/global `forge.host`, or the https `origin`. `--token-stdin` for headless machines. See [Forgejo](#forgejo-fj--one-command-one-click). |
 | `rig config-web` | **A machine-wide web console** — one browser tab per rig-managed repo (discovered from the repository registry) plus a Global tab for `~/.config/rig/config.yaml` alone. Each tab renders every area with its live effective value, tagged with the layer an edit lands in, next to a **drift panel** (the same two-way engine `rig status` uses). An edit routes to the **owning layer** and is written by the **same engine** as `rig config set`/the wizard (fail-closed validation) — then the page offers an **interactive apply**: a plan preview (mirrors `rig apply info`, each action tagged with what kind of change it is — creates a file, installs a hook, changes a permission, etc.), confirm-or-skip individual actions, then live per-phase progress as the **same shared engine** (`plan.build` + `run_plan`) `rig apply`/`rig init` use actually applies them. A stale preview (config changed since you looked) is refused rather than silently applied; only one apply runs at a time. Lifecycle is the shared `agenttools-service` manager: `run` (foreground) / `start` (background daemon) / `status` / `stop` / `enable` (install launchd-macOS / systemd-`--user`-Linux autostart + start) / `disable`. Binds `127.0.0.1` only, with a same-origin (CSRF) + Host (DNS-rebinding) guard on every mutating/compute-triggering request. A bare `rig config-web` prints help, never launches. `--port`, `-C <repo>`. **The lifecycle verbs need the `agenttools-service` lib** (an agent-tools nested lib, not on PyPI): `uv pip install --python <rig's interpreter> -e <agent-tools>/lib/agenttools_daemon -e <agent-tools>/lib/agenttools_service` (the `--python` target makes the libs land where rig imports them; the error message prints the exact interpreter path). Without it, `rig --help` and every other command still work; a lifecycle verb fails closed with that install hint. |
 | `rig evolve` | **Project evolution portal.** Serve a local browser UI with a git activity histogram, proportional file treemap, clickable selection, and provider health. The first slice is file-level and read-only; symbol/LSP/provider overlays build on the same API. Lifecycle uses the shared `agenttools-service` verbs: `run` / `start` / `status` / `stop` / `enable` / `disable`. A bare `rig evolve` prints help, never launches. `--port`, `-C <repo>`. |
 | `rig install-skill` | Register the `rig` agent skill so skills-directory harnesses auto-discover it (currently Claude Code and Codex). |

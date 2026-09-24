@@ -992,6 +992,9 @@ def build(
     # ── bun (isolated linker + global virtual store in ~/.bunfig.toml) ────────────
     _build_bun(config, plan)
 
+    # ── forge (Forgejo: install fj, one-click OAuth login for fj + git, default host) ─
+    _build_forge(config, plan)
+
     # ── tools (the personal CLI ecosystem: tg/review/task/draw/…) ──────────────────
     _build_tools(config, plan)
 
@@ -3260,13 +3263,19 @@ def _build_env(config: LoadedConfig, plan: InstallPlan) -> None:
     repo root (mirrors every other action's target resolution — never re-resolved against CWD by
     the runner) so a relative path stays anchored to the ``-C`` repo and ``~/`` stays home-anchored.
     """
+    from . import forge
+
     e = config.data.get("env")
-    if e is None or not isinstance(e, dict):
+    implied = forge.implied_env_vars(config.data.get("forge"))
+    if (e is None or not isinstance(e, dict)) and not implied:
         return
+    e = e if isinstance(e, dict) else {}
     if e.get("enabled") is False:
         return
 
     options = env_options_from_config(e, config.repo_root)
+    for key, value in implied.items():  # a hand-set env.vars value wins
+        options["vars"].setdefault(key, value)
     plan.actions.append(
         Action(
             kind="provision_env",
@@ -3321,6 +3330,48 @@ def _build_spotlight(config: LoadedConfig, plan: InstallPlan) -> None:
                 "max_depth": max_depth,
                 "sweep_cmd": list(spotlight.default_sweep_cmd()),
             },
+        )
+    )
+
+
+def _global_forge_host(config: LoadedConfig) -> str | None:
+    """``forge.host`` from the GLOBAL config file alone — the machine default FJ_FALLBACK_HOST points
+    at, even when the repo rig.yaml overrides ``forge.host`` for its own logins."""
+    if config.global_path is None or not config.global_path.is_file():
+        return None
+    try:
+        import yaml
+
+        data = yaml.safe_load(config.global_path.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001 — the cascade already validated it; this is best-effort
+        return None
+    block = data.get("forge") if isinstance(data, dict) else None
+    host = block.get("host") if isinstance(block, dict) else None
+    return str(host) if host else None
+
+
+def _build_forge(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan Forgejo access, if a ``forge`` block enables it (block PRESENCE opts in).
+
+    One ``provision_forge`` action: install fj when missing, list every login host in fj's
+    ``client_ids`` (Forgejo's built-in public OAuth app), set ``FJ_FALLBACK_HOST`` on Windows (on
+    macOS/Linux ``_build_env`` exports it) and write Git Credential Manager's OAuth settings. See
+    :mod:`riglib.forge`.
+    """
+    from . import forge
+
+    block = config.data.get("forge")
+    if not isinstance(block, dict) or not block or block.get("enabled") is False:
+        return
+    options = forge.forge_options_from_config(block, fallback_host=_global_forge_host(config))
+    plan.actions.append(
+        Action(
+            kind="provision_forge",
+            category="forge",
+            item=options["hosts"][0],
+            source=config.repo_root,  # no carrier; rig derives everything from the block
+            target=forge.client_ids_path(),
+            options=options,
         )
     )
 

@@ -381,6 +381,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_config_parser(sub)
     _add_env_parser(sub)
+    from .forge_cli import add_parser as _add_forge_parser
+
+    _add_forge_parser(sub)
 
     # `config-web` — a local web UI over the SAME config engine as the wizard / `config set`.
     # Its lifecycle (run/start/stop/status/enable/disable + OS autostart) is delegated to the
@@ -804,6 +807,7 @@ def main(argv: list[str] | None = None) -> int:
         "export": cmd_export,
         "config": cmd_config,
         "env": cmd_env,
+        "forge": cmd_forge,
         "schema": cmd_schema,
         "install-skill": cmd_install_skill,
         "spotlight-sweep": cmd_spotlight_sweep,
@@ -3390,6 +3394,12 @@ def _cmd_config_set(args: argparse.Namespace) -> int:
         ok_line=f"set {config_path} = {_fmt_scalar(value)}  → {target}",
         preview_hint="(preview only: config and disk are unchanged; add --commit to write + reconcile)",
     )
+
+
+def cmd_forge(args: argparse.Namespace) -> int:
+    from .forge_cli import run
+
+    return run(args)
 
 
 def cmd_env(args: argparse.Namespace) -> int:

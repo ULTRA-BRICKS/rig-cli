@@ -9646,6 +9646,29 @@ def _do_provision_linter_bundle(action: Action, on_conflict: str) -> ActionResul
     return ActionResult(action, out.status, out.detail, out.backup)
 
 
+def _do_provision_forge(action: Action, on_conflict: str) -> ActionResult:
+    """Provision Forgejo access (see :mod:`riglib.forge`): install fj when missing, list the hosts in
+    fj's ``client_ids`` (other lines kept), set ``FJ_FALLBACK_HOST`` in the Windows user environment
+    and write Git Credential Manager's OAuth settings for each host.
+
+    Driven by :func:`forge.pending_changes` — the same comparison ``rig status`` reports — so a
+    current machine is a no-op. A failed step is an ``error`` naming the remedy; the other steps
+    still run. ``RIG_FORGE_DRY_RUN=1`` reports what WOULD change without touching anything.
+    """
+    from .. import forge
+
+    opts = action.options
+    todo = forge.pending_changes(opts)
+    if not todo:
+        return ActionResult(action, "skipped", f"already current: fj + login for {', '.join(opts['hosts'])}")
+    if os.environ.get("RIG_FORGE_DRY_RUN") == "1":
+        return ActionResult(action, "skipped", "dry-run: would " + "; ".join(d for *_, d in todo))
+    done, errors = forge.apply_changes(opts, todo)
+    if errors:
+        return ActionResult(action, "error", "; ".join(errors + done))
+    return ActionResult(action, "updated", "; ".join(done))
+
+
 def _do_provision_bunfig(action: Action, on_conflict: str) -> ActionResult:
     """Splice the bun isolated-linker + globalStore managed block into ``~/.bunfig.toml``.
 
@@ -9850,6 +9873,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_tcc_watch": _do_provision_tcc_watch,
     "provision_tgctl_reaper": _do_provision_tgctl_reaper,
     "provision_bunfig": _do_provision_bunfig,
+    "provision_forge": _do_provision_forge,
 
     "install_dev_reload_hook": _do_install_dev_reload_hook,
 }

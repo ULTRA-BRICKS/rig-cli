@@ -2579,6 +2579,57 @@ elsewhere).
 
 ---
 
+## `forge`
+
+Forgejo access for this machine (GLOBAL; see `riglib/forge.py`). The ecosystem lives on Forgejo
+(`git.hyperide.ai`), whose CLI `fj` otherwise needs `--host` outside a clone and can only log in
+with a hand-made token. A **present** block opts in; `host` is then required.
+
+```yaml
+forge:
+  host: git.hyperide.ai        # login target + FJ_FALLBACK_HOST
+  # install_fj: true           # brew on macOS; sha256-pinned release binary on Linux / Windows
+  # fj_version: "0.6.0"
+  # bin_dir: ~/.local/bin      # where the downloaded fj goes (must be on PATH)
+  # git_credentials: true      # Git Credential Manager OAuth for https://<host>
+  # fj_client_id: …            # default: Forgejo's built-in `tea` OAuth app
+  # git_client_id: …           # default: Forgejo's built-in Git Credential Manager OAuth app
+```
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `enabled` | bool | — | block **presence** opts in; `false` opts out |
+| `host` | str | — (required) | the Forgejo host; a scheme/trailing path is stripped |
+| `install_fj` | bool | `true` | install fj when it is not on PATH |
+| `fj_version` | str | `0.6.0` | release rig downloads (only versions with a pinned sha256) |
+| `bin_dir` | str | `~/.local/bin` | destination of the downloaded fj |
+| `git_credentials` | bool | `true` | write GCM generic-OAuth settings for `https://<host>` |
+| `fj_client_id` | str | Forgejo `tea` app | OAuth client fj logs in with |
+| `git_client_id` | str | Forgejo GCM app | OAuth client GCM logs in with |
+
+`rig apply` (one `provision_forge` action): installs fj when missing; lists each login host in
+fj's `client_ids` file (`~/.config/forgejo-cli/client_ids`; `%APPDATA%\Cyborus\forgejo-cli\config\client_ids`
+on Windows) with the client ID of Forgejo's **built-in public OAuth app** — every instance ships
+them (`[oauth2] DEFAULT_APPLICATIONS`), so no admin has to register anything; sets
+`FJ_FALLBACK_HOST=https://<host>` (through the `env` area on macOS/Linux — a hand-set
+`env.vars.FJ_FALLBACK_HOST` wins —, as a user environment variable via `setx` on Windows); and, when
+git's credential helper is Git Credential Manager, writes its `credential.https://<host>.oauth*`
+settings. Lines rig does not own in `client_ids` are kept. `rig status` reports the same steps as
+drift. `RIG_FORGE_DRY_RUN=1` makes apply report instead of act.
+
+`rig forge login` does the same provisioning, then `fj auth login` — the browser opens, press
+*Authorize* — and, with GCM, one `git credential fill` so git gets its own browser login. The host
+comes from `--host`, else `forge.host` (a repo `rig.yaml` may set its own), else an https `origin`
+remote. Headless: `rig forge login --token-stdin` reads a Forgejo access token from stdin. fj
+refreshes its OAuth token by itself; Forgejo expires an unused refresh token after its
+`[oauth2] REFRESH_TOKEN_EXPIRATION_TIME` (default 730 h) — a machine idle that long logs in again.
+`rig forge status` shows fj, login and pending steps.
+
+The older `tools.items.fj: { brew: [forgejo-cli] }` recipe (below) was for a personal `fj` wrapper
+checkout; with `forge` the stock fj needs no wrapper.
+
+---
+
 ## `tools`
 
 rig's **primary purpose**: install + advertise the **personal CLI ecosystem** — `tg`, `review`,

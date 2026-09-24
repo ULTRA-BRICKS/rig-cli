@@ -67,6 +67,7 @@ _VALID_TOP_KEYS = {
     "gitignore",
     "spotlight",
     "bun",
+    "forge",
     "tools",
     "tg_ctl",
     "tcc_watch",
@@ -664,6 +665,7 @@ def validate(data: dict[str, Any]) -> None:
     _validate_gitignore(data.get("gitignore", {}))
     _validate_spotlight(data.get("spotlight", {}))
     _validate_bun(data.get("bun", {}))
+    _validate_forge(data.get("forge", {}))
     _validate_tools(data.get("tools", {}))
     _validate_tg_ctl(data.get("tg_ctl", {}))
     _validate_tcc_watch(data.get("tcc_watch", {}))
@@ -2503,6 +2505,46 @@ def _validate_bun(s: dict[str, Any]) -> None:
     enabled = s.get("enabled")
     if enabled is not None and not isinstance(enabled, bool):
         raise ConfigError(f"bun.enabled must be a bool, got {enabled!r}", schema_path="bun.enabled")
+
+
+def _validate_forge(f: dict[str, Any]) -> None:
+    """Validate the ``forge`` block — Forgejo access: install ``fj``, one-click OAuth login for fj
+    and git, and a default host (``FJ_FALLBACK_HOST``). See :mod:`riglib.forge`.
+
+    A PRESENT block opts in; ``host`` is then required. Fail-closed on a non-mapping block, an
+    unknown key, a non-bool switch, a ``host`` that is not a bare host name (a scheme/trailing path
+    is tolerated and stripped), a ``fj_version`` rig has no pinned checksum for, and a blank client
+    ID or ``bin_dir``.
+    """
+    from . import forge
+
+    if not isinstance(f, dict):
+        raise ConfigError("forge must be a mapping", schema_path="forge")
+    if not f:
+        return
+    _reject_unknown_keys(f, "forge")
+    for key in ("enabled", "install_fj", "git_credentials"):
+        v = f.get(key)
+        if v is not None and not isinstance(v, bool):
+            raise ConfigError(f"forge.{key} must be a bool, got {v!r}", schema_path=f"forge.{key}")
+    if f.get("enabled") is False:
+        return
+    host = f.get("host")
+    if not forge.is_valid_host(host):
+        raise ConfigError(
+            f"forge.host must be a host name like git.hyperide.ai, got {host!r}", schema_path="forge.host"
+        )
+    version = f.get("fj_version")
+    if version is not None and str(version) not in forge.FJ_RELEASE_SHA256:
+        raise ConfigError(
+            f"forge.fj_version {version!r} has no pinned checksum in this rig "
+            f"(known: {', '.join(sorted(forge.FJ_RELEASE_SHA256))})",
+            schema_path="forge.fj_version",
+        )
+    for key in ("fj_client_id", "git_client_id", "bin_dir"):
+        v = f.get(key)
+        if v is not None and (not isinstance(v, str) or not v.strip() or "\n" in v):
+            raise ConfigError(f"forge.{key} must be a non-empty single-line string", schema_path=f"forge.{key}")
 
 
 

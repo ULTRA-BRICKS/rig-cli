@@ -1572,6 +1572,49 @@
       },
       "additionalProperties": false
     },
+    "forge": {
+      "type": "object",
+      "description": "Forgejo access (GLOBAL, per machine): install `fj`, one-click browser login for fj and git through Forgejo's built-in OAuth apps, and `FJ_FALLBACK_HOST` so `fj` never needs `--host`. A PRESENT block opts in; a repo rig.yaml may set `host` to log in to a different instance.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "provision Forgejo access — block PRESENCE opts in; false opts out"
+        },
+        "host": {
+          "type": "string",
+          "description": "the Forgejo host (`git.hyperide.ai`) — login target and FJ_FALLBACK_HOST"
+        },
+        "install_fj": {
+          "type": "boolean",
+          "description": "install fj when missing (brew on macOS, pinned release binary elsewhere)",
+          "default": true
+        },
+        "fj_version": {
+          "type": "string",
+          "description": "fj release to install where rig downloads it",
+          "default": "0.6.0"
+        },
+        "bin_dir": {
+          "type": "string",
+          "description": "where the downloaded fj goes (must be on PATH)",
+          "default": "~/.local/bin"
+        },
+        "git_credentials": {
+          "type": "boolean",
+          "description": "configure Git Credential Manager OAuth for https://<host>",
+          "default": true
+        },
+        "fj_client_id": {
+          "type": "string",
+          "description": "OAuth client ID fj logs in with (default: Forgejo's built-in `tea` app)"
+        },
+        "git_client_id": {
+          "type": "string",
+          "description": "OAuth client ID GCM logs in with (default: Forgejo's built-in GCM app)"
+        }
+      },
+      "additionalProperties": false
+    },
     "tools": {
       "type": "object",
       "description": "the personal CLI tool ecosystem (tg/review/task/draw/…) rig installs + advertises at apply, by running each tool's own install.sh. rig also keeps a provisioned checkout FRESH: if a tool repo ships scripts/deploy.sh, apply runs it (ff-only git pull) even when already installed — opt-in per tool, non-fatal. Default OFF (opt-in): list tools under items. A per-MACHINE concern — belongs in the GLOBAL layer, not a committed rig.yaml.",

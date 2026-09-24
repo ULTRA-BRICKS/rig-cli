@@ -593,6 +593,8 @@ def detect(
             _check_spotlight(action, report)
         elif action.kind == "provision_bunfig":
             _check_bunfig(action, report)
+        elif action.kind == "provision_forge":
+            _check_forge(action, report)
         elif action.kind == "provision_ship_task_prefix":
             _check_ship_task_prefix(action, report)
         elif action.kind == "install_dev_reload_hook":
@@ -1592,6 +1594,14 @@ def _check_global_excludes(action: Action, report: DriftReport) -> None:
         report.items.append(
             DriftItem("modified", "gitignore", "block", target, r.detail)
         )
+
+
+def _check_forge(action: Action, report: DriftReport) -> None:
+    """Flag missing Forgejo access via the SAME :func:`forge.pending_changes` apply acts on."""
+    from . import forge
+
+    for direction, item, target, detail in forge.pending_changes(action.options):
+        report.items.append(DriftItem(direction, "forge", item, target, detail))
 
 
 def _check_bunfig(action: Action, report: DriftReport) -> None:
