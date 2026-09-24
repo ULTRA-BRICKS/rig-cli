@@ -43,10 +43,10 @@ Pick one — each ends with `rig` on your PATH:
 
 ```bash
 # 1. uv — recommended; macOS, Linux and Windows (incl. Cygwin / Git Bash)
-uv tool install git+https://git.hyperide.ai/ultrabricks/rig-cli
+uv tool install hyper-rig
 
 # 2. pipx
-pipx install git+https://git.hyperide.ai/ultrabricks/rig-cli
+pipx install hyper-rig
 
 # 3. one-liner — clones to ~/.local/share/rig-cli, links rig into ~/.local/bin, registers the agent skill
 curl -fsSL https://git.hyperide.ai/ultrabricks/rig-cli/raw/branch/main/install.sh | bash
@@ -56,14 +56,13 @@ git clone https://git.hyperide.ai/ultrabricks/rig-cli && cd rig-cli && ./install
 ```
 
 - After **1** or **2**, run `rig install-skill` once so coding agents discover `rig` (3 and 4 do it for you).
-- **Update:** `uv tool upgrade rig-cli` · `pipx upgrade rig-cli` · re-run the one-liner · `git pull`.
+- **Unreleased `main`:** `uv tool install git+https://git.hyperide.ai/ultrabricks/rig-cli` (or the same with `pipx install`).
+- **Update:** `uv tool upgrade hyper-rig` · `pipx upgrade hyper-rig` · re-run the one-liner · `git pull`.
 - **Run without installing:** `uvx --from git+https://git.hyperide.ai/ultrabricks/rig-cli rig doctor`,
   or from a checkout `uv run bin/rig …` / `python3 bin/rig …`.
 
-> **Not on PyPI — always install from the git URL.** `pipx install rig-cli` / `uv tool install
-> rig-cli` (a bare name) installs an **unrelated** package that owns the `rig-cli` name on PyPI.
-> The canonical repo is **git.hyperide.ai/ultrabricks/rig-cli**; `github.com/alex-mextner/rig-cli`
-> is a frozen, archived mirror.
+> **On PyPI as `hyper-rig`** (the command is still `rig`). `rig-cli` on PyPI is an unrelated project — `pipx install rig-cli` would install that. The canonical repo is
+> **git.hyperide.ai/ultrabricks/rig-cli**; `github.com/alex-mextner/rig-cli` is a frozen, archived mirror.
 
 `textual` (the `rig init` setup wizard) and `rich` (the `rig stats` report) are **core
 dependencies** — every install above brings them, so `rig init` from a terminal launches the

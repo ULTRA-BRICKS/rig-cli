@@ -538,7 +538,7 @@ def test_textual_fallback_previews_and_writes_nothing(tmp_path, capsys, fake_age
     # principle 3 — concrete ways to proceed (reinstall rig + the headless paths)
     assert "rig init --yes" in out
     assert "reinstall rig" not in out  # this branch's own hint below replaces the old bare phrase
-    assert "pipx install rig-cli" in out
+    assert "pipx install hyper-rig" in out
     # principle 2 — no-args mutates nothing
     assert not (repo / "rig.yaml").exists()
     assert not (tmp_path / "home" / ".agents" / "skills").exists()
@@ -569,7 +569,7 @@ def test_textual_fallback_pep668_offers_break_system_packages(tmp_path, capsys, 
     assert "textual + rich are missing" in out
     assert "this Python refuses direct installs (PEP 668)" in out
     assert "broken install" not in out  # wrong diagnosis for this case — must not appear
-    assert "pipx install rig-cli" in out
+    assert "pipx install hyper-rig" in out
     assert "--break-system-packages" in out
     assert "pip install 'rig-cli[tui]'" not in out
     assert "Plan:" in out
@@ -655,7 +655,7 @@ def test_textual_too_old_non_pep668_gets_a_direct_upgrade_command(
 ):
     """Regression for a review finding: on a NON-externally-managed interpreter (pyenv, the
     python.org macOS installer, asdf -- none carry PEP 668's marker), a present-but-too-old
-    textual used to get ONLY the generic "pipx install rig-cli" / "uv tool install rig-cli"
+    textual used to get ONLY the generic "pipx install hyper-rig" / "uv tool install hyper-rig"
     reinstall suggestions -- neither of which upgrades textual in a dev-checkout's CURRENT
     interpreter (a fresh pipx/uv-tool install creates a SEPARATE managed environment that
     never touches the running symlinked checkout at all, the diff's own PEP-668-branch
@@ -680,9 +680,9 @@ def test_textual_too_old_non_pep668_gets_a_direct_upgrade_command(
     assert rc == 0
     assert "textual is too old" in out
     assert "'textual>=0.66'" in out  # a real, executable upgrade command for THIS interpreter
-    assert "pipx install rig-cli" in out  # still offered as the alternative
+    assert "pipx install hyper-rig" in out  # still offered as the alternative
     # a review finding: the alternative needs the SAME "remove ~/.local/bin/rig first"
-    # caveat the PEP-668 branch already has -- a bare "pipx install rig-cli" leaves an
+    # caveat the PEP-668 branch already has -- a bare "pipx install hyper-rig" leaves an
     # existing dev-checkout symlink pointed at the same too-old install.
     assert "remove ~/.local/bin/rig" in out
     # a review finding: "a broken install" is the wrong diagnosis for "too old" -- a pacman
@@ -793,7 +793,7 @@ def test_tui_importable_true_when_present_and_new_enough(monkeypatch):
 
 def test_textual_and_rich_are_core_dependencies():
     """The TUI ships WITH rig: textual + rich are CORE runtime deps in pyproject's
-    `[project].dependencies`, so `pipx install rig-cli` / `uv tool install rig-cli` / `pip install
+    `[project].dependencies`, so `pipx install hyper-rig` / `uv tool install hyper-rig` / `pip install
     rig-cli` all bring the wizard — never an optional `[tui]` extra the user must add separately."""
     # tomllib is stdlib on Python 3.11+; use the backport on 3.10.
     try:

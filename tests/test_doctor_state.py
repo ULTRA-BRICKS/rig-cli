@@ -232,7 +232,7 @@ def test_externally_managed_false_without_marker(tmp_path, monkeypatch):
 def test_externally_managed_false_inside_a_venv_even_with_marker(tmp_path, monkeypatch):
     """A venv's sysconfig stdlib path resolves to the BASE interpreter's stdlib (venvs never
     copy the stdlib) — so a marker there does NOT mean PEP 668 applies to THIS (venv)
-    interpreter. `pipx install rig-cli` / `uv tool install rig-cli` are both venvs; without this
+    interpreter. `pipx install hyper-rig` / `uv tool install hyper-rig` are both venvs; without this
     guard a marker-carrying base Python would misdiagnose rig's own recommended install shape
     as PEP-668-blocked and offer a `--break-system-packages --user` fallback that fails inside
     a venv anyway (`--user` is rejected there). sys.prefix != sys.base_prefix is the standard
@@ -279,7 +279,7 @@ def test_print_dep_statuses_shows_pep668_fallback(monkeypatch, capsys):
     cli._print_dep_statuses(report)
     out = capsys.readouterr().out
     assert "PEP-668 externally-managed" in out
-    assert "pipx install rig-cli" in out
+    assert "pipx install hyper-rig" in out
     assert "--break-system-packages" in out
 
 
@@ -815,7 +815,7 @@ def test_versioned_install_spec_bare_name_otherwise(monkeypatch):
 
 def test_textual_upgrade_command_targets_this_interpreter_with_the_floor(monkeypatch):
     """Regression for a review finding: the non-PEP-668 `rig init` degrade path used to
-    only ever suggest reinstalling rig (`pipx install rig-cli`), never a direct upgrade of
+    only ever suggest reinstalling rig (`pipx install hyper-rig`), never a direct upgrade of
     an already-too-old textual in the CURRENT interpreter -- this is the command that
     closes that gap. Must NOT carry `--break-system-packages` (that's
     `break_system_packages_command`'s job, for the externally-managed case only)."""
@@ -832,7 +832,7 @@ def test_textual_upgrade_command_targets_this_interpreter_with_the_floor(monkeyp
 def test_textual_upgrade_command_omits_user_flag_inside_a_venv(monkeypatch):
     """Review finding (Codex, round 16): `textual_upgrade_command()` is the DIRECT remediation
     printed for a present-but-too-old textual — and rig's own RECOMMENDED install shape
-    (`pipx install rig-cli` / `uv tool install rig-cli`) is itself a venv. `pip install --user`
+    (`pipx install hyper-rig` / `uv tool install hyper-rig`) is itself a venv. `pip install --user`
     hard-refuses inside a venv ("User site-packages are not visible in this virtualenv"), so
     the previous unconditional `--user` handed exactly that audience a command that fails
     outright whenever `uv` isn't ALSO on PATH — the same remediation-loop class this whole

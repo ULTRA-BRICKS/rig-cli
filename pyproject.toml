@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "rig-cli"
+name = "hyper-rig"
 version = "0.49.0"
 description = "rig — the dev-environment umbrella driver: set up a repo from a committed rig.yaml by applying agent-tools content (skills, hooks, CI gates, MCP)."
 readme = "README.md"
@@ -14,8 +14,8 @@ authors = [{ name = "Alex Mextner" }]
 # and `rig doctor` stay fast and still run even on a partially-broken env (doctor flags a gap).
 #   • pyyaml   — config parse/serialize (the rig.yaml cascade).
 #   • textual  — the interactive `rig init` setup wizard. It is a CORE dep (not an optional
-#     `[tui]` extra) so EVERY canonical install — `pipx install rig-cli`, `uv tool install
-#     rig-cli`, `pip install rig-cli` — brings the wizard. `rig init` from a terminal launches
+#     `[tui]` extra) so EVERY canonical install — `pipx install hyper-rig`, `uv tool install
+#     rig-cli`, `pip install hyper-rig` — brings the wizard. `rig init` from a terminal launches
 #     it with NO extra install step and NO "go install textual yourself" hint.
 #   • rich     — the `rig stats show --format tui` report (degrades to plain text when absent).
 # textual floor is 0.66 (not 0.50): `_set_controls_enabled()` in riglib/tui/app.py calls

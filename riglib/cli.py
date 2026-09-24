@@ -137,7 +137,7 @@ def _tui_importable() -> bool:
     """True when the wizard's deps are importable AND new enough to actually run the wizard.
 
     ``textual`` + ``rich`` are CORE runtime dependencies (pyproject ``[project].dependencies``),
-    so every canonical install (`pipx install rig-cli`, `uv tool install rig-cli`, `pip install
+    so every canonical install (`pipx install hyper-rig`, `uv tool install hyper-rig`, `pip install
     rig-cli`) brings them and this is normally True. It can be False on a genuinely broken
     environment (a partial / corrupt install) OR on a present-but-too-old ``textual`` (a distro
     package, a stale pre-floor-bump venv, see ``doctor.textual_too_old()``); either way `rig
@@ -1601,15 +1601,15 @@ def _print_init_next_steps(
         # already guarantee. (A prior comment here also named a nonexistent `cmd_init`
         # function — round 18 — the real dispatcher is `cmd_setup`.)
         missing = missing_names or ["textual"]
-        # `pipx install rig-cli` is NOT a clean fix without this caveat, in EITHER branch
+        # `pipx install hyper-rig` is NOT a clean fix without this caveat, in EITHER branch
         # below that offers it as the "switch to a managed install" alternative:
         # `install.sh`'s symlink shape already occupies `~/.local/bin/rig`, and pipx
         # typically leaves an EXISTING app link alone rather than replacing it — so a bare
-        # "pipx install rig-cli" can leave the user still invoking the same broken/too-old
+        # "pipx install hyper-rig" can leave the user still invoking the same broken/too-old
         # checkout afterward (a review finding, found twice: the caveat was present in only
         # one of the two branches that needed it). One string so the two copies can't drift
         # apart again.
-        managed_install_line = f"  {_dim('•')} or switch to a managed install: remove ~/.local/bin/rig, then pipx install rig-cli"
+        managed_install_line = f"  {_dim('•')} or switch to a managed install: remove ~/.local/bin/rig, then pipx install hyper-rig"
         if externally_managed():
             # Lead with the command that actually fixes THIS checkout.
             fallback = break_system_packages_command_for(missing)
@@ -1617,8 +1617,8 @@ def _print_init_next_steps(
             print(f"        run: {_dim_cmd(fallback)}")
             print(managed_install_line)
         elif textual_is_too_old:
-            # A review finding: this branch used to ONLY ever suggest `pipx install rig-cli` /
-            # `uv tool install rig-cli` — fine for a genuinely ABSENT textual (a fresh managed
+            # A review finding: this branch used to ONLY ever suggest `pipx install hyper-rig` /
+            # `uv tool install hyper-rig` — fine for a genuinely ABSENT textual (a fresh managed
             # install brings a current one), but a REINSTALL of rig into a NEW managed venv
             # never touches an existing dev-checkout install's CURRENT interpreter, so a
             # too-old textual there survived every re-run with the identical "too old"
@@ -1628,8 +1628,8 @@ def _print_init_next_steps(
             print(f"        run: {_dim_cmd(textual_upgrade_command())}")
             print(managed_install_line)
         else:
-            print(f"  {_dim('•')} pipx install rig-cli   (recommended — reinstalls rig into an isolated, managed env)")
-            print(f"  {_dim('•')} or: uv tool install rig-cli   (then re-run `rig init`)")
+            print(f"  {_dim('•')} pipx install hyper-rig   (recommended — reinstalls rig into an isolated, managed env)")
+            print(f"  {_dim('•')} or: uv tool install hyper-rig   (then re-run `rig init`)")
             # A review finding: this branch's suggestions hit the SAME stale-symlink problem
             # `managed_install_line` above exists for — a dev-checkout install
             # (install.sh's `~/.local/bin/rig` symlink) with textual genuinely absent, on a
@@ -2822,7 +2822,7 @@ def _print_dep_statuses(report) -> None:
             # someone intentionally installing into THIS interpreter (e.g. rig's own dev
             # checkout) rather than switching to a pipx/uv-tool managed install.
             print(f"      {_warn('this interpreter is PEP-668 externally-managed — the command above will refuse.')}")
-            print(f"      {_dim('either: pipx install rig-cli   (recommended — isolates rig cleanly)')}")
+            print(f"      {_dim('either: pipx install hyper-rig   (recommended — isolates rig cleanly)')}")
             print(f"          or: {_dim_cmd(st.pep668_fallback)}")
 
 
@@ -3037,7 +3037,7 @@ def _doctor_bootstrap(report, *, include_optional: bool) -> int:
             # resolver/permission failure the marker check can't distinguish. Hedge the wording
             # accordingly rather than asserting a cause that isn't always true.
             print(f"        {_warn('install failed — if this interpreter refused it (PEP-668), try:')}")
-            print(f"        {_dim('either: pipx install rig-cli   (recommended)')}")
+            print(f"        {_dim('either: pipx install hyper-rig   (recommended)')}")
             print(f"            or: {_dim_cmd(fallback_by_name[name])}")
     if failed:
         # an install that left a REQUIRED dep absent is still the missing-dependency class;
