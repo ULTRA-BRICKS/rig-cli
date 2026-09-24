@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from riglib import errors
 from riglib.cli import main
 
 
@@ -21,118 +20,6 @@ def test_no_command_prints_help(capsys):
     out = capsys.readouterr().out
     assert rc == 0
     assert "rig — the dev-environment" in out
-
-
-def test_codex_update_cli_threads_args(capsys, monkeypatch):
-    from pathlib import Path
-
-    from riglib import codex_update
-
-    captured = {}
-
-    def fake_safe_update(**kwargs):
-        captured.update(kwargs)
-        return codex_update.UpdateResult(
-            "updated",
-            "codex healthy after update: codex-cli test",
-            backup_path=Path("/tmp/codex-backup"),
-            exit_code=0,
-        )
-
-    monkeypatch.setattr(codex_update, "safe_update", fake_safe_update)
-
-    rc = main(
-        [
-            "codex",
-            "update",
-            "--path",
-            "/tmp/codex",
-            "--backup-dir",
-            "/tmp/backups",
-            "--probe-timeout",
-            "1.25",
-            "--",
-            "brew",
-            "reinstall",
-            "--cask",
-            "codex",
-        ]
-    )
-
-    out = capsys.readouterr().out
-    assert rc == 0
-    assert "codex update: updated" in out
-    assert captured == {
-        "codex_path": "/tmp/codex",
-        "update_command": ["brew", "reinstall", "--cask", "codex"],
-        "backup_dir": "/tmp/backups",
-        "probe_timeout_s": 1.25,
-    }
-
-
-def test_codex_update_cli_returns_nonzero_after_rollback(capsys, monkeypatch):
-    from riglib import codex_update
-
-    monkeypatch.setattr(
-        codex_update,
-        "safe_update",
-        lambda **kwargs: codex_update.UpdateResult(
-            "rolled_back",
-            "candidate failed",
-            exit_code=errors.EXIT_CODEX_UPDATE,
-        ),
-    )
-
-    rc = main(["codex", "update", "--path", "/tmp/codex"])
-
-    out = capsys.readouterr().out
-    assert rc == errors.EXIT_CODEX_UPDATE
-    assert "rolled back" in out
-
-
-def test_codex_update_cli_missing_updater_returns_127(tmp_path, capsys, monkeypatch):
-    # The subject is the exit code of a MISSING updater, not the health probe of the live binary.
-    # The probe is stubbed: a real bash fake under a sub-second `--probe-timeout` is load-dependent
-    # (three process spawns raced a 0.5s timer and lost whenever the suite ran next to other work).
-    from riglib import codex_update
-
-    live = tmp_path / "codex"
-    live.write_text("#!/usr/bin/env bash\nexit 0\n")
-    live.chmod(0o755)
-    monkeypatch.setattr(
-        codex_update,
-        "probe_codex",
-        lambda path, *, timeout_s: codex_update.ProbeResult(True, "codex-cli test", "probes passed"),
-    )
-    missing = tmp_path / "missing-updater"
-
-    rc = main(
-        [
-            "codex",
-            "update",
-            "--path",
-            str(live),
-            "--backup-dir",
-            str(tmp_path / "backups"),
-            "--probe-timeout",
-            "0.5",
-            "--",
-            str(missing),
-        ]
-    )
-
-    out = capsys.readouterr().out
-    assert rc == 127
-    assert "update command exited 127" in out
-
-
-def test_codex_update_cli_rejects_nonpositive_probe_timeout(capsys):
-    for value in ("0", "nan", "inf"):
-        rc = main(["codex", "update", "--probe-timeout", value])
-
-        out = capsys.readouterr().out
-        assert rc == 2
-        assert "--probe-timeout must be positive" in out
 
 
 def test_doctor_runs(tmp_path, capsys, monkeypatch):

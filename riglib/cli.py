@@ -29,7 +29,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
-import math
 import shlex
 import subprocess
 import sys
@@ -219,7 +218,6 @@ def build_parser() -> argparse.ArgumentParser:
             "  5    missing target (config references a path/binary that's gone on disk)\n"
             "  6    not a git repository (a repo-scoped command run outside a repo)\n"
             "  7    repo corrupt (a working checkout's git config is broken, e.g. core.bare=true)\n"
-            "  8    Codex update failed (candidate failed probes or rollback needed attention)\n"
             "  127  missing dependency (a required external tool isn't installed)\n"
             "\n"
             "  precedence (doctor): `rig doctor` exits 7 (repo corrupt) ahead of any other class —\n"
@@ -402,7 +400,6 @@ def build_parser() -> argparse.ArgumentParser:
     _add_stats_parser(sub)
     _add_daily_parser(sub)
     _add_usage_parser(sub)
-    _add_codex_parser(sub)
     _add_worktree_parser(sub)
     _add_report_parser(sub)
 
@@ -649,37 +646,6 @@ def _add_usage_parser(sub: "argparse._SubParsersAction") -> None:
     _add_usage_report_args(up)
 
 
-def _add_codex_parser(sub: "argparse._SubParsersAction") -> None:
-    """`rig codex update` — wrap Codex updates with rollback-on-hang probes."""
-    cp = sub.add_parser("codex", help="safe Codex maintenance helpers")
-    cp.set_defaults(_codex_parser=cp)
-    csub = cp.add_subparsers(dest="codex_command", metavar="<update>")
-
-    up = csub.add_parser(
-        "update",
-        help="update Codex, then roll back if version/help/completion probes fail or hang",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="exit codes:\n  0 success\n  8 Codex update failed\n  127 Codex binary or updater command missing",
-    )
-    up.add_argument("--path", help="path to the codex binary (default: first codex on PATH)")
-    up.add_argument(
-        "--backup-dir",
-        default=None,
-        help="where to store last-known-good binary backups (default: ~/.cache/rig/codex-backups)",
-    )
-    up.add_argument(
-        "--probe-timeout",
-        type=float,
-        default=None,
-        help="seconds for each version/help/completion probe (default: 5)",
-    )
-    up.add_argument(
-        "update_command",
-        nargs=argparse.REMAINDER,
-        help="optional updater command after -- (default: brew upgrade --cask codex for Homebrew codex)",
-    )
-
-
 def _add_worktree_parser(sub: "argparse._SubParsersAction") -> None:
     """`rig worktree create`/`remove`/`gc` — the standardized ``.worktrees/<name>`` agent-worktree
     lifecycle. Each subcommand's own argparse registration is split into its own helper below —
@@ -814,7 +780,6 @@ def main(argv: list[str] | None = None) -> int:
         "stats": cmd_stats,
         "daily": cmd_daily,
         "usage": cmd_usage,
-        "codex": cmd_codex,
         "worktree": cmd_worktree,
         "report": cmd_report,
     }
@@ -1150,50 +1115,6 @@ def _sweep_config_context(args: argparse.Namespace) -> tuple[Path, Path | None]:
     env = detect_environment(Path(args.cwd).resolve())
     explicit = _resolve_explicit_config(env, getattr(args, "config", None))
     return env.repo_root, explicit
-
-
-def cmd_codex(args: argparse.Namespace) -> int:
-    if not getattr(args, "codex_command", None):
-        args._codex_parser.print_help()
-        return 0
-    if args.codex_command != "update":
-        args._codex_parser.print_help()
-        return 2
-
-    from . import codex_update
-
-    command = list(getattr(args, "update_command", []) or [])
-    if command and command[0] == "--":
-        command = command[1:]
-    if args.probe_timeout is not None and (
-        args.probe_timeout <= 0 or not math.isfinite(args.probe_timeout)
-    ):
-        print(_err("codex update: --probe-timeout must be positive"))
-        return 2
-    try:
-        result = codex_update.safe_update(
-            codex_path=args.path,
-            update_command=command or None,
-            backup_dir=args.backup_dir or codex_update.DEFAULT_BACKUP_DIR,
-            probe_timeout_s=(
-                args.probe_timeout
-                if args.probe_timeout is not None
-                else codex_update.DEFAULT_PROBE_TIMEOUT_S
-            ),
-        )
-    except FileNotFoundError as exc:
-        print(_err(f"codex update: {exc}"))
-        return 127
-
-    prefix = {
-        "updated": _ok("updated"),
-        "rolled_back": _warn("rolled back"),
-        "error": _err("error"),
-    }.get(result.status, result.status)
-    print(f"codex update: {prefix}: {result.message}")
-    if result.backup_path is not None:
-        print(_dim(f"last-known-good backup: {result.backup_path}"))
-    return result.exit_code
 
 
 def cmd_worktree(args: argparse.Namespace) -> int:

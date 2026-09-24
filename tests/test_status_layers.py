@@ -415,7 +415,6 @@ def test_help_documents_exit_codes(capsys):
         (errors.EXIT_MISSING_TARGET, "missing target"),
         (errors.EXIT_NOT_A_REPO, "not a git repository"),
         (errors.EXIT_REPO_CORRUPT, "repo corrupt"),
-        (errors.EXIT_CODEX_UPDATE, "Codex update failed"),
         (errors.EXIT_MISSING_DEP, "missing dependency"),
     )
     for code, label in expected:

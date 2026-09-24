@@ -54,8 +54,10 @@ These stable exit classes are also printed by `rig --help`:
 | `5` | missing target: config references a path or binary that is gone on disk |
 | `6` | not a git repository: a repo-scoped command was run outside a repo |
 | `7` | repo corrupt: a working checkout's git config is broken |
-| `8` | Codex update failed: candidate failed probes or rollback needed attention |
 | `127` | missing dependency: a required external tool is not installed |
+
+`8` is retired and never reused: it was `rig codex update`'s failure code, and that updater
+moved to harness-cli as `harness codex update`.
 
 ## Top-level shape
 
