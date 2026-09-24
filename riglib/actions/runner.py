@@ -4123,7 +4123,12 @@ def _do_provision_tmux(action: Action, on_conflict: str) -> ActionResult:
     rig NEVER reloads the user's LIVE tmux server (no ``tmux source-file``) — the on-disk
     result is prepared; the user reloads when ready.
     """
-    from ..tmux import has_inline_rig_settings, neutralize_inline_rig_lines, splice_managed_block
+    from ..tmux import (
+        has_inline_rig_settings,
+        neutralize_inline_rig_lines,
+        reconcile_clipboard_mode_keys,
+        splice_managed_block,
+    )
 
     plan = tmux_plan_from_action(action)
     plan.generated_dir.mkdir(parents=True, exist_ok=True)
@@ -4271,12 +4276,24 @@ def _do_provision_tmux(action: Action, on_conflict: str) -> ActionResult:
     # 4) ~/.tmux.conf — migrate (back up an inline-settings original) then wire the managed region.
     conf = plan.conf_path
     existing = conf.read_text(encoding="utf-8") if conf.is_file() else ""
+    # Clipboard mode-keys exact-key conflict reconciliation runs FIRST (pure, conditional on the
+    # resolved plan — see the module-level comment in tmux.py) so both the backup gate below and
+    # the migrated text see its output. Folding it into `existing` here keeps
+    # `neutralize_inline_rig_lines` (the UNCONDITIONAL continuum/resurrect/plugin/Moshi pass) and
+    # the import/splice step unaware of clipboard specifics — one extra pure pass composed ahead
+    # of the existing pipeline, same downstream code.
+    clipboard_reconciled, clipboard_warnings = (
+        reconcile_clipboard_mode_keys(existing, plan) if existing else (existing, [])
+    )
+    skipped_conflicts.extend(clipboard_warnings)
     # Migration backup: whenever the conf still carries rig-owned settings inline (so migration
-    # will NEUTRALIZE live user lines), snapshot it FIRST under a UNIQUE timestamped name. A
-    # fixed `.rig-bak` was written only on the first migration (`not exists()`), so a second
-    # apply after the user hand-edited ~/.tmux.conf would neutralize those edits WITHOUT backing
-    # them up — losing the in-between state. A timestamped name keeps every restore point.
-    if existing and has_inline_rig_settings(existing):
+    # will NEUTRALIZE live user lines) OR the clipboard reconcile pass above already changed the
+    # text (it commented/restored a mode-keys line), snapshot the ORIGINAL FIRST under a UNIQUE
+    # timestamped name. A fixed `.rig-bak` was written only on the first migration (`not
+    # exists()`), so a second apply after the user hand-edited ~/.tmux.conf would neutralize those
+    # edits WITHOUT backing them up — losing the in-between state. A timestamped name keeps every
+    # restore point.
+    if existing and (has_inline_rig_settings(existing) or clipboard_reconciled != existing):
         backup_target = _timestamped_backup_path(plan.backup_path)
         backup_target.write_text(existing, encoding="utf-8")
         backup = backup_target
@@ -4285,7 +4302,7 @@ def _do_provision_tmux(action: Action, on_conflict: str) -> ActionResult:
 
     conf_conflicted = False
     desired_conf = _tmux_conf_with_managed(
-        plan, existing, splice_managed_block, neutralize_inline_rig_lines
+        plan, clipboard_reconciled, splice_managed_block, neutralize_inline_rig_lines
     )
     if desired_conf != existing:
         # Honor on_conflict=skip for the user's OWN file: if ~/.tmux.conf already exists and

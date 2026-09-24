@@ -56,12 +56,22 @@ import pytest
 #   - the socket-leak regression (boots a private `-L` server, asserts teardown unlinks the socket);
 #   - the DEFECT-5 boot-cleanup test (fabricates stale files + MOCKS _launchctl, clones nothing);
 #   - the migrated-conf parse-validity checks (migrate a legacy conf / a comment-only brace body,
-#     load each in a private `-L` server, assert exit 0 — clone nothing, hit no network).
+#     load each in a private `-L` server, assert exit 0 — clone nothing, hit no network);
+#   - the copy-mode clipboard binding tests (render a plan's OWN rig.tmux.conf, load it into a
+#     private `-L` server, drive real key/mouse-dispatch — clone nothing, hit no network).
 _TMUX_ONLY_TEST_NAMES = frozenset({
     "test_teardown_unlinks_the_private_socket_file",
     "test_old_continuum_boot_cleanup_removes_stale_entries",
     "test_migrated_conf_with_neutralized_legacy_init_parses",
     "test_comment_only_brace_body_after_moshi_neutralize_parses",
+    "test_every_clipboard_binding_routes_through_guarded_helper",
+    "test_copy_mode_vi_v_key_dispatches_through_the_real_key_table",
+    "test_keyboard_enter_flow_ignores_whitespace_and_copies_real_content",
+    "test_copy_mode_vi_d_key_end_of_line_flow_ignores_whitespace_and_copies_real_content",
+    "test_root_table_triple_click_chain_ignores_whitespace_and_copies_real_content",
+    "test_mouse_drag_end_same_cell_click_does_not_copy_and_exits_copy_mode",
+    "test_mouse_drag_end_real_movement_still_copies_real_content",
+    "test_mouse_drag_end_real_movement_across_whitespace_still_ignored",
 })
 # Tests that git-clone the real plugins from GitHub → opt-in network gate (@_requires_tmux_e2e):
 _NETWORK_TEST_NAMES = frozenset({

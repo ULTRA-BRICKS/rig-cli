@@ -51,13 +51,15 @@ from __future__ import annotations
 import json
 import os
 import plistlib
+import re
 import shlex
 import shutil
+import socket
+import stat
 import subprocess
 import sys
 import time
 import uuid
-import socket
 from pathlib import Path
 
 import pytest
@@ -840,3 +842,281 @@ def test_comment_only_brace_body_after_moshi_neutralize_parses(tmux_env):
     )
     listed = run(["tmux", "-L", socket, "list-sessions"])
     assert "braceparse" in listed.stdout, listed.stdout + listed.stderr
+
+
+# ── copy-mode clipboard: every binding routes through the guarded helper (real tmux server) ──
+# `_requires_tmux` (tmux-present only, no network, no opt-in): these load a plan's OWN rendered
+# rig.tmux.conf directly into the private `-L <socket>` server (no plugin clone, no full
+# `_do_provision_tmux` pipeline), so they run in default hermetic CI. They exercise the ACTUAL
+# bind-key dispatch tmux itself performs -- not a reimplementation of tmux's own key-table lookup
+# -- proving every clipboard-producing entry point `render_rig_conf` emits (copy-mode,
+# copy-mode-vi, and root-table key/mouse bindings) is wired to the SAME whitespace-guarded helper
+# script rig generates: the gap this closes, and the reference implementation the user ported to
+# their own ~/.local/bin/tmux-copy-clipboard.sh (v/Enter/C-w/M-w/C-k in copy-mode,
+# v/y/Enter/C-j/D in copy-mode-vi, MouseDragEnd1Pane/DoubleClick1Pane/TripleClick1Pane in both
+# tables, and the root-table DoubleClick1Pane/TripleClick1Pane click-to-copy passthrough).
+def _load_clipboard_plan(tmp_path, run, socket, capture_path, **clipboard_over):
+    """Build a TmuxPlan with an ISOLATED stub clipboard command (appends stdin to
+    ``capture_path`` -- never the real system clipboard) and load its rendered
+    ``rig.tmux.conf`` + clipboard helper script into the private `-L <socket>` server. The pane
+    runs a fixed, deterministic two-line body: a whitespace-only first line, a real-content
+    second line, then sleeps -- no shell prompt, so `copy-mode` navigation targets a known
+    layout. Returns the resolved TmuxPlan."""
+    repo_home = tmp_path / "cliphome"
+    repo_home.mkdir()
+    clipboard = {"command": f"tee {capture_path}", **clipboard_over}
+    plan = tmod.build_tmux(repo_home=repo_home, clipboard=clipboard)
+    plan.generated_dir.mkdir(parents=True, exist_ok=True)
+    conf_path = plan.generated_dir / "rig.tmux.conf"
+    conf_path.write_text(plan.render_rig_conf(), encoding="utf-8")
+    script_path = plan.clipboard_copy_path
+    script_path.write_text(plan.render_clipboard_copy(), encoding="utf-8")
+    script_path.chmod(script_path.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    res = run([
+        "tmux", "-L", socket, "-f", str(conf_path), "new-session", "-d", "-x", "80", "-y", "24",
+        "sh", "-c", "printf '   '; printf '\\nREALCONTENT\\n'; exec sleep 300",
+    ])
+    assert res.returncode == 0, res.stderr
+    return plan
+
+
+_CLIPBOARD_AUDIT_KEYS = {
+    "vi": {
+        "copy-mode-vi": ["v", "y", "Enter", "C-j", "D", "MouseDragEnd1Pane", "DoubleClick1Pane", "TripleClick1Pane"],
+        "copy-mode": ["Enter", "MouseDragEnd1Pane", "DoubleClick1Pane", "TripleClick1Pane"],
+        "root": ["DoubleClick1Pane", "TripleClick1Pane"],
+    },
+    "emacs": {
+        "copy-mode-vi": ["v", "y", "Enter", "C-j", "D", "MouseDragEnd1Pane", "DoubleClick1Pane", "TripleClick1Pane"],
+        "copy-mode": [
+            "v", "y", "Enter", "C-w", "M-w", "C-k",
+            "MouseDragEnd1Pane", "DoubleClick1Pane", "TripleClick1Pane",
+        ],
+        "root": ["DoubleClick1Pane", "TripleClick1Pane"],
+    },
+}
+
+
+@_requires_tmux
+@pytest.mark.parametrize("mode_keys", ["vi", "emacs"])
+def test_every_clipboard_binding_routes_through_guarded_helper(tmux_env, tmp_path, mode_keys):
+    """Real-server `list-keys` audit, under BOTH `tmux.clipboard.mode_keys` settings: EVERY
+    documented select/yank/kill key, both mouse-drag-release bindings, both tables' double/
+    triple-click bindings, and the root-table click-to-copy passthrough are bound (never
+    silently missing). Every one of them EXCEPT `v` (begin-selection -- it starts a selection,
+    it does not itself write anywhere) resolves to a `copy-pipe`-family command naming the
+    resolved helper script -- never a bare `copy-pipe-and-cancel` with no command (tmux's own
+    default, which only fills its internal paste buffer and cannot be guarded)."""
+    home, socket, run = tmux_env
+    capture = tmp_path / "clip.out"
+    plan = _load_clipboard_plan(tmp_path, run, socket, capture, mode_keys=mode_keys)
+    helper = str(plan.clipboard_copy_path)
+
+    for table, keys in _CLIPBOARD_AUDIT_KEYS[mode_keys].items():
+        listed = run(["tmux", "-L", socket, "list-keys", "-T", table])
+        assert listed.returncode == 0, listed.stderr
+        for key in keys:
+            matches = [
+                ln for ln in listed.stdout.splitlines()
+                if re.match(rf"^bind-key -T {re.escape(table)} {re.escape(key)}\s", ln.strip())
+            ]
+            assert matches, f"{table} {key}: no binding found\n{listed.stdout}"
+            if key == "v":
+                continue
+            for ln in matches:
+                assert "copy-pipe" in ln, f"{table} {key}: not a copy-pipe binding -- {ln}"
+                assert helper in ln, f"{table} {key}: bypasses the guarded helper -- {ln}"
+
+
+@_requires_tmux
+def test_copy_mode_vi_v_key_dispatches_through_the_real_key_table(tmux_env, tmp_path):
+    """The literal `v` KEYPRESS (sent via `send-keys v`, not the `-X begin-selection` command
+    name) dispatches through tmux's OWN copy-mode-vi key-table lookup to begin-selection -- proves
+    the BINDING is wired, not merely that the underlying `-X` command works when named directly."""
+    home, socket, run = tmux_env
+    capture = tmp_path / "clip.out"
+    _load_clipboard_plan(tmp_path, run, socket, capture)
+
+    run(["tmux", "-L", socket, "copy-mode"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "history-top"])
+    before = run(["tmux", "-L", socket, "display", "-p", "#{selection_present}"]).stdout.strip()
+    assert before == "0"
+    run(["tmux", "-L", socket, "send-keys", "v"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "cursor-down"])
+    after = run(["tmux", "-L", socket, "display", "-p", "#{selection_present}"]).stdout.strip()
+    assert after == "1"
+
+
+@_requires_tmux
+@pytest.mark.parametrize("mode_keys,table", [("vi", "copy-mode-vi"), ("emacs", "copy-mode")])
+def test_keyboard_enter_flow_ignores_whitespace_and_copies_real_content(tmux_env, tmp_path, mode_keys, table):
+    """Drives the documented `prefix [ ... Enter` keyboard flow end to end, via a REAL selection
+    (`-X select-line`, exactly what a user's visual selection produces) and the literal `Enter`
+    KEYPRESS (tmux's own key-table dispatch) -- against the whitespace-only first pane line
+    (capture file must stay ABSENT: the guard never invokes the stub command) and the
+    real-content second line (capture file must hold exactly that content). Exercised under both
+    `mode_keys` settings so both the copy-mode-vi table (default) and its `copy-mode` mirror
+    (opt-out) are proven end to end, not just listed."""
+    home, socket, run = tmux_env
+    capture = tmp_path / "clip.out"
+    _load_clipboard_plan(tmp_path, run, socket, capture, mode_keys=mode_keys)
+
+    run(["tmux", "-L", socket, "copy-mode"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "history-top"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "select-line"])
+    run(["tmux", "-L", socket, "send-keys", "Enter"])
+    time.sleep(0.3)
+    assert not capture.exists(), (
+        f"whitespace-only selection reached the clipboard command: {capture.read_bytes()!r}"
+    )
+
+    run(["tmux", "-L", socket, "copy-mode"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "history-top"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "cursor-down"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "select-line"])
+    run(["tmux", "-L", socket, "send-keys", "Enter"])
+    time.sleep(0.3)
+    assert capture.exists(), "real-content selection never reached the clipboard command"
+    # `copy-mode`'s (emacs) `select-line` omits the trailing newline `copy-mode-vi`'s linewise
+    # selection includes -- a genuine, table-specific tmux selection-semantics difference, not
+    # something this fix controls; normalize it rather than asserting tmux's own incidental
+    # formatting.
+    assert capture.read_bytes().rstrip(b"\n") == b"REALCONTENT"
+
+
+@_requires_tmux
+def test_copy_mode_vi_d_key_end_of_line_flow_ignores_whitespace_and_copies_real_content(tmux_env, tmp_path):
+    """`D` (copy-pipe-end-of-line-and-cancel) is one of the genuinely NEW bindings this fix adds
+    -- previously tmux's own bare default (no pipe command). Unlike `v`/`Enter` it needs no
+    pre-existing selection: it copies from the cursor to end-of-line directly. Proven via the
+    literal `D` keypress against the whitespace-only line (no-op) and the real-content line
+    (copied) -- the exact reference-file binding
+    (`bind-key -T copy-mode-vi D send-keys -X copy-pipe-end-of-line-and-cancel ...`)."""
+    home, socket, run = tmux_env
+    capture = tmp_path / "clip.out"
+    _load_clipboard_plan(tmp_path, run, socket, capture)
+
+    run(["tmux", "-L", socket, "copy-mode"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "history-top"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "start-of-line"])
+    run(["tmux", "-L", socket, "send-keys", "D"])
+    time.sleep(0.3)
+    assert not capture.exists(), (
+        f"whitespace-only line reached the clipboard command via D: {capture.read_bytes()!r}"
+    )
+
+    run(["tmux", "-L", socket, "copy-mode"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "history-top"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "cursor-down"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "start-of-line"])
+    run(["tmux", "-L", socket, "send-keys", "D"])
+    time.sleep(0.3)
+    assert capture.exists(), "real-content line never reached the clipboard command via D"
+    assert capture.read_bytes() == b"REALCONTENT\n"
+
+
+@_requires_tmux
+def test_root_table_triple_click_chain_ignores_whitespace_and_copies_real_content(tmux_env, tmp_path):
+    """Runs the EXACT root-table `TripleClick1Pane` command chain
+    (`select-pane`, `copy-mode -H`, `select-line`, `run-shell -d 0.3`,
+    `copy-pipe-and-cancel <helper>` -- the chain `list-keys -T root` reports for this binding,
+    verbatim) against the whitespace-only line and the real-content line. This is the entry point
+    reachable WITHOUT `prefix [` first -- a plain click -- and exactly how an accidental click on
+    blank/whitespace text used to reach the system clipboard before this fix (tmux's own default
+    chain pipes to no command at all). Click DETECTION is tmux's own well-tested subsystem;
+    this proves the ACTIONS rig binds to it are correctly guarded."""
+    home, socket, run = tmux_env
+    capture = tmp_path / "clip.out"
+    plan = _load_clipboard_plan(tmp_path, run, socket, capture)
+    helper = str(plan.clipboard_copy_path)
+
+    run(["tmux", "-L", socket, "select-pane"])
+    run(["tmux", "-L", socket, "copy-mode", "-H"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "history-top"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "select-line"])
+    run(["tmux", "-L", socket, "run-shell", "-d", "0.3"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "copy-pipe-and-cancel", helper])
+    time.sleep(0.5)
+    assert not capture.exists(), (
+        f"whitespace-only line reached the clipboard command via the root double/triple-click "
+        f"chain: {capture.read_bytes()!r}"
+    )
+
+    run(["tmux", "-L", socket, "select-pane"])
+    run(["tmux", "-L", socket, "copy-mode", "-H"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "history-top"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "cursor-down"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "select-line"])
+    run(["tmux", "-L", socket, "run-shell", "-d", "0.3"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "copy-pipe-and-cancel", helper])
+    time.sleep(0.5)
+    assert capture.exists(), "real-content line never reached the clipboard command via the root click chain"
+    assert capture.read_bytes() == b"REALCONTENT\n"
+
+
+# ── click-to-focus jitter guard: same-cell "drag" must not copy (real tmux server) ──────────
+# `_requires_tmux` (tmux-present only, no network, no opt-in). Reuses `_load_clipboard_plan`
+# (whitespace-only first line, `REALCONTENT` second line, isolated stub clipboard command) --
+# see the module comment above `_CLIPBOARD_ZERO_DRAG_COND` in `riglib/tmux.py` for the full
+# root-cause writeup (a same-cell "drag" event class fired by terminal mouse jitter during an
+# ordinary click-to-focus, verified live against WezTerm).
+@_requires_tmux
+def test_mouse_drag_end_same_cell_click_does_not_copy_and_exits_copy_mode(tmux_env, tmp_path):
+    """A `MouseDragEnd1Pane` release landing on the EXACT SAME cell as the press (`begin-selection`
+    with no subsequent movement -- the real signature of a same-cell jittered click, whatever
+    real character sits under the pointer) must NOT reach the clipboard command, and must cleanly
+    EXIT copy-mode (`send-keys -X cancel`) -- a plain focus click should return the pane to normal
+    typing, not leave it stuck in copy-mode."""
+    home, socket, run = tmux_env
+    capture = tmp_path / "clip.out"
+    _load_clipboard_plan(tmp_path, run, socket, capture)
+
+    run(["tmux", "-L", socket, "copy-mode"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "history-top"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "cursor-down"])  # land on the REALCONTENT row
+    run(["tmux", "-L", socket, "send-keys", "-X", "begin-selection"])  # anchor, no movement
+    run(["tmux", "-L", socket, "send-keys", "MouseDragEnd1Pane"])
+    time.sleep(0.4)
+    assert not capture.exists(), (
+        f"a same-cell click reached the clipboard command: {capture.read_bytes()!r}"
+    )
+    in_mode = run(["tmux", "-L", socket, "display", "-p", "#{pane_in_mode}"]).stdout.strip()
+    assert in_mode == "0", "a same-cell click must exit copy-mode, not leave the pane stuck in it"
+
+
+@_requires_tmux
+def test_mouse_drag_end_real_movement_still_copies_real_content(tmux_env, tmp_path):
+    """A `MouseDragEnd1Pane` release whose selection spans a DIFFERENT cell than the press (a
+    genuine drag-select, simulated via `-X select-line`) still reaches the SAME guarded helper
+    and copies real content -- the jitter guard must not regress an intentional drag-select."""
+    home, socket, run = tmux_env
+    capture = tmp_path / "clip.out"
+    _load_clipboard_plan(tmp_path, run, socket, capture)
+
+    run(["tmux", "-L", socket, "copy-mode"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "history-top"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "cursor-down"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "select-line"])
+    run(["tmux", "-L", socket, "send-keys", "MouseDragEnd1Pane"])
+    time.sleep(0.4)
+    assert capture.exists(), "a genuine drag-select never reached the clipboard command"
+    assert capture.read_bytes() == b"REALCONTENT\n"
+
+
+@_requires_tmux
+def test_mouse_drag_end_real_movement_across_whitespace_still_ignored(tmux_env, tmp_path):
+    """A genuine drag (different start/end cell) that lands on the WHITESPACE-ONLY line must
+    still be a no-op -- the jitter guard (same-cell check) and the empty/whitespace guard (inside
+    the helper script) are independent and both apply: passing one does not bypass the other."""
+    home, socket, run = tmux_env
+    capture = tmp_path / "clip.out"
+    _load_clipboard_plan(tmp_path, run, socket, capture)
+
+    run(["tmux", "-L", socket, "copy-mode"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "history-top"])
+    run(["tmux", "-L", socket, "send-keys", "-X", "select-line"])
+    run(["tmux", "-L", socket, "send-keys", "MouseDragEnd1Pane"])
+    time.sleep(0.4)
+    assert not capture.exists(), (
+        f"a whitespace-only drag-select reached the clipboard command: {capture.read_bytes()!r}"
+    )

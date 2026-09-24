@@ -909,20 +909,26 @@ def test_render_clipboard_default_on_darwin_emits_pbcopy_bindings(monkeypatch):
     bindings (v begin-selection, y/Enter/MouseDragEnd1Pane copy-pipe-and-cancel via copy-mode-vi)
     plus the copy-mode (emacs) mirror for Enter/MouseDragEnd1Pane are all emitted with pbcopy,
     AND `mode_keys` defaults to "vi" — `set -g mode-keys vi` is emitted BEFORE the bind-key
-    lines, so copy-mode-vi is the LIVE table and v/y are actually reachable."""
+    lines, so copy-mode-vi is the LIVE table and v/y are actually reachable. MouseDragEnd1Pane
+    is wrapped in the click-vs-drag jitter guard (if-shell on the selection's start/end cell) —
+    see test_render_clipboard_mouse_drag_end_is_wrapped_in_zero_drag_jitter_guard for that."""
     monkeypatch.setattr(tmux.sys, "platform", "darwin")
     monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
     plan = _plan()
     assert plan.clipboard_mode_keys == "vi"
+    assert plan.clipboard_command == "pbcopy"
+    helper = str(plan.clipboard_copy_path)
     conf = plan.render_rig_conf()
     assert "set -g mode-keys vi" in conf
     assert "bind-key -T copy-mode-vi v send-keys -X begin-selection" in conf
-    assert 'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
-    assert 'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
-    assert 'bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    assert f'bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "{helper}"' in conf
+    assert f'bind-key -T copy-mode-vi Enter send-keys -X copy-pipe-and-cancel "{helper}"' in conf
+    assert "bind-key -T copy-mode-vi MouseDragEnd1Pane if-shell" in conf
     # mirrored into the plain (emacs) copy-mode table too — see the module-level comment on why.
-    assert 'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
-    assert 'bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    assert f'bind-key -T copy-mode Enter send-keys -X copy-pipe-and-cancel "{helper}"' in conf
+    assert "bind-key -T copy-mode MouseDragEnd1Pane if-shell" in conf
+    # the resolved pbcopy command is baked into the helper script itself, not into the binding.
+    assert "pbcopy" in plan.render_clipboard_copy()
     # `mode-keys` MUST precede the copy-mode-vi bind-key lines (tmux applies key-table
     # activation top-down; a `set` after the binds would still work, but the generator commits
     # to emitting it first — assert the actual order, not just presence).
@@ -932,22 +938,24 @@ def test_render_clipboard_default_on_darwin_emits_pbcopy_bindings(monkeypatch):
     assert mode_keys_idx < first_bind_idx
 
 
-def test_render_clipboard_mode_keys_emacs_omits_set_and_mirrors_v_y(monkeypatch):
-    """`mode_keys: emacs` (opt-out): no `set -g mode-keys vi` override (tmux's own emacs
-    default stays live), and `v`/`y` are instead mirrored into the plain `copy-mode` (emacs)
-    table so the clipboard flow still works without vi's other motion keys."""
+def test_render_clipboard_mode_keys_emacs_emits_explicit_set_and_mirrors_v_y(monkeypatch):
+    """`mode_keys: emacs` (opt-out): `set -g mode-keys emacs` is now EXPLICITLY (re)asserted
+    (never a bare omission — a PRIOR apply's `set -g mode-keys vi` must not survive as a stale
+    leftover), and `v`/`y` are mirrored into the plain `copy-mode` (emacs) table so the
+    clipboard flow still works without vi's other motion keys."""
     monkeypatch.setattr(tmux.sys, "platform", "darwin")
     monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
     plan = tmux.build_tmux(repo_home=Path("/home/u"), clipboard={"mode_keys": "emacs"})
     assert plan.clipboard_mode_keys == "emacs"
     conf = plan.render_rig_conf()
     assert "set -g mode-keys vi" not in conf
-    assert "mode-keys" not in conf
+    assert "set -g mode-keys emacs" in conf
     # v/y still bound in copy-mode-vi (harmless — just unreachable while mode-keys is emacs)...
     assert "bind-key -T copy-mode-vi v send-keys -X begin-selection" in conf
     # ...AND mirrored into the plain copy-mode (emacs) table, which IS reachable.
     assert "bind-key -T copy-mode v send-keys -X begin-selection" in conf
-    assert 'bind-key -T copy-mode y send-keys -X copy-pipe-and-cancel "pbcopy"' in conf
+    helper = str(plan.clipboard_copy_path)
+    assert f'bind-key -T copy-mode y send-keys -X copy-pipe-and-cancel "{helper}"' in conf
 
 
 def test_render_clipboard_mode_keys_vi_does_not_mirror_v_y_into_copy_mode(monkeypatch):
@@ -996,18 +1004,22 @@ def test_render_clipboard_no_resolvable_command_omits_section(monkeypatch):
 
 
 def test_render_clipboard_explicit_command_used_verbatim(monkeypatch):
+    """An explicit `clipboard.command` override is used verbatim — baked into the generated
+    copy helper script (`render_clipboard_copy()`), which every tmux binding pipes through."""
     monkeypatch.setattr(tmux.sys, "platform", "darwin")
     monkeypatch.setattr(tmux.shutil, "which", lambda name: None)
-    conf = tmux.build_tmux(
-        repo_home=Path("/home/u"), clipboard={"command": "my-custom-clip"}
-    ).render_rig_conf()
-    assert 'copy-pipe-and-cancel "my-custom-clip"' in conf
+    plan = tmux.build_tmux(repo_home=Path("/home/u"), clipboard={"command": "my-custom-clip"})
+    assert plan.clipboard_command == "my-custom-clip"
+    assert "my-custom-clip" in plan.render_clipboard_copy()
+    conf = plan.render_rig_conf()
+    assert f'copy-pipe-and-cancel "{plan.clipboard_copy_path}"' in conf
 
 
 def test_render_clipboard_unsafe_explicit_command_falls_back_to_detected(monkeypatch):
     """An unsafe override (defense-in-depth: `config.validate` should already have rejected it,
     but a replayed/stored plan can bypass validate()) is dropped, falling back to the
-    platform-detected command rather than interpolating unsafe text into the generated conf."""
+    platform-detected command — baked into the generated copy helper script rather than
+    interpolating unsafe text anywhere."""
     monkeypatch.setattr(tmux.sys, "platform", "darwin")
     monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
     plan = tmux.build_tmux(
@@ -1016,7 +1028,9 @@ def test_render_clipboard_unsafe_explicit_command_falls_back_to_detected(monkeyp
     assert plan.clipboard_command == "pbcopy"
     conf = plan.render_rig_conf()
     assert "evil" not in conf
-    assert 'copy-pipe-and-cancel "pbcopy"' in conf
+    assert "evil" not in plan.render_clipboard_copy()
+    assert f'copy-pipe-and-cancel "{plan.clipboard_copy_path}"' in conf
+    assert "pbcopy" in plan.render_clipboard_copy()
 
 
 def test_render_clipboard_linux_prefers_wayland_over_x11(monkeypatch):
@@ -1026,8 +1040,11 @@ def test_render_clipboard_linux_prefers_wayland_over_x11(monkeypatch):
         tmux.shutil, "which",
         lambda name: "/usr/bin/" + name if name in ("wl-copy", "xclip", "xsel") else None,
     )
-    conf = _plan().render_rig_conf()
-    assert 'copy-pipe-and-cancel "wl-copy"' in conf
+    plan = _plan()
+    assert plan.clipboard_command == "wl-copy"
+    conf = plan.render_rig_conf()
+    assert f'copy-pipe-and-cancel "{plan.clipboard_copy_path}"' in conf
+    assert "wl-copy" in plan.render_clipboard_copy()
 
 
 def test_render_clipboard_linux_x11_prefers_xclip_over_xsel(monkeypatch):
@@ -1037,16 +1054,22 @@ def test_render_clipboard_linux_x11_prefers_xclip_over_xsel(monkeypatch):
         tmux.shutil, "which",
         lambda name: "/usr/bin/" + name if name in ("xclip", "xsel") else None,
     )
-    conf = _plan().render_rig_conf()
-    assert 'copy-pipe-and-cancel "xclip -selection clipboard -in"' in conf
+    plan = _plan()
+    assert plan.clipboard_command == "xclip -selection clipboard -in"
+    conf = plan.render_rig_conf()
+    assert f'copy-pipe-and-cancel "{plan.clipboard_copy_path}"' in conf
+    assert "xclip -selection clipboard -in" in plan.render_clipboard_copy()
 
 
 def test_render_clipboard_linux_falls_back_to_xsel(monkeypatch):
     monkeypatch.setattr(tmux.sys, "platform", "linux")
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/xsel" if name == "xsel" else None)
-    conf = _plan().render_rig_conf()
-    assert 'copy-pipe-and-cancel "xsel --clipboard --input"' in conf
+    plan = _plan()
+    assert plan.clipboard_command == "xsel --clipboard --input"
+    conf = plan.render_rig_conf()
+    assert f'copy-pipe-and-cancel "{plan.clipboard_copy_path}"' in conf
+    assert "xsel --clipboard --input" in plan.render_clipboard_copy()
 
 
 def test_render_clipboard_linux_wayland_binary_absent_under_x11_skips_wayland(monkeypatch):
@@ -1055,8 +1078,11 @@ def test_render_clipboard_linux_wayland_binary_absent_under_x11_skips_wayland(mo
     monkeypatch.setattr(tmux.sys, "platform", "linux")
     monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
     monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/xclip" if name == "xclip" else None)
-    conf = _plan().render_rig_conf()
-    assert 'copy-pipe-and-cancel "xclip -selection clipboard -in"' in conf
+    plan = _plan()
+    assert plan.clipboard_command == "xclip -selection clipboard -in"
+    conf = plan.render_rig_conf()
+    assert f'copy-pipe-and-cancel "{plan.clipboard_copy_path}"' in conf
+    assert "xclip -selection clipboard -in" in plan.render_clipboard_copy()
 
 
 def test_render_clipboard_before_plugin_init(monkeypatch):
@@ -1069,6 +1095,121 @@ def test_render_clipboard_before_plugin_init(monkeypatch):
     clip_idx = next(i for i, ln in enumerate(lines) if "copy-mode-vi v" in ln)
     plugin_init_idx = next(i for i, ln in enumerate(lines) if "resurrect/resurrect.tmux" in ln)
     assert clip_idx < plugin_init_idx
+
+
+def test_render_clipboard_mouse_drag_end_is_wrapped_in_zero_drag_jitter_guard(monkeypatch):
+    """`MouseDragEnd1Pane` (both copy-mode-vi and its copy-mode mirror) is wrapped in
+    `if-shell -F` on the selection's start/end cell, NEVER a bare `copy-pipe-and-cancel` --
+    closing the "click to focus a pane copies a stray character" bug (a same-cell click can
+    still report a spurious drag event; the empty/whitespace guard alone does not catch a
+    single REAL character under the pointer). Same-cell (no real drag distance) -> `cancel`
+    (no copy); any cell difference -> the SAME guarded `copy-pipe-and-cancel` as every other
+    binding. `DoubleClick1Pane`/`TripleClick1Pane` are asserted NOT wrapped — those are
+    explicit multi-click gestures that must still copy with zero drag distance."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    plan = _plan()
+    helper = str(plan.clipboard_copy_path)
+    conf = plan.render_rig_conf()
+    expected = (
+        "if-shell -F "
+        '"#{&&:#{==:#{selection_start_x},#{selection_end_x}},'
+        '#{==:#{selection_start_y},#{selection_end_y}}}" '
+        '"send-keys -X cancel" '
+        f'"send-keys -X copy-pipe-and-cancel \\"{helper}\\""'
+    )
+    assert f"bind-key -T copy-mode-vi MouseDragEnd1Pane {expected}" in conf
+    assert f"bind-key -T copy-mode MouseDragEnd1Pane {expected}" in conf
+    # never a bare copy-pipe-and-cancel for MouseDragEnd1Pane (that's the exact bug being fixed).
+    assert f'bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{helper}"' not in conf
+    assert f'bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "{helper}"' not in conf
+    # DoubleClick1Pane/TripleClick1Pane (explicit click-count gestures) are NOT gated this way.
+    for table in ("copy-mode-vi", "copy-mode", "root"):
+        for key in ("DoubleClick1Pane", "TripleClick1Pane"):
+            line = next(ln for ln in conf.splitlines() if ln.startswith(f"bind-key -T {table} {key}"))
+            assert "selection_start_x" not in line
+
+
+# ── copy-mode clipboard helper — real sh execution of render_clipboard_copy() ─────────────
+def _run_clipboard_copy_script(tmp_path, plan, stdin_bytes):
+    """Write ``plan.render_clipboard_copy()`` to a temp executable script and run it under a
+    REAL ``sh`` with ``stdin_bytes`` piped in, against a fake ``tmux`` binary (prepended onto
+    PATH) that logs its own invocation and exits 0 — exercises actual POSIX shell semantics
+    rather than string-matching the generated template. Returns
+    ``(returncode, notification_call_count)``."""
+    import os
+    import stat
+    import subprocess
+
+    script = tmp_path / "tmux-copy-clipboard.sh"
+    script.write_text(plan.render_clipboard_copy(), encoding="utf-8")
+    script.chmod(script.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+    fake_bin = tmp_path / "fakebin"
+    fake_bin.mkdir(exist_ok=True)
+    call_log = tmp_path / "tmux-calls.log"
+    fake_tmux = fake_bin / "tmux"
+    fake_tmux.write_text(f'#!/usr/bin/env sh\necho "$@" >> {call_log}\nexit 0\n', encoding="utf-8")
+    fake_tmux.chmod(fake_tmux.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+    env = dict(os.environ)
+    env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+    env.pop("TMUX_PANE", None)
+
+    proc = subprocess.run(["sh", str(script)], input=stdin_bytes, env=env, capture_output=True)
+    notifications = 0
+    if call_log.is_file():
+        notifications = sum(
+            1 for ln in call_log.read_text().splitlines() if "display-message" in ln
+        )
+    return proc.returncode, notifications
+
+
+def test_render_clipboard_copy_pipes_full_selection_and_notifies_once(tmp_path):
+    """Non-whitespace input is copied byte-for-byte to the resolved clipboard command and shows
+    exactly ONE 'Copied' notification — the documented success path, exercised via a real sh
+    run rather than string assertions on the template."""
+    capture_path = tmp_path / "clip.out"
+    plan = tmux.build_tmux(repo_home=Path(str(tmp_path)), clipboard={"command": f"tee {capture_path}"})
+    returncode, notifications = _run_clipboard_copy_script(tmp_path, plan, b"hello\nworld\n")
+    assert returncode == 0
+    assert capture_path.read_bytes() == b"hello\nworld\n"
+    assert notifications == 1
+
+
+def test_render_clipboard_copy_empty_input_is_noop_no_notification(tmp_path):
+    """Empty stdin is a no-op: the existing clipboard is preserved (the clipboard command is
+    never invoked) and ZERO notifications are shown."""
+    capture_path = tmp_path / "clip.out"
+    capture_path.write_bytes(b"PREEXISTING")
+    plan = tmux.build_tmux(repo_home=Path(str(tmp_path)), clipboard={"command": f"tee {capture_path}"})
+    returncode, notifications = _run_clipboard_copy_script(tmp_path, plan, b"")
+    assert returncode == 0
+    assert capture_path.read_bytes() == b"PREEXISTING"
+    assert notifications == 0
+
+
+def test_render_clipboard_copy_whitespace_only_input_is_noop_no_notification(tmp_path):
+    """Whitespace-only stdin (spaces, tabs, newlines — no real content) is likewise a no-op,
+    same guard as the empty-input case, exercised with actual whitespace bytes."""
+    capture_path = tmp_path / "clip.out"
+    capture_path.write_bytes(b"PREEXISTING")
+    plan = tmux.build_tmux(repo_home=Path(str(tmp_path)), clipboard={"command": f"tee {capture_path}"})
+    returncode, notifications = _run_clipboard_copy_script(tmp_path, plan, b"   \n\t\n  \n")
+    assert returncode == 0
+    assert capture_path.read_bytes() == b"PREEXISTING"
+    assert notifications == 0
+
+
+def test_render_clipboard_copy_failed_command_propagates_failure_no_notification(tmp_path):
+    """A failing clipboard command must FAIL the script (nonzero exit) and show NO success
+    notification — pins the exact bug fixed by adding `exit 1` after the `if ! sh -c ...`
+    guard: under POSIX `if cmd; then body; fi` with no else, a failing `cmd` previously
+    returned exit status 0 with the notification skipped, silently swallowing the failure."""
+    plan = tmux.build_tmux(repo_home=Path(str(tmp_path)), clipboard={"command": "false"})
+    returncode, notifications = _run_clipboard_copy_script(tmp_path, plan, b"data")
+    assert returncode != 0
+    assert notifications == 0
 
 
 def test_tmux_plan_from_action_on_pre_upgrade_action_defaults_to_new_pane_titles_behavior():
@@ -2305,6 +2446,113 @@ def test_plan_to_render_round_trip_carries_focus_events_disabled(fake_agent_tool
     assert "set -g focus-events on" not in conf
 
 
+# ── clipboard mode-keys exact-key conflict reconciliation ─────────────────────────────────
+def _reconcile_plan(monkeypatch, **clipboard_over):
+    """A TmuxPlan with pbcopy resolvable on darwin (authoritative by default), for the
+    reconcile tests below."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    return _plan(clipboard=clipboard_over)
+
+
+def test_reconcile_clipboard_mode_keys_comments_exact_conflict(monkeypatch):
+    """An inline `mode-keys vi` conflicting with the resolved `mode_keys: emacs` is commented
+    with the structured rig-migrated marker; unrelated lines are untouched and keep their
+    relative order; exactly one warning is produced."""
+    conf_text = "set -g mouse on\nset -g mode-keys vi\nset -g history-limit 5000\n"
+    plan = _reconcile_plan(monkeypatch, mode_keys="emacs")
+    result, warnings = tmux.reconcile_clipboard_mode_keys(conf_text, plan)
+    lines = result.splitlines()
+    marker_lines = [
+        ln for ln in lines
+        if ln.startswith("# rig-migrated (key=mode-keys, prior=vi, rig=emacs, source=tmux.clipboard.mode_keys): ")
+    ]
+    assert len(marker_lines) == 1
+    assert marker_lines[0].endswith("set -g mode-keys vi")
+    assert "set -g mouse on" in lines
+    assert "set -g history-limit 5000" in lines
+    assert lines.index("set -g mouse on") < lines.index(marker_lines[0]) < lines.index("set -g history-limit 5000")
+    assert len(warnings) == 1
+    assert "mode-keys vi" in warnings[0] and "emacs" in warnings[0]
+
+
+def test_reconcile_clipboard_mode_keys_idempotent_second_pass(monkeypatch):
+    """Feeding the marked output back through the same plan is a byte-identical no-op with no
+    new warnings — the live-directive scan never re-matches an already-`#`-commented line."""
+    conf_text = "set -g mouse on\nset -g mode-keys vi\nset -g history-limit 5000\n"
+    plan = _reconcile_plan(monkeypatch, mode_keys="emacs")
+    first, _ = tmux.reconcile_clipboard_mode_keys(conf_text, plan)
+    second, warnings = tmux.reconcile_clipboard_mode_keys(first, plan)
+    assert second == first
+    assert warnings == []
+
+
+def test_reconcile_clipboard_mode_keys_disabling_restores_original_line(monkeypatch):
+    """Once rig is no longer authoritative (clipboard disabled), a previously-written marker is
+    restored to the user's exact original line — fully reversible, no warnings."""
+    conf_text = "set -g mouse on\nset -g mode-keys vi\nset -g history-limit 5000\n"
+    plan_on = _reconcile_plan(monkeypatch, mode_keys="emacs")
+    marked, _ = tmux.reconcile_clipboard_mode_keys(conf_text, plan_on)
+    plan_off = _reconcile_plan(monkeypatch, enabled=False)
+    restored, warnings = tmux.reconcile_clipboard_mode_keys(marked, plan_off)
+    assert restored == conf_text
+    assert warnings == []
+
+
+def test_reconcile_clipboard_mode_keys_matching_value_is_not_a_conflict(monkeypatch):
+    """A `mode-keys` value that already matches the resolved plan is left completely alone —
+    redundant but harmless, nothing to reconcile, no warning."""
+    conf_text = "set -g mode-keys vi\n"
+    plan = _reconcile_plan(monkeypatch, mode_keys="vi")
+    result, warnings = tmux.reconcile_clipboard_mode_keys(conf_text, plan)
+    assert result == conf_text
+    assert warnings == []
+
+
+def test_reconcile_clipboard_mode_keys_ambiguous_conditional_left_untouched(monkeypatch):
+    """A `mode-keys` directive inside a user `{ … }` conditional is genuinely ambiguous — left
+    byte-identical, with exactly one deterministic 'ambiguous' warning instead of a rewrite."""
+    conf_text = "if-shell '[ -n \"$X\" ]' {\n  set -g mode-keys vi\n}\n"
+    plan = _reconcile_plan(monkeypatch, mode_keys="emacs")
+    result, warnings = tmux.reconcile_clipboard_mode_keys(conf_text, plan)
+    assert result == conf_text
+    assert len(warnings) == 1
+    assert "ambiguous" in warnings[0] or "conditional" in warnings[0]
+
+
+def test_reconcile_clipboard_mode_keys_skips_rigs_own_managed_block(monkeypatch):
+    """A `mode-keys` line inside rig's OWN managed block is never touched and never warned
+    about — it is rig's generated content, not the user's."""
+    conf_text = tmux.BLOCK_BEGIN + "\nset -g mode-keys vi\n" + tmux.BLOCK_END + "\n"
+    plan = _reconcile_plan(monkeypatch, mode_keys="emacs")
+    result, warnings = tmux.reconcile_clipboard_mode_keys(conf_text, plan)
+    assert result == conf_text
+    assert warnings == []
+
+
+def test_reconcile_clipboard_mode_keys_not_authoritative_leaves_live_line_untouched(monkeypatch):
+    """With clipboard disabled, rig is never authoritative over `mode-keys` — an unmarked live
+    line is left exactly as-is, no warnings."""
+    conf_text = "set -g mode-keys vi\n"
+    plan = _reconcile_plan(monkeypatch, enabled=False)
+    result, warnings = tmux.reconcile_clipboard_mode_keys(conf_text, plan)
+    assert result == conf_text
+    assert warnings == []
+
+
+def test_reconcile_clipboard_mode_keys_unresolvable_command_also_not_authoritative(monkeypatch):
+    """An unresolvable clipboard command (no platform command found, no override) also means
+    rig is not authoritative — same untouched, no-warning behavior as the disabled case."""
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: None)
+    conf_text = "set -g mode-keys vi\n"
+    plan = _plan()
+    assert plan.clipboard_command == ""
+    result, warnings = tmux.reconcile_clipboard_mode_keys(conf_text, plan)
+    assert result == conf_text
+    assert warnings == []
+
+
 def test_plan_carries_clipboard_block(fake_agent_tools, tmp_path):
     plan = _build(
         {"tmux": {"enabled": True, "clipboard": {"command": "my-clip"}}}, tmp_path, fake_agent_tools
@@ -2345,8 +2593,11 @@ def test_plan_to_render_round_trip_carries_clipboard_command_override(
         {"tmux": {"enabled": True, "clipboard": {"command": "my-clip"}}}, tmp_path, fake_agent_tools
     )
     a = next(act for act in plan.actions if act.kind == "provision_tmux")
-    conf = tmux_plan_from_action(a).render_rig_conf()
-    assert 'copy-pipe-and-cancel "my-clip"' in conf
+    tplan = tmux_plan_from_action(a)
+    assert tplan.clipboard_command == "my-clip"
+    assert "my-clip" in tplan.render_clipboard_copy()
+    conf = tplan.render_rig_conf()
+    assert f'copy-pipe-and-cancel "{tplan.clipboard_copy_path}"' in conf
 
 
 def test_plan_disables_autosave_off_darwin(fake_agent_tools, tmp_path, monkeypatch):
@@ -2581,6 +2832,56 @@ def test_apply_migrates_and_backs_up_handwritten_conf(tmp_path, monkeypatch):
     assert not any("continuum.tmux" in ln for ln in live), \
         "the rig-owned continuum init run-shell must be neutralized (the double-init bug)"
     assert "set -g mouse on  # user line" in new_text  # user line preserved live
+
+
+def test_apply_reconciles_clipboard_mode_keys_conflict_and_warns(tmp_path, monkeypatch):
+    """CHANGE 4 end-to-end: `_do_provision_tmux` runs the clipboard mode-keys reconcile pass
+    against ~/.tmux.conf BEFORE migrating it — a conflicting inline `mode-keys vi` (while
+    tmux.clipboard.mode_keys resolves `emacs`) is commented with the structured rig-migrated
+    marker, the ORIGINAL is backed up, and the warning surfaces in the ActionResult detail."""
+    from riglib.actions import runner
+
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    conf = home / ".tmux.conf"
+    conf.write_text("set -g mouse on\nset -g mode-keys vi\n", encoding="utf-8")
+    res = runner._do_provision_tmux(_tmux_action(home, clipboard={"mode_keys": "emacs"}), "backup")
+    assert res.status in ("created", "updated", "backed_up")
+    new_text = conf.read_text()
+    marker = "# rig-migrated (key=mode-keys, prior=vi, rig=emacs, source=tmux.clipboard.mode_keys): "
+    assert marker in new_text
+    live = [ln for ln in new_text.splitlines() if not ln.lstrip().startswith("#")]
+    assert not any(ln.strip() == "set -g mode-keys vi" for ln in live)
+    assert "set -g mouse on" in new_text
+    assert "tmux.clipboard.mode_keys" in res.detail and "mode-keys vi" in res.detail
+    # the ORIGINAL (pre-reconcile) conf was backed up.
+    baks = list(home.glob(".tmux.conf.rig-bak-*"))
+    assert len(baks) == 1
+    assert "set -g mode-keys vi" in baks[0].read_text()
+
+
+def test_apply_dry_run_leaves_conflicting_conf_untouched(tmp_path, monkeypatch):
+    """`run_plan(..., dry_run=True)` performs NO writes at all — a pre-seeded conflicting
+    ~/.tmux.conf (the same `mode-keys` clash the reconcile pass would otherwise comment) stays
+    byte-for-byte unchanged on disk, and no backup file is created."""
+    from riglib.actions.runner import run_plan
+    from riglib.plan import InstallPlan
+
+    monkeypatch.setattr(tmux.sys, "platform", "darwin")
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/usr/bin/pbcopy" if name == "pbcopy" else None)
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    conf = home / ".tmux.conf"
+    original_bytes = b"set -g mouse on\nset -g mode-keys vi\n"
+    conf.write_bytes(original_bytes)
+    action = _tmux_action(home, clipboard={"mode_keys": "emacs"})
+    run_plan(InstallPlan(actions=[action]), dry_run=True)
+    assert conf.read_bytes() == original_bytes
+    assert not list(home.glob(".tmux.conf.rig-bak-*"))
 
 
 _FULL_LEGACY_CONF = (
