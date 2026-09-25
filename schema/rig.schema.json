@@ -297,6 +297,28 @@
             }
           },
           "additionalProperties": false
+        },
+        "plugins": {
+          "type": "object",
+          "description": "Claude Code plugin-marketplace-sourced skills — resolved against the live `~/.claude/plugins/installed_plugins.json` at every `rig apply` so a plugin's `skills/*` dirs stay symlinked into the skills target even across a plugin version bump. See docs/config-schema.md#skills-plugins.",
+          "properties": {
+            "items": {
+              "type": "object",
+              "description": "one entry per declared plugin, keyed by plugin name (`{marketplace: <marketplace-name>}`) — the plugin's own `skills/*/SKILL.md` dirs are resolved from `<plugin>@<marketplace>`'s live installPath",
+              "additionalProperties": {
+                "type": "object",
+                "description": "one Claude Code plugin-marketplace-sourced skill declaration.",
+                "properties": {
+                  "marketplace": {
+                    "type": "string",
+                    "description": "the Claude Code plugin marketplace name this plugin was installed from (the `@<marketplace>` half of `installed_plugins.json`'s `<plugin>@<marketplace>` key)"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

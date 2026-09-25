@@ -501,6 +501,9 @@ def detect(
             _check_copy_skill(action, report)
         elif action.kind == "link_skill_harness":
             _check_skill_harness_link(action, report)
+        elif action.kind == "link_skill_plugin":
+            declared_skill_dirs.setdefault(action.target.parent, set()).add(action.target.name)
+            _check_link_skill_plugin(action, report)
         elif action.kind == "install_agent_hook":
             _check_agent_hook(action, report)
             descriptor = action.options.get("descriptor")
@@ -741,6 +744,40 @@ def _check_skill_harness_link(action: Action, report: DriftReport) -> None:
     report.items.append(
         DriftItem("missing", "skills", f"{action.item} (harness link)", link_path,
                   "skill not symlinked into harness dir (harness won't list it)")
+    )
+
+
+def _check_link_skill_plugin(action: Action, report: DriftReport) -> None:
+    """Flag drift on a plugin-sourced skill's symlink into the skills target.
+
+    Same idempotent-symlink contract as :func:`_check_skill_harness_link` (missing/modified,
+    a real hand-authored dir/file is never flagged) — reuses :func:`skill_harness_link_target`
+    since the (symlink_path, desired_destination) computation is identical, only the wording
+    differs: this symlink lands at ``skills_target/<name>`` itself (the plugin IS the skill's
+    install location, there is no separate copy step), not a harness discovery dir.
+    """
+    link_path, dest = skill_harness_link_target(action)
+    if link_path.is_symlink():
+        from .actions.runner import _same_link_dest
+
+        try:
+            current = link_path.readlink()
+        except OSError:
+            return
+        if not _same_link_dest(link_path, current, dest):
+            report.items.append(
+                DriftItem("modified", "skills", action.item, link_path,
+                          f"plugin skill symlink points elsewhere, expected → {dest}")
+            )
+        return
+    if link_path.exists():
+        # a real dir/file already occupies this name — not rig's to manage; not drift (the
+        # build()-time catalog-collision check already skips emitting this action for a name
+        # that collides with a catalog skill; this is the runtime safety net for anything else).
+        return
+    report.items.append(
+        DriftItem("missing", "skills", action.item, link_path,
+                  "plugin skill not symlinked into the skills target")
     )
 
 

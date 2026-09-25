@@ -9807,6 +9807,12 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "record_mode": _do_record_mode,
     "copy_skill": _do_copy_skill,
     "link_skill_harness": _do_link_skill_harness,
+    # link_skill_plugin reuses the harness-link handler verbatim: both maintain an idempotent
+    # symlink at `action.target` pointing to `action.source` (create / re-point / never clobber
+    # a real dir) — the only difference is WHICH dir the symlink lands in (skills_target itself
+    # vs a harness discovery dir), which is just a different `target` on the Action, not
+    # different execution logic.
+    "link_skill_plugin": _do_link_skill_harness,
     "install_agent_hook": _do_install_agent_hook,
     "sync_hook_blurbs": _do_sync_hook_blurbs,
     "install_dispatcher": _do_install_dispatcher,

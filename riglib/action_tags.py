@@ -92,6 +92,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Symlinks an installed skill into the harness's own discovery dir (e.g. ~/.claude/skills) "
         "so the agent harness actually lists/loads it.",
     ),
+    "link_skill_plugin": _tag(
+        "link_skill_plugin", "symlinks", AUDIENCE_AGENT,
+        "Symlinks a Claude Code plugin-marketplace-sourced skill into the skills target dir "
+        "(default ~/.agents/skills/<name>), resolved live against installed_plugins.json.",
+    ),
     "install_agent_hook": _tag(
         "install_agent_hook", "installs_hook", AUDIENCE_AGENT,
         "Writes an agent-hook descriptor into the harness hooks dir (e.g. ~/.claude/hooks) that "

@@ -231,6 +231,17 @@ _DEFAULTS_BLOCK = Block(
     },
 )
 
+_SKILLS_PLUGIN_ITEM_BLOCK = Block(
+    doc="one Claude Code plugin-marketplace-sourced skill declaration.",
+    leaves={
+        "marketplace": Leaf(
+            "string",
+            "the Claude Code plugin marketplace name this plugin was installed from (the "
+            "`@<marketplace>` half of `installed_plugins.json`'s `<plugin>@<marketplace>` key)",
+        ),
+    },
+)
+
 _SKILLS_BLOCK = Block(
     doc="advisory markdown rules copied into the agent skills dir (opt-out model).",
     leaves={
@@ -282,6 +293,18 @@ _SKILLS_BLOCK = Block(
             open_map="items",
             open_map_doc="per-skill overrides keyed by `by-stack/<l1>/<lang>[/<fw>]/<name>` "
             "(`enabled: true` force-adds an off-stack skill; `enabled: false` drops one)",
+        ),
+        "plugins": Block(
+            doc="Claude Code plugin-marketplace-sourced skills — resolved against the live "
+            "`~/.claude/plugins/installed_plugins.json` at every `rig apply` so a plugin's "
+            "`skills/*` dirs stay symlinked into the skills target even across a plugin "
+            "version bump. See docs/config-schema.md#skills-plugins.",
+            leaves={},
+            open_map="items",
+            open_map_doc="one entry per declared plugin, keyed by plugin name (`{marketplace: "
+            "<marketplace-name>}`) — the plugin's own `skills/*/SKILL.md` dirs are resolved "
+            "from `<plugin>@<marketplace>`'s live installPath",
+            open_map_item=_SKILLS_PLUGIN_ITEM_BLOCK,
         ),
     },
 )
