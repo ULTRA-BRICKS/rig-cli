@@ -65,13 +65,27 @@ At every `rig apply` (inside `plan.build()`, immediately after the catalog skill
 3. Not found (plugin never installed on this machine, or a typo'd marketplace/plugin name) →
    record a `plan.notes` line, skip. Never a fatal `rig apply` failure — a declared plugin can be
    legitimately absent on a CI runner or a laptop without Claude Code.
-4. Enumerate `<resolved-install-path>/skills/*/SKILL.md` (mirrors the catalog scanner's own "a
-   skill is a dir with a SKILL.md" contract).
-5. A skill name colliding with a real agent-tools **catalog** skill (any leaf name in
+4. **Confinement (security review finding).** `installed_plugins.json` is Claude Code's OWN
+   file, not rig's — a corrupted write or a compromised plugin could point `installPath`
+   anywhere on disk. A resolved `installPath` outside `~/.claude/plugins/` is refused (degrades
+   to a `plan.notes` line, same as "not found"), never trusted as a symlink source.
+5. Enumerate `<resolved-install-path>/skills/*/SKILL.md` (mirrors the catalog scanner's own "a
+   skill is a dir with a SKILL.md" contract). **Confinement (security review finding):** a
+   candidate whose resolved path lands outside the plugin's OWN install root is excluded, not
+   followed — a marketplace archive can ship a directory symlink inside its own extracted tree
+   (e.g. `skills/pwned -> /somewhere/else`); this must never become a global skill symlink
+   source.
+6. A skill name colliding with a real agent-tools **catalog** skill (any leaf name in
    `plan.catalog_items["skills"]`, machine-wide, not gated on this repo's stack) is skipped —
    the catalog is rig's own namespace and always wins. Recorded as a `plan.notes` line, matching
    the `systematic-debugging` precedent this feature was built to formalize.
-6. Everything else becomes a `link_skill_plugin` action: `target/<skill-name> →
+7. A skill name colliding with a same-named skill from a DIFFERENT declared plugin is skipped
+   too — without this, two `link_skill_plugin` actions would target the same
+   `skills_target/<name>` with different sources, flip-flopping which one "wins" on every apply
+   (never idempotent) and leaving the loser permanently `modified` in drift. The
+   alphabetically-first plugin name wins (matching `resolve_plugin_skills`'s stable sort); the
+   loser is recorded as a `plan.notes` line.
+8. Everything else becomes a `link_skill_plugin` action: `target/<skill-name> →
    <resolved-install-path>/skills/<skill-name>` — plus the usual `link_skill_harness` fan-out
    into every configured harness's discovery dir, exactly like a catalog skill gets.
 
@@ -110,7 +124,7 @@ flags missing/stale-symlink drift the same way `_check_skill_harness_link` does.
 ## 4. Testing
 
 `tests/test_skill_plugins.py` (hermetic — fake agent-tools + a fixture `installed_plugins.json`
-+ tmp `HOME`, no dependency on the real machine's Claude Code install):
+ plus a tmp `HOME`, no dependency on the real machine's Claude Code install):
 
 - unit coverage for `resolve_plugin_install_path` (scope preference, tie-breaking) and
   `plugin_skill_dirs` (SKILL.md-only filtering);
@@ -126,7 +140,20 @@ flags missing/stale-symlink drift the same way `_check_skill_harness_link` does.
 - (d) a plugin skill name colliding with a real catalog skill (`naming`, from the shared
   `fake_agent_tools` fixture) is skipped — the catalog copy is provably untouched, never
   shadowed;
-- a declared-but-not-installed plugin degrades to a plan note, never a crash;
+- (e) two DIFFERENT declared plugins shipping a same-named skill: exactly one
+  `link_skill_plugin` action is emitted (alphabetically-first plugin), the loser is noted, and a
+  second apply stays idempotent with zero drift — never flip-flops which plugin "wins";
+- (f) security: an `installPath` resolving OUTSIDE `~/.claude/plugins/` is refused (a plan note,
+  never a symlink source), and a `skills/<name>` entry that is itself a symlink escaping the
+  plugin's own install root is excluded from `plugin_skill_dirs`, never followed;
+- a declared-but-not-installed plugin degrades to a plan note, never a crash, including three
+  malformed `installed_plugins.json` shapes (invalid JSON, a non-dict root, a non-dict
+  `plugins` value) and a genuinely missing file;
+- `skills.enabled: false` suppresses `link_skill_plugin` actions too, even when the plugin
+  resolves fine — it is the one gate the whole block sits behind;
+- two DIFFERENT, non-colliding plugins declared together resolve independently (no
+  cross-contamination), each fanning out `link_skill_harness` actions (and drift coverage) into
+  a configured harness skill dir exactly like a catalog skill does;
 - the no-`skills.plugins`-at-all case (the overwhelming majority of repos) emits zero
   `link_skill_plugin` actions — no surprise behavior for a repo that never opted in.
 

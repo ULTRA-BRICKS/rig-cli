@@ -298,7 +298,7 @@ _SKILLS_BLOCK = Block(
             doc="Claude Code plugin-marketplace-sourced skills — resolved against the live "
             "`~/.claude/plugins/installed_plugins.json` at every `rig apply` so a plugin's "
             "`skills/*` dirs stay symlinked into the skills target even across a plugin "
-            "version bump. See docs/config-schema.md#skills-plugins.",
+            "version bump. See docs/config-schema.md#claude-code-plugin-marketplace-sourced-skills-skillsplugins.",
             leaves={},
             open_map="items",
             open_map_doc="one entry per declared plugin, keyed by plugin name (`{marketplace: "

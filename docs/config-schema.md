@@ -311,6 +311,18 @@ Resolution rules:
   recorded as a `plan.notes` line instead (mirrors the `systematic-debugging` precedent: the
   `superpowers` plugin ships a skill of that name, which collides with an existing, unrelated,
   already-catalogued agent-tools skill of the same name).
+- **Name collision between two DIFFERENT declared plugins** — without a guard, two
+  `link_skill_plugin` actions targeting the same `skills_target/<name>` with different sources
+  would flip-flop which one "wins" on every `rig apply` (never idempotent) and the loser would
+  read as permanent `modified` drift. The alphabetically-first plugin name wins (matching
+  `resolve_plugin_skills`'s stable sort order); the loser is recorded as a `plan.notes` line,
+  never silently applied.
+- **`installPath` outside the plugin store, or an in-tree symlink escaping a plugin's own
+  install root** — `installed_plugins.json` is Claude Code's OWN file, not rig's; a corrupted
+  write (or a compromised plugin, or a marketplace archive shipping a `skills/<name>` directory
+  symlink) could otherwise plant a global skill symlink pointing outside the trusted plugin
+  store. Both are refused (never followed) and recorded as a `plan.notes` line, same as "not
+  installed" — this never becomes a hard `rig apply` failure, but it also never becomes a link.
 
 A plugin-sourced skill is a genuine **plan-declared** action (`link_skill_plugin`), exactly like
 a catalog skill's `copy_skill` — `rig status` recognizes it as managed/converged natively. It

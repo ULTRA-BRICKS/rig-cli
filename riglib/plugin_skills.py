@@ -49,6 +49,31 @@ from .paths import expand_user_path
 INSTALLED_PLUGINS_PATH = "~/.claude/plugins/installed_plugins.json"
 
 
+def _plugins_root() -> Path:
+    """The Claude Code plugin store root every genuine ``installPath`` lives under
+    (``~/.claude/plugins/``), HOME-expanded — the trust boundary an ``installPath`` value read
+    from ``installed_plugins.json`` must stay inside of. See :func:`resolve_plugin_skills`."""
+    return expand_user_path("~/.claude/plugins")
+
+
+def _confined_to(path: Path, root: Path) -> bool:
+    """True when ``path`` resolves to somewhere inside ``root`` (symlinks followed on both sides).
+
+    Security guard (rig-cli#590 review finding): ``installed_plugins.json`` is Claude Code's own
+    file, not rig's, and a plugin's own extracted tree can ship a directory symlink. Without this,
+    a corrupted/compromised ``installPath`` (or a ``skills/<name>`` entry that is itself a symlink
+    escaping the plugin's install root) would become a global skill symlink source planted into
+    every harness's discovery dir — the confused-deputy pattern :func:`riglib.config.
+    linter_path_escapes_repo` guards against for a different (repo-relative) path shape. An
+    unresolvable path (a broken symlink, a permissions error) is treated as NOT confined — fail
+    closed, never silently trust an ambiguous path.
+    """
+    try:
+        return path.resolve(strict=False).is_relative_to(root.resolve(strict=False))
+    except OSError:
+        return False
+
+
 def installed_plugins_path() -> Path:
     """The live ``installed_plugins.json`` Claude Code itself maintains, HOME-expanded."""
     return expand_user_path(INSTALLED_PLUGINS_PATH)
@@ -105,14 +130,21 @@ def plugin_skill_dirs(install_path: Path) -> list[Path]:
     Mirrors the catalog scanner's own "a skill is a dir with a SKILL.md" contract
     (:mod:`riglib.catalog`) — anything else under ``skills/`` (a stray file, an empty dir) is
     silently not a skill, same as the catalog scanner's own behavior.
+
+    Confinement (security review finding, rig-cli#590): a candidate whose resolved path lands
+    OUTSIDE ``install_path`` is excluded, not followed. A marketplace plugin archive can ship a
+    directory symlink (``skills/pwned -> /somewhere/else``) inside its own extracted tree —
+    without this check that would plant a global skill symlink pointing outside the plugin's own
+    install root the moment :mod:`riglib.plan` links it into ``skills_target``.
     """
     skills_dir = install_path / "skills"
     if not skills_dir.is_dir():
         return []
-    return sorted(
-        (md.parent for md in skills_dir.glob("*/SKILL.md") if md.is_file()),
-        key=lambda p: p.name,
-    )
+    out = [
+        md.parent for md in skills_dir.glob("*/SKILL.md")
+        if md.is_file() and _confined_to(md.parent, install_path)
+    ]
+    return sorted(out, key=lambda p: p.name)
 
 
 def resolve_plugin_skills(
@@ -155,6 +187,17 @@ def resolve_plugin_skills(
             notes.append(
                 f"skills.plugins.items.{plugin_name}: '{plugin_name}@{marketplace}' not found in "
                 f"{path} — not installed on this machine (or a marketplace/plugin name typo); skipped"
+            )
+            continue
+        if not _confined_to(install_path, _plugins_root()):
+            # Security review finding (rig-cli#590): `installed_plugins.json` is Claude Code's
+            # own file, not rig's — a corrupted write or a compromised plugin could point
+            # `installPath` anywhere on disk. Never let a path outside the plugin store become
+            # a global skill symlink source; degrade to a plan note, same as "not found".
+            notes.append(
+                f"skills.plugins.items.{plugin_name}: installPath {install_path} is outside "
+                f"{_plugins_root()} — refusing to symlink from an untrusted/corrupted "
+                "installed_plugins.json entry; skipped"
             )
             continue
         skill_dirs = plugin_skill_dirs(install_path)

@@ -120,6 +120,41 @@ def test_plugin_skill_dirs_empty_when_no_skills_subdir(tmp_path):
     assert plugin_skill_dirs(tmp_path / "nonexistent") == []
 
 
+def test_plugin_skill_dirs_excludes_a_skill_dir_that_symlinks_outside_the_install_root(tmp_path):
+    """Security guard (rig-cli#590 review finding): a plugin's own extracted tree can ship a
+    directory symlink (an archive can carry one). ``skills/pwned -> outside`` must NOT be
+    followed into a global skill symlink source — it is excluded, not just de-prioritized."""
+    root = tmp_path / "plugin-root"
+    _write_plugin_skill(root, "brainstorming")
+    outside = tmp_path / "outside-the-plugin"
+    _write_plugin_skill(outside, "pwned", body="attacker content\n")
+    (root / "skills").mkdir(parents=True, exist_ok=True)
+    (root / "skills" / "pwned").symlink_to(outside / "pwned", target_is_directory=True)
+    dirs = plugin_skill_dirs(root)
+    assert [d.name for d in dirs] == ["brainstorming"]  # "pwned" excluded, never followed
+
+
+def test_resolve_plugin_skills_refuses_an_install_path_outside_the_plugin_store(tmp_path, monkeypatch):
+    """Security guard (rig-cli#590 review finding): ``installed_plugins.json`` is Claude Code's
+    own file, not rig's — a corrupted write or a compromised plugin could point ``installPath``
+    anywhere on disk. A path outside ``~/.claude/plugins`` degrades to a plan note, exactly like
+    "not installed", never a symlink source."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    attacker_root = tmp_path / "attacker-controlled"
+    _write_plugin_skill(attacker_root, "pwned", body="attacker content\n")
+    installed_file = home / ".claude" / "plugins" / "installed_plugins.json"
+    _write_installed_plugins(installed_file, "superpowers", "claude-plugins-official", attacker_root)
+    resolved, notes = resolve_plugin_skills(
+        {"superpowers": {"marketplace": "claude-plugins-official"}},
+        installed_plugins_file=installed_file,
+    )
+    assert resolved == []  # never a symlink source, no matter how it got into installed_plugins.json
+    assert any(
+        "superpowers" in n and "outside" in n and str(attacker_root) in n for n in notes
+    ), notes
+
+
 # ── config validation ───────────────────────────────────────────────────────────────────────
 
 
@@ -404,11 +439,153 @@ def test_no_plugins_declared_is_a_true_no_op(fake_agent_tools, tmp_path, monkeyp
     assert not _skill_actions(plan, "link_skill_plugin")
 
 
-def test_resolve_plugin_skills_sorted_and_stable(tmp_path):
+def test_skills_enabled_false_suppresses_plugin_skills_too(fake_agent_tools, tmp_path, monkeypatch):
+    """``skills.enabled: false`` is the one gate the whole `skills.plugins` block sits behind
+    (``riglib/plan.py``'s ``sk_cfg.get("enabled") is not False`` check) — a regression dropping
+    or inverting that clause must fail a test, not ship silently. The plugin resolves fine (a
+    real skill on disk) — it's `skills.enabled` alone that must suppress it."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    plugin_root = home / ".claude" / "plugins" / "cache" / "claude-plugins-official" / "superpowers" / "6.4.1"
+    _write_plugin_skill(plugin_root, "brainstorming")
+    installed_plugins = home / ".claude" / "plugins" / "installed_plugins.json"
+    _write_installed_plugins(installed_plugins, "superpowers", "claude-plugins-official", plugin_root)
+    cat = Catalog.scan(str(fake_agent_tools))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = _cfg(
+        {
+            "agent_tools_source": str(fake_agent_tools),
+            "skills": {
+                "enabled": False,
+                "plugins": {"items": {"superpowers": {"marketplace": "claude-plugins-official"}}},
+            },
+            "defaults": {"skills_target": str(repo / "skills-out")},
+            "agent_hooks": {"enabled": False}, "ci": {"enabled": False}, "mcp": {"enabled": False},
+            "harness": {"enabled": False}, "permissions": {"enabled": False},
+        },
+        repo,
+    )
+    plan = build(cfg, cat, project_type="unknown")
+    assert not _skill_actions(plan, "link_skill_plugin")
+
+
+def test_multiple_plugins_resolve_independently_without_cross_contamination(_plugin_env, tmp_path, monkeypatch):
+    """Two DIFFERENT, non-colliding plugins declared together resolve independently: each gets
+    its own actions from its own install root, sorted by plugin name, with no leakage between
+    them (the cross-plugin guard in `plan.py` only ever fires on an ACTUAL name collision —
+    see `test_two_plugins_shipping_a_same_named_skill_only_one_wins` for that case)."""
+    home, repo = _plugin_env["home"], _plugin_env["repo"]
+    other_root = home / ".claude" / "plugins" / "cache" / "other-mp" / "other-plugin" / "1.0.0"
+    _write_plugin_skill(other_root, "other-skill")
+    installed_plugins = _plugin_env["installed_plugins"]
+    data = json.loads(installed_plugins.read_text(encoding="utf-8"))
+    data["plugins"]["other-plugin@other-mp"] = [{"scope": "user", "installPath": str(other_root)}]
+    installed_plugins.write_text(json.dumps(data), encoding="utf-8")
+    cfg = _cfg(
+        {
+            "agent_tools_source": str(_plugin_env["cat"].source),
+            "skills": {
+                "universal": {"all": False},
+                "plugins": {
+                    "items": {
+                        "superpowers": {"marketplace": "claude-plugins-official"},
+                        "other-plugin": {"marketplace": "other-mp"},
+                    },
+                },
+            },
+            "defaults": {"skills_target": str(repo / "skills-out")},
+            "agent_hooks": {"enabled": False}, "ci": {"enabled": False}, "mcp": {"enabled": False},
+            "harness": {"enabled": False}, "permissions": {"enabled": False},
+        },
+        repo,
+    )
+    plan = build(cfg, _plugin_env["cat"], project_type="unknown")
+    actions = _skill_actions(plan, "link_skill_plugin")
+    assert {a.item for a in actions} == {
+        "other-plugin/other-skill", "superpowers/brainstorming", "superpowers/writing-plans",
+    }
+    by_item = {a.item: a for a in actions}
+    assert by_item["other-plugin/other-skill"].source == other_root / "skills" / "other-skill"
+    assert by_item["superpowers/brainstorming"].source == _plugin_env["plugin_root"] / "skills" / "brainstorming"
+
+
+def test_harness_fanout_and_drift_for_a_plugin_sourced_skill(_plugin_env):
+    """The `link_skill_harness` fan-out (and its drift check) works for a plugin-sourced skill
+    exactly like it does for a catalog skill — `skills.harness_skill_dir` forces the link even
+    without a full `harness` block, matching how a repo-config-free hermetic test exercises the
+    catalog-skill fan-out path elsewhere in this suite."""
+    cfg, cat, repo = _plugin_env["cfg"], _plugin_env["cat"], _plugin_env["repo"]
+    harness_dir = repo / "harness-skills"
+    cfg.data["skills"]["harness_skill_dir"] = str(harness_dir)
+    plan = build(cfg, cat, project_type="unknown")
+    harness_actions = [
+        a for a in plan.actions if a.kind == "link_skill_harness" and a.item.startswith("superpowers/")
+    ]
+    assert {a.item for a in harness_actions} == {"superpowers/brainstorming", "superpowers/writing-plans"}
+    assert all(a.target.parent == harness_dir for a in harness_actions)
+
+    report = run_plan(plan)
+    assert not report.errors, report.errors
+    link = harness_dir / "brainstorming"
+    assert link.is_symlink()
+    assert link.resolve() == (repo / "skills-out" / "brainstorming").resolve()
+
+    report_drift = detect(plan, scan_skill_dirs=[repo / "skills-out", harness_dir])
+    stale = [i for i in (report_drift.by_direction("missing") + report_drift.by_direction("modified")) if i.category == "skills"]
+    assert not stale, stale
+
+
+def test_read_installed_plugins_degrades_on_malformed_json_shapes(tmp_path):
+    """`_read_installed_plugins`'s three defensive branches, pinned directly: invalid JSON, a
+    non-dict root, and a well-formed-but-empty file all degrade to "nothing installed" — a plan
+    note via `resolve_plugin_skills`, never a crash."""
+    for label, raw in [
+        ("invalid-json", "{not json"),
+        ("non-dict-root", "[1, 2, 3]"),
+        ("plugins-not-a-dict", json.dumps({"version": 2, "plugins": "not-a-dict"})),
+    ]:
+        path = tmp_path / f"{label}.json"
+        path.write_text(raw, encoding="utf-8")
+        resolved, notes = resolve_plugin_skills(
+            {"superpowers": {"marketplace": "claude-plugins-official"}}, installed_plugins_file=path,
+        )
+        assert resolved == [], label
+        assert any("not found in" in n for n in notes), (label, notes)
+
+    missing = tmp_path / "does-not-exist.json"
+    resolved, notes = resolve_plugin_skills(
+        {"superpowers": {"marketplace": "claude-plugins-official"}}, installed_plugins_file=missing,
+    )
+    assert resolved == []
+    assert any("not found in" in n for n in notes)
+
+
+def test_resolve_plugin_install_path_falls_back_to_first_entry_when_both_timestamps_absent():
+    """`resolve_plugin_install_path`'s tie-break key falls back to `""` when an entry carries
+    NEITHER `lastUpdated` NOR `installedAt` — pinning that `max()` then deterministically picks
+    the FIRST such entry (Python's `max` keeps the first-seen max on a tie, so with an
+    all-`""` key pool every entry ties and the first-inserted one wins), not an
+    arbitrary/unstable one."""
+    installed = {
+        "plugins": {
+            "superpowers@mp": [
+                {"scope": "user", "installPath": "/first"},
+                {"scope": "user", "installPath": "/second"},
+            ],
+        },
+    }
+    path = resolve_plugin_install_path(installed, "superpowers", "mp")
+    assert path == Path("/first")
+
+
+def test_resolve_plugin_skills_sorted_and_stable(tmp_path, monkeypatch):
     """Unit-level: resolve_plugin_skills sorts by plugin name for a stable plan order, and its
     notes name the exact declared plugin/marketplace that failed to resolve."""
-    installed_file = tmp_path / "installed_plugins.json"
-    root_b = tmp_path / "plugin-b-root"
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    installed_file = home / ".claude" / "plugins" / "installed_plugins.json"
+    root_b = home / ".claude" / "plugins" / "cache" / "mp" / "b-plugin" / "1.0.0"
     _write_plugin_skill(root_b, "zzz")
     _write_plugin_skill(root_b, "aaa")
     _write_installed_plugins(installed_file, "b-plugin", "mp", root_b)
