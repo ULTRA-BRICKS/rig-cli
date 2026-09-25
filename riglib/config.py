@@ -271,24 +271,70 @@ def repo_config_path(repo_root: Path) -> Path:
 # and the schema it indexes never drift into a separate module.
 
 
+# Maps whose KEYS are themselves dotted names — git's own ``section.name`` keys. A path that goes
+# past one keeps everything after it as ONE key, so `rig config set --global git.config.user.name
+# Alex` writes ``git: {config: {user.name: Alex}}`` (what the validator requires), not a nesting.
+_FLAT_KEY_MAPS: tuple[tuple[str, ...], ...] = (("git", "config"),)
+
+
+def _flat_key_index(parts: list[str]) -> int | None:
+    """Index of the single flat-map key in ``parts`` when the path goes past a flat-key map."""
+    for prefix in _FLAT_KEY_MAPS:
+        if len(parts) > len(prefix) and tuple(parts[: len(prefix)]) == prefix:
+            return len(prefix)
+    return None
+
+
+def _split_segments(dotted: str) -> list[str]:
+    """Split on dots OUTSIDE quotes: ``a."b.c".d`` → ``["a", "b.c", "d"]`` (``'…'`` works too)."""
+    segments: list[str] = []
+    buf: list[str] = []
+    quote: str | None = None
+    for ch in dotted:
+        if quote:
+            if ch == quote:
+                quote = None
+            else:
+                buf.append(ch)
+        elif ch in "\"'":
+            quote = ch
+        elif ch == ".":
+            segments.append("".join(buf).strip())
+            buf = []
+        else:
+            buf.append(ch)
+    if quote:
+        raise ConfigError(f"invalid config path {dotted!r}: unterminated {quote}")
+    segments.append("".join(buf).strip())
+    return segments
+
+
 def split_path(dotted: str) -> list[str]:
     """Split and normalize a dot path into trimmed segments, rejecting empty segments.
 
+    A segment in quotes may contain dots (``mcp.items."my.server".command``), and everything past
+    a flat-key map is one key (``git.config.user.name`` → ``git``, ``config``, ``user.name``).
     Fail-closed: a malformed path is a :class:`ConfigError`, not a silent no-op — a typo in
     ``rig config set`` must abort before it writes a key the schema can't reach.
     """
     if not dotted or not dotted.strip():
         raise ConfigError("empty config path")
-    parts = [p.strip() for p in dotted.split(".")]
+    parts = _split_segments(dotted)
     if any(p == "" for p in parts):
-        # empty segment ("a..b", a leading/trailing dot, or a whitespace-only segment "a. .b")
+        # empty segment ("a..b", a leading/trailing dot, a whitespace-only "a. .b", or `a.""`)
         raise ConfigError(f"invalid config path {dotted!r}: empty segment")
+    flat = _flat_key_index(parts)
+    if flat is not None:
+        parts = parts[:flat] + [".".join(parts[flat:])]
     return parts
 
 
 def canonical_dot_path(dotted: str) -> str:
-    """Return the trimmed, single-dot-joined canonical form of a config dot path."""
-    return ".".join(split_path(dotted))
+    """Return the canonical form of a config dot path — one that :func:`split_path` maps back to
+    the same segments (a dotted segment is quoted unless it is a flat-key-map key)."""
+    parts = split_path(dotted)
+    flat = _flat_key_index(parts)
+    return ".".join(f'"{p}"' if "." in p and i != flat else p for i, p in enumerate(parts))
 
 
 def get_path(data: dict[str, Any], dotted: str) -> Any:
@@ -2613,11 +2659,9 @@ def _validate_git(g: dict[str, Any]) -> None:
         if isinstance(value, dict):
             raise ConfigError(
                 f"git.config.{key} is a nested mapping",
-                why="git.config keys are FLAT dotted git keys, not nested YAML sections (note: "
-                "`rig config set git.config.user.name …` builds exactly this nesting — its path "
-                "syntax splits on every dot)",
-                fix=f"edit the global config and write `{key}.<name>: <value>` "
-                "(e.g. `user.name: Alex`, not `user: {name: Alex}`)",
+                why="git.config keys are FLAT dotted git keys, not nested YAML sections",
+                fix=f"write `{key}.<name>: <value>` (e.g. `user.name: Alex`, not `user: {{name: Alex}}`), "
+                "or `rig config set --global git.config.user.name Alex`",
                 schema_path="git.config",
             )
         if parse_key(key) is None:

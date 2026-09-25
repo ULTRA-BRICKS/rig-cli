@@ -1049,3 +1049,56 @@ def test_cli_set_global_known_list_round_trips_into_global_config(
     gdata = yaml.safe_load((tmp_path / "xdg" / "rig" / "config.yaml").read_text(encoding="utf-8"))
     assert gdata[category][leaf] == ["swiftui-pro", "my-pack"]
     assert "known" not in yaml.safe_load(rig.read_text(encoding="utf-8")).get(category, {})
+
+
+# ── keys that contain dots ─────────────────────────────────────────────────────────────
+@pytest.mark.parametrize(
+    "path,parts",
+    [
+        ("git.config.user.name", ["git", "config", "user.name"]),
+        ("git.config.credential.https://git.example.com.helper",
+         ["git", "config", "credential.https://git.example.com.helper"]),
+        ('git.config."user.name"', ["git", "config", "user.name"]),
+        ("git.enabled", ["git", "enabled"]),
+        ("git.config", ["git", "config"]),
+        ('mcp.items."my.server".command', ["mcp", "items", "my.server", "command"]),
+        ("mcp.items.'my.server'.command", ["mcp", "items", "my.server", "command"]),
+        (' env . "vars" . KEY ', ["env", "vars", "KEY"]),
+    ],
+)
+def test_split_path_keeps_dotted_keys_whole(path, parts):
+    assert config.split_path(path) == parts
+    # the canonical form maps back to the same segments
+    assert config.split_path(config.canonical_dot_path(path)) == parts
+
+
+def test_canonical_dot_path_quotes_only_what_needs_it():
+    assert config.canonical_dot_path("git.config.user.name") == "git.config.user.name"
+    assert config.canonical_dot_path("mcp.items.'my.server'.command") == 'mcp.items."my.server".command'
+
+
+@pytest.mark.parametrize("path", ['a."b', "a.'b.c", 'a."".b'])
+def test_split_path_rejects_bad_quoting(path):
+    with pytest.raises(config.ConfigError):
+        config.split_path(path)
+
+
+def test_set_path_writes_a_flat_git_key():
+    data: dict = {}
+    config.set_path(data, "git.config.user.name", "Alex Ultra")
+    config.set_path(data, "git.config.pull.rebase", True)
+    assert data == {"git": {"config": {"user.name": "Alex Ultra", "pull.rebase": True}}}
+    assert config.get_path(data, "git.config.user.name") == "Alex Ultra"
+
+
+def test_cli_set_global_git_config_key(tmp_path, fake_agent_tools, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv("RIG_AGENT_TOOLS_SOURCE", str(fake_agent_tools))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    rc = main(["config", "set", "--global", "git.config.user.name", "Alex Ultra", "-C", str(repo), "--no-apply"])
+
+    assert rc == 0
+    written = config.read_yaml_file(config.global_config_path())
+    assert written["git"] == {"config": {"user.name": "Alex Ultra"}}

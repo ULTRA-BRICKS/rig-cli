@@ -2517,9 +2517,9 @@ path `git.config`): a malformed key, a nested mapping instead of a dotted key (`
 write `user.name: …`), a value with a line break, a list (multi-valued keys such as
 `remote.*.fetch` are out of scope), a float/null (quote it), and **`core.hooksPath` /
 `core.excludesfile`** — the `git_hooks` dispatcher and the `gitignore` block own those, and two
-owners would fight on every apply. Edit these keys in the YAML file directly: `rig config set`'s
-path syntax splits on every dot, so `rig config set git.config.user.name …` would build a nested
-`user: {name: …}` mapping (rejected with a message saying so).
+owners would fight on every apply. `rig config set --global git.config.user.name "Alex Ultra"`
+works: everything after `git.config.` is taken as ONE git key, dots and all
+(`git.config.credential.https://git.example.com.helper` → key `credential.https://git.example.com.helper`).
 
 **Apply** sets every key that is unset or differs; a key already holding a value that means the same
 to git is left alone (`yes`/`on`/`1` match a desired `true`; `1k` matches `1024`). A value you set by
@@ -2547,13 +2547,13 @@ workflow.
 ```yaml
 profile:
   repo: https://git.hyperide.ai/alex/.rig-profile   # the PRIVATE profile repo
-  auto_sync: false                                   # true: `rig apply commit` syncs first
+  # auto_sync: true                                  # default: `rig apply commit` syncs first
 ```
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `repo` | string | — | the profile repo URL (https, ssh, or a local path). One line, no leading `-`. `rig profile init` records it and never rewrites an existing value (machines may spell one repo as ssh vs https). |
-| `auto_sync` | bool | `false` | `rig apply commit` runs `rig profile sync` BEFORE building its plan (a pull changes the very file the plan reads). Non-fatal: a network/push failure or a conflict prints a warning and the apply continues with the local file. A pull is announced as a warning, since the plan that runs is then built from a config you did not preview. A preview (`rig apply` / `apply info`) never syncs. |
+| `auto_sync` | bool | `true` | `rig apply commit` runs `rig profile sync` BEFORE building its plan (a pull changes the very file the plan reads). Non-fatal: a network/push failure or a conflict prints a warning and the apply continues with the local file. A pull is announced as a warning, since the plan that runs is then built from a config you did not preview. A preview (`rig apply` / `apply info`) never syncs. |
 
 **The repo MUST be private.** The file travels in plaintext and `env.vars` (see [`env`](#env)) often
 holds API keys. Every push of a config carrying `env.vars` warns (loudly the first time on each
@@ -3226,9 +3226,11 @@ rig config set harness.auto_mode false --no-apply        # write only, print the
 - Dot paths cannot contain empty segments, including whitespace-only segments: `harness..kind`
   and `harness. .kind` are rejected. Whitespace around non-empty segments is trimmed.
 - A value that **starts with `-`** (and is not a negative number) needs the `--` separator so
-  argparse doesn't read it as a flag: `rig config set k -- -weird`. **Dot paths cannot address a
-  key that itself contains a dot** — `<dot.path>` always splits on `.`; every real catalog id is
-  dash-cased (`secret-scan`), so this is a non-issue in practice.
+  argparse doesn't read it as a flag: `rig config set k -- -weird`.
+- **A key that contains a dot** goes in quotes inside the path: `rig config set
+  'mcp.items."my.server".command' npx` (quote the whole path for the shell). Past `git.config`
+  no quotes are needed — git keys are always dotted, so the rest of the path is one key
+  (`git.config.user.name`).
 - **A repo-local `set` requires an existing `./rig.yaml`.** It edits a committed config; it does
   not bootstrap one — run `rig init` (or `rig export -o rig.yaml`) first, so built-in defaults
   never reconcile onto disk without a committed source of truth (the same guard `rig apply`
