@@ -228,3 +228,21 @@ def test_ci_has_tmux_so_the_leak_regression_actually_runs():
         "tmux server unguarded (INCIDENT 2026-06-17 follow-up a). Add an `apt-get install -y tmux` "
         "step before pytest in the unit job of .github/workflows/ci.yml."
     )
+
+
+def test_ci_has_lsof_so_the_omp_orphan_guard_tests_run():
+    """In CI, lsof MUST be on PATH. The omp-restore orphan-guard tests (and the generated restore
+    script they drive) read a process's cwd with `lsof -d cwd`; they are tmux-gated only, so on a
+    runner that ships tmux but no lsof they crash with FileNotFoundError instead of testing the
+    guard. The Forgejo Ubuntu runner is exactly that image. The unit CI job installs lsof next to
+    tmux; this assertion names the missing step instead of a stack trace deep in a subprocess.
+
+    Gated to CI only, like the tmux assertion above.
+    """
+    if os.environ.get("CI", "").strip().lower() not in ("1", "true", "yes"):
+        pytest.skip("not in CI — lsof is required only on CI runners (set CI=true to enforce)")
+    assert shutil.which("lsof") is not None, (
+        "lsof is not installed on this CI runner — the omp-restore orphan-guard tests in "
+        "test_tmux_e2e.py need it to read process cwds. Add lsof to the `apt-get install -y tmux` "
+        "step before pytest in the unit job of .github/workflows/ci.yml."
+    )
