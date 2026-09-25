@@ -817,3 +817,37 @@ def test_status_and_apply_agree_on_the_fj_command(sandbox, tmp_path, monkeypatch
     _check_fj(action, report)
     assert report.items == []
     assert runner._do_provision_fj(action, "backup").status == "skipped"
+
+
+def test_wrapper_runs_fj_ship_under_git_sh_from_cygwin():
+    # ship drives Windows-native python/git/jq; only Git for Windows' sh converts path args for
+    # them, so under Cygwin `fj ship` re-execs itself there, handing paths over in C:/ form.
+    text = fj.fj_wrapper_sh("0.6.0")
+    ship = text[text.index('if [ "${1-}" = ship ]'):text.index("@SHIP@") if "@SHIP@" in text else None]
+    assert "CYGWIN*)" in ship and "RIG_FJ_SHIP_MSYS" in ship
+    assert '"${g%/*}/../bin/sh.exe" "${g%/*}/../../bin/sh.exe"' in ship
+    assert "for v in AGENT_TOOLS_ROOT XDG_CONFIG_HOME" in ship and "cygpath -m" in ship
+    assert 'exec "$s" "$(cygpath -w "$0")" "$@"' in ship  # `ship` stays the first argument
+
+
+@pytest.mark.skipif(not (os.name == "nt" and Path(r"C:\cygwin64\bin\bash.exe").is_file()),
+                    reason="needs Cygwin and Git for Windows")
+def test_cygwin_fj_ship_reaches_ship_sh_under_git_sh(tmp_path):
+    import subprocess
+
+    bindir, at = tmp_path / "bin", tmp_path / "at"
+    (at / "ci" / "ship").mkdir(parents=True)
+    bindir.mkdir()
+    wrapper = bindir / "fj"
+    wrapper.write_text(fj.fj_wrapper_sh("0.6.0"), encoding="utf-8", newline="\n")
+    ship = at / "ci" / "ship" / "ship.sh"
+    ship.write_text('#!/bin/sh\necho "under=$(uname -s) args=$*"\n', encoding="utf-8", newline="\n")
+    script = tmp_path / "run.sh"
+    script.write_text(
+        "chmod +x \"$(cygpath -u '{w}')\" \"$(cygpath -u '{s}')\"\n"
+        "cd /tmp && AGENT_TOOLS_ROOT=\"$(cygpath -u '{a}')\" \"$(cygpath -u '{w}')\" ship 7 --dry-run\n"
+        .format(w=wrapper, s=ship, a=at), encoding="utf-8", newline="\n")
+    out = subprocess.run([r"C:\cygwin64\bin\bash.exe", "-l", str(script).replace("\\", "/")],
+                         capture_output=True, text=True, timeout=120)
+    assert "under=MINGW" in out.stdout or "under=MSYS" in out.stdout, out.stdout + out.stderr
+    assert "args=7 --dry-run" in out.stdout

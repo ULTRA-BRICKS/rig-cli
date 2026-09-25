@@ -226,6 +226,27 @@ _WRAPPER_SH = """\
 # `fj ship ...` is `gh ship ...`: the same dispatch as the gh alias (riglib/gh_ship_alias.py).
 # Every other `fj ...` execs the real fj with its arguments, stdin and exit code untouched.
 if [ "${1-}" = ship ]; then
+  # Cygwin: ship drives Windows-native python/git/jq, and only Git for Windows' sh (MSYS) converts
+  # POSIX path arguments for them — so run `fj ship` under it, as gh runs `gh ship` there anyway.
+  case "$(uname -s 2>/dev/null)" in
+    CYGWIN*)
+      if [ -z "${RIG_FJ_SHIP_MSYS-}" ]; then
+        g="$(command -v git 2>/dev/null)"
+        for s in "${g%/*}/../bin/sh.exe" "${g%/*}/../../bin/sh.exe"; do
+          if [ -n "$g" ] && [ -f "$s" ]; then
+            RIG_FJ_SHIP_MSYS=1; export RIG_FJ_SHIP_MSYS
+            # Cygwin-form paths (/cygdrive/...) mean nothing to MSYS: hand them over as C:/...
+            for v in AGENT_TOOLS_ROOT XDG_CONFIG_HOME; do
+              eval "p=\\${$v-}"
+              if [ -n "$p" ]; then eval "$v=\\$(cygpath -m \\"\\$p\\")"; export "$v"; fi
+            done
+            exec "$s" "$(cygpath -w "$0")" "$@"
+          fi
+        done
+        echo "fj ship: Git for Windows' sh.exe not found next to git; install Git for Windows." >&2
+        exit 127
+      fi ;;
+  esac
   shift
   @SHIP@
 fi
