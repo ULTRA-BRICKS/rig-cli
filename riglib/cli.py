@@ -19,7 +19,6 @@ Subcommands:
     rig daily    "what shipped" report over merged PRs (paste into Slack)
     rig usage    Claude token/cost usage across accounts (hypothetical cost at list price)
     rig evolve   local project evolution portal (git histogram + code treemap)
-    rig codex    safe Codex maintenance helpers
     rig worktree create/remove/gc — the standardized .worktrees/<name> agent-worktree lifecycle
     rig report   HTML completion report from git history since merge-base (HyperIDE /result-report)
 """

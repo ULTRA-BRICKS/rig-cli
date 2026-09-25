@@ -48,7 +48,7 @@ def sandbox(tmp_path, monkeypatch):
 
 
 def _opts(**over):
-    base = fj.fj_options_from_config({"host": "git.example.com"})
+    base = fj.fj_options_from_config({"host": "git.example.com"}, fallback_host="git.example.com")
     base.update(over)
     return base
 
@@ -469,7 +469,7 @@ def test_linux_pending_then_apply_then_current(sandbox, monkeypatch):
     assert (_bin(sandbox) / "fj").read_bytes() == fj.fj_wrapper_sh("0.6.0").encode()
     assert os.access(_bin(sandbox) / "fj", os.X_OK)
     assert not (_bin(sandbox) / "fj.cmd").exists(), "fj.cmd is Windows-only"
-    assert fj.client_ids_path().read_text(encoding="utf-8") == (
+    assert fj.client_ids_path("Linux").read_text(encoding="utf-8") == (
         f"git.example.com {fj.FORGEJO_TEA_CLIENT_ID}  {fj.CLIENT_IDS_MARKER}\n"
     )
     assert store == fj.git_credential_settings("git.example.com", fj.FORGEJO_GCM_CLIENT_ID)
@@ -671,7 +671,7 @@ def test_failed_install_does_not_block_the_other_steps(sandbox, monkeypatch):
     monkeypatch.setattr(fj, "install_fj", boom)
     done, errors = fj.apply_changes(_opts(), fj.pending_changes(_opts(), windows=False, system="Linux"), system="Linux")
     assert errors == ["fj: no network"]
-    assert fj.client_ids_path().is_file()
+    assert fj.client_ids_path("Linux").is_file()
     assert fj.is_rig_wrapper(_bin(sandbox) / "fj")
 
 
@@ -826,7 +826,7 @@ def test_wrapper_runs_fj_ship_under_git_sh_from_cygwin():
     ship = text[text.index('if [ "${1-}" = ship ]'):text.index("@SHIP@") if "@SHIP@" in text else None]
     assert "CYGWIN*)" in ship and "RIG_FJ_SHIP_MSYS" in ship
     assert '"${g%/*}/../bin/sh.exe" "${g%/*}/../../bin/sh.exe"' in ship
-    assert "for v in AGENT_TOOLS_ROOT XDG_CONFIG_HOME" in ship and "cygpath -m" in ship
+    assert 'AGENT_TOOLS_ROOT="$(cygpath -m "$AGENT_TOOLS_ROOT")"' in ship and "eval" not in ship
     assert 'exec "$s" "$(cygpath -w "$0")" "$@"' in ship  # `ship` stays the first argument
 
 
@@ -851,3 +851,87 @@ def test_cygwin_fj_ship_reaches_ship_sh_under_git_sh(tmp_path):
                          capture_output=True, text=True, timeout=120)
     assert "under=MINGW" in out.stdout or "under=MSYS" in out.stdout, out.stdout + out.stderr
     assert "args=7 --dry-run" in out.stdout
+
+
+# ── a repo rig.yaml may only name its fj.host (security: no machine-wide auth from a clone) ──────
+
+
+def _repo_with(tmp_path, text):
+    repo = tmp_path / "repo"
+    repo.mkdir(exist_ok=True)
+    (repo / "rig.yaml").write_text(f"version: 1\n{text}\n", encoding="utf-8")
+    return repo
+
+
+@pytest.mark.parametrize("key", ["client_id: evil-app", "git_client_id: evil-gcm", "enabled: false",
+                                 "install: false", "bin_dir: /tmp/evil", "version: 0.6.0",
+                                 "git_credentials: false"])
+def test_repo_layer_may_not_set_machine_wide_fj_keys(sandbox, tmp_path, key):
+    from riglib.config import load
+
+    repo = _repo_with(tmp_path, f"fj: {{host: git.example.com, {key}}}")
+    with pytest.raises(ConfigError, match="global-only config key") as exc:
+        load(repo)
+    assert exc.value.schema_path == f"fj.{key.split(':')[0]}"
+
+
+def _posix_env_vars(monkeypatch):
+    real = fj.implied_env_vars
+    monkeypatch.setattr(fj, "implied_env_vars", lambda block: real(block, windows=False))
+
+
+def test_a_repo_host_never_becomes_the_machine_default(sandbox, tmp_path, monkeypatch):
+    from riglib.config import global_config_path, load
+    from riglib.plan import InstallPlan, _build_env, _build_fj
+
+    gpath = global_config_path()
+    gpath.parent.mkdir(parents=True, exist_ok=True)
+    gpath.write_text("version: 1\nfj: {host: git.hyperide.ai}\n", encoding="utf-8")
+    loaded = load(_repo_with(tmp_path, "fj: {host: forge.example}"))
+    assert loaded.data["fj"]["host"] == "forge.example"  # the repo's own logins use its host
+
+    plan = InstallPlan(actions=[])
+    _build_fj(loaded, plan)
+    [action] = plan.actions
+    assert action.options["hosts"] == ["forge.example", "git.hyperide.ai"]
+    assert action.options["fallback_host"] == "git.hyperide.ai"  # Windows: HKCU FJ_FALLBACK_HOST
+
+    _posix_env_vars(monkeypatch)
+    plan = InstallPlan(actions=[])
+    _build_env(loaded, plan)
+    assert plan.actions[0].options["vars"] == {"FJ_FALLBACK_HOST": "https://git.hyperide.ai"}
+
+
+def test_without_a_global_host_rig_sets_no_fallback_host(sandbox, tmp_path, monkeypatch):
+    from riglib.config import load
+    from riglib.plan import InstallPlan, _build_env, _build_fj
+
+    loaded = load(_repo_with(tmp_path, "fj: {host: forge.example}"))
+    plan = InstallPlan(actions=[])
+    _build_fj(loaded, plan)
+    [action] = plan.actions
+    assert action.options["fallback_host"] is None and action.options["hosts"] == ["forge.example"]
+    _stub_git(monkeypatch, gcm=False)
+    monkeypatch.setattr(fj, "read_windows_user_env", lambda name: None)
+    assert "FJ_FALLBACK_HOST" not in _items(fj.pending_changes(action.options, windows=True))
+
+    _posix_env_vars(monkeypatch)
+    plan = InstallPlan(actions=[])
+    _build_env(loaded, plan)
+    assert plan.actions == []
+
+
+def test_cygwin_reexec_converts_paths_without_eval():
+    [sh] = [data for path, data in fj.fj_wrapper_files(_opts(), "Linux") if path.name == "fj"]
+    assert b"eval" not in sh
+    assert b'AGENT_TOOLS_ROOT="$(cygpath -m "$AGENT_TOOLS_ROOT")"' in sh
+
+
+def test_write_atomic_leaves_no_temp_file_behind_on_failure(tmp_path, monkeypatch):
+    def fail(src, dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(fj.os, "replace", fail)
+    with pytest.raises(OSError, match="disk full"):
+        fj._write_atomic(tmp_path / "bin" / "fj", b"#!/bin/sh\n")
+    assert list((tmp_path / "bin").iterdir()) == []

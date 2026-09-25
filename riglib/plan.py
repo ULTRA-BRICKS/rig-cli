@@ -3336,7 +3336,8 @@ def _build_env(config: LoadedConfig, plan: InstallPlan) -> None:
     from . import fj
 
     e = config.data.get("env")
-    implied = fj.implied_env_vars(config.data.get("fj"))
+    # The GLOBAL block only: a repo rig.yaml's fj.host must never become the machine-wide default.
+    implied = fj.implied_env_vars(_global_fj_block(config))
     if (e is None or not isinstance(e, dict)) and not implied:
         return
     e = e if isinstance(e, dict) else {}
@@ -3404,19 +3405,21 @@ def _build_spotlight(config: LoadedConfig, plan: InstallPlan) -> None:
     )
 
 
+def _global_fj_block(config: LoadedConfig) -> dict | None:
+    """The ``fj`` block of the GLOBAL layer alone — machine-wide fj settings, never a repo
+    rig.yaml's override (a repo layer may only name its own ``fj.host``)."""
+    block = config.global_data.get("fj")
+    return block if isinstance(block, dict) else None
+
+
 def _global_fj_host(config: LoadedConfig) -> str | None:
     """``fj.host`` from the GLOBAL config file alone — the machine default FJ_FALLBACK_HOST points
-    at, even when the repo rig.yaml overrides ``fj.host`` for its own logins."""
-    if config.global_path is None or not config.global_path.is_file():
+    at, even when the repo rig.yaml overrides ``fj.host`` for its own logins. ``None`` when the
+    global config names no host: then rig sets no FJ_FALLBACK_HOST."""
+    block = _global_fj_block(config)
+    if block is None or block.get("enabled") is False:
         return None
-    try:
-        import yaml
-
-        data = yaml.safe_load(config.global_path.read_text(encoding="utf-8")) or {}
-    except Exception:  # noqa: BLE001 — the cascade already validated it; this is best-effort
-        return None
-    block = data.get("fj") if isinstance(data, dict) else None
-    host = block.get("host") if isinstance(block, dict) else None
+    host = block.get("host")
     return str(host) if host else None
 
 

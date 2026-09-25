@@ -15,7 +15,7 @@ authors = [{ name = "Alex Mextner" }]
 #   • pyyaml   — config parse/serialize (the rig.yaml cascade).
 #   • textual  — the interactive `rig init` setup wizard. It is a CORE dep (not an optional
 #     `[tui]` extra) so EVERY canonical install — `pipx install hyper-rig`, `uv tool install
-#     rig-cli`, `pip install hyper-rig` — brings the wizard. `rig init` from a terminal launches
+#     hyper-rig`, `pip install hyper-rig` — brings the wizard. `rig init` from a terminal launches
 #     it with NO extra install step and NO "go install textual yourself" hint.
 #   • rich     — the `rig stats show --format tui` report (degrades to plain text when absent).
 # textual floor is 0.66 (not 0.50): `_set_controls_enabled()` in riglib/tui/app.py calls

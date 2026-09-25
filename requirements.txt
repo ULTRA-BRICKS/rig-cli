@@ -39,15 +39,15 @@ pygments==2.21.0
     #   rich
     #   textual
 pytest==9.1.1
-    # via rig-cli (pyproject.toml)
+    # via hyper-rig (pyproject.toml)
 pyyaml==6.0.3
-    # via rig-cli (pyproject.toml)
+    # via hyper-rig (pyproject.toml)
 rich==15.0.0
     # via
     #   rig-cli (pyproject.toml)
     #   textual
 textual==8.2.8
-    # via rig-cli (pyproject.toml)
+    # via hyper-rig (pyproject.toml)
 tomli==2.4.1 ; python_full_version < '3.11'
     # via
     #   rig-cli (pyproject.toml)

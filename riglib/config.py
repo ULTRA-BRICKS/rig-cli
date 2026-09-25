@@ -55,6 +55,12 @@ _GLOBAL_LAYER_ONLY_BLOCKS: dict[str, str] = {
     "profile": "profile points rig at the repo your GLOBAL config is synced with",
 }
 
+# `fj` is repo-writable, but only its `host` (the forge this repo's logins use). Every other key is
+# machine-wide: `client_id`/`git_client_id` pick the OAuth app that fj and git hand their tokens to
+# for EVERY listed host, and `enabled`/`install`/`version`/`bin_dir`/`git_credentials` change the
+# machine's fj install and global git config — a committed repo rig.yaml must set none of them.
+_REPO_LAYER_FJ_KEYS = frozenset({"host"})
+
 _VALID_TOP_KEYS = {
     "version",
     "defaults",
@@ -331,10 +337,20 @@ def split_path(dotted: str) -> list[str]:
 
 def canonical_dot_path(dotted: str) -> str:
     """Return the canonical form of a config dot path — one that :func:`split_path` maps back to
-    the same segments (a dotted segment is quoted unless it is a flat-key-map key)."""
+    the same segments. A segment holding a dot or a quote is quoted (unless it is a flat-key-map
+    key), with whichever quote it does not contain; one holding both quotes has no dot-path form."""
     parts = split_path(dotted)
     flat = _flat_key_index(parts)
-    return ".".join(f'"{p}"' if "." in p and i != flat else p for i, p in enumerate(parts))
+
+    def render(i: int, p: str) -> str:
+        if i == flat or not any(c in p for c in ".\"'"):
+            return p
+        q = '"' if '"' not in p else "'" if "'" not in p else None
+        if q is None:
+            raise ConfigError(f"invalid config path {dotted!r}: segment {p!r} holds both quote characters")
+        return f"{q}{p}{q}"
+
+    return ".".join(render(i, p) for i, p in enumerate(parts))
 
 
 def get_path(data: dict[str, Any], dotted: str) -> Any:
@@ -493,6 +509,9 @@ class LoadedConfig:
     # maps to the global path even when a repo rig.yaml is also loaded. Used to name the CORRECT
     # source file in an unknown-item error instead of always blaming the repo file.
     key_sources: dict[str, Path] = field(default_factory=dict)
+    # The GLOBAL layer's own data, before a repo layer merged over it — for the machine-wide
+    # settings a repo override must never reach (FJ_FALLBACK_HOST is the global fj.host).
+    global_data: dict[str, Any] = field(default_factory=dict)
 
     @property
     def agent_tools_source(self) -> str | None:
@@ -575,6 +594,7 @@ def load(
     # repo/explicit). A key the repo layer sets overwrites the global provenance — so the final
     # mapping names the file the user must edit to remove the offending key.
     key_sources: dict[str, Path] = {}
+    global_data: dict[str, Any] = {}
 
     def _merge_layer(path: Path, label: str) -> None:
         """Merge one config file into the accumulator and record its key provenance + layer.
@@ -604,6 +624,18 @@ def load(
                         f"(e.g. `rig config set {block}.<key> <value> --global`)",
                         schema_path=block,
                     )
+            fj_block = data.get("fj")
+            machine_keys = sorted(set(fj_block) - _REPO_LAYER_FJ_KEYS) if isinstance(fj_block, dict) else []
+            if machine_keys:
+                raise ConfigError(
+                    f"fj.{machine_keys[0]} is a global-only config key",
+                    why=f"{path} is loaded as the {label} layer, but fj.{', fj.'.join(machine_keys)} "
+                    "change the machine's fj install or the OAuth app fj and git log in with — a "
+                    "repo (or --config) layer may only set fj.host",
+                    fix=f"move them to {global_config_path()} "
+                    f"(e.g. `rig config set fj.{machine_keys[0]} <value> --global`)",
+                    schema_path=f"fj.{machine_keys[0]}",
+                )
             ci_items = data.get("ci", {})
             for part in ("items", "ship"):
                 ci_items = ci_items.get(part, {}) if isinstance(ci_items, dict) else {}
@@ -627,6 +659,8 @@ def load(
                 schema_path="internal_dev",
             )
         merged = _deep_merge(merged, data)
+        if label == "global":
+            global_data.update(data)
         for k in data:
             key_sources[k] = path
         layers.append(f"{label}:{path}")
@@ -666,6 +700,7 @@ def load(
         repo_path=rpath if rpath and rpath.is_file() else None,
         layers=layers,
         key_sources=key_sources,
+        global_data=global_data,
     )
 
 

@@ -2828,7 +2828,10 @@ any other fj (a daemon's minimal PATH) is not reported.
 
 Logging in is then the stock commands: `fj auth login` (browser → *Authorize*) and, for git, the first
 `git push` (GCM opens the browser once). A repo `rig.yaml` with its own `fj.host` adds that host on
-`rig apply` inside the repo; `FJ_FALLBACK_HOST` keeps pointing at the GLOBAL host. fj refreshes its
+`rig apply` inside the repo; `FJ_FALLBACK_HOST` keeps pointing at the GLOBAL host (and is not set at
+all without one). `fj.host` is the only key a repo (or `--config`) layer may set: every other `fj`
+key changes the machine's fj install or the OAuth app fj and git log in with, so the loader rejects
+it outside `~/.config/rig/config.yaml` — a cloned repo cannot redirect your logins. fj refreshes its
 OAuth token itself; Forgejo drops a refresh token unused for `[oauth2] REFRESH_TOKEN_EXPIRATION_TIME`
 (default 730 h) — a machine idle that long runs `fj auth login` again. Headless: `fj auth add-token`.
 

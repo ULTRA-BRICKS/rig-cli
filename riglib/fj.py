@@ -102,6 +102,8 @@ FORGEJO_TEA_CLIENT_ID = "d57cb8c4-630c-4168-8324-ec79935e18d4"
 FORGEJO_GCM_CLIENT_ID = "e90ee53c-94e2-48ac-9358-a874fb9e0662"
 
 FALLBACK_HOST_VAR = "FJ_FALLBACK_HOST"
+# Safe inside a client_ids line: fj 0.6.0 drops everything after `#` before splitting host and ID
+# (`parse_client_info_file` in forgejo-cli's src/auth.rs).
 CLIENT_IDS_MARKER = "# rig-managed"
 DEFAULT_BIN_DIR = "~/.local/bin"
 
@@ -140,11 +142,12 @@ def fj_options_from_config(block: dict[str, Any], *, fallback_host: str | None =
 
     ``hosts`` is every host fj/git should be able to log in to (the block's ``host`` first, then
     ``fallback_host`` — the GLOBAL layer's host — when a repo overrides it). ``fallback_host`` is
-    what ``FJ_FALLBACK_HOST`` points at: the machine default, never a single repo's override.
+    what ``FJ_FALLBACK_HOST`` points at: the machine default, never a single repo's override — so
+    with no global host (``None``) rig sets no ``FJ_FALLBACK_HOST`` at all.
     """
     host = normalize_host(str(block["host"]))
-    fallback = normalize_host(fallback_host) if fallback_host else host
-    hosts = [host] + ([fallback] if fallback != host else [])
+    fallback = normalize_host(fallback_host) if fallback_host else None
+    hosts = [host] + ([fallback] if fallback and fallback != host else [])
     return {
         "hosts": hosts,
         "fallback_host": fallback,
@@ -236,10 +239,8 @@ if [ "${1-}" = ship ]; then
           if [ -n "$g" ] && [ -f "$s" ]; then
             RIG_FJ_SHIP_MSYS=1; export RIG_FJ_SHIP_MSYS
             # Cygwin-form paths (/cygdrive/...) mean nothing to MSYS: hand them over as C:/...
-            for v in AGENT_TOOLS_ROOT XDG_CONFIG_HOME; do
-              eval "p=\\${$v-}"
-              if [ -n "$p" ]; then eval "$v=\\$(cygpath -m \\"\\$p\\")"; export "$v"; fi
-            done
+            if [ -n "${AGENT_TOOLS_ROOT-}" ]; then AGENT_TOOLS_ROOT="$(cygpath -m "$AGENT_TOOLS_ROOT")"; export AGENT_TOOLS_ROOT; fi
+            if [ -n "${XDG_CONFIG_HOME-}" ]; then XDG_CONFIG_HOME="$(cygpath -m "$XDG_CONFIG_HOME")"; export XDG_CONFIG_HOME; fi
             exec "$s" "$(cygpath -w "$0")" "$@"
           fi
         done
@@ -610,14 +611,14 @@ def pending_changes(
     if options["install"]:
         todo.extend(_command_changes(options, system))
 
-    cid_path = client_ids_path()
+    cid_path = client_ids_path(system)
     existing = cid_path.read_text(encoding="utf-8") if cid_path.is_file() else ""
     if desired_client_ids_text(existing, options["hosts"], options["client_id"]) != _normalized(existing):
         direction = "modified" if existing else "missing"
         todo.append((direction, "client_ids", cid_path,
                      f"fj can't log in to {', '.join(options['hosts'])} in the browser yet (no OAuth client ID)"))
 
-    if windows:
+    if windows and options["fallback_host"]:
         want = fallback_host_url(options["fallback_host"])
         have = read_windows_user_env(FALLBACK_HOST_VAR)
         if have != want:
@@ -653,7 +654,7 @@ def apply_changes(
         done.extend(cmd_done)
         errors.extend(cmd_errors)
     if "client_ids" in items:
-        path = client_ids_path()
+        path = client_ids_path(system)
         existing = path.read_text(encoding="utf-8") if path.is_file() else ""
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(desired_client_ids_text(existing, options["hosts"], options["client_id"]), encoding="utf-8")
@@ -667,13 +668,17 @@ def apply_changes(
             errors.append(str(exc))
     if "git-credential" in items:
         for host in options["hosts"]:
+            wrote = False
             for key, value in git_credential_settings(host, options["git_client_id"]).items():
                 if git_config_get(key) == value:
                     continue
                 res = subprocess.run(["git", "config", "--global", key, value], capture_output=True, text=True, timeout=15)
                 if res.returncode != 0:
                     errors.append(f"git config --global {key} failed: {res.stderr.strip()}")
-            done.append(f"git login via browser (GCM OAuth) for https://{host}")
+                else:
+                    wrote = True
+            if wrote:
+                done.append(f"git login via browser (GCM OAuth) for https://{host}")
     return done, errors
 
 
@@ -761,10 +766,15 @@ def _apply_fj_command(options: dict[str, Any], system: str | None = None) -> tup
 
 def _write_atomic(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".fj-", delete=False) as tmp:
-        tmp.write(data)
-    os.chmod(tmp.name, 0o755)
-    os.replace(tmp.name, path)
+    tmp = tempfile.NamedTemporaryFile(dir=path.parent, prefix=".fj-", delete=False)
+    try:
+        with tmp:
+            tmp.write(data)
+        os.chmod(tmp.name, 0o755)
+        os.replace(tmp.name, path)
+    except BaseException:  # never leave a half-written .fj-* file behind
+        Path(tmp.name).unlink(missing_ok=True)
+        raise
 
 
 def _prune_store(keep: str, system: str | None = None) -> None:
