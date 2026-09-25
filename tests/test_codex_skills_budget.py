@@ -56,7 +56,10 @@ def _actions(plan, kind: str):
 
 
 def _read_toml(path: Path) -> dict:
-    import tomllib
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+        import tomli as tomllib  # type: ignore[no-redef]
 
     return tomllib.loads(path.read_text(encoding="utf-8"))
 
