@@ -124,6 +124,11 @@ _requires_tmux = pytest.mark.skipif(
     shutil.which("tmux") is None,
     reason="needs tmux installed (no network / no RIG_TMUX_E2E required)",
 )
+# omp-restore's system-wide orphan guard (below) reads process cwds via `lsof -d cwd` (no
+# /proc/<pid>/cwd on macOS/BSD); lsof ships on every machine this suite's other tmux-only tests
+# already assume (see e.g. the launchd-minimal-PATH tests' darwin-only assumptions), so those two
+# tests reuse `_requires_tmux` rather than adding a new gate bucket to the tamper-proof
+# classification in test_tmux_e2e_gating.py.
 
 
 # ── a PATH tmux shim that pins every `tmux …` call to a private -L socket ────────────────────
@@ -521,6 +526,110 @@ def test_cc_restore_relaunches_claude_resume_into_fresh_shell(tmux_env, monkeypa
     assert "claude --resume" in joined, cap.stdout
     assert sid in joined, cap.stdout
     assert str(work).replace("\n", "") in joined, cap.stdout
+
+
+@_requires_tmux
+def test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live(tmux_env):
+    """Positive control for the 2026-09-25 orphan guard below: with NO other omp process alive
+    anywhere for the mapped cwd, omp-restore still relaunches normally — the new system-wide
+    `lsof` check must never produce a false positive against the pane's OWN fresh shell (which
+    is not yet running omp at all) or an unrelated cwd."""
+    home, socket, run = tmux_env
+    plan = tmod.build_tmux(repo_home=home)
+    gen = plan.generated_dir
+    gen.mkdir(parents=True, exist_ok=True)
+    (gen / "omp-restore.sh").write_text(plan.render_omp_restore(), encoding="utf-8")
+    (gen / "omp-restore.sh").chmod(0o755)
+
+    work = home / "proj"
+    work.mkdir()
+    run(["tmux", "new-session", "-d", "-s", "main", "-c", str(work), "bash --norc -i"])
+    addr = run(["tmux", "list-panes", "-a", "-F",
+                "#{session_name}:#{window_index}.#{pane_index}"]).stdout.splitlines()[0]
+
+    sf = home / "fake-session.jsonl"
+    sf.write_text("{}\n", encoding="utf-8")
+    (gen / "omp-sessions.map").write_text(f"{addr}\t{work}\t{sf}\n", encoding="utf-8")
+
+    r = run(["bash", str(gen / "omp-restore.sh")])
+    assert r.returncode == 0, f"omp-restore failed: {r.stderr}"
+    time.sleep(0.5)
+    cap = run(["tmux", "capture-pane", "-t", addr, "-p"])
+    joined = cap.stdout.replace("\n", "")
+    assert "omp --resume" in joined, cap.stdout
+    assert str(sf) in joined or str(sf).replace("\n", "") in joined, cap.stdout
+    assert not (gen / "omp-restore-warnings.log").exists()
+
+
+@_requires_tmux
+def test_omp_restore_skips_and_warns_when_omp_already_live_for_cwd(tmux_env):
+    """REGRESSION (2026-09-25 duplicate-session incident): tmux's server crashed and stayed
+    down for ~17h with no automatic recovery; the user, finding tmux dead, started a REPLACEMENT
+    omp directly in a plain terminal tty — never inside any tmux pane. When tmux was finally
+    restored, resurrect recreated the old pane as a bare fresh shell, and the OLD pane-only
+    "don't clobber a running omp" guard — `pane_current_command` on that ONE pane — was
+    structurally blind to the orphan and would have launched a SECOND, independent
+    `omp --resume` for the identical cwd. This drives the real fix: omp-restore.sh must instead
+    detect the orphan (a live `omp` process, cwd-matched via `lsof`, that is NOT in any tmux
+    pane at all) and skip + WARN instead of duplicating it."""
+    home, socket, run = tmux_env
+    plan = tmod.build_tmux(repo_home=home)
+    gen = plan.generated_dir
+    gen.mkdir(parents=True, exist_ok=True)
+    (gen / "omp-restore.sh").write_text(plan.render_omp_restore(), encoding="utf-8")
+    (gen / "omp-restore.sh").chmod(0o755)
+
+    work = home / "proj"
+    work.mkdir()
+
+    # the orphan: a background `omp` process whose cwd is `work`, started OUTSIDE any tmux pane
+    # — exactly the incident's shape (a plain terminal session tmux can never see).
+    orphan = subprocess.Popen(["bash", "-c", "exec -a omp sleep 300"], cwd=str(work))
+    try:
+        deadline = time.time() + 10
+        seen = False
+        while time.time() < deadline:
+            probe = subprocess.run(
+                ["lsof", "-a", "-p", str(orphan.pid), "-d", "cwd", "-Fn"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if str(work) in probe.stdout:
+                seen = True
+                break
+            time.sleep(0.2)
+        assert seen, "fake orphan omp process never became lsof-visible within timeout"
+
+        # a fresh shell pane resurrect "recreated" — unrelated dir, distinct from the orphan.
+        run(["tmux", "new-session", "-d", "-s", "main", "-c", str(home), "bash --norc -i"])
+        addr = run(["tmux", "list-panes", "-a", "-F",
+                    "#{session_name}:#{window_index}.#{pane_index}"]).stdout.splitlines()[0]
+
+        sf = home / "fake-session.jsonl"
+        sf.write_text("{}\n", encoding="utf-8")
+        # the map records the ORPHAN's cwd for this pane (mirrors the incident: the saved
+        # snapshot's pane cwd is the project dir the orphan is now independently working in).
+        (gen / "omp-sessions.map").write_text(f"{addr}\t{work}\t{sf}\n", encoding="utf-8")
+
+        r = run(["bash", str(gen / "omp-restore.sh")])
+        assert r.returncode == 0, f"omp-restore failed: {r.stderr}"
+        time.sleep(0.5)
+        cap = run(["tmux", "capture-pane", "-t", addr, "-p"])
+        joined = cap.stdout.replace("\n", "")
+        # it must NOT have launched a second, independent omp for that cwd.
+        assert "omp --resume" not in joined, cap.stdout
+        assert "omp --continue" not in joined, cap.stdout
+        # it must have visibly warned in the pane instead — impossible to miss.
+        assert "already running" in joined, cap.stdout
+        assert str(orphan.pid) in joined, cap.stdout
+        # and left an audit trail on disk.
+        warn_log = gen / "omp-restore-warnings.log"
+        assert warn_log.exists()
+        log_text = warn_log.read_text()
+        assert str(work) in log_text
+        assert str(orphan.pid) in log_text
+    finally:
+        orphan.kill()
+        orphan.wait(timeout=5)
 
 
 @_requires_tmux_e2e

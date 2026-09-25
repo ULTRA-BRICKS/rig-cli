@@ -62,6 +62,10 @@ _TMUX_ONLY_TEST_NAMES = frozenset({
     "test_old_continuum_boot_cleanup_removes_stale_entries",
     "test_migrated_conf_with_neutralized_legacy_init_parses",
     "test_comment_only_brace_body_after_moshi_neutralize_parses",
+    # omp-restore's system-wide orphan guard (2026-09-25 duplicate-session incident): clones no
+    # plugins, only needs a real tmux server + the process table (lsof) — no network.
+    "test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live",
+    "test_omp_restore_skips_and_warns_when_omp_already_live_for_cwd",
 })
 # Tests that git-clone the real plugins from GitHub → opt-in network gate (@_requires_tmux_e2e):
 _NETWORK_TEST_NAMES = frozenset({

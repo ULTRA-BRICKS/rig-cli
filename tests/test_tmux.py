@@ -20,6 +20,9 @@ desired artifacts against disk in ``drift.py`` — three consumers share one sou
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -1435,6 +1438,48 @@ def test_omp_restore_shell_quotes_runtime_values():
     assert "printf '%q'" in body
     assert "omp --resume $qsf" in body and "cd $qcwd" in body
     assert 'send-keys -t "$addr" "cd $cwd && omp --resume $sf"' not in body
+
+
+
+def test_omp_restore_orphan_scan_survives_a_dead_pid_under_pipefail(tmp_path):
+    """REGRESSION: the system-wide orphan scan (2026-09-25 duplicate-session incident) resolves
+    each `omp`-matched pid's cwd via `lsof -d cwd` — but a pid can die between the `ps` snapshot
+    and that lsof call (or belong to another user lsof can't inspect), and `lsof` then exits 1.
+    Under this script's own `set -euo pipefail`, a bare `lsof | sed` pipeline would propagate
+    that 1 through to the `pcwd=$(...)` assignment and abort the ENTIRE restore — turning a
+    single stale/foreign pid into a total restore failure for every OTHER pane in the map, which
+    would have been strictly WORSE than the bug this feature fixes. Drives the REAL rendered
+    script (not a paraphrase) with a `ps` shim reporting a pid (999999) that does not exist, so
+    the real `lsof -a -p 999999 -d cwd -Fn` genuinely fails — hermetic (no tmux needed: an empty
+    map makes the per-pane loop a no-op, isolating this to the snapshot-building half)."""
+    plan = tmux.build_tmux(repo_home=tmp_path)
+    gen = plan.generated_dir
+    gen.mkdir(parents=True, exist_ok=True)
+    script = gen / "omp-restore.sh"
+    script.write_text(plan.render_omp_restore(), encoding="utf-8")
+    script.chmod(0o755)
+    (gen / "omp-sessions.map").write_text("", encoding="utf-8")  # present but empty → no tmux call
+
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    real_ps = shutil.which("ps")
+    # a `ps` shim that reports ONE extra bogus row (pid 999999, argv0 `omp`) ahead of the real
+    # table, so the script's own `omp` argv[0] filter matches it and calls `lsof -p 999999`.
+    (bindir / "ps").write_text(
+        "#!/usr/bin/env bash\n"
+        'echo "999999 omp bogus-dead-pid"\n'
+        f'exec {real_ps} "$@"\n',
+        encoding="utf-8",
+    )
+    (bindir / "ps").chmod(0o755)
+    env = dict(os.environ)
+    env["PATH"] = f"{bindir}{os.pathsep}{env.get('PATH', '')}"
+
+    r = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True, timeout=30)
+    assert r.returncode == 0, (
+        f"omp-restore.sh aborted on a dead/foreign pid instead of skipping it "
+        f"(stdout={r.stdout!r} stderr={r.stderr!r})"
+    )
 
 
 def test_omp_scripts_have_shebang():
