@@ -1179,7 +1179,16 @@ while read -r pid rest; do
   # (falls through to the empty-pcwd skip below); aborting mid-restore over every OTHER pane is not.
   pcwd=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' || true)
   [ -n "$pcwd" ] || continue
-  LIVE_OMP_CWDS="$LIVE_OMP_CWDS$(printf '%s\t%s\n' "$pid" "$pcwd")"
+  # Build the record via `printf -v` (writes straight into a shell variable) rather than
+  # `LIVE_OMP_CWDS="$LIVE_OMP_CWDS$(printf ...)"`: a `$(...)` command substitution strips ALL
+  # trailing newlines, so the moment a SECOND live omp process is found its record would glue
+  # onto the first with no separator, corrupting the awk lookup below for BOTH cwds — silently
+  # reverting to pre-fix (duplicate-launching) behavior for the exact multi-session case this
+  # guard exists to catch. `printf -v` performs the same backslash-escape substitution as a
+  # normal `printf` but assigns the fully-expanded result directly, so the trailing newline
+  # survives untouched.
+  printf -v _rec '%s\t%s\n' "$pid" "$pcwd"
+  LIVE_OMP_CWDS="$LIVE_OMP_CWDS$_rec"
 done <<< "$PS_SNAPSHOT"
 
 # First live omp pid already running in cwd $1, or empty — an exact field match (awk `==`), so

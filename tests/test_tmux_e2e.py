@@ -632,6 +632,83 @@ def test_omp_restore_skips_and_warns_when_omp_already_live_for_cwd(tmux_env):
         orphan.wait(timeout=5)
 
 
+@_requires_tmux
+def test_omp_restore_skips_and_warns_for_every_live_omp_cwd_with_multiple_orphans(tmux_env):
+    """REGRESSION: `LIVE_OMP_CWDS` used to be built as
+    `LIVE_OMP_CWDS="$LIVE_OMP_CWDS$(printf '%s\\t%s\\n' "$pid" "$pcwd")"` — command substitution
+    strips ALL trailing newlines, so as soon as a SECOND live `omp` process was found its record
+    glued onto the first with no separator (`"111\\t/a" + "222\\t/b"` -> `"111\\t/a222\\t/b"`),
+    corrupting the awk lookup so BOTH cwds (not just the second) could silently miss and the
+    orphan launched anyway. With two real orphans in two distinct cwds, every mapped pane whose
+    cwd matches a live orphan must be skipped + warned, not just the first one found."""
+    home, socket, run = tmux_env
+    plan = tmod.build_tmux(repo_home=home)
+    gen = plan.generated_dir
+    gen.mkdir(parents=True, exist_ok=True)
+    (gen / "omp-restore.sh").write_text(plan.render_omp_restore(), encoding="utf-8")
+    (gen / "omp-restore.sh").chmod(0o755)
+
+    work_a = home / "proj-a"
+    work_b = home / "proj-b"
+    work_a.mkdir()
+    work_b.mkdir()
+
+    # two orphans, two distinct cwds — both started outside any tmux pane.
+    orphan_a = subprocess.Popen(["bash", "-c", "exec -a omp sleep 300"], cwd=str(work_a))
+    orphan_b = subprocess.Popen(["bash", "-c", "exec -a omp sleep 300"], cwd=str(work_b))
+    try:
+        for orphan, work in ((orphan_a, work_a), (orphan_b, work_b)):
+            deadline = time.time() + 10
+            seen = False
+            while time.time() < deadline:
+                probe = subprocess.run(
+                    ["lsof", "-a", "-p", str(orphan.pid), "-d", "cwd", "-Fn"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if str(work) in probe.stdout:
+                    seen = True
+                    break
+                time.sleep(0.2)
+            assert seen, f"fake orphan omp process (cwd={work}) never became lsof-visible"
+
+        # two fresh shell panes resurrect "recreated", one per orphan's cwd.
+        run(["tmux", "new-session", "-d", "-s", "main", "-c", str(home), "bash --norc -i"])
+        run(["tmux", "new-window", "-t", "main", "-c", str(home), "bash --norc -i"])
+        addrs = run(["tmux", "list-panes", "-a", "-F",
+                     "#{session_name}:#{window_index}.#{pane_index}"]).stdout.splitlines()
+        assert len(addrs) >= 2, addrs
+        addr_a, addr_b = addrs[0], addrs[1]
+
+        sf_a = home / "fake-session-a.jsonl"
+        sf_b = home / "fake-session-b.jsonl"
+        sf_a.write_text("{}\n", encoding="utf-8")
+        sf_b.write_text("{}\n", encoding="utf-8")
+        (gen / "omp-sessions.map").write_text(
+            f"{addr_a}\t{work_a}\t{sf_a}\n{addr_b}\t{work_b}\t{sf_b}\n", encoding="utf-8"
+        )
+
+        r = run(["bash", str(gen / "omp-restore.sh")])
+        assert r.returncode == 0, f"omp-restore failed: {r.stderr}"
+        time.sleep(0.5)
+
+        for addr, work, orphan in ((addr_a, work_a, orphan_a), (addr_b, work_b, orphan_b)):
+            cap = run(["tmux", "capture-pane", "-t", addr, "-p"])
+            joined = cap.stdout.replace("\n", "")
+            assert "omp --resume" not in joined, (addr, cap.stdout)
+            assert "omp --continue" not in joined, (addr, cap.stdout)
+            assert "already running" in joined, (addr, cap.stdout)
+            assert str(orphan.pid) in joined, (addr, cap.stdout)
+
+        log_text = (gen / "omp-restore-warnings.log").read_text()
+        assert str(work_a) in log_text and str(orphan_a.pid) in log_text
+        assert str(work_b) in log_text and str(orphan_b.pid) in log_text
+    finally:
+        orphan_a.kill()
+        orphan_a.wait(timeout=5)
+        orphan_b.kill()
+        orphan_b.wait(timeout=5)
+
+
 @_requires_tmux_e2e
 def test_resurrect_writes_a_real_snapshot(tmux_env, monkeypatch):
     """DEFECTS 4/6: with the resurrect dir present + the plugin installed, a real `resurrect save`

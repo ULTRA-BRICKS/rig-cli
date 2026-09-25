@@ -66,6 +66,7 @@ _TMUX_ONLY_TEST_NAMES = frozenset({
     # plugins, only needs a real tmux server + the process table (lsof) — no network.
     "test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live",
     "test_omp_restore_skips_and_warns_when_omp_already_live_for_cwd",
+    "test_omp_restore_skips_and_warns_for_every_live_omp_cwd_with_multiple_orphans",
 })
 # Tests that git-clone the real plugins from GitHub → opt-in network gate (@_requires_tmux_e2e):
 _NETWORK_TEST_NAMES = frozenset({

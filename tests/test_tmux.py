@@ -1440,6 +1440,16 @@ def test_omp_restore_shell_quotes_runtime_values():
     assert 'send-keys -t "$addr" "cd $cwd && omp --resume $sf"' not in body
 
 
+def test_omp_restore_renders_the_system_wide_orphan_guard():
+    """Pin the new 2026-09-25 orphan guard's presence + its exact-field (never prefix) match, so
+    a future edit can't silently delete the whole guard while every other omp-restore assertion
+    (which never exercises the per-pane loop with a non-empty map) stays green."""
+    body = _plan().render_omp_restore()
+    assert "lsof -a -p" in body
+    assert "live_omp_pid_for_cwd" in body
+    assert "$2 == c" in body  # exact-field match — never a prefix/glob cross-match
+    assert "omp-restore-warnings.log" in body
+
 
 def test_omp_restore_orphan_scan_survives_a_dead_pid_under_pipefail(tmp_path):
     """REGRESSION: the system-wide orphan scan (2026-09-25 duplicate-session incident) resolves
