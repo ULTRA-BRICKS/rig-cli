@@ -42,7 +42,7 @@ Today Rig already has machine-wide global defaults plus per-repository overrides
 **One-liner** (installs deps, links `rig` into PATH, registers the skill):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/alex-mextner/rig-cli/main/install.sh | bash
+curl -fsSL https://git.hyperide.ai/ultrabricks/rig-cli/raw/branch/main/install.sh | bash
 ```
 
 **Isolated env via pipx or uv tool** (the canonical way — an isolated venv with the
