@@ -1463,6 +1463,29 @@ def test_harness_apply_preserves_other_keys(fake_agent_tools, tmp_path):
     assert data["model"] == "opus"
 
 
+def test_harness_apply_preserves_unmanaged_plugin_state(fake_agent_tools, tmp_path):
+    """rig-cli#257 follow-up (Haft/omp provisioning investigation): Claude Code's own
+    ``enabledPlugins`` / ``extraKnownMarketplaces`` top-level keys are entirely foreign to rig
+    (rig has no plugin concept at all) but MUST survive a claude-code harness write byte-for-byte,
+    the same as any other unmanaged key — pin this so a future settings.json writer can never
+    silently regress into a full-file overwrite that drops them."""
+    repo = tmp_path / "repo"
+    (repo / ".claude").mkdir(parents=True)
+    settings = repo / ".claude" / "settings.json"
+    plugin_state = {
+        "enabledPlugins": {"superpowers@claude-plugins-official": True, "figma@claude-plugins-official": False},
+        "extraKnownMarketplaces": {"claude-plugins-official": {"source": {"source": "github", "repo": "anthropics/claude-plugins-official"}}},
+    }
+    settings.write_text(json.dumps({"model": "opus", **plugin_state}), encoding="utf-8")
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_harness_cfg(repo, fake_agent_tools, mode="acceptEdits"), cat, project_type="unknown")
+    run_plan(plan)
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    assert data["permissions"]["defaultMode"] == "acceptEdits"
+    assert data["enabledPlugins"] == plugin_state["enabledPlugins"]
+    assert data["extraKnownMarketplaces"] == plugin_state["extraKnownMarketplaces"]
+
+
 def test_harness_and_permissions_use_explicit_suffixed_settings_file(fake_agent_tools, tmp_path):
     """A suffixed Claude settings_path is a shared settings file, not a directory target."""
     repo = tmp_path / "repo"

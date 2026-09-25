@@ -187,6 +187,9 @@ skills:
     disable: [by-stack/mobile/swift/swift-concurrency]        # drop a selected skill
     items:
       by-stack/frontend/ts/react/vercel-react-patterns: { enabled: true }   # force one in
+  plugins:
+    items:
+      superpowers: { marketplace: claude-plugins-official }   # resolve a Claude Code plugin's skills
 ```
 
 | Key | Type | Default | Meaning |
@@ -201,7 +204,8 @@ skills:
 | `by_type.items.<by-type/kind/name>.enabled` | bool | inherited | per-skill override |
 | `by_stack.disable` | list[str] | `[]` | drop a `by-stack/<l1>/<lang>[/<fw>]/<name>` item that would otherwise be selected |
 | `by_stack.items.<by-stack/l1/lang[/fw]/name>.enabled` | bool | inherited | force a skill in/out regardless of stack match |
-| `known` | list[str] | `[]` | skill dir names on disk that rig does NOT manage (hand-installed packs) — `rig status` reports them as known, not as drift. GLOBAL-layer (the skills dir is machine-wide): the wizard / config-web / `config set --global` write it to `~/.config/rig/config.yaml`. See [Provenance](#provenance). |
+| `plugins.items.<plugin-name>.marketplace` | str | — (required) | resolve `<plugin-name>`'s `skills/*/SKILL.md` dirs against the live Claude Code `~/.claude/plugins/installed_plugins.json` and symlink each into `target` — see [Claude Code plugin-marketplace-sourced skills](#claude-code-plugin-marketplace-sourced-skills-skillsplugins) |
+| `known` | list[str] | `[]` | skill dir names on disk that rig does NOT manage (hand-installed packs) — `rig status` reports them as known, not as drift. GLOBAL-layer (the skills dir is machine-wide): the wizard / config-web / `config set --global` write it to `~/.config/rig/config.yaml`. See [Provenance](#provenance). A plugin-sourced skill declared under `plugins.items` does NOT need a `known` entry too — it is natively plan-declared, never undeclared drift. |
 
 If `by_type.enable` is empty and the detected project type is known, that type's bundle is
 auto-pulled.
@@ -265,6 +269,71 @@ The harness symlink is the **one action that does not consult `on_conflict`**: a
 symlink is always re-pointed (a symlink carries no user data to back up), and a real dir is
 always left alone (no policy ever clobbers hand-authored content). `on_conflict` governs file
 and directory *content*, which a discovery symlink has neither of.
+
+
+### Claude Code plugin-marketplace-sourced skills (`skills.plugins`)
+
+A Claude Code **plugin** (installed from a marketplace like `claude-plugins-official`) can ship
+its own `skills/*/SKILL.md` dirs — e.g. the `superpowers` plugin's `brainstorming`,
+`writing-plans`, `using-git-worktrees`, … These live under a **version-pinned** cache path,
+`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/skills/<name>/`, tracked by Claude
+Code's own `~/.claude/plugins/installed_plugins.json`. A plugin auto-update changes that
+`<version>` segment; a hand-made symlink into `~/.agents/skills` would dangle the moment it does.
+
+`skills.plugins.items.<plugin-name>: { marketplace: <marketplace-name> }` fixes this declaratively:
+at every `rig apply`, rig resolves `<plugin-name>@<marketplace-name>` against the LIVE
+`installed_plugins.json`, enumerates that install's `skills/*/SKILL.md` dirs, and maintains an
+idempotent symlink `target/<skill-name> → <resolved-install-path>/skills/<skill-name>` for each —
+the same create/re-point/never-clobber-a-real-dir contract `harness_link` uses (see above), just
+landing in `target` (the skills install dir) instead of a harness discovery dir. A version bump
+re-points every symlink at the next `rig apply`; nothing dangles.
+
+```yaml
+skills:
+  plugins:
+    items:
+      superpowers:
+        marketplace: claude-plugins-official
+```
+
+Resolution rules:
+
+- **Not installed on this machine** (the plugin was never installed, or the marketplace/plugin
+  name is typo'd) — `rig apply` records a `plan.notes` line and skips it; this is NOT a fatal
+  error (a declared plugin can be legitimately absent on a CI runner or a laptop without Claude
+  Code).
+- **Multiple install scopes** (Claude Code lists one entry per scope a plugin was installed at —
+  a machine-wide `user` install, and/or one pinned per-project `project` install) — the `user`
+  scope wins (what Claude Code resolves to outside that one pinned project); among remaining
+  candidates, the most recently updated entry wins.
+- **Name collision with a real agent-tools catalog skill** — the catalog skill always wins. rig
+  never silently shadows its own namespace with a plugin-sourced symlink; the collision is
+  recorded as a `plan.notes` line instead (mirrors the `systematic-debugging` precedent: the
+  `superpowers` plugin ships a skill of that name, which collides with an existing, unrelated,
+  already-catalogued agent-tools skill of the same name).
+- **Name collision between two DIFFERENT declared plugins** — without a guard, two
+  `link_skill_plugin` actions targeting the same `skills_target/<name>` with different sources
+  would flip-flop which one "wins" on every `rig apply` (never idempotent) and the loser would
+  read as permanent `modified` drift. The alphabetically-first plugin name wins (matching
+  `resolve_plugin_skills`'s stable sort order); the loser is recorded as a `plan.notes` line,
+  never silently applied.
+- **`installPath` outside the plugin store, or an in-tree symlink escaping a plugin's own
+  install root** — `installed_plugins.json` is Claude Code's OWN file, not rig's; a corrupted
+  write (or a compromised plugin, or a marketplace archive shipping a `skills/<name>` directory
+  symlink) could otherwise plant a global skill symlink pointing outside the trusted plugin
+  store. Both are refused (never followed) and recorded as a `plan.notes` line, same as "not
+  installed" — this never becomes a hard `rig apply` failure, but it also never becomes a link.
+
+A plugin-sourced skill is a genuine **plan-declared** action (`link_skill_plugin`), exactly like
+a catalog skill's `copy_skill` — `rig status` recognizes it as managed/converged natively. It
+does **not** need a `skills.known` entry (that mechanism is for skills rig has no other way to
+place — see [Provenance](#provenance)).
+
+**Scope**: Claude Code's own plugin marketplace only (`~/.claude/plugins/installed_plugins.json`).
+Codex, Gemini, and any other agent's plugin/extension system are not read by this mechanism.
+**Limitation**: only a plugin's `skills/*` subtree is symlinked — a plugin's hooks, MCP servers,
+slash commands, or any other capability are untouched (out of scope; rig has no general
+third-party-plugin provisioning feature).
 
 ---
 
@@ -444,6 +513,11 @@ places legitimately hold things rig never wrote, so rig first tries to **name th
 undeclared item; only an item it cannot place is reported as drift. Placed items print under a dim
 "known, not managed by rig" heading (and permission entries beyond the rig baseline under "your
 additions, kept"); they never count as drift, never change the exit code, and are never deleted.
+
+A `skills.plugins.items.<name>`-declared skill is NOT part of this scan at all — it is a genuine
+plan-declared action (`link_skill_plugin`, the plugin-sourced sibling of `copy_skill`), so it
+never reaches the "undeclared item" classification below in the first place. See
+[Claude Code plugin-marketplace-sourced skills](#claude-code-plugin-marketplace-sourced-skills-skillsplugins).
 
 ### The marker contract (for tool installers)
 

@@ -501,6 +501,9 @@ def detect(
             _check_copy_skill(action, report)
         elif action.kind == "link_skill_harness":
             _check_skill_harness_link(action, report)
+        elif action.kind == "link_skill_plugin":
+            declared_skill_dirs.setdefault(action.target.parent, set()).add(action.target.name)
+            _check_link_skill_plugin(action, report)
         elif action.kind == "install_agent_hook":
             _check_agent_hook(action, report)
             descriptor = action.options.get("descriptor")
@@ -711,15 +714,25 @@ def _check_copy_skill(action: Action, report: DriftReport) -> None:
         )
 
 
-def _check_skill_harness_link(action: Action, report: DriftReport) -> None:
-    """Flag drift on a skill's harness-discovery symlink.
+def _check_skill_symlink(
+    action: Action, report: DriftReport, *, item_label: str, missing_detail: str, modified_detail_prefix: str,
+) -> None:
+    """Shared missing/modified/real-dir-left-alone check for an idempotent skill symlink.
 
-    missing  — no symlink (and no real dir) at the harness path: the harness won't list the
-               skill. apply creates it.
+    Both :func:`_check_skill_harness_link` (a harness-discovery symlink) and
+    :func:`_check_link_skill_plugin` (a plugin-sourced skill's symlink into the skills target)
+    maintain the exact same idempotent-symlink contract the runner's shared
+    ``_do_link_skill_harness`` handler executes for both action kinds (see
+    ``actions/runner.py``'s ``_HANDLERS`` mapping) — only the item label and message wording
+    differ per caller, so the check itself lives in exactly one place (code-quality review
+    finding, rig-cli#590; mirrors the execution side's own single-handler precedent).
+
+    missing  — no symlink (and no real dir) at the target path: apply creates it.
     modified — a symlink pointing at the WRONG destination: apply re-points it.
-    A REAL (non-symlink) dir/file at the path is NOT flagged — it's a legitimately
-    hand-authored skill rig must not touch, so reporting it as drift (which apply ignores
-    anyway) would be misleading noise.
+    A REAL (non-symlink) dir/file at the path is NOT flagged — it's legitimately not rig's to
+    manage (a hand-authored skill, or — for the plugin case — the build()-time catalog-collision
+    check's runtime safety net), so reporting it as drift (which apply ignores anyway) would be
+    misleading noise.
     """
     link_path, dest = skill_harness_link_target(action)
     if link_path.is_symlink():
@@ -731,16 +744,35 @@ def _check_skill_harness_link(action: Action, report: DriftReport) -> None:
             return
         if not _same_link_dest(link_path, current, dest):
             report.items.append(
-                DriftItem("modified", "skills", f"{action.item} (harness link)", link_path,
-                          f"harness symlink points elsewhere, expected → {dest}")
+                DriftItem("modified", "skills", item_label, link_path,
+                          f"{modified_detail_prefix}, expected → {dest}")
             )
         return
     if link_path.exists():
-        # a real dir/file occupies the harness path — not rig's to manage; not drift.
         return
-    report.items.append(
-        DriftItem("missing", "skills", f"{action.item} (harness link)", link_path,
-                  "skill not symlinked into harness dir (harness won't list it)")
+    report.items.append(DriftItem("missing", "skills", item_label, link_path, missing_detail))
+
+
+def _check_skill_harness_link(action: Action, report: DriftReport) -> None:
+    """Flag drift on a skill's harness-discovery symlink — see :func:`_check_skill_symlink`."""
+    _check_skill_symlink(
+        action, report,
+        item_label=f"{action.item} (harness link)",
+        missing_detail="skill not symlinked into harness dir (harness won't list it)",
+        modified_detail_prefix="harness symlink points elsewhere",
+    )
+
+
+def _check_link_skill_plugin(action: Action, report: DriftReport) -> None:
+    """Flag drift on a plugin-sourced skill's symlink into the skills target — see
+    :func:`_check_skill_symlink`. This symlink lands at ``skills_target/<name>`` itself (the
+    plugin IS the skill's install location, there is no separate copy step), not a harness
+    discovery dir."""
+    _check_skill_symlink(
+        action, report,
+        item_label=action.item,
+        missing_detail="plugin skill not symlinked into the skills target",
+        modified_detail_prefix="plugin skill symlink points elsewhere",
     )
 
 
