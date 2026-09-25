@@ -9667,9 +9667,10 @@ def _do_provision_linter_bundle(action: Action, on_conflict: str) -> ActionResul
 
 
 def _do_provision_fj(action: Action, on_conflict: str) -> ActionResult:
-    """Provision Forgejo access (see :mod:`riglib.fj`): install fj when missing, list the hosts in
-    fj's ``client_ids`` (other lines kept), set ``FJ_FALLBACK_HOST`` in the Windows user environment
-    and write Git Credential Manager's OAuth settings for each host.
+    """Provision Forgejo access (see :mod:`riglib.fj`): the ``fj`` command (the real fj — rig's
+    pinned copy in its store, or Homebrew's — behind the ``fj`` wrapper whose ``fj ship`` is
+    ``gh ship``), the hosts in fj's ``client_ids`` (other lines kept), ``FJ_FALLBACK_HOST`` in the
+    Windows user environment and Git Credential Manager's OAuth settings for each host.
 
     Driven by :func:`fj.pending_changes` — the same comparison ``rig status`` reports — so a
     current machine is a no-op. A failed step is an ``error`` naming the remedy; the other steps

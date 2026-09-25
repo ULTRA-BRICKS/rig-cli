@@ -76,7 +76,7 @@ AREAS: tuple[Area, ...] = (
     Area("mode", "agent operating mode", GLOBAL, ("mode",)),
     Area("tmux", "tmux config", GLOBAL, ("tmux",)),
     Area("env", "shell environment variables", GLOBAL, ("env",)),
-    Area("fj", "Forgejo access (fj install, one-click login, default host)", GLOBAL, ("fj",)),
+    Area("fj", "Forgejo access (fj + the `fj ship` wrapper, one-click login, default host)", GLOBAL, ("fj",)),
     Area("models", "model-freshness cron", GLOBAL, ("models",)),
     Area("tg_ctl", "tg-ctl inbound daemon", GLOBAL, ("tg_ctl",)),
     Area("tgctl_reaper", "tgctl-reaper orphan sweep (macOS)", GLOBAL, ("tgctl_reaper",)),

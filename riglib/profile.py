@@ -57,7 +57,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import socket
 import subprocess
 from dataclasses import dataclass, field
@@ -389,7 +388,11 @@ def fj_login(host: str | None = None) -> tuple[str, str | None] | None:
     Fail-closed on output we do not recognize: ``currently signed in to <login>@<host>`` or a bare
     login token are accepted; anything else means "can't tell cheaply" and the caller asks for a URL.
     """
-    fj = shutil.which("fj")
+    from .fj import find_real_fj
+
+    # The REAL fj, not rig's `fj` wrapper (on Windows an sh script + .cmd shim a native subprocess
+    # needn't go through): rig's pinned copy, else the first non-wrapper fj on PATH.
+    fj = find_real_fj()
     if fj is None:
         return None
     cmd = [fj] + (["--host", host] if host else []) + ["whoami"]

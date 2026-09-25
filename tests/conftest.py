@@ -39,6 +39,8 @@ def _isolate_home(monkeypatch, tmp_path):
     # write into their REAL ``$XDG_CONFIG_HOME/git/ignore``. Force it under the isolated home so no
     # test can ever touch a real XDG config dir. Tests that need a specific XDG override it inline.
     monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    # And XDG_DATA_HOME: rig keeps the real fj it downloads under it (riglib.fj.fj_store_root).
+    monkeypatch.setenv("XDG_DATA_HOME", str(home / ".local" / "share"))
     # Codex provisioning honors RIG_CODEX_HOME instead of ambient CODEX_HOME. Clear any host value
     # suite-wide so default-path assertions stay deterministic; override inline where needed.
     # Ambient CODEX_HOME is ignored by design, so it needs no suite-wide clear.

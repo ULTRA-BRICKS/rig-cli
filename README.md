@@ -96,8 +96,12 @@ The ecosystem lives on Forgejo at **git.hyperide.ai**; its CLI is `fj`
 config once — `rig config set --global fj.host git.hyperide.ai --commit`, or keep it in your
 `.rig-profile` — and `rig apply`:
 
-- **installs fj** — `brew install forgejo-cli` on macOS, the sha256-pinned release binary into
-  `~/.local/bin` on Linux and Windows (Cygwin / Git Bash included);
+- **installs fj** — `brew install forgejo-cli` on macOS; on Linux and Windows the sha256-pinned
+  release binary into rig's own dir `~/.local/share/rig/fj/<version>/` (not on PATH — see below);
+- **adds `fj ship`** — the **same ship gate as `gh ship`**: `fj` on PATH is a thin rig wrapper in
+  `~/.local/bin` whose `fj ship <PR>` runs exactly what the `gh ship` alias runs (the repo's
+  `.claude/scripts/pr-ship.sh`, else agent-tools' `ci/ship/ship.sh`, else exit 127), and whose every
+  other `fj …` runs the real fj with the arguments, stdin and exit code untouched;
 - **turns `fj auth login` into a browser login** — every Forgejo instance ships built-in public OAuth
   apps; rig lists one for the host in fj's `client_ids`, so there is no token to mint and no app for
   an admin to register. fj refreshes the token itself;
@@ -116,6 +120,16 @@ A repo whose `rig.yaml` names another instance (`fj: { host: … }`) gets that h
 you `rig apply` in it. Headless machines: `fj auth add-token` with a token from
 `https://<host>/user/settings/applications`. `rig status` shows anything not yet set up. Full
 reference: [docs/config-schema.md](docs/config-schema.md#fj).
+
+**Where the real fj lives** (`fj` itself is always the wrapper in `bin_dir`, `~/.local/bin`):
+Linux — `${XDG_DATA_HOME:-~/.local/share}/rig/fj/<version>/fj`; macOS — Homebrew's, found on PATH
+(so `~/.local/bin` must come **before** Homebrew on PATH — `rig status` says so when it doesn't);
+Windows — `%USERPROFILE%\.local\share\rig\fj\<version>\fj.exe`, with two wrappers in
+`~/.local/bin`: `fj` (sh) for Cygwin / Git Bash and `fj.cmd` for cmd / PowerShell, where `fj ship`
+runs through the same `sh` gh uses for its aliases (Git for Windows'). No `fj.exe` stays in
+`~/.local/bin`: cmd, PowerShell and Python would pick it over `fj.cmd`. An fj that an older rig put
+into `~/.local/bin` is recognised by its pinned sha256 and moved; any other file there is left alone
+(and reported). `fj.install: false` leaves the `fj` command to you — no wrapper, so no `fj ship`.
 
 ## Commands
 
@@ -140,6 +154,12 @@ reference: [docs/config-schema.md](docs/config-schema.md#fj).
 | `rig daily` | **Merged-PR "what shipped" report**, ready to paste into a Slack Daily channel. Source of truth is `gh pr list --state merged` — never an LLM call, never a ticket status alone. Grouped into Security / Infra-CI / Performance / Product-UX / Other, one plain-language fact per line, ticket/PR reference last in parentheses. Default repos: `hyperide/hyper-saas`, `hyperide/hyper-ext-e2e` (override with repeatable `--repo` or `~/.config/rig/daily.yaml`'s `repos:`). Tracks a PER-REPO watermark at `~/.config/rig/daily-state.json` so a plain `rig daily` run never repeats a PR — each repo's watermark only advances when THAT repo's own fetch succeeded and returned a complete page, so one repo's outage or a newly-added repo never borrows another repo's cursor; if every configured repo fails, the command exits non-zero instead of a misleading empty report. `--since` (relative `24h`/`7d` or an ISO-8601 timestamp) and `--dry-run` are always read-only. `rig daily install-skill` registers the `daily` agent skill the same way `rig install-skill` does. |
 | `rig report` | **HTML completion report** from git history since the merge-base with main — the HyperIDE `/result-report` gather, as a rig command. Writes a self-contained HTML file you can open (`file://` path printed on stdout) plus a text summary of commits and files. Does not publish to GitHub Pages. `rig report [TASK_ID]`, `--title`, `--out PATH`, `--base REF`, `-C`. |
 | `rig usage` | **Claude token/cost usage across accounts.** Aggregates real per-message token usage from `~/.claude/projects` and every `~/.claude-accounts/account-*/projects` (the accounts managed by the separate `claude-rotate` tool), by model, account, and token type (input/output/cache-write/cache-read). Cost is a HYPOTHETICAL estimate at published Claude API list prices — this is a Claude.ai subscription, not pay-per-token billing, so it is never a real bill; a model ID not in the priced table is reported separately as "unpriced", never guessed at. Bare `rig usage` reports the current week AND current month; `--period day\|week\|month` narrows to one window. `--json` emits the stable, versioned contract (`schema`, `generated_at`, `disclaimer`, `accounts_scanned`, `periods`) that a separate, independently-built tg-cli command invokes on a schedule: `rig usage --json --period week` at end-of-week, `rig usage --json --period month` at end-of-month. Read-only; parsing is streaming/line-by-line with mtime-based file pruning, so a scheduled run only re-parses the files actually touched in the requested window, not the whole history. |
+
+Not rig subcommands, but provisioned by `rig apply`: **`gh ship <PR>`** (a gh alias, see
+[`ship_delegator`](docs/config-schema.md#ship_delegator)) and **`fj ship <PR>`** (the `fj` wrapper
+the [`fj`](#forgejo-fj--log-in-with-one-click) block installs) — one command under two names: both
+run the same dispatch to the repo's ship delegator / agent-tools' `ship.sh`, which picks GitHub or
+Forgejo by the origin's host (its Forgejo provider: agent-tools#793).
 
 The Codex updater that used to be `rig codex update` moved to harness-cli as `harness codex update` (same options); rig reconciles the dev environment and no longer updates agent-harness binaries.
 

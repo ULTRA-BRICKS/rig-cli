@@ -75,6 +75,20 @@ def test_expansion_is_shell_alias_and_portable():
     assert "/Users/" not in body and "/home/" not in body
 
 
+def test_expansion_bytes_survive_the_shared_body():
+    # `fj ship` shares this body (ship_dispatch_sh); factoring it out must not change one byte of
+    # the gh alias — a changed expansion would make every machine's `rig status` report drift.
+    import hashlib
+
+    body = gsa.gh_ship_alias_expansion()
+    assert hashlib.sha256(body.encode()).hexdigest() == (
+        "0cd4eaab02bfc52bb56d11f3307d18456144ef2607a2720a9a9e461f7b54e12c"
+    )
+    assert body == "!" + gsa.ship_dispatch_sh("gh ship")
+    with pytest.raises(ValueError):
+        gsa.ship_dispatch_sh('x"; rm -rf ~; "')
+
+
 def test_expansion_execs_the_repo_delegator(tmp_path):
     # Behavioral proof the expansion is valid POSIX sh AND reaches the delegator: a repo whose
     # .claude/scripts/pr-ship.sh echoes a marker + its args must be exec'd with the passed args.

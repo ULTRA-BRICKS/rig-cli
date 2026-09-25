@@ -1343,6 +1343,11 @@ value noted) under the default `backup`/`overwrite`, or left as-is under `skip`.
 older ci-`ship` `gh_alias` copy-path form — that flag now writes the same portable dispatcher, not a
 `~/bin/ship` copy path, so the two never fight.
 
+**`fj ship` is the same command.** On a machine with the [`fj`](#fj) block, `fj ship <PR>` runs the
+identical dispatch (one function, `ship_dispatch_sh`, renders the gh alias body and the `fj`
+wrapper's `ship` branch; only the exit-127 diagnostic names `fj ship`), so the two can never drift
+apart.
+
 **Repo-local shadowing is intentional (and a debugging footgun to know about).** Because the
 delegator runs a repo-local `ci/ship/ship.sh` first, any repo that happens to carry one — a stale,
 hand-edited, or old copy — will run THAT, not the canonical resolved via `AGENT_TOOLS_ROOT`, and
@@ -2671,15 +2676,15 @@ elsewhere).
 ## `fj`
 
 Forgejo access for this machine (GLOBAL; see `riglib/fj.py`). The ecosystem lives on Forgejo
-(`git.hyperide.ai`), whose CLI `fj` otherwise needs `--host` outside a clone and can only log in
-with a hand-made token. A **present** block opts in; `host` is then required.
+(`git.hyperide.ai`), whose CLI `fj` otherwise needs `--host` outside a clone, can only log in
+with a hand-made token, and has no `ship`. A **present** block opts in; `host` is then required.
 
 ```yaml
 fj:
   host: git.hyperide.ai        # login target + FJ_FALLBACK_HOST
-  # install: true              # brew on macOS; sha256-pinned release binary on Linux / Windows
+  # install: true              # the fj command: real fj (brew / pinned binary) + the `fj ship` wrapper
   # version: "0.6.0"
-  # bin_dir: ~/.local/bin      # where the downloaded fj goes (must be on PATH)
+  # bin_dir: ~/.local/bin      # where the fj wrapper goes (must be on PATH, before any other fj)
   # git_credentials: true      # Git Credential Manager OAuth for https://<host>
   # client_id: …               # default: Forgejo's built-in `tea` OAuth app
   # git_client_id: …           # default: Forgejo's built-in Git Credential Manager OAuth app
@@ -2689,14 +2694,14 @@ fj:
 |-----|------|---------|---------|
 | `enabled` | bool | — | block **presence** opts in; `false` opts out |
 | `host` | str | — (required) | the Forgejo host; a scheme/trailing path is stripped |
-| `install` | bool | `true` | install fj when it is not on PATH |
+| `install` | bool | `true` | manage the `fj` command: the real fj + the wrapper that adds `fj ship`; `false` leaves fj entirely to you (no wrapper, no `fj ship`) |
 | `version` | str | `0.6.0` | release rig downloads (only versions with a pinned sha256) |
-| `bin_dir` | str | `~/.local/bin` | destination of the downloaded fj |
+| `bin_dir` | str | `~/.local/bin` | where the `fj` wrapper goes — must be on PATH, ahead of any other `fj` |
 | `git_credentials` | bool | `true` | write GCM generic-OAuth settings for `https://<host>` |
 | `client_id` | str | Forgejo `tea` app | OAuth client `fj auth login` uses |
 | `git_client_id` | str | Forgejo GCM app | OAuth client GCM uses |
 
-`rig apply` (one `provision_fj` action): installs fj when missing; lists each host in fj's
+`rig apply` (one `provision_fj` action): sets up the `fj` command (below); lists each host in fj's
 `client_ids` file (`~/.config/forgejo-cli/client_ids`; `%APPDATA%\Cyborus\forgejo-cli\config\client_ids`
 on Windows) with the client ID of Forgejo's **built-in public OAuth app** — every instance ships them
 (`[oauth2] DEFAULT_APPLICATIONS`), so no admin registers anything; sets `FJ_FALLBACK_HOST=https://<host>`
@@ -2705,6 +2710,47 @@ environment variable via `setx` on Windows); and, when git's credential helper i
 Manager, writes its `credential.https://<host>.oauth*` settings. Lines rig does not own in
 `client_ids` are kept. `rig status` reports the same steps as drift. `RIG_FJ_DRY_RUN=1` makes apply
 report instead of act.
+
+**`fj ship` — the same command as `gh ship`.** fj has no alias mechanism, so `fj` on PATH is a thin
+rig wrapper, `<bin_dir>/fj` (POSIX `sh`, a constant per fj version — no machine path in it).
+`fj ship …` runs the **very dispatch body of the `gh ship` alias** (one function renders both, see
+[`ship_delegator`](#ship_delegator)): the repo's `.claude/scripts/pr-ship.sh`, else
+`$AGENT_TOOLS_ROOT/ci/ship/ship.sh` (from the environment or the machine env file
+`${XDG_CONFIG_HOME:-~/.config}/agent-tools/env`), else a diagnostic and exit `127`. Every other
+`fj …` execs the real fj with the arguments, stdin and exit code untouched. ship.sh picks GitHub or
+Forgejo by the origin's host (its Forgejo provider: agent-tools#793), so `fj ship` and `gh ship` are
+interchangeable in any repo.
+
+Where the real fj lives:
+
+| OS | real fj | `bin_dir` holds |
+|----|---------|-----------------|
+| Linux | `${XDG_DATA_HOME:-~/.local/share}/rig/fj/<version>/fj` (rig's store, not on PATH) | `fj` (wrapper) |
+| macOS | Homebrew's (`brew install forgejo-cli` when no fj is on PATH); the wrapper finds it by walking PATH for an `fj` that is not a rig wrapper | `fj` (wrapper) |
+| Windows (cmd, PowerShell, Cygwin, Git Bash) | `%USERPROFILE%\.local\share\rig\fj\<version>\fj.exe` — also from Cygwin, whose `$HOME` is not the profile | `fj` (wrapper, for Cygwin / Git Bash) + `fj.cmd` (cmd / PowerShell) — and **no** `fj.exe` |
+
+Why no `fj.exe` next to the wrappers (measured on Windows 10): Cygwin and Git Bash run the
+extensionless `fj` when `fj` and `fj.exe` share a PATH dir, but cmd, PowerShell and Python's
+`shutil.which` pick `fj.exe` over `fj.cmd` (PATHEXT order), which would bypass `fj ship` there.
+`fj.cmd ship …` runs the `sh` wrapper through the `sh` gh itself runs aliases with (`sh` on PATH,
+else Git for Windows' `bin\sh.exe` next to `git`), so `fj ship` works from PowerShell as `gh ship`
+does; other `fj.cmd …` calls go straight to `fj.exe`. (A batch wrapper has cmd's usual quirks:
+Ctrl+C asks "Terminate batch job?".) rig's own fj calls (`fj whoami` for `rig profile`) run the
+real binary directly.
+
+**Upgrades and migration.** Changing `version` (or a rig release that bumps the default) makes the
+wrapper stale: `rig apply` installs the new binary into its own store dir, rewrites the wrapper and
+drops the older store dirs. A real fj that an earlier rig put into `bin_dir` (`fj` on Linux,
+`fj.exe` on Windows) is recognised by its pinned sha256 and **moved** into the store — nothing else
+there is ever moved or overwritten: a file that is neither rig's wrapper nor a pinned binary is
+reported (`fj-wrapper` / `fj.exe`) and apply fails that step until you move it (or set
+`install: false`).
+
+**Drift** (`rig status`, the same comparison apply acts on): `fj` (real binary missing),
+`fj-wrapper` / `fj.cmd` (missing, stale, a foreign file in the way), `fj.exe` (a `fj.exe` left in
+`bin_dir` on Windows), `fj-path` (an `fj` in a PATH dir **before** `bin_dir` — typically Homebrew's
+on macOS; apply reports it, only your shell profile can fix it). A PATH without `bin_dir` and without
+any other fj (a daemon's minimal PATH) is not reported.
 
 Logging in is then the stock commands: `fj auth login` (browser → *Authorize*) and, for git, the first
 `git push` (GCM opens the browser once). A repo `rig.yaml` with its own `fj.host` adds that host on
@@ -2767,8 +2813,8 @@ unaffected) declares those Homebrew formula names. Before running `install.sh`, 
 declared formula with `brew list --formula <formula>` and runs `brew install <formula>` for any
 missing one. `brew` absent from PATH, or a `brew install` that itself fails, is a **hard error**
 for that tool (not a silent skip or a crash) — a wrapper whose runtime dependency isn't installed
-isn't a working tool no matter how `install.sh` went. (Forgejo's `fj` itself needs no wrapper —
-the [`fj`](#fj) block installs and sets it up.)
+isn't a working tool no matter how `install.sh` went. (Forgejo's `fj` needs no `tools` entry —
+the [`fj`](#fj) block installs it and its `fj ship` wrapper.)
 
 **Drift.** `rig status` flags (in the **GLOBAL** section) a declared tool whose bin doesn't resolve
 (**missing** — apply runs its `install.sh`) or that resolves but isn't advertised (**modified** —

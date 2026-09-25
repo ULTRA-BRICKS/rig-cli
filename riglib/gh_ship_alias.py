@@ -13,6 +13,10 @@ delegator and the env file carry the machine specifics) — so a re-apply byte-c
 ``rig status`` is a no-op when in sync. This mirrors the delegator's own portability guarantee
 (see :func:`riglib.actions.runner.ship_delegator_content`).
 
+``fj ship`` is the same command: the dispatch body (:func:`ship_dispatch_sh`) is shared with the
+``fj`` wrapper rig's ``fj:`` block provisions (:func:`riglib.fj.fj_wrapper_sh`) — fj has no alias
+mechanism, so the wrapper carries the body instead of fj's config.
+
 Ownership split (mirrors the shared ``resolve_*`` predicates elsewhere): this module owns the
 DESIRED alias body and the READ/RESOLVE side (shared by apply and drift so they can never disagree
 on whether the alias is in sync); the WRITE (a live ``gh alias set``) lives in the runner behind a
@@ -40,8 +44,19 @@ GH_SHIP_ALIAS_CATEGORY = "gh_ship_alias"
 def gh_ship_alias_expansion() -> str:
     """The exact gh-alias expansion for ``gh ship`` — a pure, portable CONSTANT.
 
-    A ``gh`` shell alias (leading ``!``): gh runs it through ``sh`` with the extra ``gh ship``
-    arguments available as ``"$@"``. Resolution order mirrors the delegator:
+    A ``gh`` shell alias (leading ``!``; gh runs it through ``sh`` with the extra ``gh ship``
+    arguments as ``"$@"``) whose body is :func:`ship_dispatch_sh` — the very body rig's ``fj``
+    wrapper runs for ``fj ship`` (:func:`riglib.fj.fj_wrapper_sh`), so the two can never diverge.
+    """
+    return "!" + ship_dispatch_sh("gh ship")
+
+
+def ship_dispatch_sh(command: str) -> str:
+    """The POSIX ``sh`` ship dispatch shared by ``gh ship`` and ``fj ship`` — one line, CONSTANT.
+
+    ``command`` only names the command in the unresolved diagnostic (``gh ship`` / ``fj ship``).
+    The ship arguments are ``"$@"`` (gh passes the alias arguments that way; the fj wrapper
+    shifts ``ship`` off first). Resolution order mirrors the delegator:
 
     1. The per-repo delegator ``<repo>/.claude/scripts/pr-ship.sh`` (rig provisions it into every
        managed repo; it in turn execs the canonical ship.sh, repo-local or via the env file).
@@ -54,8 +69,9 @@ def gh_ship_alias_expansion() -> str:
     path is baked in, so the bytes are identical on every machine and a re-apply is a byte-equal
     no-op.
     """
+    if command not in ("gh ship", "fj ship"):  # spliced into a double-quoted sh string
+        raise ValueError(f"unknown ship command {command!r}")
     return (
-        "!"
         'd="$(git rev-parse --show-toplevel 2>/dev/null || true)"; '
         's="${d:+$d/.claude/scripts/pr-ship.sh}"; '
         'if [ -n "$s" ] && [ -x "$s" ]; then exec "$s" "$@"; fi; '
@@ -72,7 +88,7 @@ def gh_ship_alias_expansion() -> str:
         "fi; "
         'if [ -n "$r" ] && [ -x "$r/ci/ship/ship.sh" ]; then '
         'export AGENT_TOOLS_ROOT; exec "$r/ci/ship/ship.sh" "$@"; fi; '
-        'echo "gh ship: no ship delegator in this repo and AGENT_TOOLS_ROOT unresolved; '
+        f'echo "{command}: no ship delegator in this repo and AGENT_TOOLS_ROOT unresolved; '
         "run rig apply.\" >&2; "
         "exit 127"
     )
