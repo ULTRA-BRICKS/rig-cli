@@ -624,7 +624,7 @@ def test_path_shadow_ignores_a_path_without_bin_dir_and_without_fj(sandbox, monk
 def test_windows_path_shadow_counts_cmd_and_exe_names(sandbox, monkeypatch, tmp_path):
     other = tmp_path / "other"
     other.mkdir()
-    (other / "fj.CMD").write_bytes(b"@echo off\r\n")
+    (other / "fj.cmd").write_bytes(b"@echo off\r\n")
     _on_path(monkeypatch, other, _bin(sandbox))
     assert fj.path_shadow(_bin(sandbox), "Windows") is not None
     _on_path(monkeypatch, _bin(sandbox), other)

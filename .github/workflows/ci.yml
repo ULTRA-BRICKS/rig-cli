@@ -27,9 +27,10 @@ jobs:
       # runner WITHOUT tmux silently SKIPS them — the leak that killed the dev's server would then
       # go unguarded in CI (INCIDENT 2026-06-17 follow-up a). `ubuntu-latest` ships no tmux, so we
       # install it here. `test_tmux_e2e_gating.py` asserts tmux is on PATH, so a future image that
-      # drops this step fails LOUDLY instead of reverting to a silent skip.
+      # drops this step fails LOUDLY instead of reverting to a silent skip. lsof: the omp-restore
+      # e2e reads live cwds with it, and the Forgejo runner image (unlike GitHub's) ships without it.
       - name: Install tmux (the @_requires_tmux unit tests must RUN, not skip)
-        run: sudo apt-get update && sudo apt-get install -y tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux lsof
       - name: Install package + test deps
         run: pip install -e '.[test]' pyyaml
       - name: Unit suite
@@ -56,7 +57,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install tmux
-        run: sudo apt-get update && sudo apt-get install -y tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux lsof
       - name: Install package + test deps
         run: pip install -e '.[test]' pyyaml
       - name: Real tmux e2e (opt-in)
