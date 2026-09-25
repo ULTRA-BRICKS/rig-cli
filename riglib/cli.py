@@ -485,7 +485,7 @@ def _add_profile_parser(sub: "argparse._SubParsersAction") -> None:
                     "$FJ_FALLBACK_HOST, else git.hyperide.ai)")
     pi.add_argument(
         "--auto-sync", dest="auto_sync", action=argparse.BooleanOptionalAction, default=None,
-        help="record profile.auto_sync (`rig apply commit` syncs first); default: keep, else false",
+        help="--no-auto-sync records profile.auto_sync: false (by default `rig apply commit` syncs first)",
     )
 
     ps = psub.add_parser(

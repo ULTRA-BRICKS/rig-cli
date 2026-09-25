@@ -1088,8 +1088,9 @@ _PROFILE_BLOCK = Block(
         "repo": Leaf("string", "the profile repo URL, e.g. https://git.hyperide.ai/<login>/.rig-profile (must be private)"),
         "auto_sync": Leaf(
             "boolean",
-            "`rig apply commit` runs `rig profile sync` first (a failure warns and applies the local file)",
-            default=False,
+            "`rig apply commit` runs `rig profile sync` first (a failure warns and applies the local file); "
+            "false turns it off on every machine that shares this profile",
+            default=True,
         ),
     },
     schema_extra={"x-rig-global-only": True},

@@ -1651,8 +1651,8 @@
         },
         "auto_sync": {
           "type": "boolean",
-          "description": "`rig apply commit` runs `rig profile sync` first (a failure warns and applies the local file)",
-          "default": false
+          "description": "`rig apply commit` runs `rig profile sync` first (a failure warns and applies the local file); false turns it off on every machine that shares this profile",
+          "default": true
         }
       },
       "additionalProperties": false,
