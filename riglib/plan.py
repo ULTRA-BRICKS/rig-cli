@@ -63,6 +63,7 @@ from .harness_mode import (
     unknown_mode_note,
 )
 from .paths import expand_user_path as _expand_user_path
+from .plugin_skills import resolve_plugin_skills
 from .provenance import KNOWN_CATEGORIES, known_names_from_config
 from .tools import BLURBS_SUBDIR
 from . import ecosystem_readme
@@ -141,7 +142,7 @@ def _agent_hooks_target_for_kind(kind: str) -> str | None:
 class Action:
     """A single planned install step. ``kind`` selects the runner in ``actions/``."""
 
-    kind: str  # copy_skill | link_skill_harness | install_agent_hook | sync_hook_blurbs | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | provision_pi_extension | register_hook_bridge | provision_omp_idle_ttl | provision_codex_skills_budget | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight | provision_ship_task_prefix
+    kind: str  # copy_skill | link_skill_harness | link_skill_plugin | install_agent_hook | sync_hook_blurbs | install_dispatcher | install_ci | register_mcp | apply_harness | provision_permissions | provision_execpolicy | install_harness_guard | provision_harness_approval | provision_instruction_policy | provision_pi_extension | register_hook_bridge | provision_omp_idle_ttl | provision_codex_skills_budget | provision_schedule | provision_agents_symlink | provision_agents_orchestrator | provision_agents_autonomous_mode | provision_project_tool | apply_ecosystem_readme | provision_github_ruleset | provision_github_merge | provision_github_ghas | provision_github_actions | provision_github_browser | provision_tmux | provision_global_excludes | provision_spotlight | provision_ship_task_prefix
     category: str
     item: str
     source: Path  # carrier path in the agent-tools checkout
@@ -784,6 +785,72 @@ def build(
                     target=link_dir / item.path.name,
                 )
             )
+
+    # ── skills.plugins (Claude Code plugin-marketplace-sourced skills) ─────────────
+    # Resolved from the LIVE ~/.claude/plugins/installed_plugins.json on every build() call —
+    # same re-resolve-every-run contract as the catalog loop above — so a plugin version bump
+    # (installed_plugins.json's installPath changes) re-points the ~/.agents/skills/<name>
+    # symlink at the NEXT `rig apply` instead of leaving it dangling. Gated on the same
+    # `skills.enabled` switch as the catalog loop (off = no skills installed at all, whether
+    # catalog- or plugin-sourced).
+    sk_cfg = config.category("skills")
+    plugins_cfg = sk_cfg.get("plugins") if isinstance(sk_cfg, dict) else None
+    plugins_items = plugins_cfg.get("items") if isinstance(plugins_cfg, dict) else None
+    if sk_cfg.get("enabled") is not False and isinstance(plugins_items, dict) and plugins_items:
+        catalog_skill_names = plan.catalog_items["skills"]
+        resolved, plugin_notes = resolve_plugin_skills(plugins_items)
+        plan.notes.extend(plugin_notes)
+        claimed_plugin_skill_names: dict[str, str] = {}  # skill_name -> claiming plugin_name
+        for plugin_name, skill_name, skill_source in resolved:
+            if skill_name in catalog_skill_names:
+                # A plugin skill sharing a name with a real agent-tools catalog skill: the
+                # catalog is rig's OWN namespace (riglib/provenance.py) — never silently shadow
+                # it with a plugin-sourced symlink. Matches the precedent this feature formalizes:
+                # superpowers' `systematic-debugging` skill collides with agent-tools' own skill
+                # of the same name.
+                plan.notes.append(
+                    f"skills.plugins.items.{plugin_name}: skill '{skill_name}' collides with an "
+                    "existing catalog skill of the same name — skipped, the catalog skill wins"
+                )
+                continue
+            earlier = claimed_plugin_skill_names.get(skill_name)
+            if earlier is not None:
+                # TWO declared plugins ship a same-named skill: without this guard both would
+                # emit a link_skill_plugin action at the SAME target with a DIFFERENT source —
+                # every apply would flip-flop which one "wins" (non-idempotent) and drift would
+                # never go clean (whichever action lost the flip always reads as "modified").
+                # First-claimed (by `resolve_plugin_skills`'s stable plugin-name sort) wins;
+                # the loser is recorded, never silently applied.
+                plan.notes.append(
+                    f"skills.plugins.items.{plugin_name}: skill '{skill_name}' collides with the "
+                    f"same-named skill from plugin '{earlier}' — skipped, '{earlier}' wins "
+                    "(alphabetically first plugin name)"
+                )
+                continue
+            claimed_plugin_skill_names[skill_name] = plugin_name
+            installed = skills_target / skill_name
+            item_id = f"{plugin_name}/{skill_name}"
+            plan.actions.append(
+                Action(
+                    kind="link_skill_plugin",
+                    category="skills",
+                    item=item_id,
+                    source=skill_source,  # the plugin's own skill dir (version-pinned cache path)
+                    target=installed,
+                )
+            )
+            # Same harness-discovery fan-out as a catalog skill: symlink the installed (plugin-
+            # sourced) skill into every configured harness skill dir too.
+            for link_dir in link_dirs:
+                plan.actions.append(
+                    Action(
+                        kind="link_skill_harness",
+                        category="skills",
+                        item=item_id,
+                        source=installed,
+                        target=link_dir / skill_name,
+                    )
+                )
 
     # ── agent_hooks ──────────────────────────────────────────────────────────────
     _plan_agent_hooks(plan, config, catalog)

@@ -1026,9 +1026,10 @@ def _validate_skills(sk: dict[str, Any]) -> None:
             f"skills.harness_skill_dir must be a string, got {harness_skill_dir!r}",
             schema_path="skills.harness_skill_dir",
         )
-    # Reject a typo'd FIXED key in the universal / by_type sub-blocks too (the schema closes them).
-    # The catalog-keyed `by_type.items` map stays open; only OTHER unknown keys are rejected.
-    for sub in ("universal", "by_type", "by_stack"):
+    # Reject a typo'd FIXED key in the universal / by_type / by_stack / plugins sub-blocks too
+    # (the schema closes them). The catalog-keyed `by_type.items`/`by_stack.items`/
+    # `plugins.items` maps stay open; only OTHER unknown keys are rejected.
+    for sub in ("universal", "by_type", "by_stack", "plugins"):
         block = sk.get(sub)
         if block is None:
             continue
@@ -1036,6 +1037,7 @@ def _validate_skills(sk: dict[str, Any]) -> None:
             raise ConfigError(f"skills.{sub} must be a mapping, got {block!r}", schema_path=f"skills.{sub}")
         _reject_unknown_keys(block, f"skills.{sub}")
     _validate_by_stack_items(sk.get("by_stack"))
+    _validate_skills_plugins(sk.get("plugins"))
 
 
 def _validate_by_stack_items(bs: Any) -> None:
@@ -1060,6 +1062,36 @@ def _validate_by_stack_items(bs: Any) -> None:
         if enabled is not None and not isinstance(enabled, bool):
             raise ConfigError(
                 f"{path}.enabled must be a bool, got {enabled!r}", schema_path=f"{path}.enabled"
+            )
+
+
+def _validate_skills_plugins(spec: Any) -> None:
+    """Fail-closed on a malformed ``skills.plugins.items.<name>`` spec.
+
+    ``<name>`` is a Claude Code plugin name; ``marketplace`` names the marketplace it was
+    installed from — together they key ``<name>@<marketplace>`` in
+    ``~/.claude/plugins/installed_plugins.json`` (see :mod:`riglib.plugin_skills`). Mirrors
+    :func:`_validate_by_stack_items`'s minimalism: each item must be a mapping, and its one
+    required field must be a real non-empty string (not a typo'd bool/list/empty string) —
+    without this a typo'd ``items.foo: {marketplace: true}`` would be silently unresolvable at
+    apply time instead of failing loudly here.
+    """
+    if not isinstance(spec, dict):
+        return
+    items = spec.get("items")
+    if items is None:
+        return
+    if not isinstance(items, dict):
+        raise ConfigError("skills.plugins.items must be a mapping", schema_path="skills.plugins.items")
+    for name, item_spec in items.items():
+        path = f"skills.plugins.items.{name}"
+        if not isinstance(item_spec, dict):
+            raise ConfigError(f"{path} must be a mapping, got {item_spec!r}", schema_path=path)
+        marketplace = item_spec.get("marketplace")
+        if not isinstance(marketplace, str) or not marketplace:
+            raise ConfigError(
+                f"{path}.marketplace must be a non-empty string, got {marketplace!r}",
+                schema_path=f"{path}.marketplace",
             )
 
 
