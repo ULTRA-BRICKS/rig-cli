@@ -23,6 +23,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
+from urllib.parse import urlsplit
 
 from .harness_skills import KNOWN_HARNESS_KINDS as _KNOWN_HARNESS_KINDS
 from .permissions import (
@@ -84,8 +85,11 @@ _VALID_CATEGORIES = {"skills", "agent_hooks", "git_hooks", "ci", "mcp"}
 _VALID_ON_CONFLICT = {"skip", "overwrite", "backup"}
 _VALID_TIERS = {"block", "warn"}
 _VALID_ON_ERROR = {"open", "closed"}
-_VALID_TASK_BACKENDS = {"github-issues", "linear"}
+_VALID_TASK_BACKENDS = {"github-issues", "linear", "tasks", "forgejo"}
 _VALID_TASK_ATTACHMENT_MODES = {"link", "native"}
+_FORGEJO_REPO_AUTO = "auto"  # resolve task.forgejo.repo from the repo's own git remote at runtime
+_FORGEJO_REPO_RE = re.compile(r"\A[^/\s]+/[^/\s]+\Z")  # owner/name; \A..\Z so no call style admits a suffix
+_FORGEJO_URL_FIX = "use a bare https base URL, e.g. https://git.hyperide.ai"
 _VALID_LEGACY_AGENT_HOOK_TARGET_KINDS = {"claude-code", "generic"}
 _MCP_ITEM_KEYS = {"enabled", "server", "command", "args", "env"}
 _VALID_TMUX_APPLY = {"import", "block"}
@@ -490,19 +494,188 @@ class LoadedConfig:
         return src if src is not None else self.primary_config_path
 
 
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _task_inheritance_ancestor_dirs(repo_root: Path) -> list[Path]:
+    """Directories eligible for ``task``-block inheritance, OUTERMOST first (rig-cli UB-23).
+
+    ``repo_root`` itself is excluded -- only its ancestors. Inside ``$HOME``, walks up to and
+    including ``$HOME`` and never above it (the intended ``~/xp``/``~/work`` folder-default
+    shape). Outside ``$HOME``, walks every ancestor except the filesystem root itself.
+    """
+    repo_root = repo_root.resolve()
+    home = Path(os.path.expanduser("~")).resolve()
+    if repo_root == home:
+        return []
+    nearest_first: list[Path] = []
+    if _is_within(repo_root, home):
+        for parent in repo_root.parents:
+            nearest_first.append(parent)
+            if parent == home:
+                break
+    else:
+        parents = list(repo_root.parents)
+        nearest_first = parents[:-1] if len(parents) > 1 else []
+    return list(reversed(nearest_first))
+
+
+def _read_ancestor_yaml(path: Path) -> dict[str, Any]:
+    """:func:`read_yaml_file` for an ANCESTOR ``rig.yaml``, whose failure refuses a descendant load.
+
+    Still fail-closed, but the error names the file as an inherited ancestor (the user is in a
+    different repo and may not know it is read) and reports only the YAML error position: PyYAML's
+    own message quotes the offending source line, which may carry a pasted credential.
+    """
+    try:
+        return read_yaml_file(path)
+    except ConfigError as exc:
+        mark = getattr(exc.__cause__, "problem_mark", None) or getattr(exc.__cause__, "context_mark", None)
+        if mark is not None:
+            why = f"YAML syntax error at line {mark.line + 1}, column {mark.column + 1} of {path}"
+        elif exc.__cause__ is not None and not isinstance(exc.__cause__, OSError):
+            why = f"{path} is not valid YAML"
+        else:
+            why = str(exc)
+        raise ConfigError(
+            f"cannot load ancestor config {path} (its `task:` block is inherited by repos below it)",
+            why=why,
+            fix=f"fix or remove {path}; ancestor rig.yaml files above a repo are read for its task routing",
+            schema_path="task",
+        ) from exc
+
+
+def _load_task_block_from_layer(path: Path, overrides: dict[Path, dict[str, Any]]) -> dict[str, Any] | None:
+    """Read just the top-level ``task`` key from one config file (or its test override).
+
+    Returns ``None`` when the file doesn't exist (and has no override) or has no ``task`` key
+    at all. An explicit ``task: null`` is NOT treated as absent -- raises, same as the
+    top-level-null convention every other ``task:`` consumer in this repo follows.
+    """
+    resolved = path.resolve()
+    if resolved in overrides:
+        data = overrides[resolved]
+    elif path.is_file():
+        data = _read_ancestor_yaml(path)
+    else:
+        return None
+    if "task" not in data:
+        return None
+    task_block = data["task"]
+    if task_block is None:
+        raise ConfigError(
+            f"task must be a mapping (inherited from {path})",
+            why=f"{path} declares `task: null`",
+            fix=f"remove the `task:` key or give it a mapping in {path}",
+            schema_path="task",
+        )
+    return task_block
+
+
+def _ancestor_task_overlay(
+    repo_root: Path, overrides: dict[Path, dict[str, Any]]
+) -> tuple[dict[str, Any], list[Path]]:
+    """Merge the ``task`` (routing-only) block from every eligible ancestor's ``rig.yaml``.
+
+    OUTERMOST ancestor first, so the NEAREST ancestor wins among ancestors (rig-cli UB-23).
+    Only the ``task`` key is ever read from an ancestor file -- no other section leaks into a
+    descendant repo. ``code_prefix`` is stripped from every contributor: it is repo-unique ship
+    metadata, not routing, and must never be inherited. Each contributor is validated on its own
+    (:func:`_validate_task`) so a malformed ancestor config fails closed, naming that ancestor's
+    file. Returns ``({}, [])`` when nothing contributes -- callers must treat that as a no-op.
+
+    The second return value is every CONTRIBUTING ancestor's path, outermost-to-nearest (the
+    same cascade order the merge itself uses) -- an ancestor whose contribution is empty after
+    stripping ``code_prefix`` is not a real contributor and is excluded, so ``load()`` reports
+    only files that actually affected the result in ``LoadedConfig.layers``.
+    """
+    merged: dict[str, Any] = {}
+    contributing: list[Path] = []
+    for directory in _task_inheritance_ancestor_dirs(repo_root):
+        path = repo_config_path(directory)
+        task_block = _load_task_block_from_layer(path, overrides)
+        if task_block is None:
+            continue
+        if not isinstance(task_block, dict):
+            raise ConfigError(
+                f"task must be a mapping (inherited from {path})",
+                why=f"{path} declares a non-mapping `task:` block",
+                fix=f"fix the `task:` block in {path}",
+                schema_path="task",
+            )
+        try:
+            _validate_task(task_block)
+        except ConfigError as exc:
+            raise ConfigError(
+                f"invalid task block inherited from {path}: {exc.what}",
+                why=exc.why or f"{path}'s task block failed validation",
+                fix=exc.fix or f"fix the `task:` block in {path}",
+                schema_path=exc.schema_path or "task",
+            ) from exc
+        contribution = dict(task_block)
+        contribution.pop("code_prefix", None)
+        if not contribution:
+            continue
+        merged = _deep_merge(merged, contribution)
+        contributing.append(path.resolve())
+    return merged, contributing
+
+
+def _recombine_task_layers(
+    merged: dict[str, Any],
+    key_sources: dict[str, Path],
+    raw_task_by_label: dict[str, Any],
+    ancestor_task: dict[str, Any],
+    ancestor_task_source: Path | None,
+) -> None:
+    """Fold the ancestor ``task`` overlay into ``merged``/``key_sources`` in place (UB-23).
+
+    Final precedence per KEY (not whole-block replacement): ``global < ancestors < repo``. A
+    no-op when no ancestor contributed anything, so the zero-ancestor case stays byte-for-byte
+    identical to pre-UB-23 behavior. The ``isinstance`` guards below are defensive, not
+    load-bearing: a layer whose raw ``task`` value was itself malformed would already have
+    raised inside ``validate(merged)`` before this runs (``raw_task_by_label`` is captured
+    pre-validation, so it can't be assumed well-typed on its own).
+    """
+    if not ancestor_task:
+        return
+    global_layer_task = raw_task_by_label.get("global") or {}
+    repo_layer_task = raw_task_by_label.get("repo") or raw_task_by_label.get("config") or {}
+    if not isinstance(global_layer_task, dict):
+        global_layer_task = {}
+    if not isinstance(repo_layer_task, dict):
+        repo_layer_task = {}
+    final_task = _deep_merge(_deep_merge(dict(global_layer_task), ancestor_task), dict(repo_layer_task))
+    _validate_task(final_task)
+    merged["task"] = final_task
+    if "repo" not in raw_task_by_label and "config" not in raw_task_by_label and ancestor_task_source is not None:
+        key_sources["task"] = ancestor_task_source
+
+
 def load(
     repo_root: Path,
     *,
     explicit_config: Path | None = None,
     include_global: bool = True,
     include_repo: bool = True,
+    include_ancestors: bool = True,
     layer_overrides: dict[Path, dict[str, Any]] | None = None,
 ) -> LoadedConfig:
     """Cascade-load config for ``repo_root``.
 
     - ``explicit_config`` (from ``--config P``) replaces the per-repo layer with ``P``.
     - The global layer is always the base unless ``include_global=False``.
-    - ``include_repo=False`` skips the repo/config layer entirely, including ``explicit_config``.
+    - ``include_repo=False`` skips the repo/config layer entirely, including ``explicit_config``
+      AND the ``task``-block ancestor overlay (UB-23): ancestors are repo-scoped folder
+      defaults, not global config, so a caller asking for the GLOBAL layer only must not see
+      them leak in either -- the result stays GLOBAL-ONLY.
+    - ``include_ancestors=False`` skips the ``task``-block ancestor overlay (UB-23; see the
+      module docstring) — the global/repo layers still load normally.
     - The result is validated (fail-closed) before return.
     """
     repo_root = repo_root.resolve()
@@ -515,6 +688,9 @@ def load(
     # repo/explicit). A key the repo layer sets overwrites the global provenance — so the final
     # mapping names the file the user must edit to remove the offending key.
     key_sources: dict[str, Path] = {}
+    # Each layer's OWN (pre-merge, raw) `task` value, keyed by label -- used to recombine the
+    # `task` block around the ancestor overlay after the normal cascade validates (UB-23).
+    raw_task_by_label: dict[str, Any] = {}
 
     def _merge_layer(path: Path, label: str) -> None:
         """Merge one config file into the accumulator and record its key provenance + layer.
@@ -526,6 +702,8 @@ def load(
         nonlocal merged
         resolved_path = path.resolve()
         data = dict(overrides[resolved_path]) if resolved_path in overrides else read_yaml_file(path)
+        if "task" in data:
+            raw_task_by_label[label] = data["task"]
         if label == "repo" and "mode" in data:
             raise ConfigError(
                 "mode is a global-only config block",
@@ -561,10 +739,24 @@ def load(
             key_sources[k] = path
         layers.append(f"{label}:{path}")
 
+    # Ancestors are repo-scoped folder defaults, not global config -- gated by BOTH flags so a
+    # caller that excludes the repo scope (`include_repo=False`, e.g. a GLOBAL-only read) never
+    # sees them leak in (the gap this fix closes; ancestors used to be gated by
+    # `include_ancestors` alone, independent of `include_repo`).
+    ancestor_task, ancestor_task_sources = (
+        _ancestor_task_overlay(repo_root, overrides) if (include_ancestors and include_repo) else ({}, [])
+    )
+
     if include_global:
         gpath = global_config_path()
         if gpath.is_file() or gpath.resolve() in overrides:
             _merge_layer(gpath, "global")
+
+    # Report every contributing ancestor in `LoadedConfig.layers`, in cascade order (outermost
+    # first, matching the merge itself) -- inserted between the global and repo entries so the
+    # list reads in the same `global < ancestors < repo` order the precedence follows.
+    for ancestor_path in ancestor_task_sources:
+        layers.append(f"ancestor:{ancestor_path}")
 
     if include_repo:
         if explicit_config is not None:
@@ -579,6 +771,8 @@ def load(
                 _merge_layer(rpath, "repo")
 
     validate(merged)
+    ancestor_task_source = ancestor_task_sources[-1] if ancestor_task_sources else None
+    _recombine_task_layers(merged, key_sources, raw_task_by_label, ancestor_task, ancestor_task_source)
     merged.pop("scope", None)  # `scope` is a removed legacy key — drop it so it never
     # lingers in loaded.data, gets re-serialized, or is mistaken for a live setting.
     key_sources.pop("scope", None)
@@ -3175,8 +3369,14 @@ def _validate_task(t: dict[str, Any]) -> None:
     ``tasklib/projects.py:projects_from_config``; the other three mappings), not their contents.
     Fail-closed, consistent with every other block, on: a non-mapping block, an unknown key
     (typo guard), a bad ``backend``/``attachment_mode`` enum, non-string flat coordinates
-    (``team``/``project``/``repo``), non-mapping ``github``/``linear`` sections, and unknown keys
-    or a bad ``attachment_mode`` enum WITHIN ``linear``.
+    (``team``/``project``/``repo``), non-mapping ``github``/``linear``/``tasks``/``forgejo``
+    sections, and unknown keys or a bad ``attachment_mode`` enum WITHIN ``linear``/``tasks``/
+    ``forgejo``. UB-23: ``backend: "tasks"`` selects the native Tasks-app backend (HTTPS REST),
+    with its own nested ``tasks`` section (``url``/``team``/``attachment_mode``) validated the
+    same way as ``github``/``linear``. UB-25: ``backend: "forgejo"`` selects the native Forgejo
+    backend, with a nested ``forgejo`` section (``url``/``repo``/``attachment_mode``); ``url``
+    and ``repo`` also get shape checks (see :func:`_validate_forgejo_url` /
+    :func:`_validate_forgejo_repo`).
 
     Every enum check below does an ``isinstance(value, str)`` check BEFORE the ``in
     _VALID_TASK_...`` membership test (review finding): ``_VALID_TASK_BACKENDS`` and
@@ -3195,8 +3395,14 @@ def _validate_task(t: dict[str, Any]) -> None:
     for strkey in ("team", "project", "repo"):
         value = t.get(strkey)
         if value is not None and not isinstance(value, str):
-            raise ConfigError(f"task.{strkey} must be a string, got {value!r}", schema_path=f"task.{strkey}")
+            # type name only, never the value: under backend: forgejo the flat `repo` is the
+            # forgejo.repo shorthand, which falls under the same no-echo rule.
+            raise ConfigError(
+                f"task.{strkey} must be a string, got {type(value).__name__}", schema_path=f"task.{strkey}"
+            )
     _validate_task_enum(t.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.attachment_mode")
+    if t.get("backend") == "forgejo":
+        _validate_forgejo_repo(t.get("repo"), "task.repo")
 
     # review finding (2 rounds): `t.get("github", {})` only falls back to `{}` when the KEY is
     # ABSENT — an explicit `github:` header with nothing under it (a common YAML placeholder, or
@@ -3229,6 +3435,31 @@ def _validate_task(t: dict[str, Any]) -> None:
             raise ConfigError(f"task.linear.{strkey} must be a string, got {value!r}", schema_path=f"task.linear.{strkey}")
     _validate_task_enum(linear.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.linear.attachment_mode")
 
+    tasks_block = t.get("tasks")
+    tasks_block = {} if tasks_block is None else tasks_block  # same null->{} normalization as github/linear above
+    if not isinstance(tasks_block, dict):
+        raise ConfigError("task.tasks must be a mapping", schema_path="task.tasks")
+    _reject_unknown_keys(tasks_block, "task.tasks")
+    for strkey in ("url", "team"):
+        value = tasks_block.get(strkey)
+        if value is not None and not isinstance(value, str):
+            raise ConfigError(
+                f"task.tasks.{strkey} must be a string, got {type(value).__name__}",
+                schema_path=f"task.tasks.{strkey}",
+            )
+    _validate_task_enum(tasks_block.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.tasks.attachment_mode")
+
+    forgejo_block = t.get("forgejo")
+    forgejo_block = {} if forgejo_block is None else forgejo_block  # same null->{} normalization as github/linear/tasks above
+    if not isinstance(forgejo_block, dict):
+        raise ConfigError("task.forgejo must be a mapping", schema_path="task.forgejo")
+    _reject_unknown_keys(forgejo_block, "task.forgejo")
+    _validate_forgejo_url(forgejo_block.get("url"))
+    _validate_forgejo_repo(forgejo_block.get("repo"))
+    _validate_task_enum(
+        forgejo_block.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.forgejo.attachment_mode"
+    )
+
     projects = t.get("projects")
     if projects is not None and not isinstance(projects, list):
         raise ConfigError(f"task.projects must be a list, got {projects!r}", schema_path="task.projects")
@@ -3238,8 +3469,80 @@ def _validate_task(t: dict[str, Any]) -> None:
             raise ConfigError(f"task.{objkey} must be a mapping, got {value!r}", schema_path=f"task.{objkey}")
 
 
+def _forgejo_url_problem(url: str) -> str | None:
+    """The first reason ``url`` is not a usable Forgejo BASE URL, or ``None`` when it is.
+
+    The returned text NEVER contains the value itself: a rejected base URL is exactly where a
+    credential tends to hide (``user:token@``, ``?access_token=``, a truncated ``oauth2:token``),
+    and the message is printed by ``rig status``/``config set``/config-web and ends up in logs.
+    Order matters only for message quality — every branch is fail-closed.
+    """
+    if "@" in url or "%" in url:
+        return "must not embed credentials or percent-escapes (user:token@host, %40)"
+    if any(c.isspace() for c in url):
+        return "must not contain whitespace"
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+        _ = parts.port  # raises ValueError on a non-numeric port, e.g. a truncated "oauth2:token"
+    except ValueError:  # also an unterminated IPv6 netloc ("https://[::1")
+        return "must be an https URL with a valid host[:port]"
+    if parts.scheme != "https" or not host:
+        return "must be an https URL with a host"
+    if "?" in url or "#" in url:  # a query/fragment would also hide an /api/v1 suffix
+        return "must not carry a query or fragment"
+    if url.rstrip("/").lower().endswith("/api/v1"):
+        return "must not include the /api/v1 suffix (task-cli appends it to derive the API base)"
+    if url.endswith("/"):
+        return "must not end with '/' (task-cli appends /api/v1, which would double the slash)"
+    return None
+
+
+def _validate_forgejo_url(url: Any) -> None:
+    """Validate ``task.forgejo.url`` (UB-25): a bare ``https://host[:port][/path]`` base URL.
+    The Forgejo REST API base is DERIVED at runtime by appending ``/api/v1``, so a value that
+    already carries it (or a trailing ``/``, query, or fragment) would produce a broken path.
+    See :func:`_forgejo_url_problem` for the full rule set and why the value is never echoed.
+    """
+    if url is None:
+        return
+    if not isinstance(url, str):
+        raise ConfigError(
+            f"task.forgejo.url must be a string, got {type(url).__name__}", schema_path="task.forgejo.url"
+        )
+    problem = _forgejo_url_problem(url)
+    if problem is not None:
+        raise ConfigError(
+            f"task.forgejo.url {problem}",
+            why="the value is not echoed: a rejected base URL may carry a credential",
+            fix=_FORGEJO_URL_FIX,
+            schema_path="task.forgejo.url",
+        )
+
+
+def _validate_forgejo_repo(repo: Any, schema_path: str = "task.forgejo.repo") -> None:
+    """Validate a Forgejo repo coordinate (UB-25): optional, but when given must be either the
+    ``auto`` sentinel (resolve from the repository's own git remote at runtime — task-cli's
+    default, same sentinel as ``github.repo``) or an ``owner/name`` shape: exactly two non-empty,
+    whitespace-free segments separated by exactly one ``/``. ``schema_path`` names the key the
+    user wrote — the nested ``task.forgejo.repo`` or the flat ``task.repo`` shorthand, which
+    task-cli also fans out onto ``forgejo.repo``.
+    """
+    # Never echo the value (same rule as the url): a pasted token lands here too, and the
+    # message is printed/logged.
+    if repo is None:
+        return
+    if not isinstance(repo, str) or (repo != _FORGEJO_REPO_AUTO and not _FORGEJO_REPO_RE.fullmatch(repo)):
+        raise ConfigError(
+            f"{schema_path} must be 'auto' or an owner/name string",
+            why="the value is not echoed: a rejected repo value may carry a pasted credential",
+            fix="use a value like ultrabricks/rig-cli, or 'auto' to resolve from the git remote",
+            schema_path=schema_path,
+        )
+
+
 def _validate_task_enum(value: Any, valid: set[str], schema_path: str) -> None:
-    """Shared enum check for the ``task`` block's three link/native + backend enums (review
+    """Shared enum check for the ``task`` block's five link/native + backend enums (review
     finding: isinstance-before-membership, so a non-hashable value fails closed with a clean
     ConfigError rather than a raw TypeError from the ``in`` check against ``valid``)."""
     if value is None:

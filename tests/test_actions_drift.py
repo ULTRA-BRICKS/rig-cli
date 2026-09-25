@@ -14,6 +14,7 @@ import pytest
 
 from riglib.actions import run_plan
 from riglib.actions.runner import (
+    HOOK_BRIDGE_TIMEOUT_S,
     SELF_MERGE_CARVE_OUT,
     SELF_MERGE_PERMISSIONS_ALLOW,
     codex_hook_bridge_block,
@@ -4744,6 +4745,154 @@ def test_hook_bridge_repoints_drifted_command(fake_agent_tools, tmp_path):
     assert "/old/path/lib" not in post_cmd
     assert "cc_hook_bridge PostToolUse" in post_cmd
     assert str(fake_agent_tools / "lib") in post_cmd
+
+
+# ── hook bridge: finite OUTER timeout on every managed claude-code entry (UB-25) ─────────
+# Claude Code kills a command hook at its `timeout` (default 600s) and a timed-out PreToolUse
+# hook does NOT block — its output is discarded. The bridge runs every descriptor for a point
+# in sequence, each capped at its own timeout_ms (960s for hatch-capable guards), so without an
+# explicit, larger outer timeout the harness can cancel a guard mid-approval → fail-open.
+
+
+def _applied_bridge_settings(fake_agent_tools, tmp_path) -> tuple:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    settings = repo / ".claude" / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_bridge_cfg(repo, fake_agent_tools, settings_path=settings), cat, project_type="unknown")
+    report = run_plan(plan)
+    assert not report.errors, [r.detail for r in report.errors]
+    return plan, settings
+
+
+def _managed_bridge_hooks(data: dict) -> list[dict]:
+    return [
+        hk
+        for blocks in data["hooks"].values()
+        for block in blocks
+        for hk in block["hooks"]
+        if "cc_hook_bridge" in str(hk.get("command", ""))
+    ]
+
+
+def _rewrite_managed_timeouts(settings: Path, value) -> None:
+    """Set (or, for the sentinel ``...``, delete) the timeout on every managed bridge hook."""
+    data = json.loads(settings.read_text())
+    for hk in _managed_bridge_hooks(data):
+        if value is ...:
+            hk.pop("timeout", None)
+        else:
+            hk["timeout"] = value
+    settings.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def test_hook_bridge_timeout_floor_covers_one_full_descriptor_budget():
+    # 960s is the largest agents-hooks/v1 descriptor timeout_ms shipped (the hatch-capable
+    # guards: the hatch helper's 900s tg-ctl wait + 30s process margin fits inside it).
+    assert HOOK_BRIDGE_TIMEOUT_S > 960
+    assert HOOK_BRIDGE_TIMEOUT_S == 1200
+
+
+def test_hook_bridge_writes_outer_timeout_on_every_managed_entry(fake_agent_tools, tmp_path):
+    plan, settings = _applied_bridge_settings(fake_agent_tools, tmp_path)
+    managed = _managed_bridge_hooks(json.loads(settings.read_text()))
+    assert managed
+    assert all(hk.get("timeout") == HOOK_BRIDGE_TIMEOUT_S for hk in managed), managed
+    assert detect(plan).in_sync
+
+
+@pytest.mark.parametrize(
+    "stale",
+    [..., 300, 600, 300.5, True, "1200", float("nan"), float("inf")],
+    ids=["missing", "300", "600", "float-short", "bool", "str", "nan", "inf"],
+)
+def test_hook_bridge_reconciles_missing_or_short_timeout(fake_agent_tools, tmp_path, stale):
+    plan, settings = _applied_bridge_settings(fake_agent_tools, tmp_path)
+    _rewrite_managed_timeouts(settings, stale)
+
+    drifted = [i for i in detect(plan).items if i.item == "hook-bridge"]
+    assert drifted and all(i.direction == "modified" for i in drifted), [i.detail for i in drifted]
+    assert all("timeout" in i.detail for i in drifted), [i.detail for i in drifted]
+
+    res = _bridge_results(run_plan(plan))
+    assert res and all(r.status != "skipped" for r in res), [r.detail for r in res]
+    managed = _managed_bridge_hooks(json.loads(settings.read_text()))
+    assert all(hk["timeout"] == HOOK_BRIDGE_TIMEOUT_S for hk in managed), managed
+    assert detect(plan).in_sync
+
+
+@pytest.mark.parametrize("higher", [3600, 3600.0], ids=["int", "float"])
+def test_hook_bridge_keeps_a_higher_operator_timeout_even_when_command_is_rewritten(
+    fake_agent_tools, tmp_path, higher
+):
+    # JSON allows `3600.0`; a float at/above the floor is a real operator value, not "missing".
+    plan, settings = _applied_bridge_settings(fake_agent_tools, tmp_path)
+    data = json.loads(settings.read_text())
+    for hk in _managed_bridge_hooks(data):
+        hk["timeout"] = higher
+        hk["command"] = hk["command"].replace(str(fake_agent_tools / "lib"), "/old/lib")
+    settings.write_text(json.dumps(data, indent=2) + "\n")
+
+    run_plan(plan)
+
+    managed = _managed_bridge_hooks(json.loads(settings.read_text()))
+    assert all("/old/lib" not in hk["command"] for hk in managed)
+    assert all(hk["timeout"] == higher for hk in managed), managed  # never lowered
+    assert detect(plan).in_sync
+
+
+def test_hook_bridge_timeout_reconcile_leaves_user_hooks_byte_identical(fake_agent_tools, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    settings = repo / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    user_bash = {"type": "command", "command": "/Users/x/.claude/hooks/rtk-rewrite.sh", "timeout": 5}
+    user_notify = {"matcher": "idle_prompt", "hooks": [{"type": "command", "command": "afplay glass.aiff"}]}
+    settings.write_text(json.dumps({"hooks": {
+        "PreToolUse": [{"matcher": "Bash", "hooks": [dict(user_bash)]}],
+        "Notification": [user_notify],
+    }}, indent=2))
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_bridge_cfg(repo, fake_agent_tools, settings_path=settings), cat, project_type="unknown")
+    run_plan(plan)
+    _rewrite_managed_timeouts(settings, ...)
+    run_plan(plan)
+
+    data = json.loads(settings.read_text())
+    user_hooks = [
+        hk for b in data["hooks"]["PreToolUse"] for hk in b["hooks"] if "rtk-rewrite" in hk["command"]
+    ]
+    assert user_hooks == [user_bash]  # its own short timeout is NOT touched
+    assert data["hooks"]["Notification"] == [user_notify]
+
+
+def test_hook_bridge_timeout_reapply_converges_with_no_changes(fake_agent_tools, tmp_path):
+    plan, settings = _applied_bridge_settings(fake_agent_tools, tmp_path)
+    _rewrite_managed_timeouts(settings, 300)
+    run_plan(plan)
+    reconciled = settings.read_bytes()
+
+    res = _bridge_results(run_plan(plan))
+
+    assert res and all(r.status == "skipped" for r in res), [r.detail for r in res]
+    assert settings.read_bytes() == reconciled
+
+
+def test_hook_bridge_skip_leaves_short_timeout_but_drift_still_reports_it(fake_agent_tools, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    settings = repo / ".claude" / "settings.json"
+    cat = Catalog.scan(str(fake_agent_tools))
+    run_plan(build(_bridge_cfg(repo, fake_agent_tools, settings_path=settings), cat, project_type="unknown"))
+    _rewrite_managed_timeouts(settings, ...)
+    skip_plan = build(
+        _bridge_cfg(repo, fake_agent_tools, settings_path=settings, on_conflict="skip"), cat, project_type="unknown"
+    )
+
+    run_plan(skip_plan)
+
+    assert all("timeout" not in hk for hk in _managed_bridge_hooks(json.loads(settings.read_text())))
+    assert any("timeout" in i.detail for i in detect(skip_plan).items if i.item == "hook-bridge")
 
 
 def test_hook_bridge_drift_missing_then_synced(fake_agent_tools, tmp_path):

@@ -365,6 +365,7 @@ agents_md: { enabled: false }
 ship_delegator: { enabled: false }
 gitignore: { enabled: false }
 tg_ctl: { enabled: false }
+tgctl_reaper: { enabled: false }
 permissions: { enabled: false }
 YAML
   CLEANREPO="$TMP/clean-repo"; mkdir -p "$CLEANREPO"; ( cd "$CLEANREPO" && git init -q )
