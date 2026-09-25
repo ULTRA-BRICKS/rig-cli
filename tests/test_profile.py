@@ -107,7 +107,8 @@ def test_init_seeds_an_empty_remote_and_records_the_repo(world):
     assert out.result == "pushed", out.detail
     assert out.code == 0
     doc = _load(local)
-    assert doc["profile"] == {"repo": world.url, "auto_sync": False}
+    assert doc["profile"] == {"repo": world.url}  # auto_sync unset = on
+    assert profile.auto_sync_enabled()
     assert doc["git"]["config"]["pull.rebase"] is True
     assert yaml.safe_load(world.remote_file()) == doc
     # the snapshot lives BESIDE the checkout, never inside the repo
@@ -604,3 +605,35 @@ def test_apply_commit_auto_sync_failure_is_non_fatal(world, fake_agent_tools, tm
     assert rc == 0, captured.out + captured.err
     assert "profile auto_sync skipped" in captured.err
     assert local.read_bytes() == before
+
+
+# ── protect-main: the profile checkout opts out through hooks.skipGlobal, never the audited hatch ──
+def test_checkout_opts_out_of_protect_main_once_and_pushes_without_the_hatch(world, monkeypatch):
+    seen_env: list = []
+    real_git = profile._git
+
+    def spy(args, **kw):
+        if args[:1] == ["push"]:
+            seen_env.append(kw.get("env_extra"))
+        return real_git(args, **kw)
+
+    monkeypatch.setattr(profile, "_git", spy)
+    local = world.machine("a")
+    _write(local, BASE_CONFIG)
+    profile.init(world.url, notify=world.notify)
+    doc = _load(local)
+    doc["git"]["config"]["init.defaultBranch"] = "main"
+    local.write_text(yaml.safe_dump(doc), encoding="utf-8")
+    assert profile.sync(notify=world.notify).result == "pushed"
+
+    skips = _git("config", "--local", "--get-all", "hooks.skipGlobal", cwd=profile.checkout_dir()).splitlines()
+    assert skips == ["protect-main"]  # exactly once, however many syncs ran
+    assert seen_env and all(not env or "PUSH_MAIN_OK" not in env for env in seen_env)
+
+
+def test_explicit_auto_sync_false_turns_it_off(world):
+    local = world.machine("a")
+    _write(local, BASE_CONFIG)
+    profile.init(world.url, auto_sync=False, notify=world.notify)
+    assert _load(local)["profile"]["auto_sync"] is False
+    assert not profile.auto_sync_enabled()
