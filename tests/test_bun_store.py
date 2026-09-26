@@ -411,6 +411,53 @@ def test_install_timeout_is_a_failure_with_the_command(tmp_path, monkeypatch):
     assert "timed out after 1s" in outcome.message
 
 
+@posix_only
+def test_install_timeout_kills_lifecycle_children_holding_the_pipes(tmp_path, monkeypatch):
+    """A postinstall child that inherits stdout must not keep the wait open past the bound."""
+    import time
+
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+    script = bindir / "bun"
+    script.write_text("#!/bin/sh\nsleep 60 &\nsleep 60\n", encoding="utf-8")
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '/usr/bin:/bin')}")
+    _provision_bunfig()
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    started = time.monotonic()
+    outcome = bun_store.install_worktree_deps(wt, timeout_s=1)
+    assert outcome.status == "failed"
+    assert time.monotonic() - started < 20
+
+
+def test_fix_commands_quote_paths_with_shell_metacharacters(tmp_path):
+    other = tmp_path / "main" / "node_modules"
+    other.mkdir(parents=True)
+    wt = tmp_path / "feat; echo pwned"
+    wt.mkdir()
+    os.symlink(other, wt / "node_modules")
+    (problem,) = bun_store.scan_install(wt, tmp_path / "links").broken
+    import shlex
+
+    assert shlex.quote(str(wt / "node_modules")) in problem
+    assert f"cd {shlex.quote(str(wt))} && bun install --frozen-lockfile" in problem
+
+
+def test_off_store_note_lists_a_few_worktrees_then_counts(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUN_INSTALL_CACHE_DIR", str(tmp_path / "cache"))
+    names = [f"copy{i}" for i in range(6)]
+    repo, trees = _repo_with_worktrees(tmp_path, *names)
+    for wt in trees:
+        _store_layout(wt, tmp_path / "cache" / "links", linked=0, copied=3)
+    report = DriftReport()
+    bun_store.check_worktree_installs(repo, report)
+    assert report.items == []
+    (note,) = report.notes
+    assert "6 bun worktree install(s)" in note.detail
+    assert "… and 2 more" in note.detail
+
+
 # ── rig worktree create wiring ───────────────────────────────────────────────
 
 

@@ -34,12 +34,18 @@ module removes the reason to improvise and makes the leftovers visible.
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
+import signal
 import subprocess
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from .drift import DriftReport
 
 from .bunfig import project_store_opt_out
 
@@ -67,7 +73,7 @@ def is_bun_project(path: Path) -> bool:
     return any((path / name).is_file() for name in BUN_LOCKFILES)
 
 
-def install_decision(global_bun: object, merged_bun: object) -> Decision:
+def install_decision(global_bun: Mapping[str, Any] | None, merged_bun: Mapping[str, Any] | None) -> Decision:
     """Whether ``rig worktree create`` installs deps.
 
     Only the GLOBAL layer can turn the install on (it runs the repo's install scripts, so a
@@ -75,13 +81,22 @@ def install_decision(global_bun: object, merged_bun: object) -> Decision:
     still turn it off with ``bun.worktree_install: false``. ``"hint"``: bun is not enabled on this
     machine, so only print the manual command.
     """
-    if not isinstance(global_bun, dict) or global_bun.get("enabled") is not True:
+    if not isinstance(global_bun, Mapping) or global_bun.get("enabled") is not True:
         return "hint"
     if global_bun.get("worktree_install", True) is False:
         return "off"
-    if isinstance(merged_bun, dict) and merged_bun.get("worktree_install") is False:
+    if isinstance(merged_bun, Mapping) and merged_bun.get("worktree_install") is False:
         return "off"
     return "install"
+
+
+def manual_command(worktree: Path) -> str:
+    """The command to run by hand, paste-safe (a worktree path may hold spaces or `;`)."""
+    return f"`cd {shlex.quote(str(worktree))} && bun install --frozen-lockfile`"
+
+
+def _q(path: Path | str) -> str:
+    return shlex.quote(str(path))
 
 
 def _bun_install_root() -> Path:
@@ -129,6 +144,33 @@ def _write_through_link(worktree: Path) -> Path | None:
     return None
 
 
+def _run_bounded(cmd: list[str], cwd: Path, timeout_s: int) -> tuple[int, str, str]:
+    """Run ``cmd`` in its own process group; on timeout kill the WHOLE group (lifecycle-script
+    children included — they would otherwise keep writing node_modules and keep the output pipes,
+    and so the wait, open past the bound) and re-raise ``TimeoutExpired``."""
+    posix = os.name == "posix"
+    proc = subprocess.Popen(
+        cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        encoding="utf-8", errors="replace", start_new_session=posix,
+    )
+    try:
+        out, err = proc.communicate(timeout=timeout_s)
+    except subprocess.TimeoutExpired:
+        if posix:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                proc.kill()
+        else:
+            proc.kill()
+        try:
+            proc.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
+        raise
+    return proc.returncode, out, err
+
+
 def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S) -> InstallOutcome:
     """Run ``bun install --frozen-lockfile`` in ``worktree`` exactly as the repo configures it.
 
@@ -140,7 +182,7 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
     """
     from . import bunfig
 
-    manual = f"`bun install --frozen-lockfile` in {worktree}"
+    manual = manual_command(worktree)
     state = bunfig.resolve()
     if state.state != "ok":
         return InstallOutcome(
@@ -156,28 +198,20 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
         return InstallOutcome(
             "failed",
             f"{link} is a symlink to {_readlink(link)} — bun install would write through it into "
-            f"that checkout. Remove the link (`rm {link}`), then run {manual}",
+            f"that checkout. Remove the link (`rm {_q(link)}`), then run {manual}",
         )
     started = time.monotonic()
     try:
-        res = subprocess.run(
-            [bun, *INSTALL_CMD],
-            cwd=worktree,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout_s,
-        )
+        returncode, stdout, stderr = _run_bounded([bun, *INSTALL_CMD], worktree, timeout_s)
     except subprocess.TimeoutExpired:
         return InstallOutcome("failed", f"`bun install --frozen-lockfile` timed out after {timeout_s}s — re-run {manual}")
     except OSError as exc:
         return InstallOutcome("failed", f"could not run bun ({exc}) — run {manual}")
-    if res.returncode != 0:
-        detail = _tail(res.stderr) or _tail(res.stdout) or f"exit {res.returncode}"
+    if returncode != 0:
+        detail = _tail(stderr) or _tail(stdout) or f"exit {returncode}"
         return InstallOutcome(
             "failed",
-            f"`bun install --frozen-lockfile` failed (exit {res.returncode}) in {worktree}:\n{detail}\n"
+            f"`bun install --frozen-lockfile` failed (exit {returncode}) in {worktree}:\n{detail}\n"
             "Fix the cause and re-run it there (plain `bun install` only if you mean to change "
             "bun.lock). Never symlink node_modules or fall back to npm.",
         )
@@ -219,13 +253,12 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
     """Classify ``worktree``'s ``node_modules`` against the global store."""
     links = links_dir if links_dir is not None else store_links_dir()
     node_modules = worktree / "node_modules"
-    fix = f"fix: `rm -rf {node_modules}` then `bun install --frozen-lockfile` in {worktree}"
+    fix = f"fix: `rm -rf {_q(node_modules)}`, then {manual_command(worktree)}"
     link = _write_through_link(worktree)
     if link is not None:
         return InstallScan(broken=(
             f"{link.relative_to(worktree)} is a symlink to {_readlink(link)} — `bun install` here "
-            f"writes through it into that checkout; fix: `rm {link}` then "
-            f"`bun install --frozen-lockfile` in {worktree}",
+            f"writes through it into that checkout; fix: `rm {_q(link)}`, then {manual_command(worktree)}",
         ))
     if not node_modules.is_dir():
         return InstallScan()
@@ -309,7 +342,7 @@ def _label(repo_root: Path, worktree: Path) -> str:
     return str(rel) if str(rel) != "." else "(primary)"
 
 
-def check_worktree_installs(repo_root: Path, report) -> None:
+def check_worktree_installs(repo_root: Path, report: DriftReport) -> None:
     """Drift for broken bun worktree installs of ``repo_root``; one note for off-store ones.
 
     Drift items are ``extra`` (disk→config): an on-disk state no config declares, which apply

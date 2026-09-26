@@ -1249,14 +1249,15 @@ def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
 
     if not bun_store.is_bun_project(worktree_path):
         return 0
-    manual = f"`bun install --frozen-lockfile` in {worktree_path}"
+    manual = bun_store.manual_command(worktree_path)
     try:
         global_bun = load(repo_root, include_repo=False).data.get("bun")
-        merged_bun = load(repo_root, include_repo=True).data.get("bun")
+        decision = bun_store.install_decision(global_bun, None)
+        if decision == "install":  # only then can the repo layer still turn it off
+            decision = bun_store.install_decision(global_bun, load(repo_root, include_repo=True).data.get("bun"))
     except ConfigError as exc:
         print(_warn(f"  deps not installed: rig config did not load ({exc}) — run {manual}"))
         return 0
-    decision = bun_store.install_decision(global_bun, merged_bun)
     if decision == "hint":
         print(_dim(f"  bun repo: install deps with {manual} (never symlink node_modules)"))
     if decision != "install":
