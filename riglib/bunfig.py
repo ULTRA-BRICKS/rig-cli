@@ -44,7 +44,7 @@ _STORE_LINE_RE = re.compile(r"^globalStore\s*=\s*true\s*(?:#.*)?$")
 _LINKER_LINE_RE = re.compile(r"^linker\s*=\s*[\"\']isolated[\"\']\s*(?:#.*)?$")
 _DOTTED_LINKER_RE = re.compile(r'^install\.linker\s*=\s*["\']isolated["\']\s*(?:#.*)?$')
 _DOTTED_STORE_RE = re.compile(r'^install\.globalStore\s*=\s*true\s*(?:#.*)?$')
-_TABLE_RE = re.compile(r"^\[([^\]]+)\]\s*(?:#.*)?$")
+_TABLE_RE = re.compile(r"^\[\[?([^\]]+)\]\]?\s*(?:#.*)?$")
 _PIN_RES = {
     "linker": re.compile(r"""^(?P<dotted>install\.)?linker\s*=\s*["'](?P<value>[\w.-]+)["']\s*(?:#.*)?$"""),
     "globalStore": re.compile(r"^(?P<dotted>install\.)?globalStore\s*=\s*(?P<value>true|false)\s*(?:#.*)?$"),

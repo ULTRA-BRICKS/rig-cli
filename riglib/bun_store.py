@@ -82,9 +82,9 @@ def install_decision(global_bun: Mapping[str, Any] | None, merged_bun: Mapping[s
     still turn it off with ``bun.worktree_install: false``. ``"hint"``: bun is not enabled on this
     machine, so only print the manual command.
     """
-    if not isinstance(global_bun, Mapping) or global_bun.get("enabled") is not True:
+    if not _global_bun_enabled(global_bun):
         return "hint"
-    if global_bun.get("worktree_install", True) is False:
+    if global_bun.get("worktree_install", True) is False:  # type: ignore[union-attr]
         return "off"
     if isinstance(merged_bun, Mapping) and (
         merged_bun.get("worktree_install") is False or merged_bun.get("enabled") is False
@@ -106,9 +106,14 @@ def worktree_check_enabled(global_bun: Mapping[str, Any] | None, merged_bun: Map
     """`rig status` scans bun worktrees under the same layer rule as the install: the GLOBAL
     ``bun.enabled`` turns it on (a cloned repo's rig.yaml must not make every clone's status red),
     a repo ``bun.enabled: false`` turns it off."""
-    if not isinstance(global_bun, Mapping) or global_bun.get("enabled") is not True:
+    if not _global_bun_enabled(global_bun):
         return False
     return not (isinstance(merged_bun, Mapping) and merged_bun.get("enabled") is False)
+
+
+def _global_bun_enabled(global_bun: Mapping[str, Any] | None) -> bool:
+    """The one "on" switch for both the install and the status scan: the GLOBAL bun.enabled."""
+    return isinstance(global_bun, Mapping) and global_bun.get("enabled") is True
 
 
 def _q(path: Path | str) -> str:
@@ -156,7 +161,7 @@ def _tail(text: str) -> str:
     return "\n".join(lines[-_STDERR_TAIL_LINES:])
 
 
-def _write_through_link(worktree: Path) -> Path | None:
+def write_through_link(worktree: Path) -> Path | None:
     """``node_modules`` or ``node_modules/.bun`` when it is a symlink (installs write through it)."""
     node_modules = worktree / "node_modules"
     for candidate in (node_modules, node_modules / ".bun"):
@@ -175,8 +180,8 @@ def _tail_of(fh, limit: int = 64 * 1024) -> str:
 def _run_bounded(cmd: list[str], cwd: Path, timeout_s: int) -> tuple[int, str, str]:
     """Run ``cmd`` in its own process group with output to temp files (a flooding install script
     cannot exhaust rig's memory, and a lifecycle child holding the output cannot keep the wait
-    open). On timeout, Ctrl-C or any other exit the WHOLE group is killed, so no install script
-    keeps writing node_modules or the store after rig has returned. Re-raises
+    open). On a timeout, Ctrl-C or any exception while waiting, the WHOLE group is killed, so no
+    install script keeps writing node_modules or the store after rig gave up. Re-raises
     ``TimeoutExpired``; returns (exit code, stdout tail, stderr tail)."""
     posix = os.name == "posix"
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
@@ -191,7 +196,7 @@ def _run_bounded(cmd: list[str], cwd: Path, timeout_s: int) -> tuple[int, str, s
                     else:
                         proc.kill()
                 except OSError:
-                    proc.kill()
+                    pass  # the group is already gone; the wait below reaps the child
                 try:
                     proc.wait(timeout=10)
                 except subprocess.TimeoutExpired:
@@ -211,6 +216,14 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
     from . import bunfig
 
     manual = manual_command(worktree)
+    # refuse a write-through link FIRST: every other outcome prints `bun install` for the user
+    link = write_through_link(worktree)
+    if link is not None:
+        return InstallOutcome(
+            "failed",
+            f"{link} is a symlink to {_readlink(link)} — bun install would write through it into "
+            f"that checkout. Remove the link (`rm {_q(link)}`), then run {manual}",
+        )
     state = bunfig.resolve()
     if state.state != "ok":
         problem = {
@@ -221,13 +234,6 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
     bun = find_bun()
     if bun is None:
         return InstallOutcome("skipped", f"not installing deps: bun is not installed — install it, then run {manual}")
-    link = _write_through_link(worktree)
-    if link is not None:
-        return InstallOutcome(
-            "failed",
-            f"{link} is a symlink to {_readlink(link)} — bun install would write through it into "
-            f"that checkout. Remove the link (`rm {_q(link)}`), then run {manual}",
-        )
     started = time.monotonic()
     try:
         returncode, stdout, stderr = _run_bounded([bun, *INSTALL_CMD], worktree, timeout_s)
@@ -290,7 +296,7 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
     links = links_dir if links_dir is not None else store_links_dir()
     node_modules = worktree / "node_modules"
     fix = f"fix: `rm -rf {_q(node_modules)}`, then {manual_command(worktree)}"
-    link = _write_through_link(worktree)
+    link = write_through_link(worktree)
     if link is not None:
         return InstallScan(broken=(
             f"{link.relative_to(worktree)} is a symlink to {_readlink(link)} — `bun install` here "

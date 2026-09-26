@@ -1254,7 +1254,11 @@ def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
         print(_warn(f"  deps not installed: rig config did not load ({exc}) — run {manual}"))
         return 0
     if decision == "hint":
-        print(_dim(f"  bun repo: install deps with {manual} (never symlink node_modules)"))
+        link = bun_store.write_through_link(worktree_path)
+        if link is not None:
+            print(_warn(f"  {link} is a symlink — remove it before installing deps, then run {manual}"))
+        else:
+            print(_dim(f"  bun repo: install deps with {manual} (never symlink node_modules)"))
         return 0
     if decision == "off":
         return 0

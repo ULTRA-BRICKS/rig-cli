@@ -206,6 +206,26 @@ def test_scan_ignores_missing_or_empty_node_modules(tmp_path):
     assert bun_store.scan_install(wt, tmp_path / "links") == bun_store.InstallScan()
 
 
+def test_an_array_of_tables_header_ends_the_install_table(tmp_path):
+    (tmp_path / "bunfig.toml").write_text(
+        '[install]\nlinker = "isolated"\n[[hook]]\nlinker = "hoisted"\n', encoding="utf-8"
+    )
+    assert bunfig.project_install_pins(tmp_path) == {"linker": "isolated"}
+
+
+def test_wizard_registry_exposes_worktree_install_with_the_schema_default():
+    """`rig setup` / config-web enumerate riglib.schema.AREAS, a separate registry from
+    config_schema; a key in only one of them is valid but undiscoverable."""
+    from riglib import config_schema, schema
+
+    opt = schema.option_for_key("bun.worktree_install")
+    assert opt is not None
+    assert opt.kind == schema.KIND_BOOL
+    props = config_schema.json_schema()["properties"]["bun"]["properties"]
+    assert opt.default == props["worktree_install"]["default"] is True
+    assert opt.hint
+
+
 def test_project_install_pins_read_only_the_install_table(tmp_path):
     cfg = tmp_path / "bunfig.toml"
     cfg.write_text('[test]\nlinker = "hoisted"\nglobalStore = false\n', encoding="utf-8")
@@ -476,12 +496,28 @@ def test_install_refuses_a_write_through_symlink(tmp_path, monkeypatch, linked):
     assert not log.exists()
 
 
-def test_install_symlink_with_unprovisioned_store_is_a_skip_not_a_failure(tmp_path):
+def test_a_write_through_symlink_is_refused_before_any_skip(tmp_path):
+    """Every outcome prints `bun install` for the user — never while it would write through."""
     wt = tmp_path / "wt"
     wt.mkdir()
     (tmp_path / "main" / "node_modules").mkdir(parents=True)
     os.symlink(tmp_path / "main" / "node_modules", wt / "node_modules")
-    assert bun_store.install_worktree_deps(wt).status == "skipped"
+    outcome = bun_store.install_worktree_deps(wt)  # bunfig not provisioned here
+    assert outcome.status == "failed"
+    assert "symlink" in outcome.message
+
+
+@posix_only
+def test_the_hint_warns_about_a_write_through_symlink(tmp_path, monkeypatch, capsys):
+    _fake_bun(tmp_path, monkeypatch)
+    repo = _git_repo(tmp_path / "repo")
+    main_nm = tmp_path / "main-nm"
+    main_nm.mkdir()
+    os.symlink(main_nm, repo / "node_modules")
+    subprocess.run(["git", "add", "node_modules"], cwd=repo, check=True)
+    _commit_all(repo, "a committed node_modules link")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    assert "is a symlink — remove it" in capsys.readouterr().out
 
 
 @posix_only
