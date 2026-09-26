@@ -170,6 +170,22 @@ def test_read_ship_alias_round_trips_gh_config(tmp_path, monkeypatch):
     assert gsa.resolve_gh_ship_alias().state == "ok"
 
 
+def test_gh_config_path_follows_gh_config_dir_resolution(tmp_path, monkeypatch):
+    # gh's ConfigDir(): GH_CONFIG_DIR, then XDG_CONFIG_HOME/gh, then %AppData%\GitHub CLI on Windows,
+    # then ~/.config/gh. Reading ~/.config/gh on Windows never found the alias gh had just written.
+    for var in ("GH_CONFIG_DIR", "XDG_CONFIG_HOME"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
+    assert gsa.gh_config_path(windows=True) == tmp_path / "Roaming" / "GitHub CLI" / "config.yml"
+    assert gsa.gh_config_path(windows=False) == tmp_path / "home" / ".config" / "gh" / "config.yml"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    assert gsa.gh_config_path(windows=True) == tmp_path / "xdg" / "gh" / "config.yml"
+    monkeypatch.setenv("GH_CONFIG_DIR", str(tmp_path / "ghdir"))
+    assert gsa.gh_config_path(windows=True) == tmp_path / "ghdir" / "config.yml"
+
+
 # ── plan gating ─────────────────────────────────────────────────────────────────────
 def test_plan_includes_gh_ship_alias_by_default(fake_agent_tools, tmp_path):
     from riglib.catalog import Catalog

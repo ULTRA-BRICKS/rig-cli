@@ -94,19 +94,28 @@ def ship_dispatch_sh(command: str) -> str:
     )
 
 
-def gh_config_path() -> Path:
-    """Where gh stores its aliases — ``$GH_CONFIG_DIR`` / ``$XDG_CONFIG_HOME/gh`` / ``~/.config/gh``.
+def gh_config_path(*, windows: bool | None = None) -> Path:
+    """Where gh stores its aliases — ``$GH_CONFIG_DIR`` / ``$XDG_CONFIG_HOME/gh`` /
+    ``%AppData%\\GitHub CLI`` (Windows) / ``~/.config/gh``.
 
-    Mirrors gh's own resolution on non-Windows hosts (``GH_CONFIG_DIR`` wins, then
-    ``XDG_CONFIG_HOME``, then ``~/.config``). This file is the source of truth we READ (the WRITE
-    goes through ``gh alias set``, which preserves every other key); it is also the drift row's
-    display ``target``.
+    Mirrors gh's own ``ConfigDir()`` (go-gh): ``GH_CONFIG_DIR`` wins, then ``XDG_CONFIG_HOME``,
+    then ``%AppData%`` on Windows, then ``~/.config``. This file is the source of truth we READ
+    (the WRITE goes through ``gh alias set``, which preserves every other key); it is also the
+    drift row's display ``target``. Reading ``~/.config/gh`` on Windows found no alias ever, so
+    ``gh ship`` showed as missing after every apply.
     """
+    if windows is None:
+        windows = os.name == "nt"
     gh_dir = os.environ.get("GH_CONFIG_DIR")
     if gh_dir:
         return Path(gh_dir) / "config.yml"
-    base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(base) / "gh" / "config.yml"
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    if xdg:
+        return Path(xdg) / "gh" / "config.yml"
+    appdata = os.environ.get("APPDATA")
+    if windows and appdata:
+        return Path(appdata) / "GitHub CLI" / "config.yml"
+    return Path.home() / ".config" / "gh" / "config.yml"
 
 
 def gh_available() -> bool:
