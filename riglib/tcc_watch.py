@@ -15,8 +15,10 @@ The full phased design is 4 phases; THIS module (plus ``riglib/tcc_watch_daemon.
 **Phase 1 only — detection/observability**:
 
   1. **Detection** (THIS): tail macOS's ``log stream`` for the ``com.apple.TCC`` subsystem and
-     durably log every permission-request-shaped event (timestamp + best-effort process
-     attribution) to ``~/.config/rig/tcc-watch/events.jsonl``. Pure observation — no live-dialog
+     keep a bounded SQLite store (``~/.config/rig/tcc-watch/tcc-watch.sqlite3``): every REAL
+     permission prompt/denial in full (timestamp, kind, service + best-effort process
+     attribution), and every other TCC log line only as an hourly count per message template
+     (rig-cli#607; see :mod:`riglib.tcc_watch_daemon`). Pure observation — no live-dialog
      interaction, no TCC.db access.
   2. **Auto-response** (deferred, ticketed, NOT implemented here): use the macOS Accessibility
      API, from this SAME privileged daemon, to locate the actual system consent-alert window and
@@ -81,7 +83,7 @@ DEFAULT_CONFIG_DIR = "~/.config/rig/tcc-watch"
 
 OUT_LOG_NAME = "launchd.tcc-watch.out.log"
 ERR_LOG_NAME = "launchd.tcc-watch.err.log"
-EVENTS_LOG_NAME = "events.jsonl"
+STORE_NAME = "tcc-watch.sqlite3"
 WATCHER_SCRIPT_NAME = "watch.py"
 
 # Common python3 install locations, checked when PATH resolution fails (a non-interactive
@@ -117,8 +119,8 @@ class TccWatchPlan:
         return self.config_dir / ERR_LOG_NAME
 
     @property
-    def events_log_path(self) -> Path:
-        return self.config_dir / EVENTS_LOG_NAME
+    def store_path(self) -> Path:
+        return self.config_dir / STORE_NAME
 
     @property
     def watcher_script_path(self) -> Path:
@@ -140,7 +142,7 @@ class TccWatchPlan:
 
         payload = {
             "Label": self.label,
-            "ProgramArguments": [str(self.python_bin), str(self.watcher_script_path), str(self.events_log_path)],
+            "ProgramArguments": [str(self.python_bin), str(self.watcher_script_path), str(self.store_path)],
             "WorkingDirectory": str(self.config_dir),
             "EnvironmentVariables": {
                 "PATH": self.daemon_path_env,

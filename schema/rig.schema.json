@@ -1793,7 +1793,7 @@
         },
         "config_dir": {
           "type": "string",
-          "description": "watcher config + events.jsonl + launchd logs dir",
+          "description": "watcher script + tcc-watch.sqlite3 store + launchd logs dir",
           "default": "~/.config/rig/tcc-watch"
         },
         "python_bin": {

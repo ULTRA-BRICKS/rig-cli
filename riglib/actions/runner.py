@@ -6424,7 +6424,7 @@ def _do_provision_tcc_watch(action: Action, on_conflict: str) -> ActionResult:
         ``<config_dir>/watch.py`` so the installed daemon runs the SAME code the unit suite
         exercises directly;
       - back up any existing DIFFERING plist/script (on_conflict=backup) before rewrite;
-      - ensure the config dir exists so launchd can open the logs and the daemon can append events;
+      - ensure the config dir exists so launchd can open the logs and the daemon can write its store;
       - (re)load via ``launchctl bootout``/``bootstrap`` in the per-user gui domain.
 
     macOS-only (launchd). Off darwin it is a ``skipped`` no-op (no Linux equivalent yet).
@@ -6445,7 +6445,7 @@ def _do_provision_tcc_watch(action: Action, on_conflict: str) -> ActionResult:
     dry = _tcc_watch_dry_run()
 
     # 1) ensure the config dir exists so launchd can open StandardOut/ErrorPath and the daemon
-    # can append to events.jsonl.
+    # can write its tcc-watch.sqlite3 store.
     plan.config_dir.mkdir(parents=True, exist_ok=True)
 
     # 2) write the watcher script (idempotent on identical bytes; honors on_conflict).

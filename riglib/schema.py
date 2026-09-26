@@ -566,8 +566,9 @@ AREAS: tuple[Area, ...] = (
     Area(
         "tcc_watch", "TCC dialog-watcher daemon (macOS)",
         "Phase 1 (detection-only) defense-in-depth behind the eval-tool TCC deny-list (PR #488): "
-        "tails `log stream`'s com.apple.TCC subsystem and durably logs every permission-prompt-"
-        "shaped event, as a machine-wide boot LaunchAgent.",
+        "tails `log stream`'s com.apple.TCC subsystem into a bounded SQLite store — every real "
+        "prompt/denial in full, every other line as a per-template count — as a machine-wide "
+        "boot LaunchAgent.",
         (
             _opt("tcc_watch.enabled", KIND_BOOL, True,
                  "Provision the tcc-watch detection daemon. GLOBAL-only (one per machine) — "

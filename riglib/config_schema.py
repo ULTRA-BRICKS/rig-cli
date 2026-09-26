@@ -1502,7 +1502,7 @@ _TCC_WATCH_BLOCK = Block(
     leaves={
         "enabled": Leaf("boolean", "provision the tcc-watch LaunchAgent", default=True),
         "label": Leaf("string", "launchd Label / plist filename stem", default="ai.hyperide.tcc-watch"),
-        "config_dir": Leaf("string", "watcher config + events.jsonl + launchd logs dir", default="~/.config/rig/tcc-watch"),
+        "config_dir": Leaf("string", "watcher script + tcc-watch.sqlite3 store + launchd logs dir", default="~/.config/rig/tcc-watch"),
         "python_bin": Leaf("string", "the python3 binary the daemon runs under"),
     },
 )

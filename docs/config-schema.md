@@ -3033,26 +3033,23 @@ launchctl bootstrap (sandboxed run))`. To exercise the live path on purpose, run
 
 ## `tcc_watch`
 
-rig provisions the **tcc-watch dialog-watcher daemon** — Phase 1 (detection-only) of a
-defense-in-depth follow-up behind the eval-tool's TCC deny-list (`riglib/permissions.py`, PR
-#488) — as a **macOS boot LaunchAgent**, exactly like `tg_ctl`. The daemon tails macOS's own
-`log stream --predicate 'subsystem == "com.apple.TCC"'` (Apple's own sanctioned mechanism for
-observing TCC activity — no private API, no `TCC.db` access) and durably appends every
-permission-request-shaped event it observes to `<config_dir>/events.jsonl`. It does **not**
-touch the live system dialog, read/write `TCC.db`, attribute the event to an agent, or send any
-notification yet — those are Phases 2-4 of the phased ticket (rig-cli, see
-`riglib/tcc_watch.py`'s module docstring), explicitly deferred pending their own design review.
-**Default ON** (an absent or empty `tcc_watch:` block still provisions it, mirroring `tg_ctl`).
-This is a **per-MACHINE** concern (one watcher daemon per machine), so the block belongs in the
-**GLOBAL** layer (`~/.config/rig/config.yaml`) — never a committed repo `rig.yaml`.
-**macOS-only** (launchd); off darwin it is a no-op.
+rig provisions the **tcc-watch dialog-watcher daemon** as a **macOS boot LaunchAgent**, exactly like `tg_ctl`. It is Phase 1 (detection-only) of a defense-in-depth follow-up behind the eval-tool's TCC deny-list (`riglib/permissions.py`, PR #488).
+
+The daemon tails macOS's own `log stream --debug` for the `com.apple.TCC` subsystem. That is Apple's own sanctioned mechanism for observing TCC activity: no private API, no `TCC.db` access. The daemon keeps a small SQLite store at `<config_dir>/tcc-watch.sqlite3`:
+
+- every REAL permission prompt or denial, in full;
+- a count of every TCC log line per hour and per message template.
+
+It does **not** touch the live system dialog, read or write `TCC.db`, attribute an event to an agent, or send any notification. Those are Phases 2-4 of the phased ticket (see `riglib/tcc_watch.py`'s module docstring), explicitly deferred pending their own design review.
+
+**Default ON**: an absent or empty `tcc_watch:` block still provisions it, mirroring `tg_ctl`. This is a **per-MACHINE** concern (one watcher daemon per machine), so the block belongs in the **GLOBAL** layer (`~/.config/rig/config.yaml`), never in a committed repo `rig.yaml`. **macOS-only** (launchd); off darwin it is a no-op.
 
 ```yaml
 tcc_watch:
   enabled: true                          # provision the tcc-watch LaunchAgent (default true; false = off)
   # everything below is auto-discovered per-machine — override only if non-standard:
   label: ai.hyperide.tcc-watch           # launchd Label / plist filename stem (advanced)
-  config_dir: ~/.config/rig/tcc-watch    # watcher config + events.jsonl + launchd logs
+  config_dir: ~/.config/rig/tcc-watch    # watcher script + tcc-watch.sqlite3 store + launchd logs
   python_bin: /usr/bin/python3           # the python3 binary (default: `which python3` → system fallback)
 ```
 
@@ -3060,28 +3057,61 @@ tcc_watch:
 |-----|------|---------|---------|
 | `enabled` | bool | `true` | `false` = don't touch tcc-watch at all — rig emits no action |
 | `label` | str | `ai.hyperide.tcc-watch` | launchd Label / plist filename stem |
-| `config_dir` | str | `~/.config/rig/tcc-watch` | where the watcher script, `events.jsonl`, and the launchd out/err logs live |
+| `config_dir` | str | `~/.config/rig/tcc-watch` | where the watcher script, the `tcc-watch.sqlite3` store, and the launchd out/err logs live |
 | `python_bin` | str | discovered | the python3 binary; default `which python3`, else the first of `/usr/bin/python3`, `/opt/homebrew/bin/python3`, `/usr/local/bin/python3` |
 
-**What rig writes.** `~/Library/LaunchAgents/ai.hyperide.tcc-watch.plist` — a `RunAtLoad` +
-`KeepAlive` agent that runs `python3 <config_dir>/watch.py <config_dir>/events.jsonl` — plus the
-watcher script itself, copied byte-for-byte from `riglib/tcc_watch_daemon.py` (the SAME module
-the unit suite exercises directly), so the deployed daemon and the tested detection logic can
-never drift apart.
+**What rig writes.** rig writes `~/Library/LaunchAgents/ai.hyperide.tcc-watch.plist`, a `RunAtLoad` + `KeepAlive` agent that runs `python3 <config_dir>/watch.py <config_dir>/tcc-watch.sqlite3`. It also writes the watcher script itself, copied byte-for-byte from `riglib/tcc_watch_daemon.py`. That is the SAME module the unit suite exercises directly, so the deployed daemon and the tested logic can never drift apart.
 
-**(Re)load mechanism.** Like `tg_ctl`, rig **(re)loads** the agent via `launchctl
-bootout`/`bootstrap` in the per-user `gui/<uid>` domain, so a clean `rig init` starts the daemon
-without a reboot, and a changed plist/script is picked up on the next `apply`.
+**What gets stored (rig-cli#607).** The first cut appended every tccd line mentioning `kTCCService`/`AttributionChain` to `events.jsonl` AND echoed it to stderr: 2.1 GB plus a 2.0 GB copy in 16 days, of which 212 lines were real prompts. The store keeps three things instead:
 
-**Dry-run seam.** `RIG_TCC_WATCH_DRY_RUN=1` writes the managed plist + watcher script into the
-configured (HOME-isolated) path but skips the live `launchctl bootstrap`/`bootout` mutation — so
-tests/smoke never touch the real launchd domain. Also engages automatically under a sandboxed
-HOME (rig-cli#116), same as every other launchd-backed daemon this repo provisions.
+- **`counts` + `templates`: every TCC log line, as a count.** The key is the line's os_log `formatString`, process, category, the `kTCCService*` it names, the TCC call (`function=`, plus `preflight`) and the subject app's identifier. Each template keeps its first line as an example. The rows grow with the number of distinct templates, not with line volume: a 10-minute real capture of 13,284 lines became 176 templates in 118 KB.
+- **`prompts`: real prompts and denials, in full.** These are the lines whose `eventMessage` starts with one of `PROMPT_SIGNATURES`:
+  - `AUTHREQ_PROMPTING:` — a consent dialog is about to show;
+  - `display_prompt:` — it is on screen;
+  - `CFUserNotification response:` — the user answered;
+  - `Policy disallows prompt for` — denied without a dialog;
+  - `Update Access Record: kTCCService` — a grant or denial was written.
+- **`diagnostics`: the daemon's own diagnostics.**
 
-**Testing without a live TCC dialog.** `riglib/tcc_watch_daemon.py`'s detection logic
-(`parse_tcc_log_line`) is a pure function over one `log stream --style ndjson` text line; its
-`run()` loop accepts an injectable `stream_factory` and a `max_reconnects` bound. The unit suite
-replays canned/sample log lines — it never needs (or triggers) a real macOS permission prompt.
+**Bounded by design.**
+
+- `counts` keeps hourly rows for 14 days, then rolls them into one row per UTC day per template, kept forever. The rows therefore grow with the templates active each day (capped, below), never with line volume.
+- Past 20,000 templates, new keys fold into ONE overflow template per kind, and every key field is length-capped. The store therefore stays bounded even if something logs under `com.apple.TCC` with non-constant format strings, categories or process names.
+- The store and its WAL files are owner-only (0600), and so are the config dir (0700) and launchd's logs: they hold TCC decisions, like `TCC.db` itself. Prompt text is never written to stderr.
+- A store file that is not a database is moved aside, with its `-wal`/`-shm` files, as `*.unreadable-<time>` (kept) and a new store is started. A locked or failing store is retried with backoff. Either way the daemon does not crash-loop or spin.
+- `prompts` keeps the newest 20,000 rows and is trimmed every 500 inserts, so a flood of prompt-shaped lines is bounded too. `diagnostics` keeps the newest 1,000.
+- Counts are buffered and written at most a minute after they happen while lines keep arriving, and on exit (SIGTERM from `launchctl bootout` flushes them). Prompts are written immediately.
+- stderr (`launchd.tcc-watch.err.log`) gets diagnostics only, and nothing once it is past 1 MiB. The daemon never truncates it.
+- A `log stream` that keeps exiting backs off exponentially, up to 60 s.
+
+The numbers are constants at the top of `riglib/tcc_watch_daemon.py`.
+
+**Reading it.** `python3 <config_dir>/watch.py report [--days N] [--top N] [--json]` reads the store beside the script by default and prints:
+
+- line totals per day;
+- the share per kind (noise vs each prompt kind);
+- the busiest processes;
+- the busiest templates, with their example line;
+- the newest prompts and denials.
+
+In other words: what fills the TCC log, which app drives it, and which dialogs actually appeared. `report` only reads, so it answers even while the daemon is writing. Nothing else in rig reads the store.
+
+**Upgrading from `events.jsonl`.** On its first start, the daemon imports the pre-#607 `events.jsonl` family next to the store, oldest first:
+
+- every line is counted in its UTC day under a coarse legacy template;
+- every real prompt is stored in full.
+
+The import runs before the first `log stream` spawn, which takes minutes for a multi-GB file, so a prompt shown during that one-time upgrade window is not recorded. Each file is imported in ONE transaction. The transaction commits only if the store's totals grew by exactly the file's line count, and only then is the file removed. A retry after a crash cannot double-count, because the file's size and mtime are recorded with the import.
+
+The old per-event mirror lines in `launchd.tcc-watch.err.log` are removed only when every one of them equals, byte for byte, the line the old daemon printed for an imported row, in order. The count verified so far is committed with each file's import, so if the first start is interrupted, a later start resumes the verification and finishes the strip. Every other line in that file is kept.
+
+The prompt signatures are tccd's wording as captured on macOS 26.5. A release that rewords them loses nothing: the lines are still counted. But they would no longer be copied into `prompts`, so check `report` for new prompt-looking templates after a major macOS upgrade.
+
+**(Re)load mechanism.** Like `tg_ctl`, rig **(re)loads** the agent via `launchctl bootout`/`bootstrap` in the per-user `gui/<uid>` domain. A clean `rig init` starts the daemon without a reboot, and a changed plist or script is picked up on the next `apply`.
+
+**Dry-run seam.** `RIG_TCC_WATCH_DRY_RUN=1` writes the managed plist and watcher script into the configured (HOME-isolated) path but skips the live `launchctl bootstrap`/`bootout`. Tests and smoke runs therefore never touch the real launchd domain. The seam also engages automatically under a sandboxed HOME (rig-cli#116), as for every other launchd-backed daemon this repo provisions.
+
+**Testing without a live TCC dialog.** `parse_observation` is a pure function over one `log stream --style ndjson` line. `TccStore` takes a path. The `run()` loop accepts an injectable `stream_factory`, `sleep`/`clock` and a `max_reconnects` bound. The unit suite replays log lines captured from a real Mac, covering prompts, denials and routine chatter. It never needs, or triggers, a real macOS permission prompt.
 
 ---
 
