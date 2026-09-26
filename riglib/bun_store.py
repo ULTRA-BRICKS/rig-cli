@@ -34,6 +34,7 @@ module removes the reason to improvise and makes the leftovers visible.
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -48,7 +49,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeGuard
 if TYPE_CHECKING:
     from .drift import DriftReport
 
-from .bunfig import project_store_opt_out
+from . import bunfig
 
 BUN_LOCKFILES = ("bun.lock", "bun.lockb")
 INSTALL_CMD = ("install", "--frozen-lockfile")
@@ -56,6 +57,8 @@ INSTALL_TIMEOUT_S = 900
 _GIT_TIMEOUT_S = 30
 _OUTPUT_TAIL_LINES = 12
 _NOTE_LABELS_SHOWN = 4
+# a bun global-store package dir under ANY cache root: `<cache>/links/<pkg>@<ver>…/node_modules/…`
+_STORE_SHAPE_RE = re.compile(r"/links/[^/]+/node_modules(?:/|$)")
 
 InstallStatus = Literal["installed", "skipped", "failed"]
 Decision = Literal["install", "off", "hint"]
@@ -270,8 +273,6 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
     ``rig apply`` first — or bun is missing. Refuses a ``node_modules`` / ``node_modules/.bun``
     symlink: installing through it writes into whatever checkout it points at.
     """
-    from . import bunfig
-
     manual = manual_command(worktree)
     # refuse a write-through link FIRST: every other outcome prints `bun install` for the user
     link = write_through_link(worktree)
@@ -310,7 +311,7 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
             "bun.lock). Never symlink node_modules or fall back to npm.",
         )
     took = time.monotonic() - started
-    opt_out = project_store_opt_out(worktree)
+    opt_out = bunfig.project_store_opt_out(worktree)
     layout = f"as the repo configures: {opt_out}, so not through the global store" if opt_out else "isolated linker, global store"
     hooks = f"; its scripts saw core.hooksPath = {pinned}, not the global hooks dir" if pinned else ""
     return InstallOutcome("installed", f"deps installed: bun install --frozen-lockfile ({layout}) in {took:.1f}s{hooks}")
@@ -340,13 +341,17 @@ def _points_into_store(entry_path: str, link_target: str, links_dir: Path) -> bo
     return False
 
 def _links_into_other_checkout(entry_path: str, worktree: Path) -> bool:
-    """A ``.bun`` entry symlink whose real target is some OTHER tree's ``node_modules``."""
+    """A ``.bun`` entry symlink whose real target is some OTHER tree's ``node_modules``. A target
+    shaped like a bun store package (``…/links/<pkg>@<ver>/node_modules/…``) is a store install
+    made under a different ``BUN_INSTALL_CACHE_DIR``/``BUN_INSTALL`` than this process sees (a
+    shell profile export `rig status` did not inherit), never another checkout."""
     real = os.path.realpath(entry_path)
     try:
         Path(real).relative_to(worktree.resolve())
         return False
     except ValueError:
-        return "/node_modules/" in real.replace("\\", "/")
+        posix = real.replace("\\", "/")
+        return "/node_modules/" in posix and _STORE_SHAPE_RE.search(posix) is None
 
 
 def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
@@ -358,7 +363,7 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
         return InstallScan(broken=(write_through_message(link, manual_command(worktree)),))
     if not node_modules.is_dir():
         return InstallScan()
-    opted_out = project_store_opt_out(worktree) is not None
+    opted_out = bunfig.project_store_opt_out(worktree) is not None
     bun_dir = node_modules / ".bun"
     if not bun_dir.is_dir():
         if opted_out:
@@ -408,8 +413,9 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
 
 
 def repo_worktrees(repo_root: Path) -> list[Path] | None:
-    """Every worktree git knows for ``repo_root`` (primary first), skipping ones gone from disk;
-    None when the listing fails. Uses :mod:`riglib.worktree_gc`'s shared `-z` parser, so a path
+    """Every worktree git knows for ``repo_root``, primary first — including ones gone from disk,
+    so the first entry is always the primary (callers skip missing dirs); None when the listing
+    fails. Uses :mod:`riglib.worktree_gc`'s shared `-z` parser, so a path
     with a newline or a non-UTF-8 byte cannot hide a worktree."""
     from .worktree_gc import WorktreeGcError, _parse_worktree_record, _run_worktree_list_porcelain
 
@@ -420,7 +426,7 @@ def repo_worktrees(repo_root: Path) -> list[Path] | None:
     out: list[Path] = []
     for record in records:
         info = _parse_worktree_record(record)
-        if info is not None and info.path.is_dir():
+        if info is not None:
             out.append(info.path)
     return out
 
@@ -451,7 +457,7 @@ def check_worktree_installs(repo_root: Path, report: DriftReport, *, merged_bun:
         return
     primary = worktrees[0] if worktrees else repo_root
     for worktree in worktrees:
-        if not is_bun_project(worktree):
+        if not worktree.is_dir() or not is_bun_project(worktree):
             continue
         scan = scan_install(worktree, links)
         label = _label(primary, worktree)

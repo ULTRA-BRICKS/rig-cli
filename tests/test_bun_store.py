@@ -622,6 +622,32 @@ def test_install_scripts_cannot_replace_the_global_composer(tmp_path, monkeypatc
     assert env["GIT_CONFIG_COUNT"] == "2"
 
 
+def test_a_malformed_git_config_count_starts_the_list_over():
+    env = bun_store.with_hooks_pin("/r/.git/hooks", {"GIT_CONFIG_COUNT": "x", "PATH": "/bin"})
+    assert env["GIT_CONFIG_COUNT"] == "1" and env["GIT_CONFIG_KEY_0"] == "core.hooksPath"
+    assert env["GIT_CONFIG_VALUE_0"] == "/r/.git/hooks" and env["PATH"] == "/bin"
+
+
+def test_a_store_made_under_another_cache_dir_is_not_another_checkout(tmp_path):
+    """`rig status` may not inherit the shell's BUN_INSTALL_CACHE_DIR: a live link into that
+    other store's `links/<pkg>/node_modules/<pkg>` is a store install, never "another checkout"."""
+    wt = tmp_path / "wt"
+    bun_dir = wt / "node_modules" / ".bun"
+    bun_dir.mkdir(parents=True)
+    other_store = tmp_path / "big-volume" / "bun-cache" / "links"
+    for i in range(3):
+        pkg = other_store / f"pkg{i}@1.0.0-abc" / "node_modules" / f"pkg{i}"
+        pkg.mkdir(parents=True)
+        os.symlink(pkg, bun_dir / f"pkg{i}@1.0.0")
+    scan = bun_store.scan_install(wt, tmp_path / "home-cache" / "links")
+    assert scan.broken == ()
+    # a real other checkout's isolated layout still is one
+    main_pkg = tmp_path / "main" / "node_modules" / ".bun" / "x@1" / "node_modules" / "x"
+    main_pkg.mkdir(parents=True)
+    os.symlink(main_pkg, bun_dir / "x@1")
+    assert "another checkout" in bun_store.scan_install(wt, tmp_path / "home-cache" / "links").broken[0]
+
+
 def test_a_repo_local_hooks_path_is_left_alone(tmp_path, monkeypatch):
     _global_hooks_path(tmp_path, monkeypatch)
     repo = _git_repo(tmp_path / "repo")

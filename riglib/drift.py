@@ -1491,6 +1491,9 @@ def check_disabled_dispatcher(repo_root: Path, report: DriftReport) -> None:
 
 # Strings only the managers' GENERATED shims carry (rig's own composers mention lefthook/husky
 # in comments, so bare names are not a signature).
+# Structural markers each manager writes into its global-dir shim. husky: `husky.sh` / `.husky/_`
+# are the v4-v8 shims (v9 sets a repo-local core.hooksPath and never writes a global shim) and
+# `HUSKY=0` is their skip switch — keep them even though a v9-only machine never shows them.
 _HOOK_MANAGER_SIGNATURES = (
     ("lefthook", ("LEFTHOOK_VERBOSE", "call_lefthook")),
     ("husky", ("husky.sh", "HUSKY=0", ".husky/_")),
