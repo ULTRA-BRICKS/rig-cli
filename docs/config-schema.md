@@ -2779,8 +2779,9 @@ fj:
 `client_ids` file (`~/.config/forgejo-cli/client_ids`; `%APPDATA%\Cyborus\forgejo-cli\config\client_ids`
 on Windows) with the client ID of Forgejo's **built-in public OAuth app** — every instance ships them
 (`[oauth2] DEFAULT_APPLICATIONS`), so no admin registers anything; sets `FJ_FALLBACK_HOST=https://<host>`
-(through the `env` area on macOS/Linux — a hand-set `env.vars.FJ_FALLBACK_HOST` wins —, as a user
-environment variable via `setx` on Windows); and, when git's credential helper is Git Credential
+(through the `env` area on macOS/Linux — a hand-set `env.vars.FJ_FALLBACK_HOST` wins, and
+`env: {enabled: false}` turns the export off there, so set it in your shell profile yourself —, as a
+user environment variable via `setx` on Windows); and, when git's credential helper is Git Credential
 Manager, writes its `credential.https://<host>.oauth*` settings. Lines rig does not own in
 `client_ids` are kept. `rig status` reports the same steps as drift. `RIG_FJ_DRY_RUN=1` makes apply
 report instead of act.

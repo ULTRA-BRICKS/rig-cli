@@ -655,10 +655,13 @@ def apply_changes(
         errors.extend(cmd_errors)
     if "client_ids" in items:
         path = client_ids_path(system)
-        existing = path.read_text(encoding="utf-8") if path.is_file() else ""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(desired_client_ids_text(existing, options["hosts"], options["client_id"]), encoding="utf-8")
-        done.append(f"fj browser login enabled for {', '.join(options['hosts'])} ({path})")
+        try:
+            existing = path.read_text(encoding="utf-8") if path.is_file() else ""
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(desired_client_ids_text(existing, options["hosts"], options["client_id"]), encoding="utf-8")
+            done.append(f"fj browser login enabled for {', '.join(options['hosts'])} ({path})")
+        except OSError as exc:
+            errors.append(f"fj: could not write {path}: {exc}")
     if FALLBACK_HOST_VAR in items:
         url = fallback_host_url(options["fallback_host"])
         try:
@@ -672,7 +675,11 @@ def apply_changes(
             for key, value in git_credential_settings(host, options["git_client_id"]).items():
                 if git_config_get(key) == value:
                     continue
-                res = subprocess.run(["git", "config", "--global", key, value], capture_output=True, text=True, timeout=15)
+                try:
+                    res = subprocess.run(["git", "config", "--global", key, value], capture_output=True, text=True, timeout=15)
+                except (OSError, subprocess.SubprocessError) as exc:
+                    errors.append(f"git config --global {key} failed: {exc}")
+                    continue
                 if res.returncode != 0:
                     errors.append(f"git config --global {key} failed: {res.stderr.strip()}")
                 else:
@@ -805,7 +812,10 @@ def install_fj(version: str, *, system: str | None = None, fetch=None) -> str:
         brew = shutil.which("brew")
         if not brew:
             raise FjError("fj: Homebrew is not on PATH — install it (https://brew.sh), then `brew install forgejo-cli`")
-        res = subprocess.run([brew, "install", "forgejo-cli"], capture_output=True, text=True, timeout=900)
+        try:
+            res = subprocess.run([brew, "install", "forgejo-cli"], capture_output=True, text=True, timeout=900)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise FjError(f"fj: `brew install forgejo-cli` failed: {exc}") from exc
         if res.returncode != 0:
             raise FjError(f"fj: `brew install forgejo-cli` exited {res.returncode}: {res.stderr.strip()[-300:]}")
         return "installed fj via `brew install forgejo-cli`"
@@ -861,6 +871,9 @@ def read_windows_user_env(name: str) -> str | None:
 def set_windows_user_env(name: str, value: str) -> None:
     """Persist a per-user environment variable; ``setx`` also broadcasts the change so new shells
     (Cygwin, Git Bash, PowerShell) see it."""
-    res = subprocess.run(["setx", name, value], capture_output=True, text=True, timeout=30)
+    try:
+        res = subprocess.run(["setx", name, value], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise FjError(f"setx {name} failed: {exc}") from exc
     if res.returncode != 0:
         raise FjError(f"setx {name} exited {res.returncode}: {(res.stderr or res.stdout).strip()}")

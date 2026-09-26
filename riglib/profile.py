@@ -38,15 +38,17 @@ failed push rolls the local commit back), so there are never unpushed commits to
 Security
 --------
 ``env.vars`` (see ``rig env``) can hold API keys, and this file travels in plaintext. Every push
-of a config carrying ``env.vars`` warns (loudly the first time), and a push is REFUSED when the
-forge reports the repo as public to an anonymous API request (:func:`repo_visibility`; skipped when
-that can't be checked cheaply). The repo MUST be private. Commits use the machine's git identity
-(the ``git:`` area provisions it); if there is none, the push fails naming
-``git.config.user.name/email``. The checkout is rig's own clone of a one-file config repo with no
-PR flow, so the agent-tools ``protect-main`` pre-push hook is switched off in THIS checkout only,
-through the dispatcher's trusted per-repo opt-out (a repo-local ``hooks.skipGlobal protect-main``
-— :func:`_prepare_checkout`). No override is logged; every other global hook (the secret scan
-included) still runs.
+of a config carrying ``env.vars`` warns (loudly the first time). A push is REFUSED when the forge
+reports the repo as public to an anonymous API request (:func:`repo_visibility`), and a config with
+``env.vars`` is pushed to a forge URL ONLY when that request proves the repo private (GitHub, or a
+Forgejo/Gitea host) — an unknown forge or an unreachable API refuses instead of guessing. The repo
+MUST be private. Commits use the machine's git identity (the ``git:`` area provisions it); if
+there is none, the push fails naming ``git.config.user.name/email``. The checkout is rig's own
+clone of a one-file config repo with no PR flow, so two agent-tools global hooks are switched off
+in THIS checkout only, through the dispatcher's trusted per-repo opt-out (repo-local
+``hooks.skipGlobal`` — :func:`_prepare_checkout`): ``protect-main`` (no PR to open) and
+``secret-scan`` (the privacy rule above guards the secrets this repo exists to carry). Every
+other global hook still runs.
 
 Stdlib-only at import time; ``yaml`` is imported lazily through :mod:`riglib.config`.
 """
@@ -200,8 +202,10 @@ def _git_ok(args: list[str], **kw: Any) -> str:
 
 # Global git-hook fragments (agent-tools dispatcher ids) that don't apply to the profile checkout:
 # ``protect-main`` blocks direct pushes to main to force a PR, and a one-file config repo that rig
-# syncs has no PR to open.
-_SKIP_GLOBAL_HOOKS = ("protect-main",)
+# syncs has no PR to open. ``secret-scan`` would refuse the very thing this repo exists to carry —
+# ``env.vars`` API keys — so it is replaced here by :func:`_push_local`'s own rule: a config with
+# ``env.vars`` only ever goes to a repo the forge confirms is private.
+_SKIP_GLOBAL_HOOKS = ("protect-main", "secret-scan")
 
 
 def _prepare_checkout(repo: Path) -> None:
@@ -348,36 +352,54 @@ def _parse_forge_url(url: str) -> tuple[str, str, str] | None:
     return (m.group(1), m.group(2), m.group(3)) if m else None
 
 
+def _anonymous_get(api: str) -> tuple[int, Any]:
+    """``(status, parsed JSON body)`` of an unauthenticated GET — ``(0, None)`` when it can't be
+    answered: offline, not JSON, or REDIRECTED (a redirect is a different resource, possibly on
+    another host, so it proves nothing about this one)."""
+    import urllib.error
+    import urllib.request
+
+    req = urllib.request.Request(api, headers={"Accept": "application/json", "User-Agent": "rig-cli"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 — https only, by construction
+            if getattr(resp, "geturl", lambda: api)() != api:
+                return 0, None
+            return 200, json.loads(resp.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as exc:
+        return exc.code, None
+    except (OSError, ValueError):
+        return 0, None
+
+
 def repo_visibility(url: str) -> str | None:
     """Ask the forge ANONYMOUSLY whether the repo is visible: ``"public"``, ``"private"`` or None.
 
-    A repo an unauthenticated API request can read is public by definition (Forgejo/Gitea
-    ``/api/v1/repos/{owner}/{repo}``, GitHub ``api.github.com/repos/…``); a 404 means it is not
-    visible anonymously. Anything else — a local path, an unknown URL shape, a timeout, another
-    status — is ``None`` ("could not check cheaply"), and the caller skips the check.
+    A repo an unauthenticated API request can read is public by definition. A 404 means "not
+    visible anonymously" ONLY where that API is known to exist — GitHub (``api.github.com``) and a
+    host that answers Forgejo/Gitea's ``/api/v1/version``. Any other forge (GitLab, Bitbucket, …)
+    404s that path for a PUBLIC repo too, so there it is ``None``, as are a local path, an unknown
+    URL shape, a timeout, a redirect and every other status: "not verified private".
     """
-    import urllib.error
-    import urllib.request
+    from urllib.parse import quote
 
     parsed = _parse_forge_url(url)
     if parsed is None:
         return None
     host, owner, name = parsed
+    path = f"repos/{quote(owner, safe='')}/{quote(name, safe='')}"
     if host.lower() == "github.com":
-        api = f"https://api.github.com/repos/{owner}/{name}"
+        api = f"https://api.github.com/{path}"
     else:
-        api = f"https://{host}/api/v1/repos/{owner}/{name}"
-    req = urllib.request.Request(api, headers={"Accept": "application/json", "User-Agent": "rig-cli"})
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 — https only, by construction
-            body = json.loads(resp.read().decode("utf-8", "replace"))
-    except urllib.error.HTTPError as exc:
-        return "private" if exc.code == 404 else None
-    except (OSError, ValueError):
-        return None
-    if isinstance(body, dict) and body.get("private") is False:
+        status, body = _anonymous_get(f"https://{host}/api/v1/version")
+        if status != 200 or not isinstance(body, dict) or "version" not in body:
+            return None  # not a Forgejo/Gitea API: its 404s would say nothing
+        api = f"https://{host}/api/v1/{path}"
+    status, body = _anonymous_get(api)
+    if status == 404:
+        return "private"
+    if status == 200 and isinstance(body, dict) and body.get("private") is False:
         return "public"
-    if isinstance(body, dict) and body.get("private") is True:
+    if status == 200 and isinstance(body, dict) and body.get("private") is True:
         return "private"
     return None
 
@@ -483,7 +505,7 @@ def _warn_env_vars(doc: dict[str, Any], url: str, first_push: bool, notify: Noti
         notify("warn", f"  Their values are about to be pushed in PLAINTEXT to {url}.")
         notify("warn", "  The profile repo MUST be private. Move secrets out of env.vars if it is not.")
     else:
-        notify("warn", f"note: pushing env.vars ({', '.join(names)}) to the (private) profile repo")
+        notify("warn", f"note: pushing env.vars ({', '.join(names)}) to the profile repo")
 
 
 def _push_local(
@@ -498,11 +520,22 @@ def _push_local(
             fix="make the repo private on the forge (it holds your whole global config), then retry",
         )
     if visibility is None and _parse_forge_url(url) is not None:
-        notify("info", "note: could not verify the repo is private (forge API unreachable) — make sure it is")
+        secrets = env_var_names(doc)
+        if secrets:
+            # Fail closed: env.vars are pushed in plaintext, and nothing proved this repo private.
+            raise ProfileError(
+                f"refusing to push env.vars ({', '.join(secrets)}) to {url}: could not verify the repo "
+                "is private (rig checks through the GitHub or Forgejo API; this forge is unknown or "
+                "did not answer)",
+                fix="use a private repo on GitHub or a Forgejo host, retry when the forge is reachable, "
+                "or move the secrets out of env.vars",
+            )
+        notify("info", "note: could not verify the repo is private (forge API unreachable or unknown) — make sure it is")
     _warn_env_vars(doc, url, first_push=not state.get("pushed"), notify=notify)
     identity = _identity_args(repo, doc)
 
     normalized = local.replace(b"\r\n", b"\n")
+    _prepare_checkout(repo)  # before the commit: its pre-commit hooks read hooks.skipGlobal too
     before = _git(["rev-parse", "--verify", "-q", "HEAD"], cwd=repo).stdout.strip() or None
     (repo / PROFILE_FILE).write_bytes(normalized)
     _git_ok(["add", "--", PROFILE_FILE], cwd=repo)
@@ -515,7 +548,6 @@ def _push_local(
             _rollback(repo, before)
             tail = (commit.stderr or commit.stdout).strip()
             raise ProfileError(f"the profile commit failed (a pre-commit hook?): {tail[-400:]}")
-    _prepare_checkout(repo)
     push = _git(["push", "--quiet", "-u", "origin", f"HEAD:refs/heads/{branch}"], cwd=repo,
                 timeout=_NETWORK_TIMEOUT, noninteractive=noninteractive)
     if push.returncode != 0:

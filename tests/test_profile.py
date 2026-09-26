@@ -482,28 +482,67 @@ def test_repo_visibility_reads_the_anonymous_api(monkeypatch):
         def __exit__(self, *exc):
             return False
 
-    def _open(body=None, error=None):
+    def _open(body=None, error=None, forgejo=True, redirect_to=None):
         def _urlopen(req, timeout=None):
             seen.append(req.full_url)
+            if req.full_url.endswith("/api/v1/version"):
+                if not forgejo:  # GitLab & co: no such API, so its 404s mean nothing
+                    raise urllib.error.HTTPError(req.full_url, 404, "nf", {}, None)
+                return _Resp(b'{"version": "16.0.3"}')
             if error is not None:
                 raise error
-            return _Resp(body)
+            resp = _Resp(body)
+            resp.geturl = lambda: redirect_to or req.full_url
+            return resp
         return _urlopen
 
     monkeypatch.setattr(urllib.request, "urlopen", _open(b'{"private": false}'))
     assert profile.repo_visibility("https://git.hyperide.ai/alex/.rig-profile") == "public"
-    assert seen[-1] == "https://git.hyperide.ai/api/v1/repos/alex/.rig-profile"
+    assert seen[-2:] == ["https://git.hyperide.ai/api/v1/version",
+                         "https://git.hyperide.ai/api/v1/repos/alex/.rig-profile"]
     monkeypatch.setattr(urllib.request, "urlopen", _open(b'{"private": false}'))
     assert profile.repo_visibility("git@github.com:alex/.rig-profile.git") == "public"
     assert seen[-1] == "https://api.github.com/repos/alex/.rig-profile"
     err404 = urllib.error.HTTPError("u", 404, "nf", {}, None)
     monkeypatch.setattr(urllib.request, "urlopen", _open(error=err404))
     assert profile.repo_visibility("https://git.hyperide.ai/alex/.rig-profile") == "private"
+    assert profile.repo_visibility("git@github.com:alex/.rig-profile.git") == "private"
+    # a forge without the Forgejo API 404s /api/v1/repos/… for a PUBLIC repo too: not verified
+    monkeypatch.setattr(urllib.request, "urlopen", _open(error=err404, forgejo=False))
+    assert profile.repo_visibility("https://gitlab.com/alex/.rig-profile") is None
+    # a redirect answers for some other resource
+    monkeypatch.setattr(urllib.request, "urlopen", _open(b'{"private": true}', redirect_to="https://evil.example/x"))
+    assert profile.repo_visibility("https://git.hyperide.ai/alex/.rig-profile") is None
+    monkeypatch.setattr(urllib.request, "urlopen", _open(error=urllib.error.HTTPError("u", 403, "rate", {}, None)))
+    assert profile.repo_visibility("git@github.com:alex/.rig-profile.git") is None
     monkeypatch.setattr(urllib.request, "urlopen", _open(error=urllib.error.URLError("offline")))
     assert profile.repo_visibility("https://git.hyperide.ai/alex/.rig-profile") is None
+    monkeypatch.setattr(urllib.request, "urlopen", _open(b'{"private": true}'))
+    assert profile.repo_visibility("https://git.hyperide.ai/alex/a%20b") == "private"
+    assert seen[-1] == "https://git.hyperide.ai/api/v1/repos/alex/a%2520b"  # path segments are quoted
     before = len(seen)
     assert profile.repo_visibility("C:\\tmp\\remote.git") is None
     assert len(seen) == before  # a local path never reaches the network
+
+
+def test_env_vars_are_not_pushed_to_a_forge_repo_not_verified_private(world, monkeypatch):
+    """Fail closed: plaintext env.vars go to a forge URL only when the forge proves it private."""
+    local = world.machine("a")
+    _write(local, BASE_CONFIG + "env:\n  vars:\n    BRAVE_API_KEY: sk-not-a-real-key\n")
+    monkeypatch.setattr(profile, "_parse_forge_url", lambda url: ("gitlab.com", "alex", ".rig-profile"))
+    with pytest.raises(profile.ProfileError, match="could not verify the repo is private") as exc:
+        profile.init(world.url, notify=world.notify)
+    assert "BRAVE_API_KEY" in str(exc.value) and "sk-not-a-real-key" not in str(exc.value)
+    assert world.remote_commits() == 0
+
+
+def test_the_profile_checkout_skips_protect_main_and_secret_scan_only(world):
+    local = world.machine("a")
+    _write(local, BASE_CONFIG)
+    profile.init(world.url, notify=world.notify)
+    res = subprocess.run(["git", "-C", str(profile.checkout_dir()), "config", "--local", "--get-all",
+                          "hooks.skipGlobal"], capture_output=True, text=True)
+    assert res.stdout.split() == ["protect-main", "secret-scan"]
 
 
 def test_record_profile_block_never_rewrites_an_existing_repo(world):
@@ -627,7 +666,7 @@ def test_checkout_opts_out_of_protect_main_once_and_pushes_without_the_hatch(wor
     assert profile.sync(notify=world.notify).result == "pushed"
 
     skips = _git("config", "--local", "--get-all", "hooks.skipGlobal", cwd=profile.checkout_dir()).splitlines()
-    assert skips == ["protect-main"]  # exactly once, however many syncs ran
+    assert skips == ["protect-main", "secret-scan"]  # each exactly once, however many syncs ran
     assert seen_env and all(not env or "PUSH_MAIN_OK" not in env for env in seen_env)
 
 

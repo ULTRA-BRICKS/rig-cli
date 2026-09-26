@@ -2766,7 +2766,7 @@ def _validate_git(g: dict[str, Any]) -> None:
                     schema_path="git.config",
                 )
             continue
-        kind ="a list (multi-valued keys are not supported)" if isinstance(value, list) else repr(value)
+        kind = repr(value) if not isinstance(value, list) else "a list (multi-valued keys are not supported)"
         raise ConfigError(
             f"git.config.{key} must be a string, bool or int, got {kind}",
             fix="quote the value to pass it through verbatim (e.g. core.compression: \"9\")",
