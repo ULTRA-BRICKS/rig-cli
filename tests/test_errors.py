@@ -29,11 +29,10 @@ def test_exit_codes_are_distinct_and_stable():
         errors.EXIT_MISSING_TARGET,
         errors.EXIT_NOT_A_REPO,
         errors.EXIT_REPO_CORRUPT,
-        errors.EXIT_CODEX_UPDATE,
         errors.EXIT_MISSING_DEP,
     }
     # every class has its OWN code (no collisions)
-    assert len(codes) == 8
+    assert len(codes) == 7
     # pinned values — scripts depend on these; a change here is a breaking change
     assert errors.EXIT_CONFIG == 2
     assert errors.EXIT_DRIFT == 3
@@ -41,8 +40,10 @@ def test_exit_codes_are_distinct_and_stable():
     assert errors.EXIT_MISSING_TARGET == 5
     assert errors.EXIT_NOT_A_REPO == 6
     assert errors.EXIT_REPO_CORRUPT == 7
-    assert errors.EXIT_CODEX_UPDATE == 8
     assert errors.EXIT_MISSING_DEP == 127
+    # 8 is retired (the old `rig codex update` failure code, now harness-cli's) — never reused
+    exit_values = {v for k, v in vars(errors).items() if k.startswith("EXIT_")}
+    assert 8 not in exit_values
 
 
 def test_rig_error_carries_what_why_fix_and_code():

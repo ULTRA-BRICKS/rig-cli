@@ -136,6 +136,13 @@ bare `rig config-web` prints help, never launches.
   new harness as one entry there — never scatter the path across plan/config/schema. The config
   schema ACCEPTS every kind in that registry; the runner/drift for skill links are
   harness-agnostic (they act on resolved targets).
+- **`git` and `profile` are GLOBAL-layer-only, enforced at LOAD time** (`config._GLOBAL_LAYER_ONLY_BLOCKS`,
+  like `mode`): a repo `rig.yaml` or `--config` layer carrying either is rejected, because
+  `git.config` writes `git config --global` (code-executing keys such as `core.sshCommand`) and
+  `profile` points `rig apply` at a repo whose config it pulls. Never relax this to write-routing
+  only. `rig profile` (`riglib/profile.py`) syncs `~/.config/rig/config.yaml` through a PRIVATE repo
+  with a three-way compare (local / repo / last-sync snapshot) and never merges silently; tests use a
+  local bare repo and a tmp `GIT_CONFIG_GLOBAL` — never a real remote or the real `~/.gitconfig`.
 - **`rig.yaml` is committed by default.** It is the reproducible source of truth. Do not
   add an "is rig.yaml optional?" flag. Global config lives at `~/.config/rig/config.yaml`;
   per-repo `rig.yaml` overrides it; scope is by location, never a flag.

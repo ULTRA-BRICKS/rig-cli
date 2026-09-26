@@ -7,6 +7,9 @@ from typing import Sequence
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    from .stdio import ensure_utf8_stdio
+
+    ensure_utf8_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
     if args and args[0] == "fleet":
         from .fleet import main as fleet_main

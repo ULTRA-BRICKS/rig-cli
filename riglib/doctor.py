@@ -409,13 +409,13 @@ def _python_install_command(package: str) -> list[str]:
     installs cleanly when that interpreter is a uv-/pipx-managed venv (the recommended install
     shape). It does NOT magically bypass PEP-668: on an externally-managed *system* Python both
     uv and a bare pip refuse — there the real fix is to install rig itself into a managed env
-    (`pipx install rig-cli` / `uv tool install rig-cli`), not to force a system-wide install.
+    (`pipx install hyper-rig` / `uv tool install hyper-rig`), not to force a system-wide install.
     Falls back to ``python -m pip install`` only when ``uv`` is absent — no worse than before.
     That fallback adds ``--user`` UNLESS ``sys.executable`` is itself a venv interpreter
     (``sys.prefix != sys.base_prefix`` — the same idiom ``externally_managed()`` uses): pip
     hard-refuses ``--user`` inside a venv ("User site-packages are not visible in this
     virtualenv"), so keeping it unconditionally would hand a pipx-managed install (rig's own
-    RECOMMENDED shape — ``pipx install rig-cli`` — and every ``uv tool install`` too) a command
+    RECOMMENDED shape — ``pipx install hyper-rig`` — and every ``uv tool install`` too) a command
     that fails outright the moment ``uv`` isn't ALSO on PATH (review finding, ``textual_upgrade_command``
     surfaces this fallback directly as "the fix" for a present-but-too-old textual, not merely
     as a rarely-seen last resort). Outside a venv, ``--user`` is still needed to avoid requiring
@@ -462,7 +462,7 @@ def textual_upgrade_command() -> list[str]:
     NON-externally-managed case: a dev-checkout install (``install.sh``'s ``~/.local/bin/rig``
     symlink) on an interpreter that does NOT carry PEP 668's marker (pyenv, the python.org
     macOS installer, asdf — none of them do) still needs a DIRECT interpreter-targeted
-    upgrade, not a ``pipx install rig-cli`` / ``uv tool install rig-cli`` reinstall — that
+    upgrade, not a ``pipx install hyper-rig`` / ``uv tool install hyper-rig`` reinstall — that
     creates a SEPARATE managed environment that never touches the currently-running
     symlinked checkout at all. A review finding: this branch used to only ever suggest the
     reinstall commands, so the "remediation loop" (the versioned-spec fix elsewhere in this
@@ -480,7 +480,7 @@ def externally_managed() -> bool:
     ``running_under_virtualenv()`` before ever looking for the marker). A venv's ``sysconfig``
     stdlib path resolves to the BASE interpreter's stdlib (venvs never copy the stdlib), so a
     marker check alone would misfire for rig's own RECOMMENDED install shape — `pipx install
-    rig-cli` / `uv tool install rig-cli`, both venvs — whenever the base Python happens to be a
+    rig-cli` / `uv tool install hyper-rig`, both venvs — whenever the base Python happens to be a
     marker-carrying Homebrew/distro one. That would misdiagnose a genuinely broken pipx install
     as "PEP-668 refuses" and offer a `--break-system-packages --user` fallback that ALSO fails
     inside a venv (`--user` is rejected there), trading a correct diagnosis for a wrong one.

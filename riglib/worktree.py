@@ -31,10 +31,11 @@ entry) and lives in :mod:`riglib.actions.runner` (:func:`riglib.actions.runner.
 reconcile_worktrees_exclude`), next to the ship-delegator/opencode-bridge excludes it shares its
 marker-splice machinery with.
 
-Result shape: like :mod:`riglib.codex_update`, this returns a plain dataclass with an
-``exit_code`` (from :mod:`riglib.errors`) rather than raising a :class:`riglib.errors.RigError` —
-worktree creation is an imperative one-shot git operation, not a config/catalog/plan validation
-path, so it follows the OTHER established result-object precedent for that class of command.
+Result shape: this returns a plain dataclass with an ``exit_code`` (from :mod:`riglib.errors`)
+rather than raising a :class:`riglib.errors.RigError` — worktree creation is an imperative one-shot
+git operation, not a config/catalog/plan validation path, so it follows the result-object
+precedent for that class of command (set by the since-removed ``rig codex update``, which moved to
+harness-cli).
 
 ``rig worktree remove`` is the inverse: it tears down a ``.worktrees/<name>`` created above.
 ``git worktree remove`` alone leaves the branch behind (a bare retry of ``create`` then fails with

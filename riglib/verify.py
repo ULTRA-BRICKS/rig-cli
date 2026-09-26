@@ -265,6 +265,30 @@ def _verify_bunfig(action: Action) -> list[VerifyResult]:
     )]
 
 
+@register_verifier("provision_git_config")
+def _verify_git_config(action: Action) -> list[VerifyResult]:
+    """Every declared ``git.config`` key reads back from ``git config --global`` with its value."""
+    from . import gitconfig
+
+    return [
+        VerifyResult("git", st.key, st.state == "ok", st.detail)
+        for st in gitconfig.resolve(action.options)
+    ]
+
+
+@register_verifier("provision_fj")
+def _verify_fj(action: Action) -> list[VerifyResult]:
+    """Nothing of the ``fj`` block is still pending — fj installed, the wrapper(s) byte-exact,
+    ``client_ids``, ``FJ_FALLBACK_HOST`` (Windows) and git's OAuth settings: the one comparison
+    ``rig status`` uses (:func:`riglib.fj.pending_changes`)."""
+    from . import fj
+
+    todo = fj.pending_changes(action.options)
+    if not todo:
+        return [VerifyResult("fj", action.item, True, "fj, its wrapper and the browser logins are in place")]
+    return [VerifyResult("fj", item, False, detail) for _, item, _, detail in todo]
+
+
 
 
 # ── tmux (retrofit) ─────────────────────────────────────────────────────────────────────

@@ -54,8 +54,10 @@ These stable exit classes are also printed by `rig --help`:
 | `5` | missing target: config references a path or binary that is gone on disk |
 | `6` | not a git repository: a repo-scoped command was run outside a repo |
 | `7` | repo corrupt: a working checkout's git config is broken |
-| `8` | Codex update failed: candidate failed probes or rollback needed attention |
 | `127` | missing dependency: a required external tool is not installed |
+
+`8` is retired and never reused: it was `rig codex update`'s failure code, and that updater
+moved to harness-cli as `harness codex update`.
 
 ## Top-level shape
 
@@ -86,6 +88,8 @@ agents_md: { ... }            # AGENTS.md (canonical) + CLAUDE.md (symlink), def
 github: { ... }               # repo settings: ruleset/merge/ghas/actions via gh api + browser via agent-browser, default ON
 tmux: { ... }                 # rig-managed tmux config (generate + migrate ~/.tmux.conf), opt-in
 gitignore: { ... }            # rig-managed block in the GLOBAL git excludesfile (ignores **/.claude/worktrees/ + the Spotlight sentinel in EVERY repo), default ON
+git: { ... }                  # GLOBAL git settings via `git config --global` (identity, pull/branch defaults); GLOBAL layer ONLY
+profile: { ... }              # `rig profile`: the PRIVATE repo this global config syncs through; GLOBAL layer ONLY
 tg_ctl: { ... }               # tg-ctl inbound daemon as a macOS boot LaunchAgent, default ON (macOS-only)
 tcc_watch: { ... }            # TCC dialog-watcher daemon (Phase 1 detection-only), a macOS boot LaunchAgent, default ON (macOS-only)
 tgctl_reaper: { ... }         # tgctl-reaper periodic orphan-sweep LaunchAgent (StartInterval), default ON (macOS-only)
@@ -1413,6 +1417,11 @@ value noted) under the default `backup`/`overwrite`, or left as-is under `skip`.
 older ci-`ship` `gh_alias` copy-path form — that flag now writes the same portable dispatcher, not a
 `~/bin/ship` copy path, so the two never fight.
 
+**`fj ship` is the same command.** On a machine with the [`fj`](#fj) block, `fj ship <PR>` runs the
+identical dispatch (one function, `ship_dispatch_sh`, renders the gh alias body and the `fj`
+wrapper's `ship` branch; only the exit-127 diagnostic names `fj ship`), so the two can never drift
+apart.
+
 **Repo-local shadowing is intentional (and a debugging footgun to know about).** Because the
 delegator runs a repo-local `ci/ship/ship.sh` first, any repo that happens to carry one — a stale,
 hand-edited, or old copy — will run THAT, not the canonical resolved via `AGENT_TOOLS_ROOT`, and
@@ -2554,6 +2563,91 @@ Verify checks both `[install]` keys.
 
 ---
 
+## `git`
+
+Provisions this machine's **global git settings** — identity, pull/branch defaults, URL rewrites —
+with `git config --global <key> <value>`, so a new machine gets the same git behavior from the same
+config. **GLOBAL layer only**: `~/.config/rig/config.yaml`. The loader **rejects** a `git` block from
+a repo `rig.yaml` (or a `--config` file) with exit `2`, because several git keys execute code
+(`core.sshCommand`, `core.fsmonitor`, `credential.helper`, `!`-aliases) and a cloned repo must never
+be able to rewrite your global git config through `rig apply`.
+
+```yaml
+git:
+  enabled: true                  # optional — block PRESENCE opts in; only `false` opts out
+  config:                        # dotted git keys → value
+    user.name: Alex Ultra
+    user.email: someone@example.com
+    pull.rebase: true            # bools are written as true/false
+    init.defaultBranch: main
+    url.https://git.hyperide.ai/.insteadOf: hy:   # a subsection may hold dots and slashes
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `enabled` | bool | — (see below) | opts OUT when explicitly `false`. Like `env`, a PRESENT `git:` block with `enabled` unset opts in; an absent block is a no-op. |
+| `config` | map[git key → string\|bool\|int] | `{}` | each entry is one `git config --global <key> <value>`. Bools are written `true`/`false`, ints as digits. |
+
+**Keys** follow git's own shape: `section.name` or `section.subsection.name`. Section and name start
+with a letter and hold only letters, digits and `-` (git compares them case-insensitively, so
+`user.name` and `User.Name` in one block is rejected as a duplicate); the subsection is everything
+between the first and last dot and may hold dots and slashes. Rejected fail-closed (exit `2`, schema
+path `git.config`): a malformed key, a nested mapping instead of a dotted key (`user: {name: …}` —
+write `user.name: …`), a value with a line break, a list (multi-valued keys such as
+`remote.*.fetch` are out of scope), a float/null (quote it), and **`core.hooksPath` /
+`core.excludesfile`** — the `git_hooks` dispatcher and the `gitignore` block own those, and two
+owners would fight on every apply. `rig config set --global git.config.user.name "Alex Ultra"`
+works: everything after `git.config.` is taken as ONE git key, dots and all
+(`git.config.credential.https://git.example.com.helper` → key `credential.https://git.example.com.helper`).
+
+**Apply** sets every key that is unset or differs; a key already holding a value that means the same
+to git is left alone (`yes`/`on`/`1` match a desired `true`; `1k` matches `1024`). A value you set by
+hand to something else is overwritten, and the result detail records the prior value with the exact
+restore command (`prior user.email='old@…' (restore with: git config --global user.email old@…)`);
+`defaults.on_conflict: skip` leaves such a key untouched instead. rig **never unsets** a key: keys in
+`~/.gitconfig` that the config does not declare are not drift and are never touched.
+
+**Drift / verify.** `rig status` reports one row per declared key that is missing or different
+(`git/pull.rebase: global pull.rebase is 'false', config wants 'true'`); the post-apply verify reads
+every key back. All three (apply, drift, verify) share one classifier (`riglib/gitconfig.py`).
+`$GIT_CONFIG_GLOBAL` is honored (git's own `--global` resolution decides the file).
+
+---
+
+## `profile`
+
+Where `rig profile` keeps this machine's **global config** in sync with your other machines: a
+**private** git repo (conventionally `https://git.hyperide.ai/<login>/.rig-profile`) holding one file,
+`config.yaml` — a copy of `~/.config/rig/config.yaml`. **GLOBAL layer only**, rejected from a repo
+`rig.yaml` like `git`. Written by `rig profile init`; see the README's
+[`rig profile`](../README.md#rig-profile--carry-your-global-config-between-machines) section for the
+workflow.
+
+```yaml
+profile:
+  repo: https://git.hyperide.ai/alex/.rig-profile   # the PRIVATE profile repo
+  # auto_sync: true                                  # default: `rig apply commit` syncs first
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `repo` | string | — | the profile repo URL (https, ssh, or a local path). One line, no leading `-`. `rig profile init` records it and never rewrites an existing value (machines may spell one repo as ssh vs https). |
+| `auto_sync` | bool | `true` | `rig apply commit` runs `rig profile sync` BEFORE building its plan (a pull changes the very file the plan reads). Non-fatal: a network/push failure or a conflict prints a warning and the apply continues with the local file. A pull is announced as a warning, since the plan that runs is then built from a config you did not preview. A preview (`rig apply` / `apply info`) never syncs. |
+
+**The repo MUST be private.** The file travels in plaintext and `env.vars` (see [`env`](#env)) often
+holds API keys. Every push of a config carrying `env.vars` warns (loudly the first time on each
+machine, naming the keys, never the values), and a push is **refused** when the forge reports the repo
+as public to an anonymous API request (Forgejo/Gitea `/api/v1/repos/<owner>/<repo>`, GitHub
+`api.github.com/repos/…`; skipped with a note when that cannot be checked, e.g. offline or a local
+path). Write access to the repo is write access to this machine's global rig config — and, through
+the `git` block, its global git config — so guard it like your dotfiles.
+
+**What lives where.** The checkout is `~/.config/rig/profile/repo/` (rig-owned: never edit it by
+hand); the last-synced snapshot hash is `~/.config/rig/profile/state.json`, **beside** the checkout,
+never committed. Both follow `$XDG_CONFIG_HOME`.
+
+---
+
 
 
 ## `spotlight`
@@ -2653,6 +2747,99 @@ elsewhere).
 
 ---
 
+## `fj`
+
+Forgejo access for this machine (GLOBAL; see `riglib/fj.py`). The ecosystem lives on Forgejo
+(`git.hyperide.ai`), whose CLI `fj` otherwise needs `--host` outside a clone, can only log in
+with a hand-made token, and has no `ship`. A **present** block opts in; `host` is then required.
+
+```yaml
+fj:
+  host: git.hyperide.ai        # login target + FJ_FALLBACK_HOST
+  # install: true              # the fj command: real fj (brew / pinned binary) + the `fj ship` wrapper
+  # version: "0.6.0"
+  # bin_dir: ~/.local/bin      # where the fj wrapper goes (must be on PATH, before any other fj)
+  # git_credentials: true      # Git Credential Manager OAuth for https://<host>
+  # client_id: …               # default: Forgejo's built-in `tea` OAuth app
+  # git_client_id: …           # default: Forgejo's built-in Git Credential Manager OAuth app
+```
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `enabled` | bool | — | block **presence** opts in; `false` opts out |
+| `host` | str | — (required) | the Forgejo host; a scheme/trailing path is stripped |
+| `install` | bool | `true` | manage the `fj` command: the real fj + the wrapper that adds `fj ship`; `false` leaves fj entirely to you (no wrapper, no `fj ship`) |
+| `version` | str | `0.6.0` | release rig downloads (only versions with a pinned sha256) |
+| `bin_dir` | str | `~/.local/bin` | where the `fj` wrapper goes — must be on PATH, ahead of any other `fj` |
+| `git_credentials` | bool | `true` | write GCM generic-OAuth settings for `https://<host>` (the global host only) |
+| `client_id` | str | Forgejo `tea` app | OAuth client `fj auth login` uses |
+| `git_client_id` | str | Forgejo GCM app | OAuth client GCM uses |
+
+`rig apply` (one `provision_fj` action): sets up the `fj` command (below); lists each host in fj's
+`client_ids` file (`~/.config/forgejo-cli/client_ids`; `%APPDATA%\Cyborus\forgejo-cli\config\client_ids`
+on Windows) with the client ID of Forgejo's **built-in public OAuth app** — every instance ships them
+(`[oauth2] DEFAULT_APPLICATIONS`), so no admin registers anything; sets `FJ_FALLBACK_HOST=https://<host>`
+(through the `env` area on macOS/Linux — a hand-set `env.vars.FJ_FALLBACK_HOST` wins, and
+`env: {enabled: false}` turns the export off there, so set it in your shell profile yourself —, as a
+user environment variable via `setx` on Windows); and, when git's credential helper is Git Credential
+Manager, writes its `credential.https://<host>.oauth*` settings. Lines rig does not own in
+`client_ids` are kept. `rig status` reports the same steps as drift. `RIG_FJ_DRY_RUN=1` makes apply
+report instead of act.
+
+**`fj ship` — the same command as `gh ship`.** fj has no alias mechanism, so `fj` on PATH is a thin
+rig wrapper, `<bin_dir>/fj` (POSIX `sh`, a constant per fj version — no machine path in it).
+`fj ship …` runs the **very dispatch body of the `gh ship` alias** (one function renders both, see
+[`ship_delegator`](#ship_delegator)): the repo's `.claude/scripts/pr-ship.sh`, else
+`$AGENT_TOOLS_ROOT/ci/ship/ship.sh` (from the environment or the machine env file
+`${XDG_CONFIG_HOME:-~/.config}/agent-tools/env`), else a diagnostic and exit `127`. Every other
+`fj …` execs the real fj with the arguments, stdin and exit code untouched. ship.sh picks GitHub or
+Forgejo by the origin's host (its Forgejo provider: agent-tools#793), so `fj ship` and `gh ship` are
+interchangeable in any repo.
+
+Where the real fj lives:
+
+| OS | real fj | `bin_dir` holds |
+|----|---------|-----------------|
+| Linux | `${XDG_DATA_HOME:-~/.local/share}/rig/fj/<version>/fj` (rig's store, not on PATH) | `fj` (wrapper) |
+| macOS | Homebrew's (`brew install forgejo-cli` when no fj is on PATH); the wrapper finds it by walking PATH for an `fj` that is not a rig wrapper | `fj` (wrapper) |
+| Windows (cmd, PowerShell, Cygwin, Git Bash) | `%USERPROFILE%\.local\share\rig\fj\<version>\fj.exe` — also from Cygwin, whose `$HOME` is not the profile | `fj` (wrapper, for Cygwin / Git Bash) + `fj.cmd` (cmd / PowerShell) — and **no** `fj.exe` |
+
+Why no `fj.exe` next to the wrappers (measured on Windows 10): Cygwin and Git Bash run the
+extensionless `fj` when `fj` and `fj.exe` share a PATH dir, but cmd, PowerShell and Python's
+`shutil.which` pick `fj.exe` over `fj.cmd` (PATHEXT order), which would bypass `fj ship` there.
+`fj.cmd ship …` runs the `sh` wrapper through the `sh` gh itself runs aliases with (`sh` on PATH,
+else Git for Windows' `bin\sh.exe` next to `git`), so `fj ship` works from PowerShell as `gh ship`
+does; other `fj.cmd …` calls go straight to `fj.exe`. (A batch wrapper has cmd's usual quirks:
+Ctrl+C asks "Terminate batch job?".) rig's own fj calls (`fj whoami` for `rig profile`) run the
+real binary directly.
+
+**Upgrades and migration.** Changing `version` (or a rig release that bumps the default) makes the
+wrapper stale: `rig apply` installs the new binary into its own store dir, rewrites the wrapper and
+drops the older store dirs. A real fj that an earlier rig put into `bin_dir` (`fj` on Linux,
+`fj.exe` on Windows) is recognised by its pinned sha256 and **moved** into the store — nothing else
+there is ever moved or overwritten: a file that is neither rig's wrapper nor a pinned binary is
+reported (`fj-wrapper` / `fj.exe`) and apply fails that step until you move it (or set
+`install: false`).
+
+**Drift** (`rig status`, the same comparison apply acts on): `fj` (real binary missing),
+`fj-wrapper` / `fj.cmd` (missing, stale, a foreign file in the way), `fj.exe` (a `fj.exe` left in
+`bin_dir` on Windows), `fj-path` (an `fj` in a PATH dir **before** `bin_dir` — typically Homebrew's
+on macOS; apply reports it, only your shell profile can fix it). A PATH without `bin_dir` and without
+any other fj (a daemon's minimal PATH) is not reported.
+
+Logging in is then the stock commands: `fj auth login` (browser → *Authorize*) and, for git, the first
+`git push` (GCM opens the browser once). A repo `rig.yaml` with its own `fj.host` adds that host to
+fj's `client_ids` on `rig apply` inside the repo (a line you wrote for it yourself is kept); git's
+GCM settings in `~/.gitconfig` are written for the GLOBAL host only, so a cloned repo naming
+`github.com` or a company server cannot repoint git's login for it. `FJ_FALLBACK_HOST` keeps
+pointing at the GLOBAL host (and is not set at all without one). `fj.host` is the only key a repo (or `--config`) layer may set: every other `fj`
+key changes the machine's fj install or the OAuth app fj and git log in with, so the loader rejects
+it outside `~/.config/rig/config.yaml` — a cloned repo cannot redirect your logins. fj refreshes its
+OAuth token itself; Forgejo drops a refresh token unused for `[oauth2] REFRESH_TOKEN_EXPIRATION_TIME`
+(default 730 h) — a machine idle that long runs `fj auth login` again. Headless: `fj auth add-token`.
+
+---
+
 ## `tools`
 
 rig's **primary purpose**: install + advertise the **personal CLI ecosystem** — `tg`, `review`,
@@ -2681,7 +2868,7 @@ tools:
     # foo: {}
     # a tool whose wrapper shells out to a Homebrew-installed binary declares that dependency —
     # rig installs the missing formula before running install.sh:
-    fj:     { brew: [forgejo-cli] }
+    mytool: { brew: [some-formula] }
 ```
 
 | Key | Type | Default | Meaning |
@@ -2706,8 +2893,8 @@ unaffected) declares those Homebrew formula names. Before running `install.sh`, 
 declared formula with `brew list --formula <formula>` and runs `brew install <formula>` for any
 missing one. `brew` absent from PATH, or a `brew install` that itself fails, is a **hard error**
 for that tool (not a silent skip or a crash) — a wrapper whose runtime dependency isn't installed
-isn't a working tool no matter how `install.sh` went. Example: `fj` (the Forgejo CLI wrapper)
-depends on the `forgejo-cli` formula for the real `fj` binary it wraps.
+isn't a working tool no matter how `install.sh` went. (Forgejo's `fj` needs no `tools` entry —
+the [`fj`](#fj) block installs it and its `fj ship` wrapper.)
 
 **Drift.** `rig status` flags (in the **GLOBAL** section) a declared tool whose bin doesn't resolve
 (**missing** — apply runs its `install.sh`) or that resolves but isn't advertised (**modified** —
@@ -3165,9 +3352,11 @@ rig config set harness.auto_mode false --no-apply        # write only, print the
 - Dot paths cannot contain empty segments, including whitespace-only segments: `harness..kind`
   and `harness. .kind` are rejected. Whitespace around non-empty segments is trimmed.
 - A value that **starts with `-`** (and is not a negative number) needs the `--` separator so
-  argparse doesn't read it as a flag: `rig config set k -- -weird`. **Dot paths cannot address a
-  key that itself contains a dot** — `<dot.path>` always splits on `.`; every real catalog id is
-  dash-cased (`secret-scan`), so this is a non-issue in practice.
+  argparse doesn't read it as a flag: `rig config set k -- -weird`.
+- **A key that contains a dot** goes in quotes inside the path: `rig config set
+  'mcp.items."my.server".command' npx` (quote the whole path for the shell). Past `git.config`
+  no quotes are needed — git keys are always dotted, so the rest of the path is one key
+  (`git.config.user.name`).
 - **A repo-local `set` requires an existing `./rig.yaml`.** It edits a committed config; it does
   not bootstrap one — run `rig init` (or `rig export -o rig.yaml`) first, so built-in defaults
   never reconcile onto disk without a committed source of truth (the same guard `rig apply`
@@ -3184,7 +3373,7 @@ rig config set harness.auto_mode false --no-apply        # write only, print the
 strict**: an unknown FIXED key in *any* block — `defaults`, `skills`, `agent_hooks`, `git_hooks`
 (+ `dispatcher`), `ci`, `mcp`, `harness` (+ `hook_bridge` / `web_search`), `permissions`, `models` (+ `schedule`),
 `agents_md`, `scripts`, `dev` (+ `server` / `e2e`), `github` (+ `ruleset` / `merge` / `ghas` / `actions` / `browser`), `tmux` (+ every
-sub-block), `gitignore`, `tg_ctl`, `tcc_watch`, `tgctl_reaper`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`),
+sub-block), `gitignore`, `git`, `profile`, `tg_ctl`, `tcc_watch`, `tgctl_reaper`, `project_tools` (+ `haft` / `workflow` / `serena` / `sverklo`),
 `ecosystem_readme` — is rejected with the schema path of the offender, not silently ignored. (The open maps are
 top-level `scripts:`, the catalog-keyed `items:` / `fragments:` maps, plus `dev.e2e.jobs:` — see
 "Strict by default" above.) Bad-value rejections
@@ -3204,7 +3393,10 @@ that contains a rig-managed marker line, or that has a blank or multi-line entry
 `tg_ctl.enabled`/`boot`/`codex_usage_hook`, a non-string
 `tg_ctl.label`/`bun_path`/`tg_ctl_path`/`config_dir`, a bad
 `project_tools.haft.workflow.mode`, a non-list/string item in `project_tools.serena.languages` or
-`project_tools.serena.ignored_paths`, and an `agent_tools_source` that is not an agent-tools
+`project_tools.serena.ignored_paths`, a malformed / reserved / duplicate `git.config` key or a
+non-scalar / multi-line value, a `profile.repo` that is not a one-line URL, a non-bool
+`profile.auto_sync`, a **`git` or `profile` block in any layer but the global config** (they are
+GLOBAL-only by load-time enforcement, like `mode`), and an `agent_tools_source` that is not an agent-tools
 checkout. Every rejection is the **3-part error** (what / why + schema path / fix) and
 exits `2`. `--dry-run` prints the resolved plan and exits 0 without writing.
 

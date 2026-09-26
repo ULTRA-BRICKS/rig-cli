@@ -147,3 +147,65 @@ def test_install_skill_repoints_wrong_harness_link(tmp_path, monkeypatch, capsys
     assert install_skill() == 0
     expected = (home / ".agents" / "skills" / SKILL_NAME)
     assert link.resolve() == expected.resolve()  # re-pointed to the real skill
+
+
+def _set_home(monkeypatch, home: Path) -> None:
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))  # expanduser's source on Windows
+
+
+def test_link_falls_back_to_junction_without_symlink_privilege(tmp_path, monkeypatch):
+    # Windows without Developer Mode refuses symlinks (WinError 1314); the skill must still reach
+    # the harness dir, via a directory junction.
+    import sys
+    import types
+
+    from riglib import install as install_mod
+
+    def no_privilege(self, target, target_is_directory=False):
+        err = OSError(1, "A required privilege is not held by the client")
+        err.winerror = install_mod._ERROR_PRIVILEGE_NOT_HELD
+        raise err
+
+    junctions = []
+    fake_winapi = types.SimpleNamespace(CreateJunction=lambda src, dst: junctions.append((src, dst)))
+    monkeypatch.setattr(Path, "symlink_to", no_privilege)
+    monkeypatch.setitem(sys.modules, "_winapi", fake_winapi)
+
+    dest, link = tmp_path / "skill", tmp_path / "harness" / "rig"
+    dest.mkdir()
+    install_mod._link_dir(link, dest)
+    assert junctions == [(str(dest), str(link))]
+
+
+def test_link_reraises_other_symlink_errors(tmp_path, monkeypatch):
+    import pytest
+
+    from riglib import install as install_mod
+
+    def boom(self, target, target_is_directory=False):
+        raise PermissionError(13, "denied")
+
+    monkeypatch.setattr(Path, "symlink_to", boom)
+    with pytest.raises(PermissionError):
+        install_mod._link_dir(tmp_path / "l", tmp_path)
+
+
+def test_install_skill_real_junction_is_current_on_rerun(tmp_path, monkeypatch, capsys):
+    import pytest
+
+    if os.name != "nt":
+        pytest.skip("directory junctions are Windows-only")
+    import _winapi
+
+    home = tmp_path / "home"
+    _set_home(monkeypatch, home)
+    skill = home / ".agents" / "skills" / SKILL_NAME
+    skill.mkdir(parents=True)
+    link = _harness_link(home)
+    link.parent.mkdir(parents=True)
+    _winapi.CreateJunction(str(skill), str(link))
+
+    assert install_skill() == 0
+    assert "harness link already current" in capsys.readouterr().out
+    assert (link / "SKILL.md").is_file()

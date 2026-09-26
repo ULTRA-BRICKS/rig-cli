@@ -44,6 +44,23 @@ from .shell_env import ENV_VAR_KEY_PATTERN as _ENV_VAR_KEY_PATTERN
 
 CONFIG_FILENAME = "rig.yaml"
 
+# Blocks that may ONLY come from the GLOBAL layer (~/.config/rig/config.yaml). Unlike the
+# write-routing-only global blocks (bun/spotlight/…, `schema._GLOBAL_ONLY_CATEGORIES`), these are
+# REJECTED at load time from any other layer: `git.config` can set code-executing keys
+# (core.sshCommand, core.fsmonitor, credential.helper, `!` aliases) machine-wide, and `profile`
+# points `rig apply` at a repo whose config it pulls — a committed (possibly adversarial) repo
+# rig.yaml must be able to do neither. Name → one-line reason for the error's `why`.
+_GLOBAL_LAYER_ONLY_BLOCKS: dict[str, str] = {
+    "git": "git.config writes the machine's GLOBAL git config (`git config --global`)",
+    "profile": "profile points rig at the repo your GLOBAL config is synced with",
+}
+
+# `fj` is repo-writable, but only its `host` (the forge this repo's logins use). Every other key is
+# machine-wide: `client_id`/`git_client_id` pick the OAuth app that fj and git hand their tokens to
+# for EVERY listed host, and `enabled`/`install`/`version`/`bin_dir`/`git_credentials` change the
+# machine's fj install and global git config — a committed repo rig.yaml must set none of them.
+_REPO_LAYER_FJ_KEYS = frozenset({"host"})
+
 _VALID_TOP_KEYS = {
     "version",
     "defaults",
@@ -67,6 +84,9 @@ _VALID_TOP_KEYS = {
     "gitignore",
     "spotlight",
     "bun",
+    "fj",
+    "git",
+    "profile",
     "tools",
     "tg_ctl",
     "tcc_watch",
@@ -257,24 +277,93 @@ def repo_config_path(repo_root: Path) -> Path:
 # and the schema it indexes never drift into a separate module.
 
 
+# Maps whose KEYS are themselves dotted names — git's own ``section.name`` keys. A path that goes
+# past one keeps everything after it as ONE key, so `rig config set --global git.config.user.name
+# Alex` writes ``git: {config: {user.name: Alex}}`` (what the validator requires), not a nesting.
+_FLAT_KEY_MAPS: tuple[tuple[str, ...], ...] = (("git", "config"),)
+
+
+def _flat_key_index(parts: list[str]) -> int | None:
+    """Index of the single flat-map key in ``parts`` when the path goes past a flat-key map."""
+    for prefix in _FLAT_KEY_MAPS:
+        if len(parts) > len(prefix) and tuple(parts[: len(prefix)]) == prefix:
+            return len(prefix)
+    return None
+
+
+def _split_segments(dotted: str) -> list[str]:
+    """Split on dots OUTSIDE quotes: ``a."b.c".d`` → ``["a", "b.c", "d"]`` (``'…'`` works too).
+
+    A quote opens a quoted segment only as the segment's first character (spaces aside); anywhere
+    else it is an ordinary character, as it was before quoting existed — ``my"ser"ver`` stays one
+    literal segment instead of silently swallowing the dots up to a later quote. A quoted segment
+    must end at a dot or the end of the path.
+    """
+    segments: list[str] = []
+    buf: list[str] = []
+    quote: str | None = None
+    closed = False  # a quoted segment just ended: only spaces, a dot or the end may follow
+    for ch in dotted:
+        if quote:
+            if ch == quote:
+                quote = None
+                closed = True
+            else:
+                buf.append(ch)
+        elif ch == ".":
+            segments.append("".join(buf).strip())
+            buf = []
+            closed = False
+        elif closed:
+            if not ch.isspace():
+                raise ConfigError(f"invalid config path {dotted!r}: {ch!r} after a quoted segment")
+        elif ch in "\"'" and not "".join(buf).strip():
+            quote = ch
+            buf = []
+        else:
+            buf.append(ch)
+    if quote:
+        raise ConfigError(f"invalid config path {dotted!r}: unterminated {quote}")
+    segments.append("".join(buf).strip())
+    return segments
+
+
 def split_path(dotted: str) -> list[str]:
     """Split and normalize a dot path into trimmed segments, rejecting empty segments.
 
+    A segment in quotes may contain dots (``mcp.items."my.server".command``), and everything past
+    a flat-key map is one key (``git.config.user.name`` → ``git``, ``config``, ``user.name``).
     Fail-closed: a malformed path is a :class:`ConfigError`, not a silent no-op — a typo in
     ``rig config set`` must abort before it writes a key the schema can't reach.
     """
     if not dotted or not dotted.strip():
         raise ConfigError("empty config path")
-    parts = [p.strip() for p in dotted.split(".")]
+    parts = _split_segments(dotted)
     if any(p == "" for p in parts):
-        # empty segment ("a..b", a leading/trailing dot, or a whitespace-only segment "a. .b")
+        # empty segment ("a..b", a leading/trailing dot, a whitespace-only "a. .b", or `a.""`)
         raise ConfigError(f"invalid config path {dotted!r}: empty segment")
+    flat = _flat_key_index(parts)
+    if flat is not None:
+        parts = parts[:flat] + [".".join(parts[flat:])]
     return parts
 
 
 def canonical_dot_path(dotted: str) -> str:
-    """Return the trimmed, single-dot-joined canonical form of a config dot path."""
-    return ".".join(split_path(dotted))
+    """Return the canonical form of a config dot path — one that :func:`split_path` maps back to
+    the same segments. A segment holding a dot or a quote is quoted (unless it is a flat-key-map
+    key), with whichever quote it does not contain; one holding both quotes has no dot-path form."""
+    parts = split_path(dotted)
+    flat = _flat_key_index(parts)
+
+    def render(i: int, p: str) -> str:
+        if i == flat or not any(c in p for c in ".\"'"):
+            return p
+        q = '"' if '"' not in p else "'" if "'" not in p else None
+        if q is None:
+            raise ConfigError(f"invalid config path {dotted!r}: segment {p!r} holds both quote characters")
+        return f"{q}{p}{q}"
+
+    return ".".join(render(i, p) for i, p in enumerate(parts))
 
 
 def get_path(data: dict[str, Any], dotted: str) -> Any:
@@ -433,6 +522,9 @@ class LoadedConfig:
     # maps to the global path even when a repo rig.yaml is also loaded. Used to name the CORRECT
     # source file in an unknown-item error instead of always blaming the repo file.
     key_sources: dict[str, Path] = field(default_factory=dict)
+    # The GLOBAL layer's own data, before a repo layer merged over it — for the machine-wide
+    # settings a repo override must never reach (FJ_FALLBACK_HOST is the global fj.host).
+    global_data: dict[str, Any] = field(default_factory=dict)
 
     @property
     def agent_tools_source(self) -> str | None:
@@ -515,6 +607,7 @@ def load(
     # repo/explicit). A key the repo layer sets overwrites the global provenance — so the final
     # mapping names the file the user must edit to remove the offending key.
     key_sources: dict[str, Path] = {}
+    global_data: dict[str, Any] = {}
 
     def _merge_layer(path: Path, label: str) -> None:
         """Merge one config file into the accumulator and record its key provenance + layer.
@@ -534,6 +627,28 @@ def load(
                 schema_path="mode",
             )
         if label != "global":
+            for block, reason in _GLOBAL_LAYER_ONLY_BLOCKS.items():
+                if block in data:
+                    raise ConfigError(
+                        f"{block} is a global-only config block",
+                        why=f"{path} is loaded as the {label} layer, but {reason} — a repo "
+                        "(or --config) layer must not set it",
+                        fix=f"move {block} to {global_config_path()} "
+                        f"(e.g. `rig config set {block}.<key> <value> --global`)",
+                        schema_path=block,
+                    )
+            fj_block = data.get("fj")
+            machine_keys = sorted(set(fj_block) - _REPO_LAYER_FJ_KEYS) if isinstance(fj_block, dict) else []
+            if machine_keys:
+                raise ConfigError(
+                    f"fj.{machine_keys[0]} is a global-only config key",
+                    why=f"{path} is loaded as the {label} layer, but fj.{', fj.'.join(machine_keys)} "
+                    "change the machine's fj install or the OAuth app fj and git log in with — a "
+                    "repo (or --config) layer may only set fj.host",
+                    fix=f"move them to {global_config_path()} "
+                    f"(e.g. `rig config set fj.{machine_keys[0]} <value> --global`)",
+                    schema_path=f"fj.{machine_keys[0]}",
+                )
             ci_items = data.get("ci", {})
             for part in ("items", "ship"):
                 ci_items = ci_items.get(part, {}) if isinstance(ci_items, dict) else {}
@@ -557,6 +672,8 @@ def load(
                 schema_path="internal_dev",
             )
         merged = _deep_merge(merged, data)
+        if label == "global":
+            global_data.update(data)
         for k in data:
             key_sources[k] = path
         layers.append(f"{label}:{path}")
@@ -571,7 +688,14 @@ def load(
             rpath = explicit_config.resolve()
             if not rpath.is_file() and rpath not in overrides:
                 raise ConfigError(f"--config file not found: {rpath}")
-            label = "repo" if rpath == repo_config_path(repo_root).resolve() else "config"
+            if rpath == repo_config_path(repo_root).resolve():
+                label = "repo"
+            elif rpath == global_config_path().resolve():
+                # the global file passed explicitly (`config set --global`/`env set` validate it in
+                # isolation this way) is still the GLOBAL layer — its global-only blocks are legal.
+                label = "global"
+            else:
+                label = "config"
             _merge_layer(rpath, label)
         else:
             rpath = repo_config_path(repo_root)
@@ -589,6 +713,7 @@ def load(
         repo_path=rpath if rpath and rpath.is_file() else None,
         layers=layers,
         key_sources=key_sources,
+        global_data=global_data,
     )
 
 
@@ -664,6 +789,9 @@ def validate(data: dict[str, Any]) -> None:
     _validate_gitignore(data.get("gitignore", {}))
     _validate_spotlight(data.get("spotlight", {}))
     _validate_bun(data.get("bun", {}))
+    _validate_fj(data.get("fj", {}))
+    _validate_git(data.get("git", {}))
+    _validate_profile(data.get("profile", {}))
     _validate_tools(data.get("tools", {}))
     _validate_tg_ctl(data.get("tg_ctl", {}))
     _validate_tcc_watch(data.get("tcc_watch", {}))
@@ -2535,6 +2663,159 @@ def _validate_bun(s: dict[str, Any]) -> None:
     enabled = s.get("enabled")
     if enabled is not None and not isinstance(enabled, bool):
         raise ConfigError(f"bun.enabled must be a bool, got {enabled!r}", schema_path="bun.enabled")
+
+
+def _validate_fj(f: dict[str, Any]) -> None:
+    """Validate the ``fj`` block — Forgejo access: install ``fj``, one-click OAuth login for fj
+    and git, and a default host (``FJ_FALLBACK_HOST``). See :mod:`riglib.fj`.
+
+    A PRESENT block opts in; ``host`` is then required. Fail-closed on a non-mapping block, an
+    unknown key, a non-bool switch, a ``host`` that is not a bare host name (a scheme/trailing path
+    is tolerated and stripped), a ``version`` rig has no pinned checksum for, and a blank client
+    ID or ``bin_dir``.
+    """
+    from . import fj
+
+    if not isinstance(f, dict):
+        raise ConfigError("fj must be a mapping", schema_path="fj")
+    if not f:
+        return
+    _reject_unknown_keys(f, "fj")
+    for key in ("enabled", "install", "git_credentials"):
+        v = f.get(key)
+        if v is not None and not isinstance(v, bool):
+            raise ConfigError(f"fj.{key} must be a bool, got {v!r}", schema_path=f"fj.{key}")
+    if f.get("enabled") is False:
+        return
+    host = f.get("host")
+    if not fj.is_valid_host(host):
+        raise ConfigError(
+            f"fj.host must be a host name like git.hyperide.ai, got {host!r}", schema_path="fj.host"
+        )
+    version = f.get("version")
+    if version is not None and str(version) not in fj.FJ_RELEASE_SHA256:
+        raise ConfigError(
+            f"fj.version {version!r} has no pinned checksum in this rig "
+            f"(known: {', '.join(sorted(fj.FJ_RELEASE_SHA256))})",
+            schema_path="fj.version",
+        )
+    for key in ("client_id", "git_client_id", "bin_dir"):
+        v = f.get(key)
+        if v is not None and (not isinstance(v, str) or not v.strip() or "\n" in v):
+            raise ConfigError(f"fj.{key} must be a non-empty single-line string", schema_path=f"fj.{key}")
+
+
+def _validate_git(g: dict[str, Any]) -> None:
+    """Validate the ``git`` block — global git settings written with ``git config --global``.
+
+    GLOBAL-only (the loader rejects it from any other layer). A PRESENT block opts in (like
+    ``env``); only an ABSENT block or ``enabled: false`` is a no-op. Fail-closed on: a non-mapping
+    block / ``config``, an unknown key, a non-bool ``enabled``, a key that is not git's
+    ``section.name`` / ``section.subsection.name`` shape (:func:`riglib.gitconfig.parse_key`), two
+    keys git would treat as the same key (section/name are case-insensitive), a key another rig
+    area owns (``core.hooksPath`` / ``core.excludesfile``), and a value that is not a single-line
+    string, a bool or an int (a nested mapping gets a "use dotted keys" fix; a list — a
+    multi-valued key — is out of scope).
+    """
+    from .gitconfig import RESERVED_KEYS, canonical_key, parse_key
+
+    if not isinstance(g, dict):
+        raise ConfigError("git must be a mapping", schema_path="git")
+    if not g:
+        return
+    _reject_unknown_keys(g, "git")
+    _check_bool(g, "enabled", "git.enabled")
+    cfg = g.get("config")
+    if cfg is None:
+        return
+    if not isinstance(cfg, dict):
+        raise ConfigError(
+            f"git.config must be a mapping of dotted git keys to values, got {cfg!r}",
+            fix="e.g. `git: {config: {user.name: Alex, pull.rebase: true}}`",
+            schema_path="git.config",
+        )
+    seen: dict[str, str] = {}
+    for key, value in cfg.items():
+        if isinstance(value, dict):
+            raise ConfigError(
+                f"git.config.{key} is a nested mapping",
+                why="git.config keys are FLAT dotted git keys, not nested YAML sections",
+                fix=f"write `{key}.<name>: <value>` (e.g. `user.name: Alex`, not `user: {{name: Alex}}`), "
+                "or `rig config set --global git.config.user.name Alex`",
+                schema_path="git.config",
+            )
+        if parse_key(key) is None:
+            raise ConfigError(
+                f"git.config key {key!r} is not a valid git config key",
+                why="a git key is section.name or section.subsection.name; section and name start "
+                "with a letter and hold only letters, digits and '-'; no line breaks anywhere",
+                fix="e.g. user.name, pull.rebase, init.defaultBranch, url.https://host/.insteadOf",
+                schema_path="git.config",
+            )
+        canon = canonical_key(key)
+        if canon in RESERVED_KEYS:
+            raise ConfigError(
+                f"git.config.{key} is managed by another rig block",
+                why=RESERVED_KEYS[canon],
+                fix=f"remove {key} from git.config and configure it in its owning block",
+                schema_path="git.config",
+            )
+        if canon in seen:
+            raise ConfigError(
+                f"git.config declares {seen[canon]!r} and {key!r}, which git treats as the same key",
+                why="git compares the section and name of a key case-insensitively",
+                fix="keep one spelling",
+                schema_path="git.config",
+            )
+        seen[canon] = key
+        if isinstance(value, (bool, int)):
+            continue
+        if isinstance(value, str):
+            if any(ch in value for ch in ("\r", "\n", "\x00")):
+                raise ConfigError(
+                    f"git.config.{key} must be a single line, got {value!r}",
+                    why="each value is one `git config --global <key> <value>` call; drift compares "
+                    "it line-for-line",
+                    schema_path="git.config",
+                )
+            continue
+        kind = repr(value) if not isinstance(value, list) else "a list (multi-valued keys are not supported)"
+        raise ConfigError(
+            f"git.config.{key} must be a string, bool or int, got {kind}",
+            fix="quote the value to pass it through verbatim (e.g. core.compression: \"9\")",
+            schema_path="git.config",
+        )
+
+
+def _validate_profile(p: dict[str, Any]) -> None:
+    """Validate the ``profile`` block — where ``rig profile sync`` keeps the global config.
+
+    GLOBAL-only (the loader rejects it from any other layer). Fail-closed on a non-mapping block,
+    an unknown key, a non-bool ``auto_sync``, and a ``repo`` that is not a non-empty single-line
+    string or that starts with ``-`` (it is handed to ``git clone`` — an option-looking URL is
+    refused outright rather than trusted to the ``--`` separator alone).
+    """
+    if not isinstance(p, dict):
+        raise ConfigError("profile must be a mapping", schema_path="profile")
+    if not p:
+        return
+    _reject_unknown_keys(p, "profile")
+    _check_bool(p, "auto_sync", "profile.auto_sync")
+    repo = p.get("repo")
+    if repo is None:
+        return
+    if (
+        not isinstance(repo, str)
+        or not repo.strip()
+        or repo.strip() != repo
+        or repo.startswith("-")
+        or any(ch in repo for ch in ("\r", "\n", "\x00"))
+    ):
+        raise ConfigError(
+            f"profile.repo must be a git URL (one line, no surrounding spaces), got {repo!r}",
+            fix="e.g. https://git.hyperide.ai/<login>/.rig-profile",
+            schema_path="profile.repo",
+        )
 
 
 

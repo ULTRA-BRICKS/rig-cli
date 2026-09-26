@@ -1059,6 +1059,12 @@ def build(
     # ── bun (isolated linker + global virtual store in ~/.bunfig.toml) ────────────
     _build_bun(config, plan)
 
+    # ── fj (Forgejo: install fj, one-click OAuth login for fj + git, default host) ─
+    _build_fj(config, plan)
+
+    # ── git (global git settings via `git config --global`) ──────────────────────────
+    _build_git(config, plan)
+
     # ── tools (the personal CLI ecosystem: tg/review/task/draw/…) ──────────────────
     _build_tools(config, plan)
 
@@ -3327,13 +3333,20 @@ def _build_env(config: LoadedConfig, plan: InstallPlan) -> None:
     repo root (mirrors every other action's target resolution — never re-resolved against CWD by
     the runner) so a relative path stays anchored to the ``-C`` repo and ``~/`` stays home-anchored.
     """
+    from . import fj
+
     e = config.data.get("env")
-    if e is None or not isinstance(e, dict):
+    # The GLOBAL block only: a repo rig.yaml's fj.host must never become the machine-wide default.
+    implied = fj.implied_env_vars(_global_fj_block(config))
+    if (e is None or not isinstance(e, dict)) and not implied:
         return
+    e = e if isinstance(e, dict) else {}
     if e.get("enabled") is False:
         return
 
     options = env_options_from_config(e, config.repo_root)
+    for key, value in implied.items():  # a hand-set env.vars value wins
+        options["vars"].setdefault(key, value)
     plan.actions.append(
         Action(
             kind="provision_env",
@@ -3392,6 +3405,50 @@ def _build_spotlight(config: LoadedConfig, plan: InstallPlan) -> None:
     )
 
 
+def _global_fj_block(config: LoadedConfig) -> dict | None:
+    """The ``fj`` block of the GLOBAL layer alone — machine-wide fj settings, never a repo
+    rig.yaml's override (a repo layer may only name its own ``fj.host``)."""
+    block = config.global_data.get("fj")
+    return block if isinstance(block, dict) else None
+
+
+def _global_fj_host(config: LoadedConfig) -> str | None:
+    """``fj.host`` from the GLOBAL config file alone — the machine default FJ_FALLBACK_HOST points
+    at, even when the repo rig.yaml overrides ``fj.host`` for its own logins. ``None`` when the
+    global config names no host: then rig sets no FJ_FALLBACK_HOST."""
+    block = _global_fj_block(config)
+    if block is None or block.get("enabled") is False:
+        return None
+    host = block.get("host")
+    return str(host) if host else None
+
+
+def _build_fj(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan Forgejo access, if a ``fj`` block enables it (block PRESENCE opts in).
+
+    One ``provision_fj`` action: install fj when missing, list every login host in fj's
+    ``client_ids`` (Forgejo's built-in public OAuth app), set ``FJ_FALLBACK_HOST`` on Windows (on
+    macOS/Linux ``_build_env`` exports it) and write Git Credential Manager's OAuth settings. See
+    :mod:`riglib.fj`.
+    """
+    from . import fj
+
+    block = config.data.get("fj")
+    if not isinstance(block, dict) or not block or block.get("enabled") is False:
+        return
+    options = fj.fj_options_from_config(block, fallback_host=_global_fj_host(config))
+    plan.actions.append(
+        Action(
+            kind="provision_fj",
+            category="fj",
+            item=options["hosts"][0],
+            source=config.repo_root,  # no carrier; rig derives everything from the block
+            target=fj.client_ids_path(),
+            options=options,
+        )
+    )
+
+
 def _build_bun(config: LoadedConfig, plan: InstallPlan) -> None:
     """Plan the global bunfig isolated-linker + globalStore splice.
 
@@ -3414,6 +3471,30 @@ def _build_bun(config: LoadedConfig, plan: InstallPlan) -> None:
             item="bunfig",
             source=config.repo_root,
             target=target,
+        )
+    )
+
+
+def _build_git(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the global git settings (``git.config`` → ``git config --global``).
+
+    A PRESENT block opts in (like ``env``); an absent block, ``enabled: false``, or a block that
+    declares no keys emits NO action. ONE action carries every key (drift still reports per key).
+    GLOBAL-only — the loader already refused a ``git`` block from any other layer.
+    """
+    from . import gitconfig
+
+    entries = gitconfig.desired_config(config.data.get("git"))
+    if not entries:
+        return
+    plan.actions.append(
+        Action(
+            kind="provision_git_config",
+            category="git",
+            item="config",
+            source=config.repo_root,
+            target=gitconfig.global_gitconfig_path(),
+            options={"config": entries},
         )
     )
 

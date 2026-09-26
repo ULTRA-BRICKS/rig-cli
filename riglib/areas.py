@@ -66,6 +66,7 @@ AREAS: tuple[Area, ...] = (
     Area("gitignore", "global gitignore excludes", GLOBAL, ("gitignore",)),
     Area("spotlight", "Spotlight-exclude sweep + agent (macOS)", GLOBAL, ("spotlight",)),
     Area("bun", "bun isolated linker + global store (~/.bunfig.toml)", GLOBAL, ("bun",)),
+    Area("git", "global git settings (git config --global)", GLOBAL, ("git",)),
     Area("mcp", "MCP servers", GLOBAL, ("mcp",)),
     # the harness area spans both the auto/permission-mode write AND the cc-hook-bridge wiring —
     # both emit category="harness" (plan.py: apply_harness + register_hook_bridge), so the label
@@ -75,6 +76,7 @@ AREAS: tuple[Area, ...] = (
     Area("mode", "agent operating mode", GLOBAL, ("mode",)),
     Area("tmux", "tmux config", GLOBAL, ("tmux",)),
     Area("env", "shell environment variables", GLOBAL, ("env",)),
+    Area("fj", "Forgejo access (fj + the `fj ship` wrapper, one-click login, default host)", GLOBAL, ("fj",)),
     Area("models", "model-freshness cron", GLOBAL, ("models",)),
     Area("tg_ctl", "tg-ctl inbound daemon", GLOBAL, ("tg_ctl",)),
     Area("tgctl_reaper", "tgctl-reaper orphan sweep (macOS)", GLOBAL, ("tgctl_reaper",)),

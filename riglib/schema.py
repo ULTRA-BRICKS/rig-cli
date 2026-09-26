@@ -60,10 +60,14 @@ _HARNESS_KIND_CHOICES: tuple[str, ...] = tuple(
 # editing their value belongs in the repo file. The GLOBAL-ONLY categories are the machine-wide
 # blocks the scaffold deliberately NEVER writes into a committed repo file — ``gitignore`` and
 # ``tg_ctl`` (documented global-only in config.py/state.py), ``tmux`` (machine tmux config), and
-# ``mode`` (machine-wide agent policy).
+# ``mode`` (machine-wide agent policy). ``git`` (``git config --global``) and ``profile`` (the
+# config-sync repo) go further: ``config.load`` REJECTS them from any non-global layer
+# (``config._GLOBAL_LAYER_ONLY_BLOCKS``), so this routing is their write-side twin.
 # Routing a GLOBAL-only value into a committed repo rig.yaml is the footgun this map prevents.
 # A category absent here defaults to REPO (the conservative "it lives in the committed file").
-_GLOBAL_ONLY_CATEGORIES = {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tgctl_reaper", "tmux", "mode"}
+_GLOBAL_ONLY_CATEGORIES = {
+    "gitignore", "spotlight", "bun", "git", "profile", "tg_ctl", "tcc_watch", "tgctl_reaper", "tmux", "mode",
+}
 
 
 def writable_layer_for_category(category: str) -> str:

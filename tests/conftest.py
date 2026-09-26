@@ -27,12 +27,20 @@ def _isolate_home(monkeypatch, tmp_path):
     home = tmp_path / "isolated-home"
     home.mkdir(exist_ok=True)
     monkeypatch.setenv("HOME", str(home))
+    # Python on Windows expands ``~`` from USERPROFILE and ignores HOME, so HOME alone isolates
+    # nothing there: a run on Windows rewrote the developer's real ~/.claude/settings.json and
+    # created ~/.agents, ~/.codex, ~/bin/ship... Pin USERPROFILE to the same throwaway home.
+    monkeypatch.setenv("USERPROFILE", str(home))
+    # %APPDATA% too: Windows tools keep per-user config there (fj reads its client_ids from it).
+    monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
     # Also pin XDG_CONFIG_HOME under the throwaway home. The global-excludes default
     # (``~/.config/git/ignore``) expands ``~/.config`` via ``$XDG_CONFIG_HOME`` when set — so a
     # developer who exports XDG_CONFIG_HOME globally would otherwise have a full-plan e2e test
     # write into their REAL ``$XDG_CONFIG_HOME/git/ignore``. Force it under the isolated home so no
     # test can ever touch a real XDG config dir. Tests that need a specific XDG override it inline.
     monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    # And XDG_DATA_HOME: rig keeps the real fj it downloads under it (riglib.fj.fj_store_root).
+    monkeypatch.setenv("XDG_DATA_HOME", str(home / ".local" / "share"))
     # Codex provisioning honors RIG_CODEX_HOME instead of ambient CODEX_HOME. Clear any host value
     # suite-wide so default-path assertions stay deterministic; override inline where needed.
     # Ambient CODEX_HOME is ignored by design, so it needs no suite-wide clear.
@@ -220,6 +228,9 @@ def _isolate_global_git_config(monkeypatch):
     for mod in (runner, driftmod):
         monkeypatch.setattr(mod, "_git_global", lambda key: store.get(key), raising=False)
     monkeypatch.setattr(runner, "_set_git_global", lambda key, value: store.__setitem__(key, value) or 0)
+    # the `git:` area's verbatim reader (riglib.gitconfig imports it lazily from runner, so the
+    # runner attribute is the one seam). Same store: an e2e apply's writes read back as current.
+    monkeypatch.setattr(runner, "_git_global_get", lambda key: store.get(key))
 
 
 @pytest.fixture(autouse=True)

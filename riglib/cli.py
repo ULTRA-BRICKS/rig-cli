@@ -19,7 +19,6 @@ Subcommands:
     rig daily    "what shipped" report over merged PRs (paste into Slack)
     rig usage    Claude token/cost usage across accounts (hypothetical cost at list price)
     rig evolve   local project evolution portal (git histogram + code treemap)
-    rig codex    safe Codex maintenance helpers
     rig worktree create/remove/gc — the standardized .worktrees/<name> agent-worktree lifecycle
     rig report   HTML completion report from git history since merge-base (HyperIDE /result-report)
 """
@@ -29,7 +28,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
-import math
 import shlex
 import subprocess
 import sys
@@ -137,7 +135,7 @@ def _tui_importable() -> bool:
     """True when the wizard's deps are importable AND new enough to actually run the wizard.
 
     ``textual`` + ``rich`` are CORE runtime dependencies (pyproject ``[project].dependencies``),
-    so every canonical install (`pipx install rig-cli`, `uv tool install rig-cli`, `pip install
+    so every canonical install (`pipx install hyper-rig`, `uv tool install hyper-rig`, `pip install
     rig-cli`) brings them and this is normally True. It can be False on a genuinely broken
     environment (a partial / corrupt install) OR on a present-but-too-old ``textual`` (a distro
     package, a stale pre-floor-bump venv, see ``doctor.textual_too_old()``); either way `rig
@@ -219,7 +217,6 @@ def build_parser() -> argparse.ArgumentParser:
             "  5    missing target (config references a path/binary that's gone on disk)\n"
             "  6    not a git repository (a repo-scoped command run outside a repo)\n"
             "  7    repo corrupt (a working checkout's git config is broken, e.g. core.bare=true)\n"
-            "  8    Codex update failed (candidate failed probes or rollback needed attention)\n"
             "  127  missing dependency (a required external tool isn't installed)\n"
             "\n"
             "  precedence (doctor): `rig doctor` exits 7 (repo corrupt) ahead of any other class —\n"
@@ -381,6 +378,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_config_parser(sub)
     _add_env_parser(sub)
+    _add_profile_parser(sub)
 
     # `config-web` — a local web UI over the SAME config engine as the wizard / `config set`.
     # Its lifecycle (run/start/stop/status/enable/disable + OS autostart) is delegated to the
@@ -402,7 +400,6 @@ def build_parser() -> argparse.ArgumentParser:
     _add_stats_parser(sub)
     _add_daily_parser(sub)
     _add_usage_parser(sub)
-    _add_codex_parser(sub)
     _add_worktree_parser(sub)
     _add_report_parser(sub)
 
@@ -451,6 +448,61 @@ def _add_config_parser(sub: "argparse._SubParsersAction") -> None:
         "--plan", action="store_true",
         help="list every planned action (default: a per-carrier summary for a large plan)",
     )
+
+
+def _add_profile_parser(sub: "argparse._SubParsersAction") -> None:
+    """`rig profile init|sync|status` — sync the GLOBAL config through a private git repo.
+
+    The engine (three-way compare, clone/seed, push/pull, visibility + env.vars guards) lives in
+    :mod:`riglib.profile`; this only declares the surface.
+    """
+    pp = sub.add_parser(
+        "profile",
+        help="sync ~/.config/rig/config.yaml through a PRIVATE git repo, both ways (init/sync/status)",
+        description="Carry the GLOBAL rig config between machines through a private git repo "
+        "(<forge>/<login>/.rig-profile) holding config.yaml. `init` clones it (or seeds an empty "
+        "one), `sync` moves changes both ways and refuses when both sides changed, `status` says "
+        "which side changed without writing. The repo MUST be private: env.vars can hold API keys.",
+    )
+    pp.set_defaults(_profile_parser=pp)
+    psub = pp.add_subparsers(dest="profile_command", metavar="<init|sync|status>")
+
+    pi = psub.add_parser(
+        "init",
+        help="clone the profile repo (or seed an empty one with the local config) and record it",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="exit codes:\n  0 synced\n  1 git/network failure or a refused push (public repo)\n"
+        "  2 no URL / invalid config / no git identity\n  3 local and remote differ — pick a side "
+        "with `rig profile sync --take local|remote`",
+    )
+    pi.add_argument(
+        "url", nargs="?",
+        help="profile repo URL (default: profile.repo from the global config, else "
+        "https://<host>/<fj login>/.rig-profile when `fj whoami` knows the login)",
+    )
+    pi.add_argument("--host", help="forge host for the derived default URL (default: fj's host, "
+                    "$FJ_FALLBACK_HOST, else git.hyperide.ai)")
+    pi.add_argument(
+        "--auto-sync", dest="auto_sync", action=argparse.BooleanOptionalAction, default=None,
+        help="--no-auto-sync records profile.auto_sync: false (by default `rig apply commit` syncs first)",
+    )
+
+    ps = psub.add_parser(
+        "sync",
+        help="two-way sync: push a local change, pull a remote change, refuse when both changed",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="exit codes:\n  0 in sync / pushed / pulled\n  1 git/network failure or a refused push\n"
+        "  2 not initialized / invalid config / no git identity\n  3 conflict (nothing written)",
+    )
+    ps.add_argument(
+        "--take", choices=("local", "remote"),
+        help="resolve a conflict: local = push this machine's file; remote = adopt the repo's "
+        "(the local file is backed up first)",
+    )
+
+    pst = psub.add_parser("status", help="show which side changed since the last sync (writes nothing)")
+    pst.add_argument("--fetch", action="store_true",
+                     help="fetch the remote first (default: compare against the last-fetched state)")
 
 
 def _add_env_parser(sub: "argparse._SubParsersAction") -> None:
@@ -649,37 +701,6 @@ def _add_usage_parser(sub: "argparse._SubParsersAction") -> None:
     _add_usage_report_args(up)
 
 
-def _add_codex_parser(sub: "argparse._SubParsersAction") -> None:
-    """`rig codex update` — wrap Codex updates with rollback-on-hang probes."""
-    cp = sub.add_parser("codex", help="safe Codex maintenance helpers")
-    cp.set_defaults(_codex_parser=cp)
-    csub = cp.add_subparsers(dest="codex_command", metavar="<update>")
-
-    up = csub.add_parser(
-        "update",
-        help="update Codex, then roll back if version/help/completion probes fail or hang",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="exit codes:\n  0 success\n  8 Codex update failed\n  127 Codex binary or updater command missing",
-    )
-    up.add_argument("--path", help="path to the codex binary (default: first codex on PATH)")
-    up.add_argument(
-        "--backup-dir",
-        default=None,
-        help="where to store last-known-good binary backups (default: ~/.cache/rig/codex-backups)",
-    )
-    up.add_argument(
-        "--probe-timeout",
-        type=float,
-        default=None,
-        help="seconds for each version/help/completion probe (default: 5)",
-    )
-    up.add_argument(
-        "update_command",
-        nargs=argparse.REMAINDER,
-        help="optional updater command after -- (default: brew upgrade --cask codex for Homebrew codex)",
-    )
-
-
 def _add_worktree_parser(sub: "argparse._SubParsersAction") -> None:
     """`rig worktree create`/`remove`/`gc` — the standardized ``.worktrees/<name>`` agent-worktree
     lifecycle. Each subcommand's own argparse registration is split into its own helper below —
@@ -786,6 +807,10 @@ def _add_worktree_gc_subparser(wsub: "argparse._SubParsersAction") -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .stdio import ensure_utf8_stdio
+
+    # bin/rig and `python -m riglib` land here without passing through fleet_entrypoint.
+    ensure_utf8_stdio()
     parser = build_parser()
     args = parser.parse_args(argv)
     if not args.command:
@@ -800,6 +825,7 @@ def main(argv: list[str] | None = None) -> int:
         "export": cmd_export,
         "config": cmd_config,
         "env": cmd_env,
+        "profile": cmd_profile,
         "schema": cmd_schema,
         "install-skill": cmd_install_skill,
         "spotlight-sweep": cmd_spotlight_sweep,
@@ -810,7 +836,6 @@ def main(argv: list[str] | None = None) -> int:
         "stats": cmd_stats,
         "daily": cmd_daily,
         "usage": cmd_usage,
-        "codex": cmd_codex,
         "worktree": cmd_worktree,
         "report": cmd_report,
     }
@@ -1146,50 +1171,6 @@ def _sweep_config_context(args: argparse.Namespace) -> tuple[Path, Path | None]:
     env = detect_environment(Path(args.cwd).resolve())
     explicit = _resolve_explicit_config(env, getattr(args, "config", None))
     return env.repo_root, explicit
-
-
-def cmd_codex(args: argparse.Namespace) -> int:
-    if not getattr(args, "codex_command", None):
-        args._codex_parser.print_help()
-        return 0
-    if args.codex_command != "update":
-        args._codex_parser.print_help()
-        return 2
-
-    from . import codex_update
-
-    command = list(getattr(args, "update_command", []) or [])
-    if command and command[0] == "--":
-        command = command[1:]
-    if args.probe_timeout is not None and (
-        args.probe_timeout <= 0 or not math.isfinite(args.probe_timeout)
-    ):
-        print(_err("codex update: --probe-timeout must be positive"))
-        return 2
-    try:
-        result = codex_update.safe_update(
-            codex_path=args.path,
-            update_command=command or None,
-            backup_dir=args.backup_dir or codex_update.DEFAULT_BACKUP_DIR,
-            probe_timeout_s=(
-                args.probe_timeout
-                if args.probe_timeout is not None
-                else codex_update.DEFAULT_PROBE_TIMEOUT_S
-            ),
-        )
-    except FileNotFoundError as exc:
-        print(_err(f"codex update: {exc}"))
-        return 127
-
-    prefix = {
-        "updated": _ok("updated"),
-        "rolled_back": _warn("rolled back"),
-        "error": _err("error"),
-    }.get(result.status, result.status)
-    print(f"codex update: {prefix}: {result.message}")
-    if result.backup_path is not None:
-        print(_dim(f"last-known-good backup: {result.backup_path}"))
-    return result.exit_code
 
 
 def cmd_worktree(args: argparse.Namespace) -> int:
@@ -1597,15 +1578,15 @@ def _print_init_next_steps(
         # already guarantee. (A prior comment here also named a nonexistent `cmd_init`
         # function — round 18 — the real dispatcher is `cmd_setup`.)
         missing = missing_names or ["textual"]
-        # `pipx install rig-cli` is NOT a clean fix without this caveat, in EITHER branch
+        # `pipx install hyper-rig` is NOT a clean fix without this caveat, in EITHER branch
         # below that offers it as the "switch to a managed install" alternative:
         # `install.sh`'s symlink shape already occupies `~/.local/bin/rig`, and pipx
         # typically leaves an EXISTING app link alone rather than replacing it — so a bare
-        # "pipx install rig-cli" can leave the user still invoking the same broken/too-old
+        # "pipx install hyper-rig" can leave the user still invoking the same broken/too-old
         # checkout afterward (a review finding, found twice: the caveat was present in only
         # one of the two branches that needed it). One string so the two copies can't drift
         # apart again.
-        managed_install_line = f"  {_dim('•')} or switch to a managed install: remove ~/.local/bin/rig, then pipx install rig-cli"
+        managed_install_line = f"  {_dim('•')} or switch to a managed install: remove ~/.local/bin/rig, then pipx install hyper-rig"
         if externally_managed():
             # Lead with the command that actually fixes THIS checkout.
             fallback = break_system_packages_command_for(missing)
@@ -1613,8 +1594,8 @@ def _print_init_next_steps(
             print(f"        run: {_dim_cmd(fallback)}")
             print(managed_install_line)
         elif textual_is_too_old:
-            # A review finding: this branch used to ONLY ever suggest `pipx install rig-cli` /
-            # `uv tool install rig-cli` — fine for a genuinely ABSENT textual (a fresh managed
+            # A review finding: this branch used to ONLY ever suggest `pipx install hyper-rig` /
+            # `uv tool install hyper-rig` — fine for a genuinely ABSENT textual (a fresh managed
             # install brings a current one), but a REINSTALL of rig into a NEW managed venv
             # never touches an existing dev-checkout install's CURRENT interpreter, so a
             # too-old textual there survived every re-run with the identical "too old"
@@ -1624,8 +1605,8 @@ def _print_init_next_steps(
             print(f"        run: {_dim_cmd(textual_upgrade_command())}")
             print(managed_install_line)
         else:
-            print(f"  {_dim('•')} pipx install rig-cli   (recommended — reinstalls rig into an isolated, managed env)")
-            print(f"  {_dim('•')} or: uv tool install rig-cli   (then re-run `rig init`)")
+            print(f"  {_dim('•')} pipx install hyper-rig   (recommended — reinstalls rig into an isolated, managed env)")
+            print(f"  {_dim('•')} or: uv tool install hyper-rig   (then re-run `rig init`)")
             # A review finding: this branch's suggestions hit the SAME stale-symlink problem
             # `managed_install_line` above exists for — a dev-checkout install
             # (install.sh's `~/.local/bin/rig` symlink) with textual genuinely absent, on a
@@ -1854,6 +1835,13 @@ def cmd_apply(args: argparse.Namespace) -> int:
     from .catalog import CatalogError
     from .config import ConfigError
     from .plan import PlanError
+    from .profile import auto_sync_enabled
+
+    mode = _resolve_apply_mode(args)
+    # profile.auto_sync: sync the global config BEFORE the plan is built (a pull can change the very
+    # file the plan reads). Commit only — a preview mutates nothing, not even the profile.
+    if mode == "commit":
+        _apply_auto_sync_profile()
 
     try:
         plan, loaded, env = _load_plan(args.cwd, args.config)
@@ -1873,8 +1861,11 @@ def cmd_apply(args: argparse.Namespace) -> int:
         wanted = _scope_categories(args.only)
         plan.actions = [a for a in plan.actions if _action_in_only_scope(a, wanted)]
 
-    if _resolve_apply_mode(args) == "info":
-        return _apply_info(plan, args)
+    if mode == "info":
+        rc = _apply_info(plan, args)
+        if auto_sync_enabled():
+            print(_dim("  (profile.auto_sync is on: `rig apply commit` syncs the profile first)"))
+        return rc
     return _apply_commit(plan, args)
 
 
@@ -1944,6 +1935,7 @@ _LIVE_ACTIVATION_KINDS = frozenset({
     "provision_github_ghas",
     "provision_github_actions",
     "provision_github_browser",
+    "provision_fj",  # a Homebrew install or a release download on first apply
 })
 
 
@@ -2818,7 +2810,7 @@ def _print_dep_statuses(report) -> None:
             # someone intentionally installing into THIS interpreter (e.g. rig's own dev
             # checkout) rather than switching to a pipx/uv-tool managed install.
             print(f"      {_warn('this interpreter is PEP-668 externally-managed — the command above will refuse.')}")
-            print(f"      {_dim('either: pipx install rig-cli   (recommended — isolates rig cleanly)')}")
+            print(f"      {_dim('either: pipx install hyper-rig   (recommended — isolates rig cleanly)')}")
             print(f"          or: {_dim_cmd(st.pep668_fallback)}")
 
 
@@ -3033,7 +3025,7 @@ def _doctor_bootstrap(report, *, include_optional: bool) -> int:
             # resolver/permission failure the marker check can't distinguish. Hedge the wording
             # accordingly rather than asserting a cause that isn't always true.
             print(f"        {_warn('install failed — if this interpreter refused it (PEP-668), try:')}")
-            print(f"        {_dim('either: pipx install rig-cli   (recommended)')}")
+            print(f"        {_dim('either: pipx install hyper-rig   (recommended)')}")
             print(f"            or: {_dim_cmd(fallback_by_name[name])}")
     if failed:
         # an install that left a REQUIRED dep absent is still the missing-dependency class;
@@ -3386,6 +3378,103 @@ def _cmd_config_set(args: argparse.Namespace) -> int:
         ok_line=f"set {config_path} = {_fmt_scalar(value)}  → {target}",
         preview_hint="(preview only: config and disk are unchanged; add --commit to write + reconcile)",
     )
+
+
+def _profile_notify(level: str, text: str) -> None:
+    """Render one live message from :mod:`riglib.profile` (warnings to stderr, loud)."""
+    if level == "warn":
+        print(_warn(text), file=sys.stderr, flush=True)
+    elif level == "error":
+        print(_err(text), file=sys.stderr, flush=True)
+    else:
+        print(_dim(text), flush=True)
+
+
+def _print_profile_outcome(outcome) -> int:
+    style = {"pushed": _ok, "pulled": _ok, "in_sync": _ok, "nothing": _dim}.get(outcome.result, _err)
+    prefix = "profile: CONFLICT — " if outcome.result == "conflict" else "profile: "
+    print(style(prefix + outcome.detail))
+    for level, text in outcome.messages:
+        _profile_notify(level, text)
+    return outcome.code
+
+
+def _print_profile_error(exc) -> int:
+    print(_err(f"error: {exc.what}"), file=sys.stderr)
+    if exc.fix:
+        print(_ok("  fix: ") + exc.fix, file=sys.stderr)
+    return exc.code
+
+
+def cmd_profile(args: argparse.Namespace) -> int:
+    """`rig profile init|sync|status` — thin dispatch; the engine is :mod:`riglib.profile`."""
+    from . import profile
+
+    command = getattr(args, "profile_command", None)
+    if not command:
+        print(_err("error: `rig profile` needs a subcommand: init, sync, or status"), file=sys.stderr)
+        print(_dim("  rig profile init [URL]         # clone (or seed) the private profile repo"), file=sys.stderr)
+        print(_dim("  rig profile sync [--take …]    # push/pull ~/.config/rig/config.yaml"), file=sys.stderr)
+        print(_dim("  rig profile status [--fetch]   # which side changed (writes nothing)"), file=sys.stderr)
+        return 2
+    try:
+        if command == "init":
+            return _print_profile_outcome(
+                profile.init(args.url, host=args.host, auto_sync=args.auto_sync, notify=_profile_notify)
+            )
+        if command == "sync":
+            return _print_profile_outcome(profile.sync(take=args.take, notify=_profile_notify))
+        st = profile.status(fetch=args.fetch)
+    except profile.ProfileError as exc:
+        return _print_profile_error(exc)
+    verdicts = {
+        "in_sync": _ok("in sync"),
+        "push": _warn("local changed — `rig profile sync` pushes it"),
+        "pull": _warn("remote changed — `rig profile sync` pulls it (local file backed up)"),
+        "conflict": _err("CONFLICT — both changed; resolve with `rig profile sync --take local|remote`"),
+    }
+    print(f"profile: {st.url}")
+    print(_dim(f"  checkout: {st.checkout}"))
+    print(f"  local  ({profile.local_config_path()}): {st.local}")
+    print(f"  remote ({profile.PROFILE_FILE} in the repo): {st.remote}")
+    print(f"  last sync: {st.synced_at or 'never'}")
+    print(f"  state: {verdicts[st.verdict]}")
+    if not args.fetch:
+        print(_dim("  (compared against the last-fetched remote; --fetch to refresh)"))
+    return 0 if st.verdict == "in_sync" else profile.EXIT_CONFLICT
+
+
+def _apply_auto_sync_profile() -> None:
+    """`profile.auto_sync: true` → sync the global config before `rig apply commit` builds its plan.
+
+    Non-fatal by contract: any failure (network, push refused, conflict, not initialized) prints a
+    warning and the apply continues with the LOCAL file as it is on disk.
+    """
+    from . import profile
+
+    if not profile.auto_sync_enabled():
+        return
+    try:
+        outcome = profile.sync(noninteractive=True, notify=_profile_notify)
+    except profile.ProfileError as exc:
+        print(_warn(f"profile auto_sync skipped: {exc.what} — applying the local config"), file=sys.stderr)
+        if exc.fix:
+            print(_dim(f"  fix: {exc.fix}"), file=sys.stderr)
+        return
+    except Exception as exc:  # noqa: BLE001 — auto-sync must never break apply
+        print(_warn(f"profile auto_sync failed ({type(exc).__name__}: {exc}) — applying the local config"),
+              file=sys.stderr)
+        return
+    if outcome.result == "conflict":
+        print(_warn(f"profile auto_sync: {outcome.detail} — applying the local config"), file=sys.stderr)
+        print(_dim("  resolve with `rig profile sync --take local|remote`"), file=sys.stderr)
+        return
+    if outcome.result == "pulled":
+        # the plan about to run is built from a config the user has not previewed — say so loudly
+        print(_warn(f"profile auto_sync: {outcome.detail}"))
+        print(_warn("  the plan below is built from the PULLED config (preview: `rig apply`)"))
+        return
+    print(_dim(f"profile auto_sync: {outcome.detail}"))
 
 
 def cmd_env(args: argparse.Namespace) -> int:

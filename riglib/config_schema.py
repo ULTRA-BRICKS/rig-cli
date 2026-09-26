@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .gitconfig import GIT_CONFIG_KEY_JSON_PATTERN
 from .harness_skills import (
     HARNESS_INSTRUCTION_FILES,
     HARNESS_NATIVE_SKILLS,
@@ -84,7 +85,9 @@ class Leaf:
     to the leaf itself, or to each array element when ``type`` is ``array``); ``items_type`` the
     element type of an ``array``; ``items_enum`` pins allowed array entries; ``items_pattern``
     constrains string array entries;
-    ``additional_properties_type`` models a string-keyed object map.
+    ``additional_properties_type`` models a string-keyed object map (a tuple of type names for a
+    map whose values may be any of several scalar types); ``property_names_pattern`` constrains
+    that map's KEYS (``propertyNames``).
     ``not_pattern`` (scalar ``string`` leaves only) rejects any value that MATCHES the given
     regex anywhere — modeled as a ``"not": {"pattern": …}`` sub-schema — for a value whose
     validity is "must not contain X" rather than "must match a shape" (``enum``/``pattern``
@@ -102,7 +105,8 @@ class Leaf:
     items_type: str | None = None
     items_enum: tuple[str, ...] = ()
     items_pattern: str | None = None
-    additional_properties_type: str | None = None
+    additional_properties_type: str | tuple[str, ...] | None = None
+    property_names_pattern: str | None = None
     not_pattern: str | None = None
 
     def to_node(self) -> dict[str, Any]:
@@ -128,7 +132,10 @@ class Leaf:
                 items["pattern"] = self.items_pattern
             node["items"] = items
         if self.type == "object" and self.additional_properties_type:
-            node["additionalProperties"] = {"type": self.additional_properties_type}
+            ap_type = self.additional_properties_type
+            node["additionalProperties"] = {"type": list(ap_type) if isinstance(ap_type, tuple) else ap_type}
+        if self.type == "object" and self.property_names_pattern:
+            node["propertyNames"] = {"pattern": self.property_names_pattern}
         if self.type == "string" and self.not_pattern:
             node["not"] = {"pattern": self.not_pattern}
         return node
@@ -1049,11 +1056,68 @@ _SPOTLIGHT_BLOCK = Block(
     },
 )
 
+_FJ_BLOCK = Block(
+    doc=(
+        "Forgejo access (GLOBAL, per machine): install `fj` behind a thin wrapper that adds `fj ship` "
+        "(the same ship gate as `gh ship`), one-click browser login for fj and git through Forgejo's "
+        "built-in OAuth apps, and `FJ_FALLBACK_HOST` so `fj` never needs `--host`. "
+        "A PRESENT block opts in; a repo rig.yaml may set `host` to log in to a different instance."
+    ),
+    leaves={
+        "enabled": Leaf("boolean", "provision Forgejo access — block PRESENCE opts in; false opts out"),
+        "host": Leaf("string", "the Forgejo host (`git.hyperide.ai`) — login target and FJ_FALLBACK_HOST"),
+        "install": Leaf("boolean", "manage the `fj` command: the real fj (brew on macOS, pinned release binary in rig's store elsewhere) + the `fj ship` wrapper in bin_dir; false leaves fj entirely to you", default=True),
+        "version": Leaf("string", "fj release to install where rig downloads it", default="0.6.0"),
+        "bin_dir": Leaf("string", "where the `fj` wrapper goes (must be on PATH, ahead of any other fj)", default="~/.local/bin"),
+        "git_credentials": Leaf("boolean", "configure Git Credential Manager OAuth for https://<host>", default=True),
+        "client_id": Leaf("string", "OAuth client ID fj logs in with (default: Forgejo's built-in `tea` app)"),
+        "git_client_id": Leaf("string", "OAuth client ID GCM logs in with (default: Forgejo's built-in GCM app)"),
+    },
+)
+
+
 _BUN_BLOCK = Block(
     doc="GLOBAL bunfig: splice [install] linker=isolated and globalStore=true.",
     leaves={
         "enabled": Leaf("boolean", "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in)", default=False),
     },
+)
+
+_GIT_BLOCK = Block(
+    doc=(
+        "GLOBAL git settings: each `config` entry is written with `git config --global <key> <value>` "
+        "(bools as true/false), idempotently; keys set by hand are never unset. GLOBAL-only — "
+        "rejected from a repo rig.yaml."
+    ),
+    leaves={
+        # No `default=` (same reason as env.enabled): block PRESENCE opts in; only an explicit
+        # `enabled: false` opts out, and an absent block is a no-op — one scalar default can't say it.
+        "enabled": Leaf("boolean", "provision the global git settings — block PRESENCE opts in; only an explicit false opts out"),
+        "config": Leaf(
+            "object",
+            "dotted git keys (section.name / section.subsection.name) → value (string, bool or int)",
+            additional_properties_type=("string", "boolean", "integer"),
+            property_names_pattern=GIT_CONFIG_KEY_JSON_PATTERN,
+        ),
+    },
+    schema_extra={"x-rig-global-only": True},
+)
+
+_PROFILE_BLOCK = Block(
+    doc=(
+        "`rig profile`: the (PRIVATE) git repo ~/.config/rig/config.yaml is synced through, both "
+        "ways. Written by `rig profile init`. GLOBAL-only — rejected from a repo rig.yaml."
+    ),
+    leaves={
+        "repo": Leaf("string", "the profile repo URL, e.g. https://git.hyperide.ai/<login>/.rig-profile (must be private)"),
+        "auto_sync": Leaf(
+            "boolean",
+            "`rig apply commit` runs `rig profile sync` first (a failure warns and applies the local file); "
+            "false turns it off on every machine that shares this profile",
+            default=True,
+        ),
+    },
+    schema_extra={"x-rig-global-only": True},
 )
 
 
@@ -1461,6 +1525,9 @@ BLOCKS: dict[str, Block] = {
     "gitignore": _GITIGNORE_BLOCK,
     "spotlight": _SPOTLIGHT_BLOCK,
     "bun": _BUN_BLOCK,
+    "fj": _FJ_BLOCK,
+    "git": _GIT_BLOCK,
+    "profile": _PROFILE_BLOCK,
     "tools": _TOOLS_BLOCK,
     "tg_ctl": _TG_CTL_BLOCK,
     "tcc_watch": _TCC_WATCH_BLOCK,

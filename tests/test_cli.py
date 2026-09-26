@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from riglib import errors
 from riglib.cli import main
 
 
@@ -21,118 +20,6 @@ def test_no_command_prints_help(capsys):
     out = capsys.readouterr().out
     assert rc == 0
     assert "rig — the dev-environment" in out
-
-
-def test_codex_update_cli_threads_args(capsys, monkeypatch):
-    from pathlib import Path
-
-    from riglib import codex_update
-
-    captured = {}
-
-    def fake_safe_update(**kwargs):
-        captured.update(kwargs)
-        return codex_update.UpdateResult(
-            "updated",
-            "codex healthy after update: codex-cli test",
-            backup_path=Path("/tmp/codex-backup"),
-            exit_code=0,
-        )
-
-    monkeypatch.setattr(codex_update, "safe_update", fake_safe_update)
-
-    rc = main(
-        [
-            "codex",
-            "update",
-            "--path",
-            "/tmp/codex",
-            "--backup-dir",
-            "/tmp/backups",
-            "--probe-timeout",
-            "1.25",
-            "--",
-            "brew",
-            "reinstall",
-            "--cask",
-            "codex",
-        ]
-    )
-
-    out = capsys.readouterr().out
-    assert rc == 0
-    assert "codex update: updated" in out
-    assert captured == {
-        "codex_path": "/tmp/codex",
-        "update_command": ["brew", "reinstall", "--cask", "codex"],
-        "backup_dir": "/tmp/backups",
-        "probe_timeout_s": 1.25,
-    }
-
-
-def test_codex_update_cli_returns_nonzero_after_rollback(capsys, monkeypatch):
-    from riglib import codex_update
-
-    monkeypatch.setattr(
-        codex_update,
-        "safe_update",
-        lambda **kwargs: codex_update.UpdateResult(
-            "rolled_back",
-            "candidate failed",
-            exit_code=errors.EXIT_CODEX_UPDATE,
-        ),
-    )
-
-    rc = main(["codex", "update", "--path", "/tmp/codex"])
-
-    out = capsys.readouterr().out
-    assert rc == errors.EXIT_CODEX_UPDATE
-    assert "rolled back" in out
-
-
-def test_codex_update_cli_missing_updater_returns_127(tmp_path, capsys, monkeypatch):
-    # The subject is the exit code of a MISSING updater, not the health probe of the live binary.
-    # The probe is stubbed: a real bash fake under a sub-second `--probe-timeout` is load-dependent
-    # (three process spawns raced a 0.5s timer and lost whenever the suite ran next to other work).
-    from riglib import codex_update
-
-    live = tmp_path / "codex"
-    live.write_text("#!/usr/bin/env bash\nexit 0\n")
-    live.chmod(0o755)
-    monkeypatch.setattr(
-        codex_update,
-        "probe_codex",
-        lambda path, *, timeout_s: codex_update.ProbeResult(True, "codex-cli test", "probes passed"),
-    )
-    missing = tmp_path / "missing-updater"
-
-    rc = main(
-        [
-            "codex",
-            "update",
-            "--path",
-            str(live),
-            "--backup-dir",
-            str(tmp_path / "backups"),
-            "--probe-timeout",
-            "0.5",
-            "--",
-            str(missing),
-        ]
-    )
-
-    out = capsys.readouterr().out
-    assert rc == 127
-    assert "update command exited 127" in out
-
-
-def test_codex_update_cli_rejects_nonpositive_probe_timeout(capsys):
-    for value in ("0", "nan", "inf"):
-        rc = main(["codex", "update", "--probe-timeout", value])
-
-        out = capsys.readouterr().out
-        assert rc == 2
-        assert "--probe-timeout must be positive" in out
 
 
 def test_doctor_runs(tmp_path, capsys, monkeypatch):
@@ -538,7 +425,7 @@ def test_textual_fallback_previews_and_writes_nothing(tmp_path, capsys, fake_age
     # principle 3 — concrete ways to proceed (reinstall rig + the headless paths)
     assert "rig init --yes" in out
     assert "reinstall rig" not in out  # this branch's own hint below replaces the old bare phrase
-    assert "pipx install rig-cli" in out
+    assert "pipx install hyper-rig" in out
     # principle 2 — no-args mutates nothing
     assert not (repo / "rig.yaml").exists()
     assert not (tmp_path / "home" / ".agents" / "skills").exists()
@@ -569,7 +456,7 @@ def test_textual_fallback_pep668_offers_break_system_packages(tmp_path, capsys, 
     assert "textual + rich are missing" in out
     assert "this Python refuses direct installs (PEP 668)" in out
     assert "broken install" not in out  # wrong diagnosis for this case — must not appear
-    assert "pipx install rig-cli" in out
+    assert "pipx install hyper-rig" in out
     assert "--break-system-packages" in out
     assert "pip install 'rig-cli[tui]'" not in out
     assert "Plan:" in out
@@ -655,7 +542,7 @@ def test_textual_too_old_non_pep668_gets_a_direct_upgrade_command(
 ):
     """Regression for a review finding: on a NON-externally-managed interpreter (pyenv, the
     python.org macOS installer, asdf -- none carry PEP 668's marker), a present-but-too-old
-    textual used to get ONLY the generic "pipx install rig-cli" / "uv tool install rig-cli"
+    textual used to get ONLY the generic "pipx install hyper-rig" / "uv tool install hyper-rig"
     reinstall suggestions -- neither of which upgrades textual in a dev-checkout's CURRENT
     interpreter (a fresh pipx/uv-tool install creates a SEPARATE managed environment that
     never touches the running symlinked checkout at all, the diff's own PEP-668-branch
@@ -680,9 +567,9 @@ def test_textual_too_old_non_pep668_gets_a_direct_upgrade_command(
     assert rc == 0
     assert "textual is too old" in out
     assert "'textual>=0.66'" in out  # a real, executable upgrade command for THIS interpreter
-    assert "pipx install rig-cli" in out  # still offered as the alternative
+    assert "pipx install hyper-rig" in out  # still offered as the alternative
     # a review finding: the alternative needs the SAME "remove ~/.local/bin/rig first"
-    # caveat the PEP-668 branch already has -- a bare "pipx install rig-cli" leaves an
+    # caveat the PEP-668 branch already has -- a bare "pipx install hyper-rig" leaves an
     # existing dev-checkout symlink pointed at the same too-old install.
     assert "remove ~/.local/bin/rig" in out
     # a review finding: "a broken install" is the wrong diagnosis for "too old" -- a pacman
@@ -793,7 +680,7 @@ def test_tui_importable_true_when_present_and_new_enough(monkeypatch):
 
 def test_textual_and_rich_are_core_dependencies():
     """The TUI ships WITH rig: textual + rich are CORE runtime deps in pyproject's
-    `[project].dependencies`, so `pipx install rig-cli` / `uv tool install rig-cli` / `pip install
+    `[project].dependencies`, so `pipx install hyper-rig` / `uv tool install hyper-rig` / `pip install
     rig-cli` all bring the wizard — never an optional `[tui]` extra the user must add separately."""
     # tomllib is stdlib on Python 3.11+; use the backport on 3.10.
     try:
