@@ -1588,7 +1588,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in)",
+          "description": "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in); also lets `rig worktree create` run `bun install` — and so the repo's own install scripts — in new worktrees (see worktree_install)",
           "default": false
         },
         "worktree_install": {

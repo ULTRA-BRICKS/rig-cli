@@ -2586,8 +2586,10 @@ own `bunfig.toml` wins over the global one, so a repo that pins `linker = "hoist
 peer-dependency types through the real paths under `links/`) gets its own layout. If the global
 bunfig is not provisioned (`rig apply` first) or bun is missing, it skips and prints the command;
 a `node_modules` symlink is refused. A failed install leaves the worktree in place and exits `2`
-with the command to finish it (the install is bounded at 15 minutes). Only the global config
-turns the install on — it runs the repo's install scripts, so a cloned repo's committed
+with the command to finish it (the install is bounded at 15 minutes). The install runs the
+repo's own `preinstall`/`postinstall` scripts, as any `bun install` does — so enabling bun means
+trusting the repos you create worktrees for (set `worktree_install: false` if not). Only the
+global config turns the install on — it runs the repo's install scripts, so a cloned repo's committed
 `rig.yaml` must not opt a machine in — but a repo can turn it off with
 `bun: {worktree_install: false}` in its `rig.yaml`.
 

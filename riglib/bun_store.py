@@ -54,7 +54,7 @@ BUN_LOCKFILES = ("bun.lock", "bun.lockb")
 INSTALL_CMD = ("install", "--frozen-lockfile")
 INSTALL_TIMEOUT_S = 900
 _GIT_TIMEOUT_S = 30
-_STDERR_TAIL_LINES = 12
+_OUTPUT_TAIL_LINES = 12
 _NOTE_LABELS_SHOWN = 4
 
 InstallStatus = Literal["installed", "skipped", "failed"]
@@ -158,7 +158,7 @@ def _readlink(path: Path | str) -> str:
 
 def _last_lines(text: str) -> str:
     lines = [ln for ln in text.strip().splitlines() if ln.strip()]
-    return "\n".join(lines[-_STDERR_TAIL_LINES:])
+    return "\n".join(lines[-_OUTPUT_TAIL_LINES:])
 
 
 def write_through_message(link: Path, manual: str) -> str:
@@ -301,13 +301,9 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
     """Classify ``worktree``'s ``node_modules`` against the global store."""
     links = links_dir if links_dir is not None else store_links_dir()
     node_modules = worktree / "node_modules"
-    fix = f"fix: `rm -rf {_q(node_modules)}`, then {manual_command(worktree)}"
     link = write_through_link(worktree)
     if link is not None:
-        return InstallScan(broken=(
-            f"{link.relative_to(worktree)} is a symlink to {_readlink(link)} — `bun install` here "
-            f"writes through it into that checkout; fix: `rm {_q(link)}`, then {manual_command(worktree)}",
-        ))
+        return InstallScan(broken=(write_through_message(link, manual_command(worktree)),))
     if not node_modules.is_dir():
         return InstallScan()
     opted_out = project_store_opt_out(worktree) is not None
@@ -344,6 +340,7 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
         elif entry.is_dir(follow_symlinks=False):
             copied += 1
     problems: list[str] = []
+    fix = f"fix: `rm -rf {_q(node_modules)}`, then {manual_command(worktree)}"
     if foreign:
         problems.append(
             f"{len(foreign)} node_modules/.bun entr{'y' if len(foreign) == 1 else 'ies'} link into another "
@@ -358,32 +355,22 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
     return InstallScan(broken=tuple(problems), off_store=off_store)
 
 
-def _git_worktree_paths(repo_root: Path, *, nul: bool) -> list[str] | None:
-    cmd = ["git", "-C", str(repo_root), "worktree", "list", "--porcelain"] + (["-z"] if nul else [])
-    try:
-        res = subprocess.run(
-            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=_GIT_TIMEOUT_S
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if res.returncode != 0:
-        return None
-    fields = res.stdout.split("\0") if nul else res.stdout.splitlines()
-    return [f[len("worktree ") :] for f in fields if f.startswith("worktree ")]
-
-
 def repo_worktrees(repo_root: Path) -> list[Path] | None:
-    """Every worktree git knows for ``repo_root`` (primary first), skipping ones gone from disk.
+    """Every worktree git knows for ``repo_root`` (primary first), skipping ones gone from disk;
+    None when the listing fails. Uses :mod:`riglib.worktree_gc`'s shared `-z` parser, so a path
+    with a newline or a non-UTF-8 byte cannot hide a worktree."""
+    from .worktree_gc import WorktreeGcError, _parse_worktree_record, _run_worktree_list_porcelain
 
-    NUL-separated (``-z``, git >= 2.36) so a path with a newline cannot hide a worktree; an
-    older git falls back to the line format.
-    """
-    paths = _git_worktree_paths(repo_root, nul=True)
-    if paths is None:
-        paths = _git_worktree_paths(repo_root, nul=False)
-    if paths is None:
+    try:
+        records = _run_worktree_list_porcelain(repo_root, timeout=_GIT_TIMEOUT_S)
+    except WorktreeGcError:
         return None
-    return [Path(p) for p in paths if Path(p).is_dir()]
+    out: list[Path] = []
+    for record in records:
+        info = _parse_worktree_record(record)
+        if info is not None and info.path.is_dir():
+            out.append(info.path)
+    return out
 
 
 def _label(repo_root: Path, worktree: Path) -> str:
@@ -394,7 +381,7 @@ def _label(repo_root: Path, worktree: Path) -> str:
     return str(rel) if str(rel) != "." else "(primary)"
 
 
-def check_worktree_installs(repo_root: Path, report: DriftReport, *, off_store_note: bool = True) -> None:
+def check_worktree_installs(repo_root: Path, report: DriftReport, *, merged_bun: Mapping[str, Any] | None = None) -> None:
     """Drift for broken bun worktree installs of ``repo_root``; one note for off-store ones.
 
     Drift items are ``extra`` (disk→config): an on-disk state no config declares, which apply
@@ -417,7 +404,10 @@ def check_worktree_installs(repo_root: Path, report: DriftReport, *, off_store_n
             report.items.append(DriftItem("extra", "bun", f"worktree:{label}", worktree, problem))
         if scan.off_store:
             off_store.append(f"{label} ({scan.off_store})")
-    if off_store and off_store_note:
+    # a repo that opted out of the worktree install (it installs its own way) gets no note;
+    # its broken states stay drift above
+    opted_out = isinstance(merged_bun, Mapping) and merged_bun.get("worktree_install") is False
+    if off_store and not opted_out:
         shown = ", ".join(off_store[:_NOTE_LABELS_SHOWN])
         if len(off_store) > _NOTE_LABELS_SHOWN:
             shown += f" … and {len(off_store) - _NOTE_LABELS_SHOWN} more"

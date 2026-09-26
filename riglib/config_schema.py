@@ -1083,7 +1083,12 @@ _BUN_BLOCK = Block(
         "and `rig status` flags broken worktree installs."
     ),
     leaves={
-        "enabled": Leaf("boolean", "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in)", default=False),
+        "enabled": Leaf(
+            "boolean",
+            "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in); also lets `rig worktree create` "
+            "run `bun install` — and so the repo's own install scripts — in new worktrees (see worktree_install)",
+            default=False,
+        ),
         "worktree_install": Leaf(
             "boolean",
             "`rig worktree create` runs `bun install --frozen-lockfile` in a new worktree of a bun repo "
