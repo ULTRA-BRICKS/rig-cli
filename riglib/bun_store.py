@@ -189,9 +189,16 @@ def _file_tail(fh, limit: int = 64 * 1024) -> str:
 
 
 def _git_lines(cwd: Path, *args: str) -> list[str] | None:
+    """git's stdout lines (paths keep non-UTF-8 bytes via surrogateescape), or None on failure."""
     try:
-        res = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, timeout=_GIT_TIMEOUT_S)
-    except (OSError, subprocess.TimeoutExpired):
+        res = subprocess.run(
+            ["git", "-C", str(cwd), *args],
+            capture_output=True,
+            encoding="utf-8",
+            errors="surrogateescape",
+            timeout=_GIT_TIMEOUT_S,
+        )
+    except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
     return res.stdout.splitlines() if res.returncode == 0 else None
 
@@ -243,13 +250,14 @@ def _run_bounded(cmd: list[str], cwd: Path, timeout_s: int, env: Mapping[str, st
     ``TimeoutExpired``; returns (exit code, stdout tail, stderr tail)."""
     posix = os.name == "posix"
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
-        proc = subprocess.Popen(
-            cmd, cwd=cwd, env=env, stdout=out, stderr=err, stdin=subprocess.DEVNULL, start_new_session=posix
-        )
+        proc: subprocess.Popen[bytes] | None = None
         try:
+            proc = subprocess.Popen(
+                cmd, cwd=cwd, env=env, stdout=out, stderr=err, stdin=subprocess.DEVNULL, start_new_session=posix
+            )
             proc.wait(timeout=timeout_s)
         finally:
-            if proc.poll() is None:
+            if proc is not None and proc.poll() is None:
                 try:
                     if posix:
                         os.killpg(proc.pid, signal.SIGKILL)
@@ -312,9 +320,11 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
         )
     took = time.monotonic() - started
     opt_out = bunfig.project_store_opt_out(worktree)
-    layout = f"as the repo configures: {opt_out}, so not through the global store" if opt_out else "isolated linker, global store"
-    hooks = f"; its scripts saw core.hooksPath = {pinned}, not the global hooks dir" if pinned else ""
-    return InstallOutcome("installed", f"deps installed: bun install --frozen-lockfile ({layout}) in {took:.1f}s{hooks}")
+    layout_note = f"as the repo configures: {opt_out}, so not through the global store" if opt_out else "isolated linker, global store"
+    hooks_note = f"; its scripts saw core.hooksPath = {pinned}, not the global hooks dir" if pinned else ""
+    return InstallOutcome(
+        "installed", f"deps installed: bun install --frozen-lockfile ({layout_note}) in {took:.1f}s{hooks_note}"
+    )
 
 
 # ── rig status: broken or store-bypassing installs ────────────────────────────

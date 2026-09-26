@@ -648,6 +648,37 @@ def test_a_store_made_under_another_cache_dir_is_not_another_checkout(tmp_path):
     assert "another checkout" in bun_store.scan_install(wt, tmp_path / "home-cache" / "links").broken[0]
 
 
+@posix_only
+def test_worktree_create_pins_hooks_to_the_primary_git_dir(tmp_path, monkeypatch, capsys):
+    """The incident geometry end to end: a LINKED worktree, global core.hooksPath, and an install
+    script that installs git hooks — the shim lands in the primary's .git/hooks (the common dir,
+    which the global composer runs), and rig's composer is untouched."""
+    global_hooks = _global_hooks_path(tmp_path, monkeypatch)
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+    script = bindir / "bun"
+    script.write_text(
+        '#!/bin/sh\nhooks=$(git rev-parse --git-path hooks)\nmkdir -p "$hooks"\n'
+        'echo "call_lefthook run pre-commit" > "$hooks/pre-commit"\nmkdir -p node_modules/.bun\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '/usr/bin:/bin')}")
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n")
+    repo = _git_repo(tmp_path / "repo")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0, capsys.readouterr().out
+    assert "Composing global" in (global_hooks / "pre-commit").read_text(encoding="utf-8")
+    assert "call_lefthook" in (repo / ".git" / "hooks" / "pre-commit").read_text(encoding="utf-8")
+    assert "not the global hooks dir" in capsys.readouterr().out
+
+
+def test_an_array_of_tables_header_ends_install_for_the_global_bunfig_checks():
+    leaked = '[install]\nlinker = "hoisted"\n[[hook]]\nglobalStore = true\nlinker = "isolated"\n'
+    assert bunfig.has_install_global_store(leaked) is False
+    assert bunfig.has_install_isolated_linker(leaked) is False
+
+
 def test_a_repo_local_hooks_path_is_left_alone(tmp_path, monkeypatch):
     _global_hooks_path(tmp_path, monkeypatch)
     repo = _git_repo(tmp_path / "repo")
