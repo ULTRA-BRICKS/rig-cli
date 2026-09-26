@@ -3502,6 +3502,9 @@ Additions on top of the existing `task` block above (`backend`/`team`/`project`/
 - **`task.tasks` block** — coordinates for the `tasks` backend, used when
   `backend: tasks`:
   - `task.tasks.url` — the Tasks-app base URL, e.g. `https://tasks-ultrabricks.vercel.app`.
+    It must be a bare `https` origin — no userinfo, query, fragment or path (task-cli appends
+    `/api/v1` itself and sends its bearer token there) — the same rule task-cli's tasks
+    backend enforces. A rejected value is never echoed back.
   - `task.tasks.team` — the Tasks-app team/workspace key, e.g. `UB`, `HYP`.
   - `task.tasks.attachment_mode` — `native` (upload through the Tasks-app API) or `link`
     (register an already-hosted URL as-is), mirroring `linear.attachment_mode`.
@@ -3558,6 +3561,20 @@ descendant does. Each ancestor's `task` block is independently validated (the sa
 `_validate_task` used for the global/repo layers), so a malformed ancestor config fails
 closed, naming that ancestor's file. Disable the whole mechanism with
 `riglib.config.load(..., include_ancestors=False)`.
+
+**Only trusted ancestors are read.** An ancestor `rig.yaml` — and the directory holding it —
+must be owned by the current user and not group/world-writable, or it is skipped (logged at
+WARNING). This is task-cli's `_trusted_ancestor` rule, so both tools read the same ancestors:
+outside `$HOME` the walk passes shared directories such as `/tmp`, and a `rig.yaml` another
+local user planted there must not retarget your tickets. Windows skips the check. A filesystem
+that reports every file as `0777` or root-owned (WSL `drvfs` under `/mnt/c` without the
+`metadata` mount option, some NFS/SMB mounts) fails it for every ancestor; the WARNING names the
+file or directory, and the fix is a mount that keeps real ownership or a repo-level `task:` block.
+
+**An ancestor alone is not a declared config.** An ancestor contributes only `task` routing,
+which `rig apply` does not consume, so a directory whose only layer is an ancestor still gets
+`rig apply`'s "no rig.yaml found" refusal (and config-web's), instead of applying built-in
+defaults (`LoadedConfig.has_declared_config`).
 
 **`include_repo=False` stays GLOBAL-only.** A caller that excludes the repo scope
 (`load(..., include_repo=False)` — e.g. a global-config-only read) never sees ancestor

@@ -20,12 +20,14 @@ from __future__ import annotations
 
 import os
 import re
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import SplitResult, urlsplit
 
 from .harness_skills import KNOWN_HARNESS_KINDS as _KNOWN_HARNESS_KINDS
+from .logging import get_logger
 from .permissions import (
     HARNESS_ALLOWLIST_NA,
     HARNESS_ALLOWLISTS,
@@ -531,6 +533,17 @@ class LoadedConfig:
     global_data: dict[str, Any] = field(default_factory=dict)
 
     @property
+    def has_declared_config(self) -> bool:
+        """True when a global, repo or ``--config`` layer was loaded.
+
+        An ``ancestor:`` layer does not count: an ancestor ``rig.yaml`` contributes only its
+        ``task`` routing block, which apply does not consume, so it is no source of truth for a
+        repo's apply surface. The "no rig.yaml found" guards (``rig apply``, config-web) use this
+        so an ancestor-only directory still refuses to apply built-in defaults.
+        """
+        return any(not layer.startswith("ancestor:") for layer in self.layers)
+
+    @property
     def agent_tools_source(self) -> str | None:
         v = self.data.get("agent_tools_source")
         return str(v) if v else None
@@ -617,12 +630,42 @@ def _task_inheritance_ancestor_dirs(repo_root: Path) -> list[Path]:
     return list(reversed(nearest_first))
 
 
+def _trusted_ancestor_config(path: Path) -> bool:
+    """Whether an ancestor ``rig.yaml`` may take part in the ``task`` cascade (UB-3 review).
+
+    It must be owned by the current user and not group/world-writable, and so must its
+    directory -- task-cli's ``_trusted_ancestor`` rule, so both tools read the same ancestors.
+    Outside ``$HOME`` the walk passes shared directories such as ``/tmp``; a ``rig.yaml`` another
+    local user planted there must not retarget this user's tickets (and the tracker token task-cli
+    sends with them). An absent file is simply not trusted (nothing to load, nothing logged, so a
+    shared ``/tmp`` does not warn on every load). A rejected existing file is logged at WARNING.
+    Platforms without ``os.getuid`` (Windows) skip the check, as task-cli does.
+    """
+    if not hasattr(os, "getuid"):
+        return True
+    if not path.is_file():
+        return False
+    uid = os.getuid()
+    for target in (path.parent, path):
+        try:
+            st = target.stat()
+        except OSError as exc:
+            get_logger().warning("rig.yaml ancestor skipped: cannot stat %s (%s)", target, exc.strerror or exc)
+            return False
+        if st.st_uid != uid or st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+            get_logger().warning("rig.yaml ancestor skipped: %s is not owned by you or is writable by others", target)
+            return False
+    return True
+
+
 def _read_ancestor_yaml(path: Path) -> dict[str, Any]:
     """:func:`read_yaml_file` for an ANCESTOR ``rig.yaml``, whose failure refuses a descendant load.
 
     Still fail-closed, but the error names the file as an inherited ancestor (the user is in a
     different repo and may not know it is read) and reports only the YAML error position: PyYAML's
-    own message quotes the offending source line, which may carry a pasted credential.
+    own message quotes the offending source line, which may carry a pasted credential. The new error
+    is raised OUTSIDE the ``except`` block so it chains nothing: the original error would otherwise
+    ride along as ``__context__`` and carry that excerpt into any traceback.
     """
     try:
         return read_yaml_file(path)
@@ -634,12 +677,12 @@ def _read_ancestor_yaml(path: Path) -> dict[str, Any]:
             why = f"{path} is not valid YAML"
         else:
             why = str(exc)
-        raise ConfigError(
-            f"cannot load ancestor config {path} (its `task:` block is inherited by repos below it)",
-            why=why,
-            fix=f"fix or remove {path}; ancestor rig.yaml files above a repo are read for its task routing",
-            schema_path="task",
-        ) from exc
+    raise ConfigError(
+        f"cannot load ancestor config {path} (its `task:` block is inherited by repos below it)",
+        why=why,
+        fix=f"fix or remove {path}; ancestor rig.yaml files above a repo are read for its task routing",
+        schema_path="task",
+    )
 
 
 def _load_task_block_from_layer(path: Path, overrides: dict[Path, dict[str, Any]]) -> dict[str, Any] | None:
@@ -690,6 +733,8 @@ def _ancestor_task_overlay(
     contributing: list[Path] = []
     for directory in _task_inheritance_ancestor_dirs(repo_root):
         path = repo_config_path(directory)
+        if path.resolve() not in overrides and not _trusted_ancestor_config(path):
+            continue
         task_block = _load_task_block_from_layer(path, overrides)
         if task_block is None:
             continue
@@ -3728,6 +3773,16 @@ def _validate_task(t: dict[str, Any]) -> None:
                 f"task.tasks.{strkey} must be a string, got {type(value).__name__}",
                 schema_path=f"task.tasks.{strkey}",
             )
+    tasks_url = tasks_block.get("url")
+    # an empty string is no origin either (same as task.forgejo.url): only an absent key is unset
+    tasks_url_problem = _tasks_url_problem(tasks_url) if tasks_url is not None else None
+    if tasks_url_problem is not None:
+        raise ConfigError(
+            f"task.tasks.url {tasks_url_problem}",
+            why="the value is not echoed: a rejected base URL may carry a credential",
+            fix="set task.tasks.url to the Tasks app's bare https origin, e.g. https://tasks.example.com",
+            schema_path="task.tasks.url",
+        )
     _validate_task_enum(tasks_block.get("attachment_mode"), _VALID_TASK_ATTACHMENT_MODES, "task.tasks.attachment_mode")
 
     forgejo_block = t.get("forgejo")
@@ -3750,32 +3805,62 @@ def _validate_task(t: dict[str, Any]) -> None:
             raise ConfigError(f"task.{objkey} must be a mapping, got {value!r}", schema_path=f"task.{objkey}")
 
 
-def _forgejo_url_problem(url: str) -> str | None:
-    """The first reason ``url`` is not a usable Forgejo BASE URL, or ``None`` when it is.
+def _https_base_problem(url: str, noun: str) -> tuple[str | None, SplitResult | None]:
+    """The checks every tracker base URL shares: ``(problem, urlsplit-parts)``.
 
-    The returned text NEVER contains the value itself: a rejected base URL is exactly where a
-    credential tends to hide (``user:token@``, ``?access_token=``, a truncated ``oauth2:token``),
-    and the message is printed by ``rig status``/``config set``/config-web and ends up in logs.
-    Order matters only for message quality — every branch is fail-closed.
+    ``noun`` ("URL" or "origin") only words the message. The returned text NEVER contains the
+    value itself: a rejected base URL is exactly where a credential tends to hide
+    (``user:token@``, ``?access_token=``, a truncated ``oauth2:token``), and the message is printed
+    by ``rig status``/``config set``/config-web and ends up in logs. Order matters only for message
+    quality — every branch is fail-closed.
     """
     if "@" in url or "%" in url:
-        return "must not embed credentials or percent-escapes (user:token@host, %40)"
+        return "must not embed credentials or percent-escapes (user:token@host, %40)", None
     if any(c.isspace() for c in url):
-        return "must not contain whitespace"
+        return "must not contain whitespace", None
     try:
         parts = urlsplit(url)
         host = parts.hostname
         _ = parts.port  # raises ValueError on a non-numeric port, e.g. a truncated "oauth2:token"
     except ValueError:  # also an unterminated IPv6 netloc ("https://[::1")
-        return "must be an https URL with a valid host[:port]"
+        return f"must be an https {noun} with a valid host[:port]", None
     if parts.scheme != "https" or not host:
-        return "must be an https URL with a host"
+        return f"must be an https {noun} with a host", None
     if "?" in url or "#" in url:  # a query/fragment would also hide an /api/v1 suffix
-        return "must not carry a query or fragment"
+        return "must not carry a query or fragment", None
+    return None, parts
+
+
+def _forgejo_url_problem(url: str) -> str | None:
+    """The first reason ``url`` is not a usable Forgejo BASE URL, or ``None`` when it is.
+
+    :func:`_https_base_problem`, then: no ``/api/v1`` suffix and no trailing ``/`` (task-cli
+    derives the API base by appending ``/api/v1``). A sub-path is allowed (a Forgejo under a path).
+    """
+    problem, _parts = _https_base_problem(url, "URL")
+    if problem is not None:
+        return problem
     if url.rstrip("/").lower().endswith("/api/v1"):
         return "must not include the /api/v1 suffix (task-cli appends it to derive the API base)"
     if url.endswith("/"):
         return "must not end with '/' (task-cli appends /api/v1, which would double the slash)"
+    return None
+
+
+def _tasks_url_problem(url: str) -> str | None:
+    """The first reason ``url`` is not a usable Tasks-app origin, or ``None`` when it is.
+
+    Mirrors task-cli's tasks backend (``_validate_origin``), which sends its bearer token to this
+    origin: :func:`_https_base_problem`, then no path at all (task-cli appends ``/api/v1`` itself);
+    a single trailing ``/`` is tolerated as task-cli does.
+    """
+    problem, parts = _https_base_problem(url, "origin")
+    if problem is not None:
+        return problem
+    if parts is None:  # unreachable today; stays fail-closed if _https_base_problem ever changes
+        return "must be an https origin with a valid host[:port]"
+    if parts.path not in ("", "/"):
+        return "must be a bare origin with no path (task-cli appends /api/v1 itself)"
     return None
 
 

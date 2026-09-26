@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
+
+# Files and directories the tests create must not be group-writable: config.load skips an
+# ancestor rig.yaml (or its directory) that other users can write (`_trusted_ancestor_config`,
+# task-cli's `_trusted_ancestor` rule). The suite assumes a 022 umask (macOS, GitHub-hosted
+# runners); a self-hosted runner user with a 002/000 umask would make every ancestor-cascade test
+# read an empty layer. Pin it for the whole run (subprocesses inherit it), as task-cli does.
+os.umask(0o022)
 
 
 def _write(path: Path, content: str) -> None:

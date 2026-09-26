@@ -1851,8 +1851,9 @@ def cmd_apply(args: argparse.Namespace) -> int:
 
     # fail-closed: with NO config layer (no --config, no ./rig.yaml, no global), the empty
     # config resolves to built-in defaults and would mutate HOME with no committed source
-    # of truth. Refuse — `rig init`/`rig export` create the rig.yaml first.
-    if not loaded.layers:
+    # of truth. Refuse — `rig init`/`rig export` create the rig.yaml first. An ancestor rig.yaml
+    # alone does not count: it contributes only task routing, which apply does not consume.
+    if not loaded.has_declared_config:
         print(_err("error: no rig.yaml found (and no --config / global config)."))
         print(_dim("  run `rig init` (or `rig export -o rig.yaml`) to create one first."))
         return 2

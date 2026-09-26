@@ -289,7 +289,8 @@ class NoConfigLayerError(RuntimeError):
 
 
 def _require_declared_config(scope_plan: ScopePlan) -> None:
-    if not scope_plan.loaded.layers:
+    # ancestor-only layers (task routing) are not a declared config -- see has_declared_config
+    if not scope_plan.loaded.has_declared_config:
         raise NoConfigLayerError(
             f"scope {scope_plan.scope.id!r} has no declared config (no rig.yaml, no --config, "
             "no global config) — run `rig init` (or `rig export -o rig.yaml`) there first; "

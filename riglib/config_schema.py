@@ -1411,7 +1411,11 @@ _TASK_BLOCK = Block(
         "tasks": Block(
             doc="Tasks-app (native HTTPS REST) coordinates (used when backend: tasks).",
             leaves={
-                "url": Leaf(("string", "null"), "the Tasks-app base URL, e.g. https://tasks-ultrabricks.vercel.app"),
+                "url": Leaf(
+                    ("string", "null"),
+                    "the Tasks-app base URL, e.g. https://tasks-ultrabricks.vercel.app; a bare https origin "
+                    "(no userinfo, query, fragment or path — task-cli appends /api/v1 itself)",
+                ),
                 "team": Leaf(("string", "null"), "the Tasks-app team/workspace key (e.g. UB, HYP)"),
                 "attachment_mode": Leaf(
                     ("string", "null"),
