@@ -233,6 +233,9 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
         returncode, stdout, stderr = _run_bounded([bun, *INSTALL_CMD], worktree, timeout_s)
     except subprocess.TimeoutExpired:
         return InstallOutcome("failed", f"`bun install --frozen-lockfile` timed out after {timeout_s}s — re-run {manual}")
+    except KeyboardInterrupt:
+        # the install's process group is already dead (_run_bounded's finally)
+        return InstallOutcome("failed", f"`bun install --frozen-lockfile` interrupted — re-run {manual}")
     except OSError as exc:
         return InstallOutcome("failed", f"could not run bun ({exc}) — run {manual}")
     if returncode != 0:
@@ -379,7 +382,7 @@ def _label(repo_root: Path, worktree: Path) -> str:
     return str(rel) if str(rel) != "." else "(primary)"
 
 
-def check_worktree_installs(repo_root: Path, report: DriftReport) -> None:
+def check_worktree_installs(repo_root: Path, report: DriftReport, *, off_store_note: bool = True) -> None:
     """Drift for broken bun worktree installs of ``repo_root``; one note for off-store ones.
 
     Drift items are ``extra`` (disk→config): an on-disk state no config declares, which apply
@@ -402,7 +405,7 @@ def check_worktree_installs(repo_root: Path, report: DriftReport) -> None:
             report.items.append(DriftItem("extra", "bun", f"worktree:{label}", worktree, problem))
         if scan.off_store:
             off_store.append(f"{label} ({scan.off_store})")
-    if off_store:
+    if off_store and off_store_note:
         shown = ", ".join(off_store[:_NOTE_LABELS_SHOWN])
         if len(off_store) > _NOTE_LABELS_SHOWN:
             shown += f" … and {len(off_store) - _NOTE_LABELS_SHOWN} more"

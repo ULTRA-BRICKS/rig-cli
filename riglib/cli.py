@@ -1239,7 +1239,7 @@ def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
     """Install a new bun worktree's deps (``bun.worktree_install``), as the repo's bunfig says.
 
     Runs after the worktree exists, so a config or install problem never undoes the create: a
-    skip prints the manual command, a failed install exits 1 with the command to finish it. Only
+    skip prints the manual command, a failed install exits 2 with the command to finish it. Only
     the GLOBAL config can turn the install on; a repo rig.yaml can only turn it off.
     """
     from . import bun_store, errors as errors_module

@@ -447,7 +447,10 @@ def compute_drift_report(
     from .bun_store import check_worktree_installs, worktree_check_enabled
 
     if env.is_git_repo and not _restricted_out("bun") and worktree_check_enabled(loaded.global_data.get("bun"), bun_cfg):
-        check_worktree_installs(env.repo_root, report)
+        # a repo that opted out of the worktree install (it installs its own way) gets no
+        # off-store note; the broken states stay drift
+        opted_out = isinstance(bun_cfg, dict) and bun_cfg.get("worktree_install") is False
+        check_worktree_installs(env.repo_root, report, off_store_note=not opted_out)
     # missing-target: a hook command in the harness settings.json that points at a file gone
     # from disk (the dead-rtk-hook case) surfaces PROACTIVELY here, before it bites at runtime
     # as a generic "PreToolUse error". This is independent of config↔disk drift. Scan the

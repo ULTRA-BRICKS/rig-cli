@@ -421,6 +421,32 @@ def test_an_interrupted_install_kills_the_whole_group(tmp_path, monkeypatch):
     assert procs[0].poll() is not None
 
 
+@posix_only
+def test_an_interrupted_install_is_a_failure_with_the_command(tmp_path, monkeypatch):
+    _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+
+    def interrupted(*_a, **_k):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(bun_store, "_run_bounded", interrupted)
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "failed"
+    assert "interrupted" in outcome.message and "bun install --frozen-lockfile" in outcome.message
+
+
+def test_a_repo_that_opted_out_of_the_install_gets_no_off_store_note(tmp_path, capsys, fake_agent_tools):
+    repo = _status_repo(tmp_path, fake_agent_tools, bun_enabled=True)
+    with open(repo / "rig.yaml", "a", encoding="utf-8") as fh:
+        fh.write("bun:\n  worktree_install: false\n")
+    for pkg in ("react", "zod"):
+        (repo / "node_modules" / pkg).mkdir(parents=True)
+    main(["status", "-C", str(repo)])
+    assert "not using the global store" not in capsys.readouterr().out
+
+
 def test_install_skips_when_bun_is_missing(tmp_path, monkeypatch):
     _provision_bunfig()
     monkeypatch.setenv("PATH", str(tmp_path / "empty-bin"))
