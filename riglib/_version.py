@@ -15,7 +15,7 @@ Two resolution paths, in order, so it works both installed and from a live check
    problem entirely (rig-cli#67).
 2. **Installed dist** — when no readable ``pyproject.toml`` is found (a ``pip``/``pipx``
    wheel/sdist install outside any checkout), fall back to
-   ``importlib.metadata.version("rig-cli")``, which reads the version baked into the
+   ``importlib.metadata.version("hyper-rig")``, which reads the version baked into the
    wheel at build time.
 
 Stdlib-only at import time (the package-wide rule): ``importlib.metadata`` + ``re`` +
@@ -32,7 +32,7 @@ from pathlib import Path
 
 # The distribution name declared in pyproject `[project] name`. importlib.metadata keys on
 # this, NOT on the import package name (`riglib`) or the script name (`rig`).
-_DIST_NAME = "rig-cli"
+_DIST_NAME = "hyper-rig"
 
 # Last-resort sentinel: only surfaces if rig is neither installed NOR runnable from a
 # checkout that carries a parseable pyproject — a genuinely broken deployment.
@@ -56,7 +56,7 @@ def _version_from_pyproject() -> str | None:
     """Parse `[project] version` from the repo's pyproject.toml, or None if unreadable.
 
     Searches `pyproject.toml` at the repo root (parent of this `riglib/` package). Verifies
-    that the file's `[project] name` is ``"rig-cli"`` before trusting its version, so an
+    that the file's `[project] name` is ``"hyper-rig"`` before trusting its version, so an
     adjacent host-project pyproject (e.g. from ``pip install --target ./vendor``) is ignored
     and the resolver falls through to ``importlib.metadata`` instead.
     """

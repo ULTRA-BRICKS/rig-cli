@@ -14,9 +14,10 @@
 #            API base = $GITHUB_API_URL (else $GITHUB_SERVER_URL/api/v1); token = $GH_TOKEN
 #            (else $GITHUB_TOKEN) — the job token the workflow passes. Same conversation rule
 #            as ci/ship's Forgejo provider: every review's comments are read; a conversation is
-#            keyed by review id + original_commit_id + path + line (position/original_position);
-#            a line-less comment is its own conversation; it is resolved only when its FIRST
-#            comment has `resolver` (Forgejo resolves through the first comment).
+#            what Forgejo's UI shows as one: every comment on the same path + line
+#            (position/original_position), across reviews and commits; a line-less comment is
+#            its own conversation; it is resolved only when its FIRST comment has `resolver`
+#            ("Resolve conversation" marks the first comment only).
 #
 # Reads the PR number from $1 or $PR_NUMBER.
 #
@@ -128,13 +129,13 @@ def paged(url):
     sys.exit(f"Forgejo API GET {url} exceeded {MAX_PAGES} pages — refusing a truncated read")
 
 
-def key(rid, c):
-    # rid is the id of the review whose comments endpoint returned c — known for certain, unlike
-    # the comment's own pull_request_review_id, which a null would collapse across reviews.
+def key(c):
     line = (c.get("position") or 0, c.get("original_position") or 0)
     if line == (0, 0):
         return ("single", c.get("id"))
-    return (rid, c.get("original_commit_id") or c.get("commit_id") or "", c.get("path") or "", line)
+    # Forgejo's own grouping: every comment on this path + signed line, whatever review or
+    # commit it came with, is ONE conversation, resolved through its first comment.
+    return (c.get("path") or "", line)
 
 
 conversations = {}
@@ -143,12 +144,11 @@ for review in paged(f"{base}/reviews"):
     if not isinstance(rid, int):
         sys.exit("Forgejo review without an id — cannot read its comments")
     # Always fetched: comments_count on the list payload is not trusted to skip a review.
-    # Not paginated: the Forgejo v1 schema for GET .../reviews/{id}/comments takes no page/limit
-    # parameters and returns the whole PullReviewCommentList.
+    # (This endpoint is not paginated — it returns every comment of the review.)
     for c in get_list(f"{base}/reviews/{rid}/comments"):
         if not isinstance(c, dict) or not isinstance(c.get("id"), int):
             sys.exit("Forgejo review comment without an id — cannot place it in a conversation")
-        conversations.setdefault(key(rid, c), []).append(c)
+        conversations.setdefault(key(c), []).append(c)
 
 unresolved = 0
 for comments in conversations.values():
@@ -159,13 +159,16 @@ print(unresolved)
 PY
 }
 
+# A non-empty run of digits (POSIX; `[[ =~ ]]` is bash-only).
+is_uint() { case "$1" in ""|*[!0-9]*) return 1 ;; esac; return 0; }
+
 case "$PROVIDER" in
   forgejo)
     if [ "$IGNORE_OUTDATED" = "1" ]; then
       echo "note: IGNORE_OUTDATED=1 has no Forgejo equivalent (the API has no outdated flag) — counting every unresolved conversation." >&2
     fi
     # Fail-CLOSED on an API error: a silent 0 would let an unresolved PR merge.
-    if UNRESOLVED=$(forgejo_unresolved) && [[ "$UNRESOLVED" =~ ^[0-9]+$ ]]; then
+    if UNRESOLVED=$(forgejo_unresolved) && is_uint "$UNRESOLVED"; then
       :
     else
       echo "::error::could not query review conversations for PR #$PR (Forgejo API failed) — failing closed." >&2

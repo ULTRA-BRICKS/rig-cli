@@ -106,15 +106,26 @@ def gate():
         server.shutdown()
 
 
-def test_later_unresolved_review_on_same_line_blocks_even_without_review_id_on_comments(gate):
-    # An earlier review's conversation on a.py:5 was resolved; a later review opens a new,
-    # unresolved one on the same line. The comment payload's pull_request_review_id is null, so a
-    # conversation key taken from that field would merge both and let the resolved one win.
+def test_same_line_comments_across_reviews_are_one_conversation_resolved_by_its_first(gate):
+    # Forgejo groups every comment on one path + line into ONE conversation, whatever review it
+    # came with, and resolves it through its first comment -- so a later comment on an already
+    # resolved line sits inside that resolved conversation, as the PR page shows it.
     result = gate(
         [{"id": 11}, {"id": 12}],
         {
             11: [_comment(101, review_id=None, resolved=True)],
             12: [_comment(102, review_id=None, resolved=False)],
+        },
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_unresolved_conversation_on_another_line_of_a_later_review_blocks(gate):
+    result = gate(
+        [{"id": 11}, {"id": 12}],
+        {
+            11: [_comment(101, review_id=11, resolved=True)],
+            12: [_comment(102, review_id=12, resolved=False, position=9)],
         },
     )
     assert result.returncode == 1, result.stdout + result.stderr

@@ -50,7 +50,7 @@ SKILLS_BUDGET_KEY: tuple[str, str] = ("skills", "max_context_tokens")
 
 def toml_parser_available() -> bool:
     """True when this Python can parse TOML — stdlib ``tomllib`` (3.11+) or the ``tomli``
-    backport (3.10, declared in the ``test`` extra only — a bare ``pip install rig-cli`` on 3.10
+    backport (3.10, declared in the ``test`` extra only — a bare ``pip install hyper-rig`` on 3.10
     has neither). Mirrors :func:`riglib.actions.runner._toml_parser`'s exact fallback so the plan
     builder and the writer never disagree about whether this machine can manage the key; pinned
     equal by ``tests/test_codex_skills_budget.py``. Duplicated rather than imported from

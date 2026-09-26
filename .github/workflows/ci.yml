@@ -27,10 +27,9 @@ jobs:
       # runner WITHOUT tmux silently SKIPS them — the leak that killed the dev's server would then
       # go unguarded in CI (INCIDENT 2026-06-17 follow-up a). `ubuntu-latest` ships no tmux, so we
       # install it here. `test_tmux_e2e_gating.py` asserts tmux is on PATH, so a future image that
-      # drops this step fails LOUDLY instead of reverting to a silent skip. lsof rides along: the
-      # tmux-gated omp-restore orphan-guard tests read process cwds with `lsof -d cwd`, and the
-      # Forgejo Ubuntu runner ships without it (asserted the same way in the gating test).
-      - name: Install tmux + lsof (the @_requires_tmux unit tests must RUN, not skip)
+      # drops this step fails LOUDLY instead of reverting to a silent skip. lsof: the omp-restore
+      # e2e reads live cwds with it, and the Forgejo runner image (unlike GitHub's) ships without it.
+      - name: Install tmux (the @_requires_tmux unit tests must RUN, not skip)
         run: sudo apt-get update && sudo apt-get install -y tmux lsof
       - name: Install package + test deps
         run: pip install -e '.[test]' pyyaml
@@ -57,7 +56,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install tmux + lsof (the omp-restore orphan-guard tests read process cwds with lsof)
+      - name: Install tmux
         run: sudo apt-get update && sudo apt-get install -y tmux lsof
       - name: Install package + test deps
         run: pip install -e '.[test]' pyyaml
@@ -252,12 +251,16 @@ jobs:
       - name: Install gitleaks (OSS binary — no license)
         env:
           GITLEAKS_VERSION: "8.30.1"
+          # sha256 of gitleaks_<version>_linux_x64.tar.gz (the release checksums.txt) — bump both together
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
         run: |
           set -euo pipefail
           bin="${RUNNER_TEMP:-$(mktemp -d)}/gitleaks-bin"
           mkdir -p "$bin"
-          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz -C "$bin" gitleaks
+          tgz="$bin/gitleaks.tar.gz"
+          curl -fsSL -o "$tgz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $tgz" | sha256sum -c -  # the release's published checksum
+          tar -xzf "$tgz" -C "$bin" gitleaks
           echo "$bin" >> "$GITHUB_PATH"
           "$bin/gitleaks" version
       - name: gitleaks (scan the commits this event brings in)

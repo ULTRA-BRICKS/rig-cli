@@ -41,7 +41,7 @@ Invariants
   skill is unadvertised. rig never deletes a user's existing symlink.
 - **Optional Homebrew runtime dependency.** ``tools.items.<name>.brew`` (default ``[]``) declares
   formula(e) the tool's WRAPPER shells out to but that its own ``install.sh`` does not install
-  (e.g. ``fj`` depends on the ``forgejo-cli`` formula for the real ``fj`` binary it wraps). rig
+  (a wrapper around a Homebrew-installed binary). rig
   installs any missing formula (``brew install <formula>``) BEFORE running install.sh; a tool
   that declares none is completely unaffected. Absent ``brew`` on PATH is a clear, actionable
   error for that tool, never a silent skip or a crash.

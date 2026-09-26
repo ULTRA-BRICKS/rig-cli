@@ -73,11 +73,11 @@ ECOSYSTEM_TOOLS: tuple[EcosystemTool, ...] = (
         "git-hook dispatcher, CI gates, and MCP servers",
     ),
     EcosystemTool(
-        "draw-cli", "https://git.hyperide.ai/ultrabricks/draw-cli",
+        "draw-cli", "https://github.com/alex-mextner/draw-cli",
         "text-to-image via Hugging Face",
     ),
     EcosystemTool(
-        "3d-cli", "https://git.hyperide.ai/ultrabricks/3d-cli",
+        "3d-cli", "https://github.com/alex-mextner/3d-cli",
         "scriptable CLI for the full 3D FDM lifecycle: modeling, mesh repair, slicing, and "
         "print monitoring",
     ),

@@ -75,6 +75,20 @@ def test_expansion_is_shell_alias_and_portable():
     assert "/Users/" not in body and "/home/" not in body
 
 
+def test_expansion_bytes_survive_the_shared_body():
+    # `fj ship` shares this body (ship_dispatch_sh); factoring it out must not change one byte of
+    # the gh alias — a changed expansion would make every machine's `rig status` report drift.
+    import hashlib
+
+    body = gsa.gh_ship_alias_expansion()
+    assert hashlib.sha256(body.encode()).hexdigest() == (
+        "0cd4eaab02bfc52bb56d11f3307d18456144ef2607a2720a9a9e461f7b54e12c"
+    )
+    assert body == "!" + gsa.ship_dispatch_sh("gh ship")
+    with pytest.raises(ValueError):
+        gsa.ship_dispatch_sh('x"; rm -rf ~; "')
+
+
 def test_expansion_execs_the_repo_delegator(tmp_path):
     # Behavioral proof the expansion is valid POSIX sh AND reaches the delegator: a repo whose
     # .claude/scripts/pr-ship.sh echoes a marker + its args must be exec'd with the passed args.
@@ -154,6 +168,22 @@ def test_read_ship_alias_round_trips_gh_config(tmp_path, monkeypatch):
     assert gsa._read_ship_alias() == desired, "the stored alias must round-trip byte-exactly"
     monkeypatch.setattr(gsa, "gh_available", lambda: True)
     assert gsa.resolve_gh_ship_alias().state == "ok"
+
+
+def test_gh_config_path_follows_gh_config_dir_resolution(tmp_path, monkeypatch):
+    # gh's ConfigDir(): GH_CONFIG_DIR, then XDG_CONFIG_HOME/gh, then %AppData%\GitHub CLI on Windows,
+    # then ~/.config/gh. Reading ~/.config/gh on Windows never found the alias gh had just written.
+    for var in ("GH_CONFIG_DIR", "XDG_CONFIG_HOME"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
+    assert gsa.gh_config_path(windows=True) == tmp_path / "Roaming" / "GitHub CLI" / "config.yml"
+    assert gsa.gh_config_path(windows=False) == tmp_path / "home" / ".config" / "gh" / "config.yml"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    assert gsa.gh_config_path(windows=True) == tmp_path / "xdg" / "gh" / "config.yml"
+    monkeypatch.setenv("GH_CONFIG_DIR", str(tmp_path / "ghdir"))
+    assert gsa.gh_config_path(windows=True) == tmp_path / "ghdir" / "config.yml"
 
 
 # ── plan gating ─────────────────────────────────────────────────────────────────────

@@ -289,6 +289,16 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "provision_bunfig", "edits_file", AUDIENCE_HUMAN,
         "Splices linker=isolated and globalStore=true into ~/.bunfig.toml.",
     ),
+    "provision_fj": _tag(
+        "provision_fj", "installs_system_tool", AUDIENCE_HUMAN,
+        "Installs fj when missing, lists the Forgejo host in fj's client_ids for one-click OAuth login, "
+        "sets FJ_FALLBACK_HOST (Windows user env) and Git Credential Manager OAuth settings.",
+    ),
+    "provision_git_config": _tag(
+        "provision_git_config", "edits_file", AUDIENCE_BOTH,
+        "Sets the declared keys with `git config --global` (identity, pull/branch defaults, …) — "
+        "every git invocation on this machine, human or agent, reads them. Never unsets a key.",
+    ),
     "provision_tools": _tag(
         "provision_tools", "installs_system_tool", AUDIENCE_HUMAN,
         "Runs a personal CLI tool's own install.sh (e.g. tg/review/dev) — installs a real binary "

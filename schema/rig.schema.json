@@ -1594,6 +1594,92 @@
       },
       "additionalProperties": false
     },
+    "fj": {
+      "type": "object",
+      "description": "Forgejo access (GLOBAL, per machine): install `fj` behind a thin wrapper that adds `fj ship` (the same ship gate as `gh ship`), one-click browser login for fj and git through Forgejo's built-in OAuth apps, and `FJ_FALLBACK_HOST` so `fj` never needs `--host`. A PRESENT block opts in; a repo rig.yaml may set `host` to log in to a different instance.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "provision Forgejo access — block PRESENCE opts in; false opts out"
+        },
+        "host": {
+          "type": "string",
+          "description": "the Forgejo host (`git.hyperide.ai`) — login target and FJ_FALLBACK_HOST"
+        },
+        "install": {
+          "type": "boolean",
+          "description": "manage the `fj` command: the real fj (brew on macOS, pinned release binary in rig's store elsewhere) + the `fj ship` wrapper in bin_dir; false leaves fj entirely to you",
+          "default": true
+        },
+        "version": {
+          "type": "string",
+          "description": "fj release to install where rig downloads it",
+          "default": "0.6.0"
+        },
+        "bin_dir": {
+          "type": "string",
+          "description": "where the `fj` wrapper goes (must be on PATH, ahead of any other fj)",
+          "default": "~/.local/bin"
+        },
+        "git_credentials": {
+          "type": "boolean",
+          "description": "configure Git Credential Manager OAuth for https://<host>",
+          "default": true
+        },
+        "client_id": {
+          "type": "string",
+          "description": "OAuth client ID fj logs in with (default: Forgejo's built-in `tea` app)"
+        },
+        "git_client_id": {
+          "type": "string",
+          "description": "OAuth client ID GCM logs in with (default: Forgejo's built-in GCM app)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "git": {
+      "type": "object",
+      "description": "GLOBAL git settings: each `config` entry is written with `git config --global <key> <value>` (bools as true/false), idempotently; keys set by hand are never unset. GLOBAL-only — rejected from a repo rig.yaml.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "provision the global git settings — block PRESENCE opts in; only an explicit false opts out"
+        },
+        "config": {
+          "type": "object",
+          "description": "dotted git keys (section.name / section.subsection.name) → value (string, bool or int)",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "boolean",
+              "integer"
+            ]
+          },
+          "propertyNames": {
+            "pattern": "^[A-Za-z][A-Za-z0-9-]*(\\.[^\\r\\n\\x00]+)?\\.[A-Za-z][A-Za-z0-9-]*$"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "x-rig-global-only": true
+    },
+    "profile": {
+      "type": "object",
+      "description": "`rig profile`: the (PRIVATE) git repo ~/.config/rig/config.yaml is synced through, both ways. Written by `rig profile init`. GLOBAL-only — rejected from a repo rig.yaml.",
+      "properties": {
+        "repo": {
+          "type": "string",
+          "description": "the profile repo URL, e.g. https://git.hyperide.ai/<login>/.rig-profile (must be private)"
+        },
+        "auto_sync": {
+          "type": "boolean",
+          "description": "`rig apply commit` runs `rig profile sync` first (a failure warns and applies the local file); false turns it off on every machine that shares this profile",
+          "default": true
+        }
+      },
+      "additionalProperties": false,
+      "x-rig-global-only": true
+    },
     "tools": {
       "type": "object",
       "description": "the personal CLI tool ecosystem (tg/review/task/draw/…) rig installs + advertises at apply, by running each tool's own install.sh. rig also keeps a provisioned checkout FRESH: if a tool repo ships scripts/deploy.sh, apply runs it (ff-only git pull) even when already installed — opt-in per tool, non-fatal. Default OFF (opt-in): list tools under items. A per-MACHINE concern — belongs in the GLOBAL layer, not a committed rig.yaml.",

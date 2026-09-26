@@ -16,8 +16,8 @@ content) to rig's **HOW** (apply it, reconcile it, prove it).
 
 It's a peer to the rest of the ecosystem — [`tg-cli`](https://git.hyperide.ai/ultrabricks/tg-cli),
 [`review-cli`](https://git.hyperide.ai/ultrabricks/review-cli),
-[`draw-cli`](https://git.hyperide.ai/ultrabricks/draw-cli),
-[`3d-cli`](https://git.hyperide.ai/ultrabricks/3d-cli),
+[`draw-cli`](https://github.com/alex-mextner/draw-cli),
+[`3d-cli`](https://github.com/alex-mextner/3d-cli),
 [`task-cli`](https://git.hyperide.ai/ultrabricks/task-cli) — composable, agent-native CLIs that
 share one config-and-skills backbone. `agent-tools` is the **WHAT** (portable skills, guards,
 CI gates, MCP); `rig` is the **HOW** — it reads your `rig.yaml`, converges the repo and the
@@ -39,32 +39,98 @@ Today Rig already has machine-wide global defaults plus per-repository overrides
 
 ## Install
 
-**One-liner** (installs deps, links `rig` into PATH, registers the skill):
+Pick one — each ends with `rig` on your PATH:
 
 ```bash
+# 1. uv — recommended; macOS, Linux and Windows (incl. Cygwin / Git Bash)
+uv tool install hyper-rig
+
+# 2. pipx
+pipx install hyper-rig
+
+# 3. one-liner — clones to ~/.local/share/rig-cli, links rig into ~/.local/bin, registers the agent skill
 curl -fsSL https://git.hyperide.ai/ultrabricks/rig-cli/raw/branch/main/install.sh | bash
+
+# 4. from a clone — to hack on rig; `git pull` updates the installed tool
+git clone https://git.hyperide.ai/ultrabricks/rig-cli && cd rig-cli && ./install.sh
 ```
 
-**Isolated env via pipx or uv tool** (the canonical way — an isolated venv with the
-interactive setup wizard bundled, no extra step):
+- After **1** or **2**, run `rig install-skill` once so coding agents discover `rig` (3 and 4 do it for you).
+- **Unreleased `main`:** `uv tool install git+https://git.hyperide.ai/ultrabricks/rig-cli` (or the same with `pipx install`).
+- **Update:** `uv tool upgrade hyper-rig` · `pipx upgrade hyper-rig` · re-run the one-liner · `git pull`.
+- **Installed before the rename** (as `rig-cli`, from git)? Remove that first — `uv tool uninstall rig-cli` or `pipx uninstall rig-cli` — or two installs both claim `rig`.
+- **Run without installing:** `uvx --from git+https://git.hyperide.ai/ultrabricks/rig-cli rig doctor`,
+  or from a checkout `uv run bin/rig …` / `python3 bin/rig …`.
 
-```bash
-pipx install rig-cli            # adds the `rig` command + the TUI wizard
-uv tool install rig-cli         # same, via uv (also keeps it on PATH)
-
-# from git instead of a published release:
-pipx install git+https://git.hyperide.ai/ultrabricks/rig-cli
-uv tool install git+https://git.hyperide.ai/ultrabricks/rig-cli
-
-# straight from a local checkout (editable; `git pull` updates the live tool):
-uv tool install --editable .    # or: pipx install -e .
-```
+> **On PyPI as `hyper-rig`** (the command is still `rig`). `rig-cli` on PyPI is an unrelated project — `pipx install rig-cli` would install that. The canonical repo is
+> **git.hyperide.ai/ultrabricks/rig-cli**; `github.com/alex-mextner/rig-cli` is a frozen, archived mirror.
 
 `textual` (the `rig init` setup wizard) and `rich` (the `rig stats` report) are **core
 dependencies** — every install above brings them, so `rig init` from a terminal launches the
 wizard with **no extra install step and no "go install textual" prompt**.
 
-Or run straight from a checkout without installing — `uv run bin/rig …` / `python3 bin/rig …`.
+### Windows (Cygwin, Git Bash, PowerShell)
+
+Use **uv** (option 1; get uv with `winget install astral-sh.uv`). `./install.sh` and the one-liner
+detect Cygwin/MSYS and do the same thing for you (`uv tool install --editable` from a clone,
+from git otherwise).
+
+- uv puts a native `rig.exe` into `%USERPROFILE%\.local\bin`, which is already on PATH in every
+  Windows shell. The POSIX symlink install can't work there: Python is a native Windows program, it
+  can't run a `#!/usr/bin/env python3` script, and Cygwin's own `~/.local/bin` is not on PATH.
+- rig's home is your **Windows profile** (`%USERPROFILE%`), not Cygwin's `~`: the global config is
+  `%USERPROFILE%\.config\rig\config.yaml`, skills go to `%USERPROFILE%\.agents\skills`.
+- `rig install-skill` links the skill into `~/.claude/skills` as a **directory junction** when
+  Windows refuses a symlink. `rig apply` makes many more symlinks — turn on **Developer Mode**
+  (Windows 10: Settings → Update & Security → For developers; Windows 11: Settings → System →
+  For developers) so Windows lets you create them without admin rights.
+- mintty (the Cygwin / Git Bash terminal) isn't a Windows console, so `rig init` prints the
+  non-destructive preview instead of the wizard: use `rig init --yes`, or run `rig init` from
+  Windows Terminal / PowerShell for the TUI.
+- Keep an agent-tools checkout where rig looks for one (`~/work/agent-tools`, `~/xp/agent-tools`,
+  `~/agent-tools`), or point at it: `rig config set --global agent_tools_source <path> --commit`.
+
+### Forgejo (`fj`) — log in with one click
+
+The ecosystem lives on Forgejo at **git.hyperide.ai**; its CLI is `fj`
+([forgejo-cli](https://codeberg.org/forgejo-contrib/forgejo-cli)). Put the host in the global
+config once — `rig config set --global fj.host git.hyperide.ai --commit`, or keep it in your
+`.rig-profile` — and `rig apply`:
+
+- **installs fj** — `brew install forgejo-cli` on macOS; on Linux and Windows the sha256-pinned
+  release binary into rig's own dir `~/.local/share/rig/fj/<version>/` (not on PATH — see below);
+- **adds `fj ship`** — the **same ship gate as `gh ship`**: `fj` on PATH is a thin rig wrapper in
+  `~/.local/bin` whose `fj ship <PR>` runs exactly what the `gh ship` alias runs (the repo's
+  `.claude/scripts/pr-ship.sh`, else agent-tools' `ci/ship/ship.sh`, else exit 127), and whose every
+  other `fj …` runs the real fj with the arguments, stdin and exit code untouched;
+- **turns `fj auth login` into a browser login** — every Forgejo instance ships built-in public OAuth
+  apps; rig lists one for the host in fj's `client_ids`, so there is no token to mint and no app for
+  an admin to register. fj refreshes the token itself;
+- **does the same for git** — with Git Credential Manager (bundled with Git for Windows) rig adds its
+  OAuth settings for `https://<host>`: the first `git push` opens the browser once;
+- **drops `--host`** — `FJ_FALLBACK_HOST=https://<host>` in every shell (the `env` area on
+  macOS/Linux, a user environment variable on Windows). Inside a clone fj still follows its remote.
+
+Then, once per machine:
+
+```bash
+fj auth login      # browser opens → Authorize
+```
+
+A repo whose `rig.yaml` names another instance (`fj: { host: … }`) gets that host set up too when
+you `rig apply` in it. Headless machines: `fj auth add-token` with a token from
+`https://<host>/user/settings/applications`. `rig status` shows anything not yet set up. Full
+reference: [docs/config-schema.md](docs/config-schema.md#fj).
+
+**Where the real fj lives** (`fj` itself is always the wrapper in `bin_dir`, `~/.local/bin`):
+Linux — `${XDG_DATA_HOME:-~/.local/share}/rig/fj/<version>/fj`; macOS — Homebrew's, found on PATH
+(so `~/.local/bin` must come **before** Homebrew on PATH — `rig status` says so when it doesn't);
+Windows — `%USERPROFILE%\.local\share\rig\fj\<version>\fj.exe`, with two wrappers in
+`~/.local/bin`: `fj` (sh) for Cygwin / Git Bash and `fj.cmd` for cmd / PowerShell, where `fj ship`
+runs through the same `sh` gh uses for its aliases (Git for Windows'). No `fj.exe` stays in
+`~/.local/bin`: cmd, PowerShell and Python would pick it over `fj.cmd`. An fj that an older rig put
+into `~/.local/bin` is recognised by its pinned sha256 and moved; any other file there is left alone
+(and reported). `fj.install: false` leaves the `fj` command to you — no wrapper, so no `fj ship`.
 
 ## Commands
 
@@ -78,6 +144,7 @@ Or run straight from a checkout without installing — `uv run bin/rig …` / `p
 | `rig setup` | **The interactive configuration wizard.** In a terminal it shows what is enabled across every reconciled area, lets you change any option (with an inline hint per option) in the local `rig.yaml` AND the global `~/.config/rig/config.yaml`, then applies. Non-interactive (piped / no TTY) it prints usage for `init`/`apply`/`config get\|set`. |
 | `rig config get\|set` | **The headless counterpart to the wizard.** `get` reads one nested key. `set <dot.path> <value>` is **preview-by-default**: it validates the prospective config entirely in memory, shows the config change + resulting reconcile plan, and writes nothing. Add **`--commit`** to write the change and execute that same validated plan; `--no-apply` is the explicit legacy write-only mode. `--global` targets `~/.config/rig/config.yaml`. |
 | `rig env list\|set\|del` | **Machine-wide `env.vars` keys** (search API keys, `COLORTERM`, …). Always writes `~/.config/rig/config.yaml` (the same path as `rig config set --global env.vars.KEY`). `set`/`del` write + reconcile by default so `~/.config/rig/env/rig.env.sh` updates; omit VALUE to read stdin (keeps the secret out of argv/history). `list` **masks** values (`***` + last 4); `--show` prints them in full. **Both files are plaintext** — this is not a secret store. |
+| `rig profile init\|sync\|status` | **Carry your global config between machines** through a **private** git repo (`<forge>/<login>/.rig-profile`) holding `~/.config/rig/config.yaml`. `init [URL]` clones it (or seeds an empty repo with this machine's file and pushes) and records `profile.repo`; without a URL it uses `profile.repo`, else `https://<host>/<fj login>/.rig-profile` when `fj whoami` knows the login. `sync` is two-way: only local changed → commit + push; only remote changed → pull (the local file is backed up first); both changed → **refused**, nothing written — pick a side with `--take local\|remote`. `status [--fetch]` says which side changed, writing nothing (exit `3` when not in sync). Once a profile is set up, `rig apply commit` syncs it first on every machine (non-fatal; `profile.auto_sync: false` turns that off). Pushes warn about `env.vars` secrets and are refused to a repo the forge reports as public. See [below](#rig-profile--carry-your-global-config-between-machines). |
 | `rig config-web` | **A machine-wide web console** — one browser tab per rig-managed repo (discovered from the repository registry) plus a Global tab for `~/.config/rig/config.yaml` alone. Each tab renders every area with its live effective value, tagged with the layer an edit lands in, next to a **drift panel** (the same two-way engine `rig status` uses). An edit routes to the **owning layer** and is written by the **same engine** as `rig config set`/the wizard (fail-closed validation) — then the page offers an **interactive apply**: a plan preview (mirrors `rig apply info`, each action tagged with what kind of change it is — creates a file, installs a hook, changes a permission, etc.), confirm-or-skip individual actions, then live per-phase progress as the **same shared engine** (`plan.build` + `run_plan`) `rig apply`/`rig init` use actually applies them. A stale preview (config changed since you looked) is refused rather than silently applied; only one apply runs at a time. Lifecycle is the shared `agenttools-service` manager: `run` (foreground) / `start` (background daemon) / `status` / `stop` / `enable` (install launchd-macOS / systemd-`--user`-Linux autostart + start) / `disable`. Binds `127.0.0.1` only, with a same-origin (CSRF) + Host (DNS-rebinding) guard on every mutating/compute-triggering request. A bare `rig config-web` prints help, never launches. `--port`, `-C <repo>`. **The lifecycle verbs need the `agenttools-service` lib** (an agent-tools nested lib, not on PyPI): `uv pip install --python <rig's interpreter> -e <agent-tools>/lib/agenttools_daemon -e <agent-tools>/lib/agenttools_service` (the `--python` target makes the libs land where rig imports them; the error message prints the exact interpreter path). Without it, `rig --help` and every other command still work; a lifecycle verb fails closed with that install hint. |
 | `rig evolve` | **Project evolution portal.** Serve a local browser UI with a git activity histogram, proportional file treemap, clickable selection, and provider health. The first slice is file-level and read-only; symbol/LSP/provider overlays build on the same API. Lifecycle uses the shared `agenttools-service` verbs: `run` / `start` / `status` / `stop` / `enable` / `disable`. A bare `rig evolve` prints help, never launches. `--port`, `-C <repo>`. |
 | `rig install-skill` | Register the `rig` agent skill so skills-directory harnesses auto-discover it (currently Claude Code and Codex). |
@@ -85,10 +152,17 @@ Or run straight from a checkout without installing — `uv run bin/rig …` / `p
 | `rig worktree create` | **Standardized agent-worktree creation.** Idempotently registers `.worktrees/` in the repo's `.git/info/exclude` (never the committed `.gitignore`), THEN creates a linked git worktree at `<repo>/.worktrees/<name>` — the one convention rig converges every repo on, replacing the several ad hoc locations (Claude Code's own `.claude/worktrees/`, a bare in-repo `.worktrees/`, a sibling-of-repo `.worktrees/`) that had grown up around the ecosystem — so a freshly created worktree never dirties `git status` in the primary checkout, and a broken exclude file is caught before any worktree exists. `--branch` overrides the branch name (default: `<name>`); `--from <ref>` overrides the base ref (default: `HEAD`). |
 | `rig worktree remove` | **The inverse of `create`.** Force-removes the linked worktree at `<repo>/.worktrees/<name>` (`git worktree remove --force`), then deletes the branch it had checked out (`git branch -D`) — read from `git worktree list --porcelain -z`, not assumed to equal `<name>`, since `create --branch` can diverge from the directory name. `git worktree remove` alone leaves the branch behind, so skipping this step would make a bare retry of `create` with the same name fail with "a branch already exists". Refuses outright (no worktree removed) if the branch can't be reliably identified first, if `.worktrees/` is a symlink pointing outside the repo, or if `.worktrees/<name>` ITSELF is a symlink (a real worktree root is never a symlink, so this refusal never blocks legitimate use). A genuinely detached-HEAD worktree (no branch to find) is removed cleanly with no second step. Also recovers a worktree whose directory was deleted by hand (`rm -rf` instead of `git worktree remove`) but is still registered with a live branch. Requires **git >= 2.36**. |
 | `rig worktree gc` | **Classify and clean up worktree sprawl.** Lists every worktree `git` knows about for a repo — wherever it physically lives, not just the standardized `.worktrees/<name>` — and classifies each as `live` (a running `claude`/`codex`/`opencode` process has it as its cwd — checked FIRST, absolutely, before anything else), `prunable` (its directory is gone but git still has it registered), `dirty` (uncommitted changes — never auto-removed), `merged`/`closed` (its PR resolved via `gh pr list`), `no-pr-stale` (clean, no PR, older than `--older-than-days`, default 14), or `active` (an open PR, or recent activity). Report-only by default; `--yes` actually removes `merged`/`closed`/`prunable` (plus the branch, mirroring `remove`'s two-step contract); `no-pr-stale` additionally needs `--include-stale`. `--dry-run` always forces a report even with `--yes`, mirroring `rig apply --dry-run`. `--repo <path>` targets one repo; omitted, it fans out over every repo the machine-local repository registry (`rig config-web`'s same discovery) already knows about. `rig status` reports a cheap (no disk-size scan) stale-worktree count using the same classifier. **Caveat:** a merged/closed worktree is only auto-removed once its branch's commits are unreachable from no surviving ref — with squash/rebase-merge + `fetch --prune` (a common GitHub setup) that's never true, so `merged` worktrees classify `dirty` and are kept instead; see the module's "Known limitations" for the full trade-off. |
-| `rig codex update` | **Safe Codex updater.** Backs up the current working `codex`, runs the updater (`brew upgrade --cask codex` by default when the selected `codex` is Homebrew-managed), then probes `--version`, `--help`, and `completion zsh` with bounded timeouts. If the candidate hangs or fails, rig restores the last known good binary and reports the failed probe. Override with `--path`, `--backup-dir`, `--probe-timeout`, or pass a custom updater after `--`. |
 | `rig daily` | **Merged-PR "what shipped" report**, ready to paste into a Slack Daily channel. Source of truth is `gh pr list --state merged` — never an LLM call, never a ticket status alone. Grouped into Security / Infra-CI / Performance / Product-UX / Other, one plain-language fact per line, ticket/PR reference last in parentheses. Default repos: `hyperide/hyper-saas`, `hyperide/hyper-ext-e2e` (override with repeatable `--repo` or `~/.config/rig/daily.yaml`'s `repos:`). Tracks a PER-REPO watermark at `~/.config/rig/daily-state.json` so a plain `rig daily` run never repeats a PR — each repo's watermark only advances when THAT repo's own fetch succeeded and returned a complete page, so one repo's outage or a newly-added repo never borrows another repo's cursor; if every configured repo fails, the command exits non-zero instead of a misleading empty report. `--since` (relative `24h`/`7d` or an ISO-8601 timestamp) and `--dry-run` are always read-only. `rig daily install-skill` registers the `daily` agent skill the same way `rig install-skill` does. |
 | `rig report` | **HTML completion report** from git history since the merge-base with main — the HyperIDE `/result-report` gather, as a rig command. Writes a self-contained HTML file you can open (`file://` path printed on stdout) plus a text summary of commits and files. Does not publish to GitHub Pages. `rig report [TASK_ID]`, `--title`, `--out PATH`, `--base REF`, `-C`. |
 | `rig usage` | **Claude token/cost usage across accounts.** Aggregates real per-message token usage from `~/.claude/projects` and every `~/.claude-accounts/account-*/projects` (the accounts managed by the separate `claude-rotate` tool), by model, account, and token type (input/output/cache-write/cache-read). Cost is a HYPOTHETICAL estimate at published Claude API list prices — this is a Claude.ai subscription, not pay-per-token billing, so it is never a real bill; a model ID not in the priced table is reported separately as "unpriced", never guessed at. Bare `rig usage` reports the current week AND current month; `--period day\|week\|month` narrows to one window. `--json` emits the stable, versioned contract (`schema`, `generated_at`, `disclaimer`, `accounts_scanned`, `periods`) that a separate, independently-built tg-cli command invokes on a schedule: `rig usage --json --period week` at end-of-week, `rig usage --json --period month` at end-of-month. Read-only; parsing is streaming/line-by-line with mtime-based file pruning, so a scheduled run only re-parses the files actually touched in the requested window, not the whole history. |
+
+Not rig subcommands, but provisioned by `rig apply`: **`gh ship <PR>`** (a gh alias, see
+[`ship_delegator`](docs/config-schema.md#ship_delegator)) and **`fj ship <PR>`** (the `fj` wrapper
+the [`fj`](#forgejo-fj--log-in-with-one-click) block installs) — one command under two names: both
+run the same dispatch to the repo's ship delegator / agent-tools' `ship.sh`, which picks GitHub or
+Forgejo by the origin's host (its Forgejo provider: agent-tools#793).
+
+The Codex updater that used to be `rig codex update` moved to harness-cli as `harness codex update` (same options); rig reconciles the dev environment and no longer updates agent-harness binaries.
 
 ### Quick start — `init` then `apply`
 
@@ -118,8 +192,6 @@ commit` executes headlessly.)
 
 ```bash
 rig doctor                                    # check deps; rig doctor --yes to install
-rig codex update                              # update Codex safely; roll back on a hung candidate
-rig codex update -- brew reinstall --cask codex  # replace the default updater command
 rig init                                       # no config yet: scaffold rig.yaml + PREVIEW the plan
 rig apply                                      # PREVIEW what apply would do (mutates nothing)
 rig apply commit                               # execute it (and re-apply on every machine, identically)
@@ -227,6 +299,60 @@ The config **cascades by location** (no scope flag):
 Dicts merge recursively (per-repo wins); lists/scalars replace wholesale. See
 [`docs/config-schema.md`](docs/config-schema.md) for every key. A worked example is
 [`rig.yaml`](./rig.yaml) at the repo root (this repo dogfoods its own config).
+
+### Global git settings — `git:`
+
+The global config can provision `git config --global` too, so a fresh machine gets your identity
+and git defaults from the same file as everything else:
+
+```yaml
+git:
+  config:
+    user.name: Alex Ultra
+    user.email: someone@example.com
+    pull.rebase: true
+    init.defaultBranch: main
+```
+
+`rig apply commit` sets each key that is missing or different (bools as `true`/`false`), records the
+prior value of anything it overwrote, and never unsets a key you set by hand; `rig status` reports
+each drifting key. The block is **global-only** — a repo `rig.yaml` that declares `git:` is rejected,
+because keys like `core.sshCommand` run code. Details:
+[`docs/config-schema.md#git`](docs/config-schema.md#git).
+
+### `rig profile` — carry your global config between machines
+
+Your global config lives in one file, so it can travel through one **private** git repo:
+
+```bash
+fj repo create .rig-profile --private          # once, on the forge (rig does not create repos)
+rig profile init https://git.hyperide.ai/<login>/.rig-profile   # machine A: seeds the empty repo
+rig profile init https://git.hyperide.ai/<login>/.rig-profile   # machine B: adopts it
+rig profile sync                                # after a change on either side
+rig profile status --fetch                      # which side changed? (writes nothing)
+```
+
+- **Two-way, never a silent merge.** rig compares the local file, the repo's copy, and the snapshot
+  of the last sync. Only local changed → commit + push. Only the repo changed → pull, after backing
+  the local file up as `config.yaml.rig-bak-<stamp>`. Both changed → refused with both paths printed;
+  merge by hand into the local file and `rig profile sync --take local`, or keep the repo's with
+  `--take remote`. Both files are validated before they cross, so a broken config is never pushed or
+  adopted.
+- **The repo must be private.** `env.vars` (`rig env`) often holds API keys and the file is plaintext.
+  Every push of a config with `env.vars` warns (naming the keys), and a push is refused when the forge
+  reports the repo as public to an anonymous API request.
+- **Commits use this machine's git identity** — provision it with the `git:` block above. With none,
+  the push fails and names `git.config.user.name` / `user.email`.
+- **Every machine with a profile keeps it in sync:** `rig apply commit` syncs before it builds the
+  plan; a failure warns and applies the local file, and a pull is flagged as a warning (that plan
+  comes from a config you did not preview). A preview never syncs. `profile.auto_sync: false`
+  (`rig profile init --no-auto-sync`) turns this off — for every machine, since the setting travels
+  in the synced file.
+- The checkout is `~/.config/rig/profile/repo/` (rig-owned) and the snapshot `~/.config/rig/profile/state.json`
+  (never committed). `init` records `profile.repo` through the same writer as `rig config set --global`,
+  which does not keep YAML comments. The agent-tools `protect-main` pre-push hook is switched off in
+  the profile checkout only (`git config hooks.skipGlobal protect-main` there — a one-file config repo
+  has no PR flow); every other repo keeps it, and the secret scan still runs on profile commits.
 
 ### Autonomous mode — global agent operating policy
 
@@ -463,8 +589,8 @@ Part of the [HyperIDE.ai](https://hyperide.ai) agent toolchain. Sibling tools th
 - **[tg-cli](https://git.hyperide.ai/ultrabricks/tg-cli)** — simple Telegram CLI to send messages, photos & files, and a two-way agent bridge (reports, Q -> buttons, voice/rich)
 - **[review-cli](https://git.hyperide.ai/ultrabricks/review-cli)** — multi-model read-only code review from one command: diff review, cited quorum, brainstorm, visual review, and interactive spec-review tooling
 - **[agent-tools](https://git.hyperide.ai/ultrabricks/agent-tools)** — the shared catalog rig applies: portable agent skills, agent-hooks, the global git-hook dispatcher, CI gates, and MCP servers
-- **[draw-cli](https://git.hyperide.ai/ultrabricks/draw-cli)** — text-to-image via Hugging Face
-- **[3d-cli](https://git.hyperide.ai/ultrabricks/3d-cli)** — scriptable CLI for the full 3D FDM lifecycle: modeling, mesh repair, slicing, and print monitoring
+- **[draw-cli](https://github.com/alex-mextner/draw-cli)** — text-to-image via Hugging Face
+- **[3d-cli](https://github.com/alex-mextner/3d-cli)** — scriptable CLI for the full 3D FDM lifecycle: modeling, mesh repair, slicing, and print monitoring
 - **[task-cli](https://git.hyperide.ai/ultrabricks/task-cli)** — enforced ticket-system CLI for agents (GitHub Issues / Linear): acceptance criteria, motivation, and user-impact gates before work starts
 - **[dev-cli](https://git.hyperide.ai/ultrabricks/dev-cli)** — project-scoped dev/e2e process runner: start/list/stop dev servers and e2e jobs
 - **[hyperide.ai](https://hyperide.ai)** — Figma replacement inside VS Code — edit React components directly through AST/LSP without AI hallucinations, token waste, or context-window limits
