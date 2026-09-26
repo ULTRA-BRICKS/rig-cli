@@ -2309,7 +2309,7 @@
                 "string",
                 "null"
               ],
-              "description": "the Tasks-app base URL, e.g. https://tasks-ultrabricks.vercel.app"
+              "description": "the Tasks-app base URL, e.g. https://tasks-ultrabricks.vercel.app; a bare https origin (no userinfo, query, fragment or path — task-cli appends /api/v1 itself)"
             },
             "team": {
               "type": [

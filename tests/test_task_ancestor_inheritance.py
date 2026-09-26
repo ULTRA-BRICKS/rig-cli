@@ -428,3 +428,145 @@ def test_ancestor_dirs_outside_home_excludes_filesystem_root(tmp_path: Path, mon
     assert Path("/") not in dirs
     assert (tmp_path / "outside" / "a" / "b").resolve() in dirs
     assert (tmp_path / "outside").resolve() in dirs
+
+
+# ── UB-3 review fixes: declared-config guard, ancestor trust, error chain ──────────────
+
+
+def test_ancestor_only_config_is_not_a_declared_config(home: Path):
+    # An ancestor contributes only `task` routing, which apply does not consume: a directory
+    # whose sole layer is an ancestor must still count as "no declared config".
+    _w(home / "xp" / "rig.yaml", "version: 1\ntask:\n  team: XP\n")
+    repo = home / "xp" / "repo"
+    repo.mkdir(parents=True)
+
+    loaded = config.load(repo)
+
+    assert [layer.split(":", 1)[0] for layer in loaded.layers] == ["ancestor"]
+    assert loaded.has_declared_config is False
+
+
+def test_apply_still_refuses_with_only_an_ancestor_rig_yaml(home: Path, capsys, fake_agent_tools, monkeypatch):
+    # Regression (UB-3 review F1): an ancestor-only directory must NOT apply built-in defaults.
+    from riglib.cli import main
+
+    monkeypatch.setenv("RIG_AGENT_TOOLS_SOURCE", str(fake_agent_tools))
+    _w(home / "xp" / "rig.yaml", "version: 1\ntask:\n  team: XP\n")
+    repo = home / "xp" / "repo"
+    repo.mkdir(parents=True)
+
+    for argv in (["apply", "-C", str(repo)], ["apply", "commit", "-C", str(repo)]):
+        rc = main(argv)
+        out = capsys.readouterr().out
+        assert rc == 2
+        assert "no rig.yaml" in out
+    assert not (home / ".agents").exists()  # HOME untouched
+
+
+def test_repo_layer_still_counts_as_declared_config(home: Path):
+    _w(home / "xp" / "rig.yaml", "version: 1\ntask:\n  team: XP\n")
+    repo = home / "xp" / "repo"
+    _w(repo / "rig.yaml", "version: 1\n")
+
+    assert config.load(repo).has_declared_config is True
+
+
+@pytest.mark.skipif(not hasattr(__import__("os"), "getuid"), reason="POSIX ownership/mode check")
+@pytest.mark.parametrize("writable", ["dir", "file"])
+def test_group_or_world_writable_ancestor_is_skipped(home: Path, writable: str):
+    # Regression (UB-3 review F3): a rig.yaml another local user can write (or plant in a shared
+    # directory) must not retarget this user's tickets. Mirrors task-cli's `_trusted_ancestor`.
+    outer = home / "shared"
+    _w(outer / "rig.yaml", "version: 1\ntask:\n  backend: tasks\n  tasks:\n    url: https://attacker.example\n")
+    repo = outer / "repo"
+    repo.mkdir(parents=True)
+    target = outer if writable == "dir" else outer / "rig.yaml"
+    target.chmod(target.stat().st_mode | 0o002)
+
+    loaded = config.load(repo)
+
+    assert "task" not in loaded.data or loaded.data["task"] == {}
+    assert not any(layer.startswith("ancestor:") for layer in loaded.layers)
+
+
+@pytest.mark.skipif(not hasattr(__import__("os"), "getuid"), reason="POSIX ownership/mode check")
+def test_owner_only_ancestor_is_still_trusted(home: Path):
+    outer = home / "mine"
+    _w(outer / "rig.yaml", "version: 1\ntask:\n  team: MINE\n")
+    repo = outer / "repo"
+    repo.mkdir(parents=True)
+    outer.chmod(0o755)
+    (outer / "rig.yaml").chmod(0o644)
+
+    assert config.load(repo).data["task"] == {"team": "MINE"}
+
+
+def test_unparseable_ancestor_yaml_error_chains_no_source_excerpt(home: Path):
+    # Regression (UB-3 review F4): the sanitized error must not carry PyYAML's source excerpt in
+    # its __cause__/__context__ chain either (any full traceback would print it). The unterminated
+    # quoted scalar makes PyYAML's own message quote the secret-bearing line.
+    _w(home / "outer" / "rig.yaml", 'version: 1\ntask:\n  url: "https://tok-SECRET-123@x\n')
+    repo = home / "outer" / "repo"
+    repo.mkdir(parents=True)
+
+    with pytest.raises(ConfigError) as excinfo:
+        config.load(repo)
+
+    chain: list[str] = []
+    todo: list[BaseException | None] = [excinfo.value]
+    seen: set[int] = set()
+    while todo:
+        exc = todo.pop()
+        if exc is None or id(exc) in seen:
+            continue
+        seen.add(id(exc))
+        chain += [str(exc), repr(exc), str(getattr(exc, "why", "") or ""), str(getattr(exc, "fix", "") or "")]
+        todo += [exc.__cause__, exc.__context__]
+    assert "SECRET" not in "\n".join(chain)
+
+
+@pytest.fixture
+def rig_warnings():
+    """WARNING records of the `rig` logger, captured by a handler attached to it directly (the
+    logger sets propagate=False, so pytest's root-level caplog cannot see them)."""
+    import logging
+
+    from riglib.logging import get_logger
+
+    records: list[logging.LogRecord] = []
+    handler = logging.Handler(level=logging.WARNING)
+    handler.emit = records.append  # type: ignore[method-assign]
+    logger = get_logger()
+    logger.addHandler(handler)
+    try:
+        yield records
+    finally:
+        logger.removeHandler(handler)
+
+
+@pytest.mark.skipif(not hasattr(__import__("os"), "getuid"), reason="POSIX ownership/mode check")
+def test_absent_rig_yaml_in_a_shared_directory_is_silent(home: Path, rig_warnings):
+    # a world-writable ancestor directory WITHOUT a rig.yaml (e.g. /tmp on a CI runner) must not
+    # log a warning on every load -- there is nothing to trust or skip
+    shared = home / "shared"
+    repo = shared / "repo"
+    repo.mkdir(parents=True)
+    shared.chmod(0o777)
+
+    config.load(repo)
+
+    assert [r.getMessage() for r in rig_warnings if "ancestor skipped" in r.getMessage()] == []
+
+
+@pytest.mark.skipif(not hasattr(__import__("os"), "getuid"), reason="POSIX ownership/mode check")
+def test_skipped_ancestor_is_logged_naming_the_untrusted_path(home: Path, rig_warnings):
+    shared = home / "shared"
+    _w(shared / "rig.yaml", "version: 1\ntask:\n  team: X\n")
+    repo = shared / "repo"
+    repo.mkdir(parents=True)
+    shared.chmod(0o777)
+
+    config.load(repo)
+
+    messages = [r.getMessage() for r in rig_warnings]
+    assert any("ancestor skipped" in m and str(shared) in m for m in messages), messages
