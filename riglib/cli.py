@@ -1935,6 +1935,7 @@ _LIVE_ACTIVATION_KINDS = frozenset({
     "provision_github_ghas",
     "provision_github_actions",
     "provision_github_browser",
+    "provision_fj",  # a Homebrew install or a release download on first apply
 })
 
 

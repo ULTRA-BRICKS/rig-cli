@@ -1064,6 +1064,9 @@ def test_cli_set_global_known_list_round_trips_into_global_config(
         ('mcp.items."my.server".command', ["mcp", "items", "my.server", "command"]),
         ("mcp.items.'my.server'.command", ["mcp", "items", "my.server", "command"]),
         (' env . "vars" . KEY ', ["env", "vars", "KEY"]),
+        # a quote inside a name is literal: only a segment's first character opens quoting
+        ('mcp.items.my"ser"ver.command', ["mcp", "items", 'my"ser"ver', "command"]),
+        ('a.b"c.d"e', ["a", 'b"c', 'd"e']),
     ],
 )
 def test_split_path_keeps_dotted_keys_whole(path, parts):
@@ -1077,7 +1080,7 @@ def test_canonical_dot_path_quotes_only_what_needs_it():
     assert config.canonical_dot_path("mcp.items.'my.server'.command") == 'mcp.items."my.server".command'
 
 
-@pytest.mark.parametrize("path", ['a."b', "a.'b.c", 'a."".b'])
+@pytest.mark.parametrize("path", ['a."b', "a.'b.c", 'a."".b', 'a."b"c.d', "a.'b'x"])
 def test_split_path_rejects_bad_quoting(path):
     with pytest.raises(config.ConfigError):
         config.split_path(path)

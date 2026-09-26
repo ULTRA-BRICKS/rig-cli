@@ -292,20 +292,33 @@ def _flat_key_index(parts: list[str]) -> int | None:
 
 
 def _split_segments(dotted: str) -> list[str]:
-    """Split on dots OUTSIDE quotes: ``a."b.c".d`` → ``["a", "b.c", "d"]`` (``'…'`` works too)."""
+    """Split on dots OUTSIDE quotes: ``a."b.c".d`` → ``["a", "b.c", "d"]`` (``'…'`` works too).
+
+    A quote opens a quoted segment only as the segment's first character (spaces aside); anywhere
+    else it is an ordinary character, as it was before quoting existed — ``my"ser"ver`` stays one
+    literal segment instead of silently swallowing the dots up to a later quote. A quoted segment
+    must end at a dot or the end of the path.
+    """
     segments: list[str] = []
     buf: list[str] = []
     quote: str | None = None
+    closed = False  # a quoted segment just ended: only spaces, a dot or the end may follow
     for ch in dotted:
         if quote:
             if ch == quote:
                 quote = None
+                closed = True
             else:
                 buf.append(ch)
-        elif ch in "\"'":
-            quote = ch
         elif ch == ".":
             segments.append("".join(buf).strip())
+            buf = []
+            closed = False
+        elif closed:
+            if not ch.isspace():
+                raise ConfigError(f"invalid config path {dotted!r}: {ch!r} after a quoted segment")
+        elif ch in "\"'" and not "".join(buf).strip():
+            quote = ch
             buf = []
         else:
             buf.append(ch)

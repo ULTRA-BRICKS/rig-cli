@@ -2771,7 +2771,7 @@ fj:
 | `install` | bool | `true` | manage the `fj` command: the real fj + the wrapper that adds `fj ship`; `false` leaves fj entirely to you (no wrapper, no `fj ship`) |
 | `version` | str | `0.6.0` | release rig downloads (only versions with a pinned sha256) |
 | `bin_dir` | str | `~/.local/bin` | where the `fj` wrapper goes — must be on PATH, ahead of any other `fj` |
-| `git_credentials` | bool | `true` | write GCM generic-OAuth settings for `https://<host>` |
+| `git_credentials` | bool | `true` | write GCM generic-OAuth settings for `https://<host>` (the global host only) |
 | `client_id` | str | Forgejo `tea` app | OAuth client `fj auth login` uses |
 | `git_client_id` | str | Forgejo GCM app | OAuth client GCM uses |
 
@@ -2828,9 +2828,11 @@ on macOS; apply reports it, only your shell profile can fix it). A PATH without 
 any other fj (a daemon's minimal PATH) is not reported.
 
 Logging in is then the stock commands: `fj auth login` (browser → *Authorize*) and, for git, the first
-`git push` (GCM opens the browser once). A repo `rig.yaml` with its own `fj.host` adds that host on
-`rig apply` inside the repo; `FJ_FALLBACK_HOST` keeps pointing at the GLOBAL host (and is not set at
-all without one). `fj.host` is the only key a repo (or `--config`) layer may set: every other `fj`
+`git push` (GCM opens the browser once). A repo `rig.yaml` with its own `fj.host` adds that host to
+fj's `client_ids` on `rig apply` inside the repo (a line you wrote for it yourself is kept); git's
+GCM settings in `~/.gitconfig` are written for the GLOBAL host only, so a cloned repo naming
+`github.com` or a company server cannot repoint git's login for it. `FJ_FALLBACK_HOST` keeps
+pointing at the GLOBAL host (and is not set at all without one). `fj.host` is the only key a repo (or `--config`) layer may set: every other `fj`
 key changes the machine's fj install or the OAuth app fj and git log in with, so the loader rejects
 it outside `~/.config/rig/config.yaml` — a cloned repo cannot redirect your logins. fj refreshes its
 OAuth token itself; Forgejo drops a refresh token unused for `[oauth2] REFRESH_TOKEN_EXPIRATION_TIME`

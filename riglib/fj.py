@@ -58,6 +58,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import urllib.request
@@ -140,10 +141,11 @@ def is_valid_host(raw: Any) -> bool:
 def fj_options_from_config(block: dict[str, Any], *, fallback_host: str | None = None) -> dict[str, Any]:
     """Resolve a validated ``fj:`` block into the options a ``provision_fj`` action carries.
 
-    ``hosts`` is every host fj/git should be able to log in to (the block's ``host`` first, then
+    ``hosts`` is every host fj should be able to log in to (the block's ``host`` first, then
     ``fallback_host`` — the GLOBAL layer's host — when a repo overrides it). ``fallback_host`` is
     what ``FJ_FALLBACK_HOST`` points at: the machine default, never a single repo's override — so
-    with no global host (``None``) rig sets no ``FJ_FALLBACK_HOST`` at all.
+    with no global host (``None``) rig sets no ``FJ_FALLBACK_HOST`` at all. It is also the only
+    host rig changes machine-wide auth for (see :func:`trusted_hosts`).
     """
     host = normalize_host(str(block["host"]))
     fallback = normalize_host(fallback_host) if fallback_host else None
@@ -162,6 +164,17 @@ def fj_options_from_config(block: dict[str, Any], *, fallback_host: str | None =
 
 def fallback_host_url(host: str) -> str:
     return f"https://{host}"
+
+
+def trusted_hosts(options: dict[str, Any]) -> list[str]:
+    """The hosts rig may change machine-wide auth for: the GLOBAL layer's ``fj.host`` only.
+
+    A repo's rig.yaml may name its own forge, and fj can then log in to it; but a cloned repo must
+    not point git's global credential settings for a host of ITS choosing (``github.com``, a
+    company server) at Forgejo's OAuth app, nor replace a ``client_ids`` line someone wrote for it.
+    """
+    fallback = options.get("fallback_host")
+    return [h for h in options["hosts"] if h == fallback]
 
 
 def implied_env_vars(block: Any, *, windows: bool | None = None) -> dict[str, str]:
@@ -202,15 +215,44 @@ def fj_binary_name(system: str | None = None) -> str:
     return "fj.exe" if fj_platform(system) == "windows" else "fj"
 
 
+def _windows_env_dir(name: str) -> Path | None:
+    """A Windows directory from the environment (``USERPROFILE``, ``APPDATA``) as THIS Python opens
+    it: as is on a native Windows Python, through ``cygpath -u`` on a Cygwin / MSYS Python (whose
+    ``~`` is ``$HOME`` — ``/home/<user>`` — not the profile the native fj.exe and the wrapper use).
+    ``None`` when unset or unconvertible."""
+    value = os.environ.get(name)
+    if not value:
+        return None
+    if os.name == "nt":
+        return Path(value)
+    if sys.platform.startswith(("cygwin", "msys")):
+        try:
+            out = subprocess.run(
+                ["cygpath", "-u", value], capture_output=True, text=True, timeout=15, check=True
+            ).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return Path(out) if out else None
+    return None
+
+
+def _windows_profile() -> Path:
+    """``%USERPROFILE%`` (native Windows Python: what ``~`` already is)."""
+    if os.name == "nt":
+        return Path(os.path.expanduser("~"))
+    return _windows_env_dir("USERPROFILE") or Path(os.path.expanduser("~"))
+
+
 def fj_store_root(system: str | None = None) -> Path:
     """rig's own dir for the real fj it downloads (one subdir per version) — NOT on PATH.
 
     ``${XDG_DATA_HOME:-~/.local/share}/rig/fj``; on Windows always
-    ``%USERPROFILE%\\.local\\share\\rig\\fj`` (rig runs as a native Windows program, and the wrapper
-    resolves the same dir from Cygwin / Git Bash through ``$USERPROFILE``, whatever ``$HOME`` is).
+    ``%USERPROFILE%\\.local\\share\\rig\\fj`` — whether rig runs as a native Windows program or
+    under a Cygwin / MSYS Python — the dir the wrapper resolves from Cygwin / Git Bash through
+    ``$USERPROFILE``, whatever ``$HOME`` is.
     """
     if fj_platform(system) == "windows":
-        base = Path(os.path.expanduser("~")) / ".local" / "share"
+        base = _windows_profile() / ".local" / "share"
     else:
         base = Path(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"))
     return base / "rig" / "fj"
@@ -448,18 +490,21 @@ def client_ids_path(system: str | None = None) -> Path:
     """
     system = (system or platform.system()).lower()
     home = Path(os.path.expanduser("~"))
-    if system == "windows":
-        appdata = os.environ.get("APPDATA") or str(home / "AppData" / "Roaming")
-        return Path(appdata) / "Cyborus" / "forgejo-cli" / "config" / "client_ids"
+    if fj_platform(system) == "windows":  # the native fj.exe, also when rig runs on Cygwin Python
+        appdata = _windows_env_dir("APPDATA") or _windows_profile() / "AppData" / "Roaming"
+        return appdata / "Cyborus" / "forgejo-cli" / "config" / "client_ids"
     if system == "darwin":
         return home / ".config" / "forgejo-cli" / "client_ids"
     xdg = os.environ.get("XDG_CONFIG_HOME") or str(home / ".config")
     return Path(xdg) / "forgejo-cli" / "client_ids"
 
 
-def desired_client_ids_text(existing: str, hosts: list[str], client_id: str) -> str:
+def desired_client_ids_text(
+    existing: str, hosts: list[str], client_id: str, *, keep: frozenset[str] | set[str] = frozenset()
+) -> str:
     """``existing`` with exactly one ``<host> <client_id>`` line per host (rig-marked); every other
-    line — other hosts, comments — is kept as is."""
+    line — other hosts, comments — is kept as is. For a host in ``keep`` (one only a repo named)
+    a line rig did not write is left alone: rig only adds a missing one or refreshes its own."""
     wanted = {h: f"{h} {client_id}  {CLIENT_IDS_MARKER}" for h in hosts}
     out: list[str] = []
     seen: set[str] = set()
@@ -468,7 +513,8 @@ def desired_client_ids_text(existing: str, hosts: list[str], client_id: str) -> 
         host = first[0].lower() if first else None
         if host in wanted:
             if host not in seen:
-                out.append(wanted[host])
+                theirs = host in keep and CLIENT_IDS_MARKER not in line
+                out.append(line if theirs else wanted[host])
                 seen.add(host)
             continue
         out.append(line)
@@ -613,7 +659,7 @@ def pending_changes(
 
     cid_path = client_ids_path(system)
     existing = cid_path.read_text(encoding="utf-8") if cid_path.is_file() else ""
-    if desired_client_ids_text(existing, options["hosts"], options["client_id"]) != _normalized(existing):
+    if _client_ids_text(existing, options) != _normalized(existing):
         direction = "modified" if existing else "missing"
         todo.append((direction, "client_ids", cid_path,
                      f"fj can't log in to {', '.join(options['hosts'])} in the browser yet (no OAuth client ID)"))
@@ -626,11 +672,12 @@ def pending_changes(
                          Path("HKCU/Environment"), f"{FALLBACK_HOST_VAR}={have or '<unset>'} (want {want})"))
 
     if options["git_credentials"] and git_uses_gcm():
-        for host in options["hosts"]:
+        for host in trusted_hosts(options):
             for key, value in git_credential_settings(host, options["git_client_id"]).items():
-                if git_config_get(key) != value:
-                    todo.append(("missing", f"git-credential:{host}", Path("~/.gitconfig"),
-                                 f"git config --global {key} is not {value}"))
+                have = git_config_get(key)
+                if have != value:
+                    todo.append(("missing" if have is None else "modified", f"git-credential:{host}",
+                                 Path("~/.gitconfig"), f"git config --global {key} is not {value}"))
                     break
     return todo
 
@@ -658,7 +705,7 @@ def apply_changes(
         try:
             existing = path.read_text(encoding="utf-8") if path.is_file() else ""
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(desired_client_ids_text(existing, options["hosts"], options["client_id"]), encoding="utf-8")
+            path.write_text(_client_ids_text(existing, options), encoding="utf-8")
             done.append(f"fj browser login enabled for {', '.join(options['hosts'])} ({path})")
         except OSError as exc:
             errors.append(f"fj: could not write {path}: {exc}")
@@ -670,7 +717,7 @@ def apply_changes(
         except FjError as exc:
             errors.append(str(exc))
     if "git-credential" in items:
-        for host in options["hosts"]:
+        for host in trusted_hosts(options):
             wrote = False
             for key, value in git_credential_settings(host, options["git_client_id"]).items():
                 if git_config_get(key) == value:
@@ -687,6 +734,11 @@ def apply_changes(
             if wrote:
                 done.append(f"git login via browser (GCM OAuth) for https://{host}")
     return done, errors
+
+
+def _client_ids_text(existing: str, options: dict[str, Any]) -> str:
+    keep = set(options["hosts"]) - set(trusted_hosts(options))
+    return desired_client_ids_text(existing, options["hosts"], options["client_id"], keep=keep)
 
 
 def _normalized(text: str) -> str:

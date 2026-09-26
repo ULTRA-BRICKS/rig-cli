@@ -153,6 +153,44 @@ def test_client_ids_text_keeps_other_hosts_and_replaces_ours():
     assert fj.desired_client_ids_text(text, ["git.example.com", "second.example"], "NEW") == text
 
 
+def test_client_ids_text_keeps_a_hand_written_line_for_a_repo_only_host():
+    existing = f"forge.example THEIRS\ngit.example.com OLD\nstale.example OLD  {fj.CLIENT_IDS_MARKER}\n"
+    hosts = ["forge.example", "stale.example", "git.example.com"]
+    text = fj.desired_client_ids_text(existing, hosts, "NEW", keep={"forge.example", "stale.example"})
+    assert text.splitlines() == [
+        "forge.example THEIRS",  # a repo named it; the line someone wrote for it stays
+        f"git.example.com NEW  {fj.CLIENT_IDS_MARKER}",  # the global host is rig's to set
+        f"stale.example NEW  {fj.CLIENT_IDS_MARKER}",  # rig refreshes a line it wrote itself
+    ]
+
+
+def test_cygwin_python_uses_the_windows_profile_like_the_wrapper(tmp_path, monkeypatch):
+    """Under a Cygwin / MSYS Python `~` is $HOME (/home/u), but the native fj.exe reads %APPDATA% and
+    the wrapper runs the fj under %USERPROFILE% — rig must install and write there too, or `fj`
+    finds nothing while `rig status` reports it current."""
+    if os.name == "nt":
+        pytest.skip("a POSIX (Cygwin / MSYS) Python")
+    profile = tmp_path / "c" / "Users" / "u"
+    windows_paths = {r"C:\Users\u": profile, r"C:\Users\u\AppData\Roaming": profile / "AppData" / "Roaming"}
+    monkeypatch.setenv("USERPROFILE", r"C:\Users\u")
+    monkeypatch.setenv("APPDATA", r"C:\Users\u\AppData\Roaming")
+    monkeypatch.setenv("HOME", str(tmp_path / "home" / "u"))
+    monkeypatch.setattr(fj.sys, "platform", "cygwin")
+
+    def cygpath(cmd, **kw):
+        assert cmd[:2] == ["cygpath", "-u"], cmd
+
+        class R:
+            stdout = f"{windows_paths[cmd[2]]}\n"
+
+        return R()
+
+    monkeypatch.setattr(fj.subprocess, "run", cygpath)
+    system = "CYGWIN_NT-10.0-19045"
+    assert fj.fj_store_root(system) == profile / ".local" / "share" / "rig" / "fj"
+    assert fj.client_ids_path(system) == profile / "AppData" / "Roaming" / "Cyborus" / "forgejo-cli" / "config" / "client_ids"
+
+
 # ── install ─────────────────────────────────────────────────────────────────────────────────
 
 
@@ -900,6 +938,34 @@ def test_a_repo_host_never_becomes_the_machine_default(sandbox, tmp_path, monkey
     plan = InstallPlan(actions=[])
     _build_env(loaded, plan)
     assert plan.actions[0].options["vars"] == {"FJ_FALLBACK_HOST": "https://git.hyperide.ai"}
+
+
+def test_a_repo_host_never_gets_machine_wide_git_credentials(sandbox, monkeypatch):
+    """A cloned repo's rig.yaml says `fj: {host: github.com}`: fj may log in there, but rig must not
+    point git's GLOBAL credential settings for github.com (or any host a repo picks) at Forgejo's
+    OAuth app — only the global layer's host gets them."""
+    store = _stub_git(monkeypatch, gcm=True)
+    opts = fj.fj_options_from_config({"host": "github.com", "install": False}, fallback_host="git.hyperide.ai")
+    todo = fj.pending_changes(opts, windows=False, system="Linux")
+    assert "git-credential:github.com" not in _items(todo)
+    assert "git-credential:git.hyperide.ai" in _items(todo)
+
+    done, errors = fj.apply_changes(opts, todo, system="Linux")
+    assert errors == []
+    assert not [key for key in store if "github.com" in key]
+    assert store["credential.https://git.hyperide.ai.oauthClientId"] == fj.FORGEJO_GCM_CLIENT_ID
+
+    # no global host at all: nothing machine-wide for the repo's host
+    opts = fj.fj_options_from_config({"host": "github.com", "install": False})
+    assert not [i for i in _items(fj.pending_changes(opts, windows=False, system="Linux")) if i.startswith("git-credential")]
+
+
+def test_git_credential_drift_says_modified_for_a_changed_value(sandbox, monkeypatch):
+    store = _stub_git(monkeypatch, gcm=True)
+    store["credential.https://git.example.com.oauthClientId"] = "someone-else"
+    todo = fj.pending_changes(_opts(install=False), windows=False, system="Linux")
+    [row] = [t for t in todo if t[1] == "git-credential:git.example.com"]
+    assert row[0] == "modified"
 
 
 def test_without_a_global_host_rig_sets_no_fallback_host(sandbox, tmp_path, monkeypatch):
