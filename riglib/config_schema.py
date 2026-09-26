@@ -1077,9 +1077,19 @@ _FJ_BLOCK = Block(
 
 
 _BUN_BLOCK = Block(
-    doc="GLOBAL bunfig: splice [install] linker=isolated and globalStore=true.",
+    doc=(
+        "GLOBAL bunfig: splice [install] linker=isolated and globalStore=true. While on, "
+        "`rig worktree create` installs a bun repo's deps through the store and `rig status` "
+        "flags worktrees whose node_modules bypass it."
+    ),
     leaves={
         "enabled": Leaf("boolean", "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in)", default=False),
+        "worktree_install": Leaf(
+            "boolean",
+            "`rig worktree create` runs `bun install --frozen-lockfile` in a new worktree of a bun repo "
+            "(only while bun.enabled; never symlinks node_modules)",
+            default=True,
+        ),
     },
 )
 

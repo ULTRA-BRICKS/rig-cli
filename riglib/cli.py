@@ -721,11 +721,14 @@ def _add_worktree_create_subparser(wsub: "argparse._SubParsersAction") -> None:
         description="Idempotently ensure .worktrees/ is ignored in the repo's .git/info/exclude "
         "— never the committed .gitignore — THEN create a linked git worktree at the "
         "standardized <repo>/.worktrees/<name> path (replacing the several ad hoc conventions "
-        "this ecosystem had grown), so a new worktree never dirties `git status`.",
+        "this ecosystem had grown), so a new worktree never dirties `git status`. In a bun repo "
+        "(bun.lock) with bun.enabled, it then installs deps with `bun install --frozen-lockfile` "
+        "through the global store (bun.worktree_install: false turns that off).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit codes:\n"
         "  0    success\n"
-        "  1    the exclude reconcile failed, or git worktree add timed out\n"
+        "  1    the exclude reconcile failed, git worktree add timed out, or the worktree was\n"
+        "       created but its bun install failed (the message says how to finish it)\n"
         "  2    invalid name/branch/ref, target already exists, or git rejected the request\n"
         "       (branch collision, bad ref, dirty checkout, …)\n"
         "  6    not a git repository\n"
@@ -1229,7 +1232,41 @@ def _cmd_worktree_create(args: argparse.Namespace) -> int:
     print(_ok(result.message))
     if result.exclude_note:
         print(_dim(f"  {result.exclude_note}"))
+    if result.path is not None:
+        return _worktree_bun_install(env.repo_root, result.path)
     return 0
+
+
+def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
+    """Install a new bun worktree's deps through the global store (``bun.worktree_install``).
+
+    Runs after the worktree exists, so a config or install problem never undoes the create: a
+    skip prints the manual command, a failed install exits 1 with the command to finish it.
+    """
+    from . import bun_store, errors as errors_module
+    from .config import ConfigError, load
+
+    if not bun_store.is_bun_project(worktree_path):
+        return 0
+    try:
+        loaded = load(repo_root, include_repo=True)
+    except ConfigError as exc:
+        print(_warn(f"  deps not installed: rig config did not load ({exc}) — run `bun install --frozen-lockfile` in {worktree_path}"))
+        return 0
+    bun_cfg = loaded.data.get("bun")
+    if not bun_store.worktree_install_enabled(bun_cfg):
+        if not (isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is True):
+            print(_dim(f"  bun repo: install deps with `bun install --frozen-lockfile` in {worktree_path} (never symlink node_modules)"))
+        return 0
+    outcome = bun_store.install_worktree_deps(worktree_path)
+    if outcome.status == "installed":
+        print(_ok(f"  {outcome.message}"))
+        return 0
+    if outcome.status == "skipped":
+        print(_warn(f"  {outcome.message}"))
+        return 0
+    print(_err(f"  error: {outcome.message}"))
+    return errors_module.EXIT_INTERNAL
 
 
 def _cmd_worktree_remove(args: argparse.Namespace) -> int:

@@ -2543,11 +2543,13 @@ provision `uv.toml`.
 ```yaml
 bun:
   enabled: true                 # splice isolated linker + globalStore into ~/.bunfig.toml (default OFF)
+  worktree_install: true        # `rig worktree create` runs `bun install --frozen-lockfile` in bun repos (default ON)
 ```
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `enabled` | bool | `false` | splice a managed `[install] linker = "isolated"` + `globalStore = true` block into the global bunfig |
+| `worktree_install` | bool | `true` | while `enabled`, `rig worktree create` installs a bun repo's deps in the new worktree (see below) |
 
 **What apply splices** (markers included; everything outside the markers is left
 byte-for-byte):
@@ -2574,6 +2576,30 @@ also a conflict. Apply never writes on conflict.
 
 **Drift / verify.** Missing or stale managed block → apply splices. Conflict stays.
 Verify checks both `[install]` keys.
+
+**Worktree installs.** With `enabled` and `worktree_install` on, `rig worktree create` runs
+`bun install --frozen-lockfile` in a new worktree whose root has `bun.lock`/`bun.lockb`, so
+agents never improvise (symlinking `node_modules` to the main checkout — `bun install` then writes
+through the link — or a full `npm install` copy). It only installs through the store: if the
+global bunfig is not provisioned (`rig apply` first) or bun is missing, it skips and prints the
+command; a `node_modules` symlink is refused. A failed install leaves the worktree in place and
+exits `1` with the command to finish it. A repo whose own `bunfig.toml` pins
+`linker = "hoisted"` still installs, as that repo asks (the store does not apply there).
+
+**Store-bypass check.** While `enabled`, `rig status` inside a repo scans every worktree of that
+repo that has a bun lockfile and reports `bun/worktree:<path>` drift for:
+
+- a `node_modules` that is a **symlink** (to another checkout);
+- a `node_modules/.bun` whose entries are **mostly real directories** instead of links into
+  `~/.bun/install/cache/links/` (bun keeps a few packages with lifecycle scripts, like `esbuild`,
+  as directories even in a store install — a majority is the bypass signal);
+- **broken links** from `node_modules/.bun` into `links/` (a wiped cache);
+- a **hoisted** layout (package dirs, no `node_modules/.bun`) when the repo does not pin
+  `linker = "hoisted"`.
+
+`rig apply` never deletes, so the item names the fix: remove that worktree's `node_modules`
+(or the symlink) and run `bun install --frozen-lockfile` there. The agent-tools
+`package-store-guard` hook blocks the commands that cause these states.
 
 ---
 

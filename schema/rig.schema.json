@@ -1584,12 +1584,17 @@
     },
     "bun": {
       "type": "object",
-      "description": "GLOBAL bunfig: splice [install] linker=isolated and globalStore=true.",
+      "description": "GLOBAL bunfig: splice [install] linker=isolated and globalStore=true. While on, `rig worktree create` installs a bun repo's deps through the store and `rig status` flags worktrees whose node_modules bypass it.",
       "properties": {
         "enabled": {
           "type": "boolean",
           "description": "splice isolated linker + globalStore into ~/.bunfig.toml (opt-in)",
           "default": false
+        },
+        "worktree_install": {
+          "type": "boolean",
+          "description": "`rig worktree create` runs `bun install --frozen-lockfile` in a new worktree of a bun repo (only while bun.enabled; never symlinks node_modules)",
+          "default": true
         }
       },
       "additionalProperties": false

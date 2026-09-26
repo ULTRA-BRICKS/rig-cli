@@ -441,6 +441,13 @@ def compute_drift_report(
     bun_cfg = loaded.data.get("bun")
     if isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is False and not _restricted_out("bun"):
         check_disabled_bunfig(report)
+    # store-bypassing installs: with the global store on, a worktree whose node_modules is a
+    # symlink to another checkout, a full copy, or full of broken links into links/ is drift apply
+    # cannot fix (it never deletes) — surface it with the per-worktree fix instead.
+    if isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is True and env.is_git_repo and not _restricted_out("bun"):
+        from .bun_store import check_worktree_installs
+
+        check_worktree_installs(env.repo_root, report)
     # missing-target: a hook command in the harness settings.json that points at a file gone
     # from disk (the dead-rtk-hook case) surfaces PROACTIVELY here, before it bites at runtime
     # as a generic "PreToolUse error". This is independent of config↔disk drift. Scan the
