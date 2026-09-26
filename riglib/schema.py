@@ -540,8 +540,9 @@ AREAS: tuple[Area, ...] = (
             _opt("bun.worktree_install", KIND_BOOL, True,
                  "While bun.enabled, `rig worktree create` runs `bun install --frozen-lockfile` in a "
                  "new worktree of a bun repo, as the repo's own bunfig.toml configures it (never "
-                 "through a node_modules symlink). Only the global config turns it on; a repo "
-                 "rig.yaml may set false to opt that repo out."),
+                 "through a node_modules symlink). Only the global config turns it on; to opt ONE "
+                 "repo out, hand-edit its rig.yaml (bun: {worktree_install: false}) — this setting "
+                 "writes only the global value."),
         ),
     ),
     Area(

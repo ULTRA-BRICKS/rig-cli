@@ -294,6 +294,15 @@ def test_check_worktree_installs_skips_non_bun_repos(tmp_path):
     assert report.notes == []
 
 
+def test_a_worktree_path_with_a_newline_is_still_listed(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    weird = repo / ".worktrees" / "we\nird"
+    res = subprocess.run(["git", "-C", str(repo), "worktree", "add", "-q", str(weird), "-b", "weird"], capture_output=True)
+    if res.returncode != 0:
+        pytest.skip("this filesystem/git refuses a newline in a path")
+    assert weird in bun_store.repo_worktrees(repo)
+
+
 def test_a_failing_worktree_listing_is_a_visible_note(tmp_path):
     assert bun_store.repo_worktrees(tmp_path / "not-a-repo") is None
     report = DriftReport()
@@ -439,6 +448,17 @@ def test_an_interrupted_install_kills_the_whole_group(tmp_path, monkeypatch):
     with pytest.raises(KeyboardInterrupt):
         bun_store._run_bounded(["sh", "-c", "sleep 60 & sleep 60"], tmp_path, 30)
     assert procs[0].poll() is not None
+    # the backgrounded grandchild shared the group: the whole group must be gone, not just sh
+    import time
+
+    deadline = time.monotonic() + 5
+    while True:
+        try:
+            os.killpg(procs[0].pid, 0)
+        except ProcessLookupError:
+            break
+        assert time.monotonic() < deadline, "a member of the install's process group survived"
+        time.sleep(0.1)
 
 
 @posix_only
@@ -465,6 +485,30 @@ def test_a_repo_that_opted_out_of_the_install_gets_no_off_store_note(tmp_path, c
         (repo / "node_modules" / pkg).mkdir(parents=True)
     main(["status", "-C", str(repo)])
     assert "not using the global store" not in capsys.readouterr().out
+
+
+def test_find_bun_falls_back_to_bun_install_bin(tmp_path, monkeypatch):
+    home_bin = tmp_path / "bunhome" / "bin"
+    home_bin.mkdir(parents=True)
+    fake = home_bin / "bun"
+    fake.write_text("#!/bin/sh\n", encoding="utf-8")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path / "empty-bin"))
+    monkeypatch.setenv("BUN_INSTALL", str(tmp_path / "bunhome"))
+    if sys.platform == "win32":
+        pytest.skip("POSIX exec bit")
+    assert bun_store.find_bun() == str(fake)
+
+
+def test_install_skip_on_a_bunfig_conflict_says_fix_by_hand(tmp_path):
+    target = bunfig.bunfig_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(bunfig.BEGIN_MARKER + "\n[install]\n", encoding="utf-8")  # unbalanced markers
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "skipped"
+    assert "rig apply" not in outcome.message and "reconcile by hand" in outcome.message
 
 
 def test_install_skips_when_bun_is_missing(tmp_path, monkeypatch):
@@ -517,7 +561,8 @@ def test_the_hint_warns_about_a_write_through_symlink(tmp_path, monkeypatch, cap
     subprocess.run(["git", "add", "node_modules"], cwd=repo, check=True)
     _commit_all(repo, "a committed node_modules link")
     assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
-    assert "is a symlink — remove it" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "is a symlink to" in out and "Remove the link" in out
 
 
 @posix_only

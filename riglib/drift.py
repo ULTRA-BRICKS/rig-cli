@@ -1492,6 +1492,32 @@ def check_disabled_dispatcher(repo_root: Path, report: DriftReport) -> None:
             )
 
 
+# Strings only the managers' GENERATED shims carry (rig's own composers mention lefthook/husky
+# in comments, so bare names are not a signature).
+_HOOK_MANAGER_SIGNATURES = (
+    ("lefthook", ("LEFTHOOK_VERBOSE", "call_lefthook")),
+    ("husky", ("husky.sh", "HUSKY=0", ".husky/_")),
+    ("pre-commit", ("pre-commit.com", "INSTALL_PYTHON=")),
+    ("simple-git-hooks", ("simple-git-hooks",)),
+)
+
+
+def hook_manager_shim(text: str) -> str | None:
+    """The hook manager whose generated shim ``text`` is (lefthook, husky, pre-commit, …), or None.
+
+    A composer is rig's own script; a shim is what `lefthook install` & co. write into whatever
+    core.hooksPath resolves to — the GLOBAL one when rig's dispatcher is wired (a postinstall
+    `lefthook install` replaced the pre-commit composer this way on 2026-09-26).
+    """
+    head = text[:2048]
+    if "Composing global" in head:  # rig's own composer, just an older/edited copy
+        return None
+    for name, needles in _HOOK_MANAGER_SIGNATURES:
+        if any(n in head for n in needles):
+            return name
+    return None
+
+
 def _check_composers(src_hooks: Path, composer: Path, report: DriftReport) -> None:
     """Compare every shipped composer against what apply would install.
 
@@ -1511,10 +1537,19 @@ def _check_composers(src_hooks: Path, composer: Path, report: DriftReport) -> No
             report.items.append(DriftItem("missing", "git_hooks", src.name, dst, "composer hook not installed"))
         elif src.expected is None:
             report.known.append(KnownItem("git_hooks", src.name, dst, KIND_UNVERIFIED, f"{src.name}: {src.note}"))
-        elif dst.read_text(encoding="utf-8") != src.expected:
-            detail = f"composer hook differs from {src.origin}"
-            if src.note and src.origin == SOURCE_ORIGIN:
-                detail += f" ({src.note})"
+        elif (installed := dst.read_text(encoding="utf-8", errors="replace")) != src.expected:
+            manager = hook_manager_shim(installed)
+            if manager:
+                detail = (
+                    f"REPLACED by a {manager} shim — `{manager} install` wrote into the GLOBAL "
+                    f"core.hooksPath, so rig's {src.name} composer (secret scan, review gate) no longer "
+                    "runs in any repo; `rig apply` restores it (the old one may be in "
+                    f"{src.name}.old). Never run a hook manager's install with a global core.hooksPath."
+                )
+            else:
+                detail = f"composer hook differs from {src.origin}"
+                if src.note and src.origin == SOURCE_ORIGIN:
+                    detail += f" ({src.note})"
             report.items.append(DriftItem("modified", "git_hooks", src.name, dst, detail))
     for leftover in unshipped_composers(composer, sources):
         report.items.append(

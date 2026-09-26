@@ -1232,7 +1232,8 @@ def _cmd_worktree_create(args: argparse.Namespace) -> int:
     print(_ok(result.message))
     if result.exclude_note:
         print(_dim(f"  {result.exclude_note}"))
-    return _worktree_bun_install(env.repo_root, result.path or worktree_mod.worktree_path(env.repo_root, args.name))
+    assert result.path is not None  # every "created" result carries its path
+    return _worktree_bun_install(env.repo_root, result.path)
 
 
 def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
@@ -1256,7 +1257,7 @@ def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
     if decision == "hint":
         link = bun_store.write_through_link(worktree_path)
         if link is not None:
-            print(_warn(f"  {link} is a symlink — remove it before installing deps, then run {manual}"))
+            print(_warn(f"  {bun_store.write_through_message(link, manual)}"))
         else:
             print(_dim(f"  bun repo: install deps with {manual} (never symlink node_modules)"))
         return 0

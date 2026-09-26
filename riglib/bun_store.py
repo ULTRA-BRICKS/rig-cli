@@ -43,7 +43,7 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, TypeGuard
 
 if TYPE_CHECKING:
     from .drift import DriftReport
@@ -84,7 +84,7 @@ def install_decision(global_bun: Mapping[str, Any] | None, merged_bun: Mapping[s
     """
     if not _global_bun_enabled(global_bun):
         return "hint"
-    if global_bun.get("worktree_install", True) is False:  # type: ignore[union-attr]
+    if global_bun.get("worktree_install", True) is False:
         return "off"
     if isinstance(merged_bun, Mapping) and (
         merged_bun.get("worktree_install") is False or merged_bun.get("enabled") is False
@@ -111,7 +111,7 @@ def worktree_check_enabled(global_bun: Mapping[str, Any] | None, merged_bun: Map
     return not (isinstance(merged_bun, Mapping) and merged_bun.get("enabled") is False)
 
 
-def _global_bun_enabled(global_bun: Mapping[str, Any] | None) -> bool:
+def _global_bun_enabled(global_bun: Mapping[str, Any] | None) -> TypeGuard[Mapping[str, Any]]:
     """The one "on" switch for both the install and the status scan: the GLOBAL bun.enabled."""
     return isinstance(global_bun, Mapping) and global_bun.get("enabled") is True
 
@@ -156,9 +156,17 @@ def _readlink(path: Path | str) -> str:
         return "?"
 
 
-def _tail(text: str) -> str:
+def _last_lines(text: str) -> str:
     lines = [ln for ln in text.strip().splitlines() if ln.strip()]
     return "\n".join(lines[-_STDERR_TAIL_LINES:])
+
+
+def write_through_message(link: Path, manual: str) -> str:
+    """The one explanation for a node_modules / node_modules/.bun symlink, with the paste-safe fix."""
+    return (
+        f"{link} is a symlink to {_readlink(link)} — bun install would write through it into that "
+        f"checkout. Remove the link (`rm {_q(link)}`), then run {manual}"
+    )
 
 
 def write_through_link(worktree: Path) -> Path | None:
@@ -170,7 +178,7 @@ def write_through_link(worktree: Path) -> Path | None:
     return None
 
 
-def _tail_of(fh, limit: int = 64 * 1024) -> str:
+def _file_tail(fh, limit: int = 64 * 1024) -> str:
     fh.seek(0, os.SEEK_END)
     size = fh.tell()
     fh.seek(max(0, size - limit))
@@ -201,7 +209,7 @@ def _run_bounded(cmd: list[str], cwd: Path, timeout_s: int) -> tuple[int, str, s
                     proc.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     pass
-        return proc.returncode, _tail_of(out), _tail_of(err)
+        return proc.returncode, _file_tail(out), _file_tail(err)
 
 
 def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S) -> InstallOutcome:
@@ -219,13 +227,11 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
     # refuse a write-through link FIRST: every other outcome prints `bun install` for the user
     link = write_through_link(worktree)
     if link is not None:
-        return InstallOutcome(
-            "failed",
-            f"{link} is a symlink to {_readlink(link)} — bun install would write through it into "
-            f"that checkout. Remove the link (`rm {_q(link)}`), then run {manual}",
-        )
+        return InstallOutcome("failed", write_through_message(link, manual))
     state = bunfig.resolve()
     if state.state != "ok":
+        if state.state == "conflict":  # apply never writes on conflict: the fix is by hand
+            return InstallOutcome("skipped", f"not installing deps: {state.detail}; then run {manual}")
         problem = {
             "create": f"{state.path} does not set the isolated linker + globalStore yet",
             "update": f"the rig-managed block in {state.path} is stale",
@@ -245,7 +251,7 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
     except OSError as exc:
         return InstallOutcome("failed", f"could not run bun ({exc}) — run {manual}")
     if returncode != 0:
-        detail = _tail(stderr) or _tail(stdout) or f"exit {returncode}"
+        detail = _last_lines(stderr) or _last_lines(stdout) or f"exit {returncode}"
         return InstallOutcome(
             "failed",
             f"`bun install --frozen-lockfile` failed (exit {returncode}) in {worktree}:\n{detail}\n"
