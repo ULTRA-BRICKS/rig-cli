@@ -536,7 +536,15 @@ AREAS: tuple[Area, ...] = (
             _opt("bun.enabled", KIND_BOOL, False,
                  "Splice a managed [install] linker = \"isolated\" + globalStore = true "
                  "block into the global bunfig. Opt-in (default OFF). GLOBAL-only — never "
-                 "written to a repo rig.yaml."),
+                 "written to a repo rig.yaml. Also turns on bun.worktree_install: `rig worktree "
+                 "create` then runs `bun install` — the repo's own install scripts included — in "
+                 "new worktrees of bun repos."),
+            _opt("bun.worktree_install", KIND_BOOL, True,
+                 "While bun.enabled, `rig worktree create` runs `bun install --frozen-lockfile` in a "
+                 "new worktree of a bun repo, as the repo's own bunfig.toml configures it (never "
+                 "through a node_modules symlink). Only the global config turns it on; to opt ONE "
+                 "repo out, hand-edit its rig.yaml (bun: {worktree_install: false}) — this setting "
+                 "writes only the global value."),
         ),
     ),
     Area(

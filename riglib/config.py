@@ -2892,16 +2892,17 @@ def _validate_bun(s: dict[str, Any]) -> None:
     """Validate the ``bun`` block — GLOBAL bunfig isolated linker + globalStore splice.
 
     Default **OFF** (opt-in). An absent/empty block is a no-op. Fail-closed on a non-mapping
-    block, a non-bool ``enabled``, and an unknown key.
+    block, a non-bool ``enabled``/``worktree_install``, and an unknown key.
     """
     if not isinstance(s, dict):
         raise ConfigError("bun must be a mapping", schema_path="bun")
     if not s:
         return
     _reject_unknown_keys(s, "bun")
-    enabled = s.get("enabled")
-    if enabled is not None and not isinstance(enabled, bool):
-        raise ConfigError(f"bun.enabled must be a bool, got {enabled!r}", schema_path="bun.enabled")
+    for key in ("enabled", "worktree_install"):
+        value = s.get(key)
+        if value is not None and not isinstance(value, bool):
+            raise ConfigError(f"bun.{key} must be a bool, got {value!r}", schema_path=f"bun.{key}")
 
 
 def _validate_fj(f: dict[str, Any]) -> None:

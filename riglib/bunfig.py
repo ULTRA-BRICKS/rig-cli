@@ -44,7 +44,48 @@ _STORE_LINE_RE = re.compile(r"^globalStore\s*=\s*true\s*(?:#.*)?$")
 _LINKER_LINE_RE = re.compile(r"^linker\s*=\s*[\"\']isolated[\"\']\s*(?:#.*)?$")
 _DOTTED_LINKER_RE = re.compile(r'^install\.linker\s*=\s*["\']isolated["\']\s*(?:#.*)?$')
 _DOTTED_STORE_RE = re.compile(r'^install\.globalStore\s*=\s*true\s*(?:#.*)?$')
-_TABLE_RE = re.compile(r"^\[([^\]]+)\]\s*(?:#.*)?$")
+_TABLE_RE = re.compile(r"^\[\[?([^\]]+)\]\]?\s*(?:#.*)?$")
+_PIN_RES = {
+    "linker": re.compile(r"""^(?P<dotted>install\.)?linker\s*=\s*["'](?P<value>[\w.-]+)["']\s*(?:#.*)?$"""),
+    "globalStore": re.compile(r"^(?P<dotted>install\.)?globalStore\s*=\s*(?P<value>true|false)\s*(?:#.*)?$"),
+}
+PROJECT_BUNFIG_NAME = "bunfig.toml"
+
+
+def project_install_pins(project: Path) -> dict[str, str]:
+    """The ``[install]`` keys a project's own ``bunfig.toml`` pins: ``linker`` / ``globalStore``.
+
+    A project bunfig overrides the global one for the same keys, so these decide whether that
+    project's installs use the global store at all.
+    """
+    try:
+        text = (project / PROJECT_BUNFIG_NAME).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return {}
+    pins: dict[str, str] = {}
+    table = ""
+    for line in _iter_nonempty_lines(text):
+        header = _TABLE_RE.match(line)
+        if header:
+            table = header.group(1).strip()
+            continue
+        for key, pattern in _PIN_RES.items():
+            m = pattern.match(line)
+            # `install.linker = …` counts only at top level; a bare `linker = …` only under [install]
+            if m and table == ("" if m.group("dotted") else "install"):
+                pins[key] = m.group("value")
+    return pins
+
+
+def project_store_opt_out(project: Path) -> str | None:
+    """Why a project's own bunfig keeps it off the global store (a non-isolated linker or
+    ``globalStore = false``), or None when the global setting applies."""
+    pins = project_install_pins(project)
+    if pins.get("linker", "isolated") != "isolated":
+        return f'its bunfig.toml pins linker = "{pins["linker"]}"'
+    if pins.get("globalStore") == "false":
+        return "its bunfig.toml sets globalStore = false"
+    return None
 
 
 def bunfig_path() -> Path:

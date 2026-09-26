@@ -1,0 +1,897 @@
+"""bun worktree installs: `rig worktree create` + the `rig status` check.
+
+The cruxes (each red if broken):
+- `rig worktree create` in a bun repo runs a plain `bun install --frozen-lockfile` INSIDE the new
+  worktree (so the repo's own bunfig decides the layout) only when the GLOBAL config has
+  `bun.enabled` — a repo rig.yaml can turn it off but never on — and never through a
+  node_modules / node_modules/.bun symlink or before the global bunfig is provisioned;
+- `rig status` reports links into another checkout and broken links into the store as drift, but
+  a full copy / hoisted install only as an informational note (the store breaks typecheck in some
+  repos), and nothing for a repo whose bunfig opts out of the store.
+"""
+
+from __future__ import annotations
+
+import os
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from riglib import bun_store, bunfig
+from riglib.cli import main
+from riglib.config import ConfigError, global_config_path, validate
+from riglib.drift import DriftReport
+
+posix_only = pytest.mark.skipif(sys.platform == "win32", reason="fake bun is a POSIX shell script")
+
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+
+def _commit_all(path: Path, message: str) -> None:
+    subprocess.run(["git", "add", "."], cwd=path, check=True)
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", message], cwd=path, check=True)
+
+
+def _git_repo(path: Path, *, bun: bool = True) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    (path / "package.json").write_text('{"name": "x"}\n', encoding="utf-8")
+    if bun:
+        (path / "bun.lock").write_text("{}\n", encoding="utf-8")
+    _commit_all(path, "init")
+    return path
+
+
+def _provision_bunfig() -> Path:
+    target = bunfig.bunfig_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(bunfig.managed_block() + "\n", encoding="utf-8")
+    return target
+
+
+def _global_config(text: str) -> None:
+    path = global_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("version: 1\n" + text, encoding="utf-8")
+
+
+def _fake_bun(tmp_path: Path, monkeypatch, *, exit_code: int = 0, sleep_s: int = 0) -> Path:
+    """A `bun` on PATH that logs `<cwd> <args>` and lays out a store-style node_modules."""
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir(exist_ok=True)
+    log = tmp_path / "bun-calls.log"
+    script = bindir / "bun"
+    script.write_text(
+        "#!/bin/sh\n"
+        f'echo "$PWD $*" >> "{log}"\n'
+        + (f"sleep {sleep_s}\n" if sleep_s else "")
+        + f"if [ {exit_code} -ne 0 ]; then echo 'error: lockfile had changes, but lockfile is frozen' >&2; exit {exit_code}; fi\n"
+        "mkdir -p node_modules/.bun\n"
+        "exit 0\n",
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '/usr/bin:/bin')}")
+    return log
+
+
+def _store_layout(worktree: Path, links: Path, *, linked: int, copied: int, broken: int = 0) -> None:
+    bun_dir = worktree / "node_modules" / ".bun"
+    (bun_dir / "node_modules").mkdir(parents=True)  # bun's own hoisted-links dir: never counted
+    for i in range(linked):
+        store_entry = links / f"pkg{i}@1.0.0-abc"
+        if i >= broken:
+            store_entry.mkdir(parents=True, exist_ok=True)
+        os.symlink(store_entry, bun_dir / f"pkg{i}@1.0.0")
+    for i in range(copied):
+        (bun_dir / f"scripted{i}@2.0.0" / "node_modules").mkdir(parents=True)
+
+
+# ── scan_install ─────────────────────────────────────────────────────────────
+
+
+def test_scan_flags_node_modules_symlink_to_another_checkout(tmp_path):
+    main_checkout = tmp_path / "main"
+    (main_checkout / "node_modules").mkdir(parents=True)
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    os.symlink(main_checkout / "node_modules", wt / "node_modules")
+    scan = bun_store.scan_install(wt, tmp_path / "links")
+    assert len(scan.broken) == 1
+    assert "symlink" in scan.broken[0]
+    assert str(main_checkout / "node_modules") in scan.broken[0]
+    assert "bun install --frozen-lockfile" in scan.broken[0]
+
+
+def test_scan_flags_a_linked_node_modules_bun_dir(tmp_path):
+    other = tmp_path / "main" / "node_modules" / ".bun"
+    other.mkdir(parents=True)
+    wt = tmp_path / "wt"
+    (wt / "node_modules").mkdir(parents=True)
+    os.symlink(other, wt / "node_modules" / ".bun")
+    scan = bun_store.scan_install(wt, tmp_path / "links")
+    assert len(scan.broken) == 1
+    assert os.path.join("node_modules", ".bun") in scan.broken[0]
+
+
+def test_scan_flags_bun_entries_linked_into_another_checkout(tmp_path):
+    links = tmp_path / "links"
+    wt = tmp_path / "wt"
+    _store_layout(wt, links, linked=5, copied=0)
+    other_pkg = tmp_path / "main" / "node_modules" / ".bun" / "zod@3.0.0"
+    other_pkg.mkdir(parents=True)
+    os.symlink(other_pkg, wt / "node_modules" / ".bun" / "zod@3.0.0")
+    local_pkg = wt / "packages" / "local"
+    local_pkg.mkdir(parents=True)
+    os.symlink(local_pkg, wt / "node_modules" / ".bun" / "local@file")  # a file: dep inside the tree
+    scan = bun_store.scan_install(wt, links)
+    assert len(scan.broken) == 1
+    assert "1 node_modules/.bun entry link into another checkout" in scan.broken[0]
+    assert "zod@3.0.0" in scan.broken[0]
+
+
+def test_scan_flags_dangling_links_into_an_older_store(tmp_path):
+    links = tmp_path / "cache" / "links"
+    wt = tmp_path / "wt"
+    _store_layout(wt, links, linked=4, copied=0)
+    os.symlink(tmp_path / "old-cache" / "links" / "gone@1-abc", wt / "node_modules" / ".bun" / "gone@1")
+    (problem,) = bun_store.scan_install(wt, links).broken
+    assert "1 broken link(s)" in problem
+
+
+def test_scan_accepts_store_install_with_a_few_lifecycle_dirs(tmp_path):
+    links = tmp_path / "links"
+    wt = tmp_path / "wt"
+    _store_layout(wt, links, linked=46, copied=2)
+    assert bun_store.scan_install(wt, links) == bun_store.InstallScan()
+
+
+def test_scan_reports_majority_copied_as_off_store_not_broken(tmp_path):
+    links = tmp_path / "links"
+    wt = tmp_path / "wt"
+    _store_layout(wt, links, linked=1, copied=40)
+    scan = bun_store.scan_install(wt, links)
+    assert scan.broken == ()
+    assert scan.off_store == "40 of 41 packages copied"
+
+
+def test_scan_flags_broken_links_into_the_store(tmp_path):
+    links = tmp_path / "links"
+    wt = tmp_path / "wt"
+    _store_layout(wt, links, linked=10, copied=0, broken=3)
+    scan = bun_store.scan_install(wt, links)
+    assert len(scan.broken) == 1
+    assert "3 broken link(s)" in scan.broken[0]
+
+
+def test_store_membership_uses_the_resolved_link_target(tmp_path):
+    links = tmp_path / "cache" / "links"
+    entry = str(tmp_path / "wt" / "node_modules" / ".bun" / "zod@3")
+    assert bun_store._points_into_store(entry, str(links / "zod@3-abc"), links)
+    assert not bun_store._points_into_store(entry, str(tmp_path / "cache" / "links-evil" / "zod"), links)
+    # a relative target is resolved from the entry's directory, whatever the cache is called
+    assert bun_store._points_into_store(entry, "../../../cache/links/zod@3-abc", links)
+    assert not bun_store._points_into_store(entry, "../../../elsewhere/install/cache/links/zod", links)
+
+
+def test_scan_hoisted_is_off_store_unless_the_repo_pins_it(tmp_path):
+    wt = tmp_path / "wt"
+    for pkg in ("react", "zod", "typescript"):
+        (wt / "node_modules" / pkg).mkdir(parents=True)
+    scan = bun_store.scan_install(wt, tmp_path / "links")
+    assert scan.broken == ()
+    assert scan.off_store == "hoisted, 3 package dirs"
+    assert bun_store.InstallScan().off_store is None
+    (wt / "bunfig.toml").write_text('[install]\nlinker = "hoisted"  # repo needs it\n', encoding="utf-8")
+    assert bun_store.scan_install(wt, tmp_path / "links") == bun_store.InstallScan()
+
+
+def test_scan_respects_a_repo_that_turns_the_store_off(tmp_path):
+    links = tmp_path / "links"
+    wt = tmp_path / "wt"
+    _store_layout(wt, links, linked=0, copied=30)
+    (wt / "bunfig.toml").write_text("[install]\nglobalStore = false\n", encoding="utf-8")
+    assert bun_store.scan_install(wt, links) == bun_store.InstallScan()
+
+
+def test_scan_ignores_missing_or_empty_node_modules(tmp_path):
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    assert bun_store.scan_install(wt, tmp_path / "links") == bun_store.InstallScan()
+    (wt / "node_modules").mkdir()
+    assert bun_store.scan_install(wt, tmp_path / "links") == bun_store.InstallScan()
+
+
+def test_an_array_of_tables_header_ends_the_install_table(tmp_path):
+    (tmp_path / "bunfig.toml").write_text(
+        '[install]\nlinker = "isolated"\n[[hook]]\nlinker = "hoisted"\n', encoding="utf-8"
+    )
+    assert bunfig.project_install_pins(tmp_path) == {"linker": "isolated"}
+
+
+def test_wizard_registry_exposes_worktree_install_with_the_schema_default():
+    """`rig setup` / config-web enumerate riglib.schema.AREAS, a separate registry from
+    config_schema; a key in only one of them is valid but undiscoverable."""
+    from riglib import config_schema, schema
+
+    opt = schema.option_for_key("bun.worktree_install")
+    assert opt is not None
+    assert opt.kind == schema.KIND_BOOL
+    props = config_schema.json_schema()["properties"]["bun"]["properties"]
+    assert opt.default == props["worktree_install"]["default"] is True
+    assert opt.hint
+
+
+def test_project_install_pins_read_only_the_install_table(tmp_path):
+    cfg = tmp_path / "bunfig.toml"
+    cfg.write_text('[test]\nlinker = "hoisted"\nglobalStore = false\n', encoding="utf-8")
+    assert bunfig.project_install_pins(tmp_path) == {}
+    assert bunfig.project_store_opt_out(tmp_path) is None
+    cfg.write_text('install.linker = "hoisted"\n[test]\nroot = "t"\n', encoding="utf-8")
+    assert bunfig.project_install_pins(tmp_path) == {"linker": "hoisted"}
+    assert "hoisted" in bunfig.project_store_opt_out(tmp_path)
+    cfg.write_text('[install]\nlinker = "isolated"\nglobalStore = true\n', encoding="utf-8")
+    assert bunfig.project_store_opt_out(tmp_path) is None
+    cfg.write_text("[install]\nglobalStore = false # typecheck needs local @types\n", encoding="utf-8")
+    assert "globalStore = false" in bunfig.project_store_opt_out(tmp_path)
+
+
+def test_store_links_dir_honors_bun_env(tmp_path, monkeypatch):
+    monkeypatch.delenv("BUN_INSTALL_CACHE_DIR", raising=False)
+    monkeypatch.setenv("BUN_INSTALL", str(tmp_path / "bunhome"))
+    assert bun_store.store_links_dir() == tmp_path / "bunhome" / "install" / "cache" / "links"
+    monkeypatch.setenv("BUN_INSTALL_CACHE_DIR", str(tmp_path / "cache"))
+    assert bun_store.store_links_dir() == tmp_path / "cache" / "links"
+
+
+# ── check_worktree_installs (the drift hook) ─────────────────────────────────
+
+
+def _repo_with_worktrees(tmp_path: Path, *names: str) -> tuple[Path, list[Path]]:
+    repo = _git_repo(tmp_path / "repo")
+    (repo / "node_modules").mkdir()
+    trees = []
+    for name in names:
+        wt = repo / ".worktrees" / name
+        subprocess.run(["git", "-C", str(repo), "worktree", "add", "-q", str(wt), "-b", name], check=True)
+        trees.append(wt)
+    return repo, trees
+
+
+def test_check_worktree_installs_drifts_only_on_broken_installs(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUN_INSTALL_CACHE_DIR", str(tmp_path / "cache"))
+    links = tmp_path / "cache" / "links"
+    repo, (good, linked, copied) = _repo_with_worktrees(tmp_path, "good", "linked", "copied")
+    _store_layout(good, links, linked=5, copied=0)
+    os.symlink(repo / "node_modules", linked / "node_modules")
+    _store_layout(copied, links, linked=0, copied=12)
+    report = DriftReport()
+    bun_store.check_worktree_installs(repo, report)
+    assert [(i.direction, i.category, i.item) for i in report.items] == [
+        ("extra", "bun", f"worktree:{os.path.join('.worktrees', 'linked')}")
+    ]
+    assert report.items[0].target == linked
+    # the full copy is informational only: a repo may need a local install
+    assert len(report.notes) == 1
+    note = report.notes[0]
+    assert note.category == "bun"
+    assert "1 bun worktree install(s) not using the global store" in note.detail
+    assert os.path.join(".worktrees", "copied") in note.detail
+
+
+def test_check_worktree_installs_skips_non_bun_repos(tmp_path):
+    repo = _git_repo(tmp_path / "repo", bun=False)
+    main_nm = tmp_path / "elsewhere"
+    main_nm.mkdir()
+    os.symlink(main_nm, repo / "node_modules")
+    report = DriftReport()
+    bun_store.check_worktree_installs(repo, report)
+    assert report.items == []
+    assert report.notes == []
+
+
+def test_a_worktree_path_with_a_newline_is_still_listed(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    weird = repo / ".worktrees" / "we\nird"
+    res = subprocess.run(["git", "-C", str(repo), "worktree", "add", "-q", str(weird), "-b", "weird"], capture_output=True)
+    if res.returncode != 0:
+        pytest.skip("this filesystem/git refuses a newline in a path")
+    assert weird in bun_store.repo_worktrees(repo)
+
+
+def test_a_failing_worktree_listing_is_a_visible_note(tmp_path):
+    assert bun_store.repo_worktrees(tmp_path / "not-a-repo") is None
+    report = DriftReport()
+    bun_store.check_worktree_installs(tmp_path / "not-a-repo", report)
+    assert report.items == []
+    assert ["`git worktree list` failed" in n.detail for n in report.notes] == [True]
+
+
+def _status_repo(tmp_path: Path, fake_agent_tools: Path, *, bun_enabled: bool) -> Path:
+    repo = _git_repo(tmp_path / "repo")
+    _provision_bunfig()
+    bun_block = "bun:\n  enabled: true\n" if bun_enabled else ""
+    _global_config(f"agent_tools_source: {fake_agent_tools}\n{bun_block}")
+    (repo / "rig.yaml").write_text(
+        "version: 1\nskills: {enabled: false}\nagent_hooks: {enabled: false}\nmcp: {enabled: false}\n"
+        "git_hooks: {dispatcher: {enabled: false}}\nci: {enabled: false}\n",
+        encoding="utf-8",
+    )
+    return repo
+
+
+def test_status_reports_a_node_modules_symlink_as_drift(tmp_path, capsys, fake_agent_tools):
+    repo = _status_repo(tmp_path, fake_agent_tools, bun_enabled=True)
+    main_nm = tmp_path / "main-checkout-node_modules"
+    main_nm.mkdir()
+    os.symlink(main_nm, repo / "node_modules")
+    rc = main(["status", "-C", str(repo)])
+    out = capsys.readouterr().out
+    assert "bun/worktree:(primary)" in out
+    assert "node_modules is a symlink" in out
+    assert rc == 3
+
+
+def test_status_shows_an_off_store_install_as_a_note_not_drift(tmp_path, capsys, fake_agent_tools):
+    repo = _status_repo(tmp_path, fake_agent_tools, bun_enabled=True)
+    for pkg in ("react", "zod"):
+        (repo / "node_modules" / pkg).mkdir(parents=True)
+    main(["status", "-C", str(repo)])
+    out = capsys.readouterr().out
+    assert "bun/worktree:" not in out
+    assert "not using the global store" in out
+
+
+@pytest.mark.parametrize(
+    "global_block,repo_block",
+    [
+        ("", "bun:\n  enabled: true\n"),  # a cloned repo cannot turn the scan on
+        ("bun:\n  enabled: true\n", "bun:\n  enabled: false\n"),  # a repo can turn it off
+    ],
+)
+def test_status_scan_follows_the_install_layer_rule(tmp_path, capsys, fake_agent_tools, global_block, repo_block):
+    repo = _git_repo(tmp_path / "repo")
+    _provision_bunfig()
+    _global_config(f"agent_tools_source: {fake_agent_tools}\n{global_block}")
+    (repo / "rig.yaml").write_text(
+        "version: 1\nskills: {enabled: false}\nagent_hooks: {enabled: false}\nmcp: {enabled: false}\n"
+        f"git_hooks: {{dispatcher: {{enabled: false}}}}\nci: {{enabled: false}}\n{repo_block}",
+        encoding="utf-8",
+    )
+    main_nm = tmp_path / "main-checkout-node_modules"
+    main_nm.mkdir()
+    os.symlink(main_nm, repo / "node_modules")
+    main(["status", "-C", str(repo)])
+    assert "bun/worktree:" not in capsys.readouterr().out
+
+
+def test_status_is_silent_about_worktrees_when_bun_disabled(tmp_path, capsys, fake_agent_tools):
+    repo = _status_repo(tmp_path, fake_agent_tools, bun_enabled=False)
+    main_nm = tmp_path / "main-checkout-node_modules"
+    main_nm.mkdir()
+    os.symlink(main_nm, repo / "node_modules")
+    main(["status", "-C", str(repo)])
+    out = capsys.readouterr().out
+    assert "bun/worktree:" not in out
+    assert "not using the global store" not in out
+
+
+# ── install_worktree_deps ────────────────────────────────────────────────────
+
+
+@posix_only
+def test_install_runs_frozen_lockfile_in_the_worktree(tmp_path, monkeypatch):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "installed", outcome.message
+    assert log.read_text(encoding="utf-8").split() == [str(wt.resolve()), "install", "--frozen-lockfile"]
+    assert "global store" in outcome.message
+
+
+@posix_only
+def test_install_follows_a_repo_that_opts_out_of_the_store(tmp_path, monkeypatch):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / "bunfig.toml").write_text("[install]\nglobalStore = false\n", encoding="utf-8")
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "installed", outcome.message
+    # no linker/store flags forced on top of the repo's own bunfig
+    assert log.read_text(encoding="utf-8").split()[1:] == ["install", "--frozen-lockfile"]
+    assert "as the repo configures" in outcome.message
+    assert "globalStore = false" in outcome.message
+
+
+@posix_only
+def test_install_skips_without_the_global_store(tmp_path, monkeypatch):
+    log = _fake_bun(tmp_path, monkeypatch)
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "skipped"
+    assert "rig apply" in outcome.message
+    assert not log.exists()
+
+
+def test_install_skip_message_names_a_stale_bunfig_block(tmp_path):
+    target = bunfig.bunfig_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(bunfig.BEGIN_MARKER + "\n[install]\nglobalStore = false\n" + bunfig.END_MARKER + "\n", encoding="utf-8")
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "skipped"
+    assert "is stale" in outcome.message and "rig apply" in outcome.message
+
+
+@posix_only
+def test_an_interrupted_install_kills_the_whole_group(tmp_path, monkeypatch):
+    """Ctrl-C (or any exception) while waiting must not leave install scripts running detached."""
+    real_wait = subprocess.Popen.wait
+    procs = []
+
+    def interrupted_wait(self, timeout=None):
+        procs.append(self)
+        if len(procs) == 1:
+            raise KeyboardInterrupt
+        return real_wait(self, timeout=timeout)
+
+    monkeypatch.setattr(subprocess.Popen, "wait", interrupted_wait)
+    with pytest.raises(KeyboardInterrupt):
+        bun_store._run_bounded(["sh", "-c", "sleep 60 & sleep 60"], tmp_path, 30)
+    assert procs[0].poll() is not None
+    # the backgrounded grandchild shared the group: the whole group must be gone, not just sh
+    import time
+
+    deadline = time.monotonic() + 5
+    while True:
+        try:
+            os.killpg(procs[0].pid, 0)
+        except ProcessLookupError:
+            break
+        assert time.monotonic() < deadline, "a member of the install's process group survived"
+        time.sleep(0.1)
+
+
+@posix_only
+def test_an_interrupted_install_is_a_failure_with_the_command(tmp_path, monkeypatch):
+    _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+
+    def interrupted(*_a, **_k):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(bun_store, "_run_bounded", interrupted)
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "failed"
+    assert "interrupted" in outcome.message and "bun install --frozen-lockfile" in outcome.message
+
+
+def test_a_repo_that_opted_out_of_the_install_gets_no_off_store_note(tmp_path, capsys, fake_agent_tools):
+    repo = _status_repo(tmp_path, fake_agent_tools, bun_enabled=True)
+    with open(repo / "rig.yaml", "a", encoding="utf-8") as fh:
+        fh.write("bun:\n  worktree_install: false\n")
+    for pkg in ("react", "zod"):
+        (repo / "node_modules" / pkg).mkdir(parents=True)
+    main(["status", "-C", str(repo)])
+    assert "not using the global store" not in capsys.readouterr().out
+
+
+def test_find_bun_falls_back_to_bun_install_bin(tmp_path, monkeypatch):
+    home_bin = tmp_path / "bunhome" / "bin"
+    home_bin.mkdir(parents=True)
+    fake = home_bin / "bun"
+    fake.write_text("#!/bin/sh\n", encoding="utf-8")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path / "empty-bin"))
+    monkeypatch.setenv("BUN_INSTALL", str(tmp_path / "bunhome"))
+    if sys.platform == "win32":
+        pytest.skip("POSIX exec bit")
+    assert bun_store.find_bun() == str(fake)
+
+
+def test_install_skip_on_a_bunfig_conflict_says_fix_by_hand(tmp_path):
+    target = bunfig.bunfig_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(bunfig.BEGIN_MARKER + "\n[install]\n", encoding="utf-8")  # unbalanced markers
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "skipped"
+    assert "rig apply" not in outcome.message and "reconcile by hand" in outcome.message
+
+
+def test_install_skips_when_bun_is_missing(tmp_path, monkeypatch):
+    _provision_bunfig()
+    monkeypatch.setenv("PATH", str(tmp_path / "empty-bin"))
+    monkeypatch.setenv("BUN_INSTALL", str(tmp_path / "no-bun"))
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "skipped"
+    assert "bun is not installed" in outcome.message
+
+
+@posix_only
+@pytest.mark.parametrize("linked", ["node_modules", os.path.join("node_modules", ".bun")])
+def test_install_refuses_a_write_through_symlink(tmp_path, monkeypatch, linked):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    wt = tmp_path / "wt"
+    (wt / "node_modules").mkdir(parents=True)
+    if linked == "node_modules":
+        (wt / "node_modules").rmdir()
+    target = tmp_path / "main" / linked
+    target.mkdir(parents=True)
+    os.symlink(target, wt / linked)
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "failed"
+    assert "symlink" in outcome.message
+    assert not log.exists()
+
+
+def test_a_write_through_symlink_is_refused_before_any_skip(tmp_path):
+    """Every outcome prints `bun install` for the user — never while it would write through."""
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (tmp_path / "main" / "node_modules").mkdir(parents=True)
+    os.symlink(tmp_path / "main" / "node_modules", wt / "node_modules")
+    outcome = bun_store.install_worktree_deps(wt)  # bunfig not provisioned here
+    assert outcome.status == "failed"
+    assert "symlink" in outcome.message
+
+
+@posix_only
+def test_the_hint_warns_about_a_write_through_symlink(tmp_path, monkeypatch, capsys):
+    _fake_bun(tmp_path, monkeypatch)
+    repo = _git_repo(tmp_path / "repo")
+    main_nm = tmp_path / "main-nm"
+    main_nm.mkdir()
+    os.symlink(main_nm, repo / "node_modules")
+    subprocess.run(["git", "add", "node_modules"], cwd=repo, check=True)
+    _commit_all(repo, "a committed node_modules link")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    out = capsys.readouterr().out
+    assert "is a symlink to" in out and "Remove the link" in out
+
+
+@posix_only
+def test_the_off_path_also_warns_about_a_write_through_symlink(tmp_path, monkeypatch, capsys):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n  worktree_install: false\n")
+    repo = _git_repo(tmp_path / "repo")
+    main_nm = tmp_path / "main-nm"
+    main_nm.mkdir()
+    os.symlink(main_nm, repo / "node_modules")
+    subprocess.run(["git", "add", "node_modules"], cwd=repo, check=True)
+    _commit_all(repo, "a committed node_modules link")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    assert not log.exists()
+    assert "is a symlink to" in capsys.readouterr().out
+
+
+def _global_hooks_path(tmp_path: Path, monkeypatch) -> Path:
+    """A global git config whose core.hooksPath is a dir OUTSIDE every repo (rig's composer dir)."""
+    global_hooks = tmp_path / "global-hooks"
+    global_hooks.mkdir()
+    (global_hooks / "pre-commit").write_text("#!/bin/sh\n# Composing global pre-commit\n", encoding="utf-8")
+    gitconfig = tmp_path / "global.gitconfig"
+    gitconfig.write_text(f"[core]\n\thooksPath = {global_hooks}\n", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(gitconfig))
+    return global_hooks
+
+
+@posix_only
+def test_install_scripts_cannot_replace_the_global_composer(tmp_path, monkeypatch):
+    """A repo's `prepare: lefthook install` runs during the install: its shim must land in the
+    repo's own hooks dir, never over rig's global composer (the 2026-09-26 incident)."""
+    global_hooks = _global_hooks_path(tmp_path, monkeypatch)
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+    script = bindir / "bun"
+    script.write_text(  # what lefthook/husky do: ask git where hooks live, write a shim there
+        '#!/bin/sh\nhooks=$(git rev-parse --git-path hooks)\nmkdir -p "$hooks"\n'
+        'echo "call_lefthook run pre-commit" > "$hooks/pre-commit"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '/usr/bin:/bin')}")
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")  # a caller's own entries are kept, not replaced
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "user.name")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "kept")
+    _provision_bunfig()
+    repo = _git_repo(tmp_path / "repo")
+    outcome = bun_store.install_worktree_deps(repo)
+    assert outcome.status == "installed", outcome.message
+    assert "Composing global" in (global_hooks / "pre-commit").read_text(encoding="utf-8")
+    assert "call_lefthook" in (repo / ".git" / "hooks" / "pre-commit").read_text(encoding="utf-8")
+    assert "not the global hooks dir" in outcome.message
+    env = bun_store.with_hooks_pin("/r/.git/hooks")
+    assert env["GIT_CONFIG_KEY_0"] == "user.name" and env["GIT_CONFIG_KEY_1"] == "core.hooksPath"
+    assert env["GIT_CONFIG_COUNT"] == "2"
+
+
+def test_a_malformed_git_config_count_starts_the_list_over():
+    env = bun_store.with_hooks_pin("/r/.git/hooks", {"GIT_CONFIG_COUNT": "x", "PATH": "/bin"})
+    assert env["GIT_CONFIG_COUNT"] == "1" and env["GIT_CONFIG_KEY_0"] == "core.hooksPath"
+    assert env["GIT_CONFIG_VALUE_0"] == "/r/.git/hooks" and env["PATH"] == "/bin"
+
+
+def test_a_store_made_under_another_cache_dir_is_not_another_checkout(tmp_path):
+    """`rig status` may not inherit the shell's BUN_INSTALL_CACHE_DIR: a live link into that
+    other store's `links/<pkg>/node_modules/<pkg>` is a store install, never "another checkout"."""
+    wt = tmp_path / "wt"
+    bun_dir = wt / "node_modules" / ".bun"
+    bun_dir.mkdir(parents=True)
+    other_store = tmp_path / "big-volume" / "bun-cache" / "links"
+    for i in range(3):
+        pkg = other_store / f"pkg{i}@1.0.0-abc" / "node_modules" / f"pkg{i}"
+        pkg.mkdir(parents=True)
+        os.symlink(pkg, bun_dir / f"pkg{i}@1.0.0")
+    scan = bun_store.scan_install(wt, tmp_path / "home-cache" / "links")
+    assert scan.broken == ()
+    # a real other checkout's isolated layout still is one
+    main_pkg = tmp_path / "main" / "node_modules" / ".bun" / "x@1" / "node_modules" / "x"
+    main_pkg.mkdir(parents=True)
+    os.symlink(main_pkg, bun_dir / "x@1")
+    assert "another checkout" in bun_store.scan_install(wt, tmp_path / "home-cache" / "links").broken[0]
+
+
+@posix_only
+def test_worktree_create_pins_hooks_to_the_primary_git_dir(tmp_path, monkeypatch, capsys):
+    """The incident geometry end to end: a LINKED worktree, global core.hooksPath, and an install
+    script that installs git hooks — the shim lands in the primary's .git/hooks (the common dir,
+    which the global composer runs), and rig's composer is untouched."""
+    global_hooks = _global_hooks_path(tmp_path, monkeypatch)
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+    script = bindir / "bun"
+    script.write_text(
+        '#!/bin/sh\nhooks=$(git rev-parse --git-path hooks)\nmkdir -p "$hooks"\n'
+        'echo "call_lefthook run pre-commit" > "$hooks/pre-commit"\nmkdir -p node_modules/.bun\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '/usr/bin:/bin')}")
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n")
+    repo = _git_repo(tmp_path / "repo")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0, capsys.readouterr().out
+    assert "Composing global" in (global_hooks / "pre-commit").read_text(encoding="utf-8")
+    assert "call_lefthook" in (repo / ".git" / "hooks" / "pre-commit").read_text(encoding="utf-8")
+    assert "not the global hooks dir" in capsys.readouterr().out
+
+
+def test_an_array_of_tables_header_ends_install_for_the_global_bunfig_checks():
+    leaked = '[install]\nlinker = "hoisted"\n[[hook]]\nglobalStore = true\nlinker = "isolated"\n'
+    assert bunfig.has_install_global_store(leaked) is False
+    assert bunfig.has_install_isolated_linker(leaked) is False
+
+
+def test_a_repo_local_hooks_path_is_left_alone(tmp_path, monkeypatch):
+    _global_hooks_path(tmp_path, monkeypatch)
+    repo = _git_repo(tmp_path / "repo")
+    assert bun_store.repo_hooks_pin(repo) is not None  # the global dir: pinned
+    subprocess.run(["git", "config", "core.hooksPath", ".husky/_"], cwd=repo, check=True)
+    assert bun_store.repo_hooks_pin(repo) is None  # husky's own repo-local dir: untouched
+    plain = tmp_path / "not-a-repo"
+    plain.mkdir()
+    assert bun_store.repo_hooks_pin(plain) is None
+
+
+def test_worktree_labels_are_relative_to_the_primary_even_from_a_linked_worktree(tmp_path, monkeypatch):
+    repo, (wt,) = _repo_with_worktrees(tmp_path, "feat")
+    (repo / "node_modules").rmdir()
+    (tmp_path / "elsewhere").mkdir()
+    os.symlink(tmp_path / "elsewhere", repo / "node_modules")
+    os.symlink(tmp_path / "elsewhere", wt / "node_modules")
+    report = DriftReport()
+    bun_store.check_worktree_installs(wt, report)  # `rig status` run inside the linked worktree
+    assert [i.item for i in report.items] == ["worktree:(primary)", f"worktree:{os.path.join('.worktrees', 'feat')}"]
+
+
+@posix_only
+def test_install_failure_reports_stderr_and_the_fix(tmp_path, monkeypatch):
+    _fake_bun(tmp_path, monkeypatch, exit_code=1)
+    _provision_bunfig()
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "failed"
+    assert "lockfile is frozen" in outcome.message
+    assert "Never symlink node_modules" in outcome.message
+
+
+@posix_only
+def test_install_timeout_is_a_failure_with_the_command(tmp_path, monkeypatch):
+    _fake_bun(tmp_path, monkeypatch, sleep_s=5)
+    _provision_bunfig()
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt, timeout_s=1)
+    assert outcome.status == "failed"
+    assert "timed out after 1s" in outcome.message
+
+
+@posix_only
+def test_install_timeout_kills_lifecycle_children_holding_the_pipes(tmp_path, monkeypatch):
+    """A postinstall child that inherits stdout must not keep the wait open past the bound."""
+    import time
+
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+    script = bindir / "bun"
+    script.write_text("#!/bin/sh\nsleep 60 &\nsleep 60\n", encoding="utf-8")
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '/usr/bin:/bin')}")
+    _provision_bunfig()
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    started = time.monotonic()
+    outcome = bun_store.install_worktree_deps(wt, timeout_s=1)
+    assert outcome.status == "failed"
+    assert time.monotonic() - started < 20
+
+
+def test_fix_commands_quote_paths_with_shell_metacharacters(tmp_path):
+    other = tmp_path / "main" / "node_modules"
+    other.mkdir(parents=True)
+    wt = tmp_path / "feat; echo pwned"
+    wt.mkdir()
+    os.symlink(other, wt / "node_modules")
+    (problem,) = bun_store.scan_install(wt, tmp_path / "links").broken
+    import shlex
+
+    assert shlex.quote(str(wt / "node_modules")) in problem
+    assert f"cd {shlex.quote(str(wt))} && bun install --frozen-lockfile" in problem
+
+
+def test_off_store_note_lists_a_few_worktrees_then_counts(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUN_INSTALL_CACHE_DIR", str(tmp_path / "cache"))
+    names = [f"copy{i}" for i in range(6)]
+    repo, trees = _repo_with_worktrees(tmp_path, *names)
+    for wt in trees:
+        _store_layout(wt, tmp_path / "cache" / "links", linked=0, copied=3)
+    report = DriftReport()
+    bun_store.check_worktree_installs(repo, report)
+    assert report.items == []
+    (note,) = report.notes
+    assert "6 bun worktree install(s)" in note.detail
+    assert "… and 2 more" in note.detail
+
+
+# ── rig worktree create wiring ───────────────────────────────────────────────
+
+
+@posix_only
+def test_worktree_create_installs_bun_deps_when_enabled(tmp_path, monkeypatch, capsys):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n")
+    repo = _git_repo(tmp_path / "repo")
+    rc = main(["worktree", "create", "feat", "-C", str(repo)])
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    wt = repo / ".worktrees" / "feat"
+    assert log.read_text(encoding="utf-8").split() == [str(wt.resolve()), "install", "--frozen-lockfile"]
+    assert "deps installed" in out
+    assert (wt / "node_modules").is_dir() and not (wt / "node_modules").is_symlink()
+
+
+@posix_only
+def test_worktree_create_honors_worktree_install_false(tmp_path, monkeypatch, capsys):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n  worktree_install: false\n")
+    repo = _git_repo(tmp_path / "repo")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    assert not log.exists()
+
+
+@posix_only
+def test_worktree_create_honors_a_repo_level_opt_out(tmp_path, monkeypatch, capsys):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n")
+    repo = _git_repo(tmp_path / "repo")
+    (repo / "rig.yaml").write_text("version: 1\nbun:\n  worktree_install: false\n", encoding="utf-8")
+    _commit_all(repo, "rig")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    assert not log.exists()
+
+
+@posix_only
+def test_a_repo_rig_yaml_cannot_turn_the_install_on(tmp_path, monkeypatch, capsys):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    repo = _git_repo(tmp_path / "repo")
+    (repo / "rig.yaml").write_text("version: 1\nbun:\n  enabled: true\n  worktree_install: true\n", encoding="utf-8")
+    _commit_all(repo, "rig")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    assert not log.exists()
+    assert "bun install --frozen-lockfile" in capsys.readouterr().out  # just the hint
+
+
+@posix_only
+def test_worktree_create_without_bun_enabled_only_hints(tmp_path, monkeypatch, capsys):
+    log = _fake_bun(tmp_path, monkeypatch)
+    repo = _git_repo(tmp_path / "repo")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    assert not log.exists()
+    assert "bun install --frozen-lockfile" in capsys.readouterr().out
+
+
+@posix_only
+def test_worktree_create_in_non_bun_repo_does_nothing_extra(tmp_path, monkeypatch, capsys):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n")
+    repo = _git_repo(tmp_path / "repo", bun=False)
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    assert not log.exists()
+    assert "bun install" not in capsys.readouterr().out
+
+
+def test_worktree_create_with_a_broken_config_keeps_the_worktree(tmp_path, capsys):
+    _global_config("bun:\n  enabled: \"yes\"\n")
+    repo = _git_repo(tmp_path / "repo")
+    rc = main(["worktree", "create", "feat", "-C", str(repo)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert (repo / ".worktrees" / "feat").is_dir()
+    assert "rig config did not load" in out
+
+
+@posix_only
+def test_worktree_create_install_failure_exits_2_and_keeps_the_worktree(tmp_path, monkeypatch, capsys):
+    _fake_bun(tmp_path, monkeypatch, exit_code=1)
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n")
+    repo = _git_repo(tmp_path / "repo")
+    rc = main(["worktree", "create", "feat", "-C", str(repo)])
+    out = capsys.readouterr().out
+    assert rc == 2  # a diagnosed failure, not a rig crash (1)
+    assert (repo / ".worktrees" / "feat").is_dir()
+    assert "bun install --frozen-lockfile" in out
+
+
+# ── config ───────────────────────────────────────────────────────────────────
+
+
+def test_validate_bun_worktree_install():
+    validate({"version": 1, "bun": {"enabled": True, "worktree_install": False}})
+    with pytest.raises(ConfigError, match="bun.worktree_install must be a bool"):
+        validate({"version": 1, "bun": {"enabled": True, "worktree_install": "no"}})
+
+
+def test_install_decision_is_global_on_repo_off():
+    on = {"enabled": True}
+    assert bun_store.install_decision(on, on) == "install"
+    assert bun_store.install_decision(on, {"enabled": True, "worktree_install": False}) == "off"
+    assert bun_store.install_decision({"enabled": True, "worktree_install": False}, {"worktree_install": True}) == "off"
+    assert bun_store.install_decision(on, {"enabled": False}) == "off"  # a repo that turned bun off
+    assert bun_store.install_decision(None, {"enabled": True}) == "hint"
+    assert bun_store.install_decision({"enabled": False}, on) == "hint"
+
+
+@posix_only
+def test_a_repo_that_turns_bun_off_gets_no_worktree_install(tmp_path, monkeypatch, capsys):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n")
+    repo = _git_repo(tmp_path / "repo")
+    (repo / "rig.yaml").write_text("version: 1\nbun:\n  enabled: false\n", encoding="utf-8")
+    _commit_all(repo, "rig")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    assert not log.exists()

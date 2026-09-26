@@ -721,13 +721,16 @@ def _add_worktree_create_subparser(wsub: "argparse._SubParsersAction") -> None:
         description="Idempotently ensure .worktrees/ is ignored in the repo's .git/info/exclude "
         "— never the committed .gitignore — THEN create a linked git worktree at the "
         "standardized <repo>/.worktrees/<name> path (replacing the several ad hoc conventions "
-        "this ecosystem had grown), so a new worktree never dirties `git status`.",
+        "this ecosystem had grown), so a new worktree never dirties `git status`. In a bun repo "
+        "(bun.lock) with the global bun.enabled, it then runs `bun install --frozen-lockfile` there, "
+        "as the repo's own bunfig.toml configures it (bun.worktree_install: false turns that off).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit codes:\n"
         "  0    success\n"
         "  1    the exclude reconcile failed, or git worktree add timed out\n"
         "  2    invalid name/branch/ref, target already exists, or git rejected the request\n"
-        "       (branch collision, bad ref, dirty checkout, …)\n"
+        "       (branch collision, bad ref, dirty checkout, …); or the worktree WAS created but\n"
+        "       its bun install failed (the message says how to finish it)\n"
         "  6    not a git repository\n"
         "  127  git is not installed",
     )
@@ -1229,7 +1232,47 @@ def _cmd_worktree_create(args: argparse.Namespace) -> int:
     print(_ok(result.message))
     if result.exclude_note:
         print(_dim(f"  {result.exclude_note}"))
-    return 0
+    if result.path is None:  # every "created" result carries its path; never install blind
+        return result.exit_code
+    return _worktree_bun_install(env.repo_root, result.path)
+
+
+def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
+    """Install a new bun worktree's deps (``bun.worktree_install``), as the repo's bunfig says.
+
+    Runs after the worktree exists, so a config or install problem never undoes the create: a
+    skip prints the manual command, a failed install exits 2 with the command to finish it. Only
+    the GLOBAL config can turn the install on; a repo rig.yaml can only turn it off.
+    """
+    from . import bun_store, errors as errors_module
+    from .config import ConfigError
+
+    if not bun_store.is_bun_project(worktree_path):
+        return 0
+    manual = bun_store.manual_command(worktree_path)
+    try:
+        decision = bun_store.resolve_install_decision(repo_root)
+    except ConfigError as exc:
+        print(_warn(f"  deps not installed: rig config did not load ({exc}) — run {manual}"))
+        return 0
+    if decision != "install":
+        # not installing — but a committed write-through link is as dangerous for the install
+        # the user (or the repo's own tooling) runs next, so say so on every path
+        link = bun_store.write_through_link(worktree_path)
+        if link is not None:
+            print(_warn(f"  {bun_store.write_through_message(link, manual)}"))
+        elif decision == "hint":
+            print(_dim(f"  bun repo: install deps with {manual} (never symlink node_modules)"))
+        return 0
+    outcome = bun_store.install_worktree_deps(worktree_path)
+    if outcome.status == "installed":
+        print(_ok(f"  {outcome.message}"))
+        return 0
+    if outcome.status == "skipped":
+        print(_warn(f"  {outcome.message}"))
+        return 0
+    print(_err(f"  error: {outcome.message}"))
+    return errors_module.EXIT_CONFIG  # diagnosed (lockfile, network, script), not a rig crash
 
 
 def _cmd_worktree_remove(args: argparse.Namespace) -> int:

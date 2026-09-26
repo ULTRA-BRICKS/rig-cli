@@ -2543,11 +2543,13 @@ provision `uv.toml`.
 ```yaml
 bun:
   enabled: true                 # splice isolated linker + globalStore into ~/.bunfig.toml (default OFF)
+  worktree_install: true        # `rig worktree create` runs `bun install --frozen-lockfile` in bun repos (default ON)
 ```
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `enabled` | bool | `false` | splice a managed `[install] linker = "isolated"` + `globalStore = true` block into the global bunfig |
+| `worktree_install` | bool | `true` | while `enabled`, `rig worktree create` installs a bun repo's deps in the new worktree (see below) |
 
 **What apply splices** (markers included; everything outside the markers is left
 byte-for-byte):
@@ -2574,6 +2576,44 @@ also a conflict. Apply never writes on conflict.
 
 **Drift / verify.** Missing or stale managed block → apply splices. Conflict stays.
 Verify checks both `[install]` keys.
+
+**Worktree installs.** With `enabled` and `worktree_install` on, `rig worktree create` runs a
+plain `bun install --frozen-lockfile` in a new worktree whose root has `bun.lock`/`bun.lockb`, so
+agents never improvise (symlinking `node_modules` to the main checkout — `bun install` then writes
+through the link — or a full `npm install` copy). rig adds no linker or store flags: the repo's
+own `bunfig.toml` wins over the global one, so a repo that pins `linker = "hoisted"` or sets
+`globalStore = false` (the store breaks typecheck in some repos — TypeScript cannot always resolve
+peer-dependency types through the real paths under `links/`) gets its own layout. If the global
+bunfig is not provisioned (`rig apply` first) or bun is missing, it skips and prints the command;
+a `node_modules` symlink is refused. A failed install leaves the worktree in place and exits `2`
+with the command to finish it (the install is bounded at 15 minutes). The install runs the
+repo's own `preinstall`/`postinstall` scripts, as any `bun install` does — so enabling bun means
+trusting the repos you create worktrees for (set `worktree_install: false` if not). When the
+worktree's `core.hooksPath` is outside the repo (rig's global hooks dir), the install sees it
+pinned to the repo's own `.git/hooks` (via `GIT_CONFIG_COUNT`), so a `prepare: lefthook install` /
+`husky` writes its shims where the global composer runs them, never over the composer. Only the
+global config turns the install on — it runs the repo's install scripts, so a cloned repo's committed
+`rig.yaml` must not opt a machine in — but a repo can turn it off with
+`bun: {worktree_install: false}` in its `rig.yaml`.
+
+**Worktree install check.** While the global `enabled` is on (a repo `enabled: false` turns it
+off), `rig status` inside a repo scans every worktree of
+that repo that has a bun lockfile. States that are wrong in every repo report as
+`bun/worktree:<path>` **drift** (disk→config):
+
+- a `node_modules` or `node_modules/.bun` that is a **symlink**, or `.bun` entries linking into
+  another checkout's `node_modules` (`bun install` writes through them);
+- **broken links** from `node_modules/.bun` into `~/.bun/install/cache/links/` (a wiped cache).
+
+Installs that merely do **not use the store** are an informational note on the `bun` area (never
+drift, never the exit code), because a repo may need a local install: a `node_modules/.bun` whose
+entries are mostly real directories (bun keeps a few lifecycle-script packages such as `esbuild`
+as directories even in a store install, so the majority is the signal), or a hoisted layout. A
+repo whose `bunfig.toml` pins a linker or `globalStore = false` is not reported at all.
+
+`rig apply` never deletes, so each item names the fix: remove that worktree's `node_modules` (or
+the symlink) and run `bun install --frozen-lockfile` there. The agent-tools `package-store-guard`
+hook blocks the commands that cause these states.
 
 ---
 
