@@ -441,9 +441,9 @@ def compute_drift_report(
     bun_cfg = loaded.data.get("bun")
     if isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is False and not _restricted_out("bun"):
         check_disabled_bunfig(report)
-    # store-bypassing installs: with the global store on, a worktree whose node_modules is a
-    # symlink to another checkout, a full copy, or full of broken links into links/ is drift apply
-    # cannot fix (it never deletes) — surface it with the per-worktree fix instead.
+    # broken bun worktree installs: with the global store on, a node_modules symlink to another
+    # checkout or broken links into links/ is drift apply cannot fix (it never deletes) — surfaced
+    # with the per-worktree fix; an install that merely skips the store is only a note.
     if isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is True and env.is_git_repo and not _restricted_out("bun"):
         from .bun_store import check_worktree_installs
 

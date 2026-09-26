@@ -1238,25 +1238,28 @@ def _cmd_worktree_create(args: argparse.Namespace) -> int:
 
 
 def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
-    """Install a new bun worktree's deps through the global store (``bun.worktree_install``).
+    """Install a new bun worktree's deps (``bun.worktree_install``), as the repo's bunfig says.
 
     Runs after the worktree exists, so a config or install problem never undoes the create: a
-    skip prints the manual command, a failed install exits 1 with the command to finish it.
+    skip prints the manual command, a failed install exits 1 with the command to finish it. Only
+    the GLOBAL config can turn the install on; a repo rig.yaml can only turn it off.
     """
     from . import bun_store, errors as errors_module
     from .config import ConfigError, load
 
     if not bun_store.is_bun_project(worktree_path):
         return 0
+    manual = f"`bun install --frozen-lockfile` in {worktree_path}"
     try:
-        loaded = load(repo_root, include_repo=True)
+        global_bun = load(repo_root, include_repo=False).data.get("bun")
+        merged_bun = load(repo_root, include_repo=True).data.get("bun")
     except ConfigError as exc:
-        print(_warn(f"  deps not installed: rig config did not load ({exc}) — run `bun install --frozen-lockfile` in {worktree_path}"))
+        print(_warn(f"  deps not installed: rig config did not load ({exc}) — run {manual}"))
         return 0
-    bun_cfg = loaded.data.get("bun")
-    if not bun_store.worktree_install_enabled(bun_cfg):
-        if not (isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is True):
-            print(_dim(f"  bun repo: install deps with `bun install --frozen-lockfile` in {worktree_path} (never symlink node_modules)"))
+    decision = bun_store.install_decision(global_bun, merged_bun)
+    if decision == "hint":
+        print(_dim(f"  bun repo: install deps with {manual} (never symlink node_modules)"))
+    if decision != "install":
         return 0
     outcome = bun_store.install_worktree_deps(worktree_path)
     if outcome.status == "installed":
