@@ -134,6 +134,15 @@ def test_scan_flags_bun_entries_linked_into_another_checkout(tmp_path):
     assert "zod@3.0.0" in scan.broken[0]
 
 
+def test_scan_flags_dangling_links_into_an_older_store(tmp_path):
+    links = tmp_path / "cache" / "links"
+    wt = tmp_path / "wt"
+    _store_layout(wt, links, linked=4, copied=0)
+    os.symlink(tmp_path / "old-cache" / "links" / "gone@1-abc", wt / "node_modules" / ".bun" / "gone@1")
+    (problem,) = bun_store.scan_install(wt, links).broken
+    assert "1 broken link(s)" in problem
+
+
 def test_scan_accepts_store_install_with_a_few_lifecycle_dirs(tmp_path):
     links = tmp_path / "links"
     wt = tmp_path / "wt"
@@ -308,6 +317,29 @@ def test_status_shows_an_off_store_install_as_a_note_not_drift(tmp_path, capsys,
     assert "not using the global store" in out
 
 
+@pytest.mark.parametrize(
+    "global_block,repo_block",
+    [
+        ("", "bun:\n  enabled: true\n"),  # a cloned repo cannot turn the scan on
+        ("bun:\n  enabled: true\n", "bun:\n  enabled: false\n"),  # a repo can turn it off
+    ],
+)
+def test_status_scan_follows_the_install_layer_rule(tmp_path, capsys, fake_agent_tools, global_block, repo_block):
+    repo = _git_repo(tmp_path / "repo")
+    _provision_bunfig()
+    _global_config(f"agent_tools_source: {fake_agent_tools}\n{global_block}")
+    (repo / "rig.yaml").write_text(
+        "version: 1\nskills: {enabled: false}\nagent_hooks: {enabled: false}\nmcp: {enabled: false}\n"
+        f"git_hooks: {{dispatcher: {{enabled: false}}}}\nci: {{enabled: false}}\n{repo_block}",
+        encoding="utf-8",
+    )
+    main_nm = tmp_path / "main-checkout-node_modules"
+    main_nm.mkdir()
+    os.symlink(main_nm, repo / "node_modules")
+    main(["status", "-C", str(repo)])
+    assert "bun/worktree:" not in capsys.readouterr().out
+
+
 def test_status_is_silent_about_worktrees_when_bun_disabled(tmp_path, capsys, fake_agent_tools):
     repo = _status_repo(tmp_path, fake_agent_tools, bun_enabled=False)
     main_nm = tmp_path / "main-checkout-node_modules"
@@ -358,6 +390,35 @@ def test_install_skips_without_the_global_store(tmp_path, monkeypatch):
     assert outcome.status == "skipped"
     assert "rig apply" in outcome.message
     assert not log.exists()
+
+
+def test_install_skip_message_names_a_stale_bunfig_block(tmp_path):
+    target = bunfig.bunfig_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(bunfig.BEGIN_MARKER + "\n[install]\nglobalStore = false\n" + bunfig.END_MARKER + "\n", encoding="utf-8")
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    outcome = bun_store.install_worktree_deps(wt)
+    assert outcome.status == "skipped"
+    assert "is stale" in outcome.message and "rig apply" in outcome.message
+
+
+@posix_only
+def test_an_interrupted_install_kills_the_whole_group(tmp_path, monkeypatch):
+    """Ctrl-C (or any exception) while waiting must not leave install scripts running detached."""
+    real_wait = subprocess.Popen.wait
+    procs = []
+
+    def interrupted_wait(self, timeout=None):
+        procs.append(self)
+        if len(procs) == 1:
+            raise KeyboardInterrupt
+        return real_wait(self, timeout=timeout)
+
+    monkeypatch.setattr(subprocess.Popen, "wait", interrupted_wait)
+    with pytest.raises(KeyboardInterrupt):
+        bun_store._run_bounded(["sh", "-c", "sleep 60 & sleep 60"], tmp_path, 30)
+    assert procs[0].poll() is not None
 
 
 def test_install_skips_when_bun_is_missing(tmp_path, monkeypatch):
@@ -550,14 +611,14 @@ def test_worktree_create_with_a_broken_config_keeps_the_worktree(tmp_path, capsy
 
 
 @posix_only
-def test_worktree_create_install_failure_exits_1_and_keeps_the_worktree(tmp_path, monkeypatch, capsys):
+def test_worktree_create_install_failure_exits_2_and_keeps_the_worktree(tmp_path, monkeypatch, capsys):
     _fake_bun(tmp_path, monkeypatch, exit_code=1)
     _provision_bunfig()
     _global_config("bun:\n  enabled: true\n")
     repo = _git_repo(tmp_path / "repo")
     rc = main(["worktree", "create", "feat", "-C", str(repo)])
     out = capsys.readouterr().out
-    assert rc == 1
+    assert rc == 2  # a diagnosed failure, not a rig crash (1)
     assert (repo / ".worktrees" / "feat").is_dir()
     assert "bun install --frozen-lockfile" in out
 

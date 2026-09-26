@@ -2585,13 +2585,14 @@ own `bunfig.toml` wins over the global one, so a repo that pins `linker = "hoist
 `globalStore = false` (the store breaks typecheck in some repos — TypeScript cannot always resolve
 peer-dependency types through the real paths under `links/`) gets its own layout. If the global
 bunfig is not provisioned (`rig apply` first) or bun is missing, it skips and prints the command;
-a `node_modules` symlink is refused. A failed install leaves the worktree in place and exits `1`
+a `node_modules` symlink is refused. A failed install leaves the worktree in place and exits `2`
 with the command to finish it (the install is bounded at 15 minutes). Only the global config
 turns the install on — it runs the repo's install scripts, so a cloned repo's committed
 `rig.yaml` must not opt a machine in — but a repo can turn it off with
 `bun: {worktree_install: false}` in its `rig.yaml`.
 
-**Worktree install check.** While `enabled`, `rig status` inside a repo scans every worktree of
+**Worktree install check.** While the global `enabled` is on (a repo `enabled: false` turns it
+off), `rig status` inside a repo scans every worktree of
 that repo that has a bun lockfile. States that are wrong in every repo report as
 `bun/worktree:<path>` **drift** (disk→config):
 

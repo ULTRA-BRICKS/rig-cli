@@ -38,6 +38,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+import tempfile
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -93,24 +94,30 @@ def install_decision(global_bun: Mapping[str, Any] | None, merged_bun: Mapping[s
 
 
 def resolve_install_decision(repo_root: Path) -> Decision:
-    """:func:`install_decision` over the real config layers: the GLOBAL layer alone decides "on";
-    the repo layer is read only then, and only to turn it off. Raises ``ConfigError``."""
+    """:func:`install_decision` over the real config layers (one load): the GLOBAL layer's own
+    data alone decides "on", the merged view can only turn it off. Raises ``ConfigError``."""
     from .config import load
 
-    global_bun = load(repo_root, include_repo=False).data.get("bun")
-    decision = install_decision(global_bun, None)
-    if decision != "install":
-        return decision
-    return install_decision(global_bun, load(repo_root, include_repo=True).data.get("bun"))
+    loaded = load(repo_root, include_repo=True)
+    return install_decision(loaded.global_data.get("bun"), loaded.data.get("bun"))
 
 
-def manual_command(worktree: Path) -> str:
-    """The command to run by hand, paste-safe (a worktree path may hold spaces or `;`)."""
-    return f"`cd {shlex.quote(str(worktree))} && bun install --frozen-lockfile`"
+def worktree_check_enabled(global_bun: Mapping[str, Any] | None, merged_bun: Mapping[str, Any] | None) -> bool:
+    """`rig status` scans bun worktrees under the same layer rule as the install: the GLOBAL
+    ``bun.enabled`` turns it on (a cloned repo's rig.yaml must not make every clone's status red),
+    a repo ``bun.enabled: false`` turns it off."""
+    if not isinstance(global_bun, Mapping) or global_bun.get("enabled") is not True:
+        return False
+    return not (isinstance(merged_bun, Mapping) and merged_bun.get("enabled") is False)
 
 
 def _q(path: Path | str) -> str:
     return shlex.quote(str(path))
+
+
+def manual_command(worktree: Path) -> str:
+    """The command to run by hand, paste-safe (a worktree path may hold spaces or `;`)."""
+    return f"`cd {_q(worktree)} && bun install --frozen-lockfile`"
 
 
 def _bun_install_root() -> Path:
@@ -158,31 +165,38 @@ def _write_through_link(worktree: Path) -> Path | None:
     return None
 
 
+def _tail_of(fh, limit: int = 64 * 1024) -> str:
+    fh.seek(0, os.SEEK_END)
+    size = fh.tell()
+    fh.seek(max(0, size - limit))
+    return fh.read().decode("utf-8", errors="replace")
+
+
 def _run_bounded(cmd: list[str], cwd: Path, timeout_s: int) -> tuple[int, str, str]:
-    """Run ``cmd`` in its own process group; on timeout kill the WHOLE group (lifecycle-script
-    children included — they would otherwise keep writing node_modules and keep the output pipes,
-    and so the wait, open past the bound) and re-raise ``TimeoutExpired``."""
+    """Run ``cmd`` in its own process group with output to temp files (a flooding install script
+    cannot exhaust rig's memory, and a lifecycle child holding the output cannot keep the wait
+    open). On timeout, Ctrl-C or any other exit the WHOLE group is killed, so no install script
+    keeps writing node_modules or the store after rig has returned. Re-raises
+    ``TimeoutExpired``; returns (exit code, stdout tail, stderr tail)."""
     posix = os.name == "posix"
-    proc = subprocess.Popen(
-        cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-        encoding="utf-8", errors="replace", start_new_session=posix,
-    )
-    try:
-        out, err = proc.communicate(timeout=timeout_s)
-    except subprocess.TimeoutExpired:
-        if posix:
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except OSError:
-                proc.kill()
-        else:
-            proc.kill()
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        proc = subprocess.Popen(cmd, cwd=cwd, stdout=out, stderr=err, stdin=subprocess.DEVNULL, start_new_session=posix)
         try:
-            proc.communicate(timeout=10)
-        except subprocess.TimeoutExpired:
-            pass
-        raise
-    return proc.returncode, out, err
+            proc.wait(timeout=timeout_s)
+        finally:
+            if proc.poll() is None:
+                try:
+                    if posix:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    else:
+                        proc.kill()
+                except OSError:
+                    proc.kill()
+                try:
+                    proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    pass
+        return proc.returncode, _tail_of(out), _tail_of(err)
 
 
 def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S) -> InstallOutcome:
@@ -199,11 +213,11 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
     manual = manual_command(worktree)
     state = bunfig.resolve()
     if state.state != "ok":
-        return InstallOutcome(
-            "skipped",
-            f"not installing deps: {state.path} does not set the isolated linker + globalStore "
-            f"({state.detail}) — run `rig apply`, then {manual}",
-        )
+        problem = {
+            "create": f"{state.path} does not set the isolated linker + globalStore yet",
+            "update": f"the rig-managed block in {state.path} is stale",
+        }.get(state.state, state.detail)
+        return InstallOutcome("skipped", f"not installing deps: {problem} — run `rig apply`, then {manual}")
     bun = find_bun()
     if bun is None:
         return InstallOutcome("skipped", f"not installing deps: bun is not installed — install it, then run {manual}")
@@ -308,6 +322,8 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
                 linked += 1
                 if not os.path.exists(entry.path):
                     broken += 1
+            elif not os.path.exists(entry.path):
+                broken += 1  # dangling into a moved or wiped older store
             elif _links_into_other_checkout(entry.path, worktree):
                 foreign.append(entry.name)
         elif entry.is_dir(follow_symlinks=False):
@@ -320,8 +336,8 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
         )
     if broken:
         problems.append(
-            f"{broken} broken link(s) from node_modules/.bun into {links} (store entries gone — "
-            f"a wiped cache?); {fix}"
+            f"{broken} broken link(s) in node_modules/.bun (store entries under {links} or an older "
+            f"store are gone — a wiped cache?); {fix}"
         )
     off_store = f"{copied} of {copied + linked} packages copied" if copied > linked and not opted_out else None
     return InstallScan(broken=tuple(problems), off_store=off_store)

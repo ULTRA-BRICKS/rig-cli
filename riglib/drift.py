@@ -444,9 +444,9 @@ def compute_drift_report(
     # broken bun worktree installs: with the global store on, a node_modules symlink to another
     # checkout or broken links into links/ is drift apply cannot fix (it never deletes) — surfaced
     # with the per-worktree fix; an install that merely skips the store is only a note.
-    if isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is True and env.is_git_repo and not _restricted_out("bun"):
-        from .bun_store import check_worktree_installs
+    from .bun_store import check_worktree_installs, worktree_check_enabled
 
+    if env.is_git_repo and not _restricted_out("bun") and worktree_check_enabled(loaded.global_data.get("bun"), bun_cfg):
         check_worktree_installs(env.repo_root, report)
     # missing-target: a hook command in the harness settings.json that points at a file gone
     # from disk (the dead-rtk-hook case) surfaces PROACTIVELY here, before it bites at runtime

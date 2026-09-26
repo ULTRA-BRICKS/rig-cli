@@ -46,7 +46,7 @@ _DOTTED_LINKER_RE = re.compile(r'^install\.linker\s*=\s*["\']isolated["\']\s*(?:
 _DOTTED_STORE_RE = re.compile(r'^install\.globalStore\s*=\s*true\s*(?:#.*)?$')
 _TABLE_RE = re.compile(r"^\[([^\]]+)\]\s*(?:#.*)?$")
 _PIN_RES = {
-    "linker": re.compile(r"""^(?P<dotted>install\.)?linker\s*=\s*["'](?P<value>[A-Za-z]+)["']\s*(?:#.*)?$"""),
+    "linker": re.compile(r"""^(?P<dotted>install\.)?linker\s*=\s*["'](?P<value>[\w.-]+)["']\s*(?:#.*)?$"""),
     "globalStore": re.compile(r"^(?P<dotted>install\.)?globalStore\s*=\s*(?P<value>true|false)\s*(?:#.*)?$"),
 }
 PROJECT_BUNFIG_NAME = "bunfig.toml"
@@ -71,6 +71,7 @@ def project_install_pins(project: Path) -> dict[str, str]:
             continue
         for key, pattern in _PIN_RES.items():
             m = pattern.match(line)
+            # `install.linker = …` counts only at top level; a bare `linker = …` only under [install]
             if m and table == ("" if m.group("dotted") else "install"):
                 pins[key] = m.group("value")
     return pins

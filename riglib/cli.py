@@ -722,15 +722,15 @@ def _add_worktree_create_subparser(wsub: "argparse._SubParsersAction") -> None:
         "— never the committed .gitignore — THEN create a linked git worktree at the "
         "standardized <repo>/.worktrees/<name> path (replacing the several ad hoc conventions "
         "this ecosystem had grown), so a new worktree never dirties `git status`. In a bun repo "
-        "(bun.lock) with bun.enabled, it then installs deps with `bun install --frozen-lockfile` "
-        "through the global store (bun.worktree_install: false turns that off).",
+        "(bun.lock) with the global bun.enabled, it then runs `bun install --frozen-lockfile` there, "
+        "as the repo's own bunfig.toml configures it (bun.worktree_install: false turns that off).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit codes:\n"
         "  0    success\n"
-        "  1    the exclude reconcile failed, git worktree add timed out, or the worktree was\n"
-        "       created but its bun install failed (the message says how to finish it)\n"
+        "  1    the exclude reconcile failed, or git worktree add timed out\n"
         "  2    invalid name/branch/ref, target already exists, or git rejected the request\n"
-        "       (branch collision, bad ref, dirty checkout, …)\n"
+        "       (branch collision, bad ref, dirty checkout, …); or the worktree WAS created but\n"
+        "       its bun install failed (the message says how to finish it)\n"
         "  6    not a git repository\n"
         "  127  git is not installed",
     )
@@ -1255,7 +1255,8 @@ def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
         return 0
     if decision == "hint":
         print(_dim(f"  bun repo: install deps with {manual} (never symlink node_modules)"))
-    if decision != "install":
+        return 0
+    if decision == "off":
         return 0
     outcome = bun_store.install_worktree_deps(worktree_path)
     if outcome.status == "installed":
@@ -1265,7 +1266,7 @@ def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
         print(_warn(f"  {outcome.message}"))
         return 0
     print(_err(f"  error: {outcome.message}"))
-    return errors_module.EXIT_INTERNAL
+    return errors_module.EXIT_CONFIG  # diagnosed (lockfile, network, script), not a rig crash
 
 
 def _cmd_worktree_remove(args: argparse.Namespace) -> int:
