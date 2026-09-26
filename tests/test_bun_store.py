@@ -159,10 +159,14 @@ def test_scan_flags_broken_links_into_the_store(tmp_path):
     assert "3 broken link(s)" in scan.broken[0]
 
 
-def test_store_prefix_needs_a_path_boundary(tmp_path):
+def test_store_membership_uses_the_resolved_link_target(tmp_path):
     links = tmp_path / "cache" / "links"
-    assert bun_store._points_into_store(str(links / "zod@3-abc"), links)
-    assert not bun_store._points_into_store(str(tmp_path / "cache" / "links-evil" / "zod"), links)
+    entry = str(tmp_path / "wt" / "node_modules" / ".bun" / "zod@3")
+    assert bun_store._points_into_store(entry, str(links / "zod@3-abc"), links)
+    assert not bun_store._points_into_store(entry, str(tmp_path / "cache" / "links-evil" / "zod"), links)
+    # a relative target is resolved from the entry's directory, whatever the cache is called
+    assert bun_store._points_into_store(entry, "../../../cache/links/zod@3-abc", links)
+    assert not bun_store._points_into_store(entry, "../../../elsewhere/install/cache/links/zod", links)
 
 
 def test_scan_hoisted_is_off_store_unless_the_repo_pins_it(tmp_path):
@@ -172,6 +176,7 @@ def test_scan_hoisted_is_off_store_unless_the_repo_pins_it(tmp_path):
     scan = bun_store.scan_install(wt, tmp_path / "links")
     assert scan.broken == ()
     assert scan.off_store == "hoisted, 3 package dirs"
+    assert bun_store.InstallScan().off_store is None
     (wt / "bunfig.toml").write_text('[install]\nlinker = "hoisted"  # repo needs it\n', encoding="utf-8")
     assert bun_store.scan_install(wt, tmp_path / "links") == bun_store.InstallScan()
 
@@ -260,8 +265,12 @@ def test_check_worktree_installs_skips_non_bun_repos(tmp_path):
     assert report.notes == []
 
 
-def test_repo_worktrees_survives_a_failing_git(tmp_path):
-    assert bun_store.repo_worktrees(tmp_path / "not-a-repo") == []
+def test_a_failing_worktree_listing_is_a_visible_note(tmp_path):
+    assert bun_store.repo_worktrees(tmp_path / "not-a-repo") is None
+    report = DriftReport()
+    bun_store.check_worktree_installs(tmp_path / "not-a-repo", report)
+    assert report.items == []
+    assert ["`git worktree list` failed" in n.detail for n in report.notes] == [True]
 
 
 def _status_repo(tmp_path: Path, fake_agent_tools: Path, *, bun_enabled: bool) -> Path:
@@ -567,5 +576,18 @@ def test_install_decision_is_global_on_repo_off():
     assert bun_store.install_decision(on, on) == "install"
     assert bun_store.install_decision(on, {"enabled": True, "worktree_install": False}) == "off"
     assert bun_store.install_decision({"enabled": True, "worktree_install": False}, {"worktree_install": True}) == "off"
+    assert bun_store.install_decision(on, {"enabled": False}) == "off"  # a repo that turned bun off
     assert bun_store.install_decision(None, {"enabled": True}) == "hint"
     assert bun_store.install_decision({"enabled": False}, on) == "hint"
+
+
+@posix_only
+def test_a_repo_that_turns_bun_off_gets_no_worktree_install(tmp_path, monkeypatch, capsys):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n")
+    repo = _git_repo(tmp_path / "repo")
+    (repo / "rig.yaml").write_text("version: 1\nbun:\n  enabled: false\n", encoding="utf-8")
+    _commit_all(repo, "rig")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    assert not log.exists()

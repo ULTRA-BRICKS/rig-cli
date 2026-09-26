@@ -1232,9 +1232,7 @@ def _cmd_worktree_create(args: argparse.Namespace) -> int:
     print(_ok(result.message))
     if result.exclude_note:
         print(_dim(f"  {result.exclude_note}"))
-    if result.path is not None:
-        return _worktree_bun_install(env.repo_root, result.path)
-    return 0
+    return _worktree_bun_install(env.repo_root, result.path or worktree_mod.worktree_path(env.repo_root, args.name))
 
 
 def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
@@ -1245,16 +1243,13 @@ def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
     the GLOBAL config can turn the install on; a repo rig.yaml can only turn it off.
     """
     from . import bun_store, errors as errors_module
-    from .config import ConfigError, load
+    from .config import ConfigError
 
     if not bun_store.is_bun_project(worktree_path):
         return 0
     manual = bun_store.manual_command(worktree_path)
     try:
-        global_bun = load(repo_root, include_repo=False).data.get("bun")
-        decision = bun_store.install_decision(global_bun, None)
-        if decision == "install":  # only then can the repo layer still turn it off
-            decision = bun_store.install_decision(global_bun, load(repo_root, include_repo=True).data.get("bun"))
+        decision = bun_store.resolve_install_decision(repo_root)
     except ConfigError as exc:
         print(_warn(f"  deps not installed: rig config did not load ({exc}) — run {manual}"))
         return 0

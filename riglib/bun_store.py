@@ -85,9 +85,23 @@ def install_decision(global_bun: Mapping[str, Any] | None, merged_bun: Mapping[s
         return "hint"
     if global_bun.get("worktree_install", True) is False:
         return "off"
-    if isinstance(merged_bun, Mapping) and merged_bun.get("worktree_install") is False:
+    if isinstance(merged_bun, Mapping) and (
+        merged_bun.get("worktree_install") is False or merged_bun.get("enabled") is False
+    ):
         return "off"
     return "install"
+
+
+def resolve_install_decision(repo_root: Path) -> Decision:
+    """:func:`install_decision` over the real config layers: the GLOBAL layer alone decides "on";
+    the repo layer is read only then, and only to turn it off. Raises ``ConfigError``."""
+    from .config import load
+
+    global_bun = load(repo_root, include_repo=False).data.get("bun")
+    decision = install_decision(global_bun, None)
+    if decision != "install":
+        return decision
+    return install_decision(global_bun, load(repo_root, include_repo=True).data.get("bun"))
 
 
 def manual_command(worktree: Path) -> str:
@@ -230,14 +244,19 @@ class InstallScan:
     the install does not use the global store — informational, since a repo may need that."""
 
     broken: tuple[str, ...] = ()
-    off_store: str = ""
+    off_store: str | None = None
 
 
-def _points_into_store(link_target: str, links_dir: Path) -> bool:
-    norm = link_target.replace("\\", "/")
-    links = str(links_dir).replace("\\", "/").rstrip("/")
-    return norm == links or norm.startswith(links + "/") or "/install/cache/links/" in norm
-
+def _points_into_store(entry_path: str, link_target: str, links_dir: Path) -> bool:
+    """Whether a ``.bun`` entry's link target lies inside the store's ``links/`` dir. A relative
+    target is resolved from the entry's own directory, and both sides through realpath (macOS
+    ``/var`` → ``/private/var``), so neither a custom cache dir nor ``links-evil`` fools it."""
+    target = os.path.join(os.path.dirname(entry_path), link_target)
+    real_target = os.path.realpath(target)
+    for base in {os.path.normpath(str(links_dir)), os.path.realpath(links_dir)}:
+        if real_target == base or real_target.startswith(base.rstrip(os.sep) + os.sep):
+            return True
+    return False
 
 def _links_into_other_checkout(entry_path: str, worktree: Path) -> bool:
     """A ``.bun`` entry symlink whose real target is some OTHER tree's ``node_modules``."""
@@ -285,7 +304,7 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
             continue
         if entry.is_symlink():
             target = _readlink(entry.path)
-            if _points_into_store(target, links):
+            if _points_into_store(entry.path, target, links):
                 linked += 1
                 if not os.path.exists(entry.path):
                     broken += 1
@@ -304,7 +323,7 @@ def scan_install(worktree: Path, links_dir: Path | None = None) -> InstallScan:
             f"{broken} broken link(s) from node_modules/.bun into {links} (store entries gone — "
             f"a wiped cache?); {fix}"
         )
-    off_store = f"{copied} of {copied + linked} packages copied" if copied > linked and not opted_out else ""
+    off_store = f"{copied} of {copied + linked} packages copied" if copied > linked and not opted_out else None
     return InstallScan(broken=tuple(problems), off_store=off_store)
 
 
@@ -322,7 +341,7 @@ def _git_worktree_paths(repo_root: Path, *, nul: bool) -> list[str] | None:
     return [f[len("worktree ") :] for f in fields if f.startswith("worktree ")]
 
 
-def repo_worktrees(repo_root: Path) -> list[Path]:
+def repo_worktrees(repo_root: Path) -> list[Path] | None:
     """Every worktree git knows for ``repo_root`` (primary first), skipping ones gone from disk.
 
     NUL-separated (``-z``, git >= 2.36) so a path with a newline cannot hide a worktree; an
@@ -330,7 +349,9 @@ def repo_worktrees(repo_root: Path) -> list[Path]:
     """
     paths = _git_worktree_paths(repo_root, nul=True)
     if paths is None:
-        paths = _git_worktree_paths(repo_root, nul=False) or []
+        paths = _git_worktree_paths(repo_root, nul=False)
+    if paths is None:
+        return None
     return [Path(p) for p in paths if Path(p).is_dir()]
 
 
@@ -352,7 +373,11 @@ def check_worktree_installs(repo_root: Path, report: DriftReport) -> None:
 
     links = store_links_dir()
     off_store: list[str] = []
-    for worktree in repo_worktrees(repo_root):
+    worktrees = repo_worktrees(repo_root)
+    if worktrees is None:
+        report.notes.append(DriftNote("bun", "worktrees", "bun worktree installs not checked: `git worktree list` failed"))
+        return
+    for worktree in worktrees:
         if not is_bun_project(worktree):
             continue
         scan = scan_install(worktree, links)
