@@ -566,6 +566,85 @@ def test_the_hint_warns_about_a_write_through_symlink(tmp_path, monkeypatch, cap
 
 
 @posix_only
+def test_the_off_path_also_warns_about_a_write_through_symlink(tmp_path, monkeypatch, capsys):
+    log = _fake_bun(tmp_path, monkeypatch)
+    _provision_bunfig()
+    _global_config("bun:\n  enabled: true\n  worktree_install: false\n")
+    repo = _git_repo(tmp_path / "repo")
+    main_nm = tmp_path / "main-nm"
+    main_nm.mkdir()
+    os.symlink(main_nm, repo / "node_modules")
+    subprocess.run(["git", "add", "node_modules"], cwd=repo, check=True)
+    _commit_all(repo, "a committed node_modules link")
+    assert main(["worktree", "create", "feat", "-C", str(repo)]) == 0
+    assert not log.exists()
+    assert "is a symlink to" in capsys.readouterr().out
+
+
+def _global_hooks_path(tmp_path: Path, monkeypatch) -> Path:
+    """A global git config whose core.hooksPath is a dir OUTSIDE every repo (rig's composer dir)."""
+    global_hooks = tmp_path / "global-hooks"
+    global_hooks.mkdir()
+    (global_hooks / "pre-commit").write_text("#!/bin/sh\n# Composing global pre-commit\n", encoding="utf-8")
+    gitconfig = tmp_path / "global.gitconfig"
+    gitconfig.write_text(f"[core]\n\thooksPath = {global_hooks}\n", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(gitconfig))
+    return global_hooks
+
+
+@posix_only
+def test_install_scripts_cannot_replace_the_global_composer(tmp_path, monkeypatch):
+    """A repo's `prepare: lefthook install` runs during the install: its shim must land in the
+    repo's own hooks dir, never over rig's global composer (the 2026-09-26 incident)."""
+    global_hooks = _global_hooks_path(tmp_path, monkeypatch)
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+    script = bindir / "bun"
+    script.write_text(  # what lefthook/husky do: ask git where hooks live, write a shim there
+        '#!/bin/sh\nhooks=$(git rev-parse --git-path hooks)\nmkdir -p "$hooks"\n'
+        'echo "call_lefthook run pre-commit" > "$hooks/pre-commit"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '/usr/bin:/bin')}")
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")  # a caller's own entries are kept, not replaced
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "user.name")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "kept")
+    _provision_bunfig()
+    repo = _git_repo(tmp_path / "repo")
+    outcome = bun_store.install_worktree_deps(repo)
+    assert outcome.status == "installed", outcome.message
+    assert "Composing global" in (global_hooks / "pre-commit").read_text(encoding="utf-8")
+    assert "call_lefthook" in (repo / ".git" / "hooks" / "pre-commit").read_text(encoding="utf-8")
+    assert "not the global hooks dir" in outcome.message
+    env = bun_store.with_hooks_pin("/r/.git/hooks")
+    assert env["GIT_CONFIG_KEY_0"] == "user.name" and env["GIT_CONFIG_KEY_1"] == "core.hooksPath"
+    assert env["GIT_CONFIG_COUNT"] == "2"
+
+
+def test_a_repo_local_hooks_path_is_left_alone(tmp_path, monkeypatch):
+    _global_hooks_path(tmp_path, monkeypatch)
+    repo = _git_repo(tmp_path / "repo")
+    assert bun_store.repo_hooks_pin(repo) is not None  # the global dir: pinned
+    subprocess.run(["git", "config", "core.hooksPath", ".husky/_"], cwd=repo, check=True)
+    assert bun_store.repo_hooks_pin(repo) is None  # husky's own repo-local dir: untouched
+    plain = tmp_path / "not-a-repo"
+    plain.mkdir()
+    assert bun_store.repo_hooks_pin(plain) is None
+
+
+def test_worktree_labels_are_relative_to_the_primary_even_from_a_linked_worktree(tmp_path, monkeypatch):
+    repo, (wt,) = _repo_with_worktrees(tmp_path, "feat")
+    (repo / "node_modules").rmdir()
+    (tmp_path / "elsewhere").mkdir()
+    os.symlink(tmp_path / "elsewhere", repo / "node_modules")
+    os.symlink(tmp_path / "elsewhere", wt / "node_modules")
+    report = DriftReport()
+    bun_store.check_worktree_installs(wt, report)  # `rig status` run inside the linked worktree
+    assert [i.item for i in report.items] == ["worktree:(primary)", f"worktree:{os.path.join('.worktrees', 'feat')}"]
+
+
+@posix_only
 def test_install_failure_reports_stderr_and_the_fix(tmp_path, monkeypatch):
     _fake_bun(tmp_path, monkeypatch, exit_code=1)
     _provision_bunfig()

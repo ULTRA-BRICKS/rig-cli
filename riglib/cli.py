@@ -1232,7 +1232,8 @@ def _cmd_worktree_create(args: argparse.Namespace) -> int:
     print(_ok(result.message))
     if result.exclude_note:
         print(_dim(f"  {result.exclude_note}"))
-    assert result.path is not None  # every "created" result carries its path
+    if result.path is None:  # every "created" result carries its path; never install blind
+        return result.exit_code
     return _worktree_bun_install(env.repo_root, result.path)
 
 
@@ -1254,14 +1255,14 @@ def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
     except ConfigError as exc:
         print(_warn(f"  deps not installed: rig config did not load ({exc}) — run {manual}"))
         return 0
-    if decision == "hint":
+    if decision != "install":
+        # not installing — but a committed write-through link is as dangerous for the install
+        # the user (or the repo's own tooling) runs next, so say so on every path
         link = bun_store.write_through_link(worktree_path)
         if link is not None:
             print(_warn(f"  {bun_store.write_through_message(link, manual)}"))
-        else:
+        elif decision == "hint":
             print(_dim(f"  bun repo: install deps with {manual} (never symlink node_modules)"))
-        return 0
-    if decision == "off":
         return 0
     outcome = bun_store.install_worktree_deps(worktree_path)
     if outcome.status == "installed":

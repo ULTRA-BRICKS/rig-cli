@@ -185,7 +185,54 @@ def _file_tail(fh, limit: int = 64 * 1024) -> str:
     return fh.read().decode("utf-8", errors="replace")
 
 
-def _run_bounded(cmd: list[str], cwd: Path, timeout_s: int) -> tuple[int, str, str]:
+def _git_lines(cwd: Path, *args: str) -> list[str] | None:
+    try:
+        res = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, timeout=_GIT_TIMEOUT_S)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return res.stdout.splitlines() if res.returncode == 0 else None
+
+
+def _within(path: str, root: str) -> bool:
+    return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+
+
+def repo_hooks_pin(worktree: Path) -> str | None:
+    """The repo's own ``<common dir>/hooks`` when the worktree's effective ``core.hooksPath`` lies
+    OUTSIDE the repo (rig's global hooks dir, where the composers live); None when the hooks path
+    is already repo-local, or the worktree is not a git checkout (no hook manager can install).
+
+    The install pins ``core.hooksPath`` to it (:func:`with_hooks_pin`), so a ``prepare: lefthook
+    install`` / ``husky`` in the repo's scripts writes its shims where the global composer runs
+    them first, instead of over the composer (2026-09-26: a postinstall `lefthook install`
+    replaced the global pre-commit — secret scan and review gate — for every repo)."""
+    lines = _git_lines(worktree, "rev-parse", "--show-toplevel", "--absolute-git-dir", "--git-common-dir", "--git-path", "hooks")
+    if lines is None or len(lines) < 4:
+        return None
+    top, git_dir, common, hooks = lines[:4]
+    common_dir = os.path.realpath(worktree / common)
+    effective = os.path.realpath(worktree / os.path.expanduser(hooks))
+    if any(_within(effective, os.path.realpath(d)) for d in (top, git_dir, common_dir)):
+        return None
+    return os.path.join(common_dir, "hooks")
+
+
+def with_hooks_pin(pinned: str, base: Mapping[str, str] | None = None) -> dict[str, str]:
+    """``base`` (default: this environment) plus ``core.hooksPath = pinned`` as one more
+    ``GIT_CONFIG_COUNT`` entry — command-line precedence, read by every git the install's
+    scripts run, and appended so entries the caller already set are kept."""
+    env = dict(os.environ if base is None else base)
+    try:
+        n = max(0, int(env.get("GIT_CONFIG_COUNT", "0") or "0"))
+    except ValueError:
+        n = 0  # git itself rejects a malformed count; start the list over
+    env["GIT_CONFIG_COUNT"] = str(n + 1)
+    env[f"GIT_CONFIG_KEY_{n}"] = "core.hooksPath"
+    env[f"GIT_CONFIG_VALUE_{n}"] = pinned
+    return env
+
+
+def _run_bounded(cmd: list[str], cwd: Path, timeout_s: int, env: Mapping[str, str] | None = None) -> tuple[int, str, str]:
     """Run ``cmd`` in its own process group with output to temp files (a flooding install script
     cannot exhaust rig's memory, and a lifecycle child holding the output cannot keep the wait
     open). On a timeout, Ctrl-C or any exception while waiting, the WHOLE group is killed, so no
@@ -193,7 +240,9 @@ def _run_bounded(cmd: list[str], cwd: Path, timeout_s: int) -> tuple[int, str, s
     ``TimeoutExpired``; returns (exit code, stdout tail, stderr tail)."""
     posix = os.name == "posix"
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
-        proc = subprocess.Popen(cmd, cwd=cwd, stdout=out, stderr=err, stdin=subprocess.DEVNULL, start_new_session=posix)
+        proc = subprocess.Popen(
+            cmd, cwd=cwd, env=env, stdout=out, stderr=err, stdin=subprocess.DEVNULL, start_new_session=posix
+        )
         try:
             proc.wait(timeout=timeout_s)
         finally:
@@ -241,8 +290,10 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
     if bun is None:
         return InstallOutcome("skipped", f"not installing deps: bun is not installed — install it, then run {manual}")
     started = time.monotonic()
+    pinned = repo_hooks_pin(worktree)  # install scripts that install git hooks stay repo-local
+    env = with_hooks_pin(pinned) if pinned else None
     try:
-        returncode, stdout, stderr = _run_bounded([bun, *INSTALL_CMD], worktree, timeout_s)
+        returncode, stdout, stderr = _run_bounded([bun, *INSTALL_CMD], worktree, timeout_s, env)
     except subprocess.TimeoutExpired:
         return InstallOutcome("failed", f"`bun install --frozen-lockfile` timed out after {timeout_s}s — re-run {manual}")
     except KeyboardInterrupt:
@@ -261,7 +312,8 @@ def install_worktree_deps(worktree: Path, *, timeout_s: int = INSTALL_TIMEOUT_S)
     took = time.monotonic() - started
     opt_out = project_store_opt_out(worktree)
     layout = f"as the repo configures: {opt_out}, so not through the global store" if opt_out else "isolated linker, global store"
-    return InstallOutcome("installed", f"deps installed: bun install --frozen-lockfile ({layout}) in {took:.1f}s")
+    hooks = f"; its scripts saw core.hooksPath = {pinned}, not the global hooks dir" if pinned else ""
+    return InstallOutcome("installed", f"deps installed: bun install --frozen-lockfile ({layout}) in {took:.1f}s{hooks}")
 
 
 # ── rig status: broken or store-bypassing installs ────────────────────────────
@@ -373,9 +425,11 @@ def repo_worktrees(repo_root: Path) -> list[Path] | None:
     return out
 
 
-def _label(repo_root: Path, worktree: Path) -> str:
+def _label(primary: Path, worktree: Path) -> str:
+    """A worktree's name in drift/notes, relative to the PRIMARY checkout (git's first record) —
+    not to wherever `rig status` runs, which may be a linked worktree."""
     try:
-        rel = worktree.resolve().relative_to(repo_root.resolve())
+        rel = worktree.resolve().relative_to(primary.resolve())
     except ValueError:
         return str(worktree)
     return str(rel) if str(rel) != "." else "(primary)"
@@ -395,11 +449,12 @@ def check_worktree_installs(repo_root: Path, report: DriftReport, *, merged_bun:
     if worktrees is None:
         report.notes.append(DriftNote("bun", "worktrees", "bun worktree installs not checked: `git worktree list` failed"))
         return
+    primary = worktrees[0] if worktrees else repo_root
     for worktree in worktrees:
         if not is_bun_project(worktree):
             continue
         scan = scan_install(worktree, links)
-        label = _label(repo_root, worktree)
+        label = _label(primary, worktree)
         for problem in scan.broken:
             report.items.append(DriftItem("extra", "bun", f"worktree:{label}", worktree, problem))
         if scan.off_store:
