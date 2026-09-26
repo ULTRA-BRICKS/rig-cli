@@ -125,10 +125,10 @@ _requires_tmux = pytest.mark.skipif(
     reason="needs tmux installed (no network / no RIG_TMUX_E2E required)",
 )
 # omp-restore's system-wide orphan guard (below) reads process cwds via `lsof -d cwd` (no
-# /proc/<pid>/cwd on macOS/BSD); lsof ships on every machine this suite's other tmux-only tests
-# already assume (see e.g. the launchd-minimal-PATH tests' darwin-only assumptions), so those two
-# tests reuse `_requires_tmux` rather than adding a new gate bucket to the tamper-proof
-# classification in test_tmux_e2e_gating.py.
+# /proc/<pid>/cwd on macOS/BSD). Those two tests reuse `_requires_tmux` rather than adding a new
+# gate bucket to the tamper-proof classification in test_tmux_e2e_gating.py; lsof is NOT on every
+# Linux image (the Forgejo Ubuntu runner lacks it), so the unit CI job installs it next to tmux and
+# the gating test asserts it is on PATH in CI.
 
 
 # ── a PATH tmux shim that pins every `tmux …` call to a private -L socket ────────────────────

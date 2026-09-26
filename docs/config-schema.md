@@ -802,6 +802,20 @@ enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
   process, a condition, several things at once) — block in the **foreground** with a
   **heartbeat** loop that echoes at least every ~20s and keeps each Bash call under
   ~540s. Never Monitor from a subagent.
+  **Outer timeout (UB-25).** Every managed `cc_hook_bridge` entry also carries
+  `"timeout": 1200` (seconds). Claude Code kills a command hook at its `timeout` (600s when the
+  field is absent), and a PreToolUse hook that times out does NOT block: its output is
+  discarded and the tool call proceeds. The bridge runs every descriptor for a point in
+  sequence, each capped at its own `timeout_ms`; the largest shipped is 960s (hatch-capable
+  guards: the hatch helper's 900s approval wait plus a 30s margin). So without an explicit,
+  larger outer timeout, the harness could cancel a guard mid-approval and fail open. 1200s
+  covers one full 960s descriptor plus 240s for the remaining hooks, which return in
+  milliseconds on the normal path. Known limit: two hatch waits requested in the same tool call
+  (about 1860s) would exceed it. `rig apply` only ever raises the value: a missing, non-numeric,
+  non-finite (NaN/inf), or lower `timeout` on a managed entry is set to 1200, while a higher
+  operator-set value (int or float) is kept, and your own non-bridge hooks are never touched. `rig status` reports a missing or short
+  value as drift, per file, including every fanned-out `~/.claude-accounts/account-*`
+  `settings.json`.
 - `kind: codex` writes `codex_hook_bridge` into `~/.codex/config.toml` (or
   `$RIG_CODEX_HOME/config.toml`, or `settings_path`) as a managed `[hooks]` TOML block:
   `PreToolUse` matchers `Bash` and `apply_patch`, `PostToolUse` matcher `apply_patch`, and
@@ -3475,3 +3489,187 @@ Set the boolean with `rig config set ci.items.ship.require_external_review false
 --global --no-apply` after configuring the owner list in the machine file. No
 broad `rig apply` is needed for runtime consumption, and no per-PR Telegram
 permission request is required once the explicit machine policy is valid.
+
+---
+
+## `task` — Workspace task routing (UB-23)
+
+Additions on top of the existing `task` block above (`backend`/`team`/`project`/`repo`/
+`attachment_mode`, nested `github:`/`linear:`, `code_prefix`):
+
+- **`backend: tasks`** — a third tracker backend value (alongside `github-issues` and
+  `linear`): the native Tasks-app (HTTPS REST).
+- **`task.tasks` block** — coordinates for the `tasks` backend, used when
+  `backend: tasks`:
+  - `task.tasks.url` — the Tasks-app base URL, e.g. `https://tasks-ultrabricks.vercel.app`.
+  - `task.tasks.team` — the Tasks-app team/workspace key, e.g. `UB`, `HYP`.
+  - `task.tasks.attachment_mode` — `native` (upload through the Tasks-app API) or `link`
+    (register an already-hosted URL as-is), mirroring `linear.attachment_mode`.
+
+All three are also registered as wizard options (`riglib/schema.py`'s `task` Area,
+alongside the existing `task.code_prefix` entry) with `rig setup`/`rig config set`.
+
+```yaml
+task:
+  backend: tasks
+  tasks:
+    url: https://tasks-ultrabricks.vercel.app
+    team: UB
+    attachment_mode: native
+```
+
+### Ancestor `task`-block inheritance
+
+A folder default (e.g. `~/xp/rig.yaml`, `~/work/rig.yaml`) can declare a `task:` block
+that every repo nested underneath inherits, so routing config doesn't need repeating per
+repo:
+
+```yaml
+# ~/xp/rig.yaml — a folder default for every repo under ~/xp
+task:
+  backend: tasks
+  tasks:
+    url: https://tasks-ultrabricks.vercel.app
+    team: UB
+```
+
+```yaml
+# ~/xp/some-project/rig.yaml — inherits the backend/url/team above automatically;
+# only overrides what differs for this one repo
+task:
+  team: HYP
+```
+
+Precedence: `global (~/.config/rig/config.yaml) < ancestor task blocks (outermost
+first, nearest ancestor last) < repo rig.yaml`, merged per-KEY (not whole-block
+replacement) — an ancestor overriding `team` while leaving `backend` unset still lets a
+global `backend` value survive. Only the `task` key is ever read from an ancestor's
+`rig.yaml`; no other section (harness, permissions, hooks, CI, mode) leaks from an
+ancestor into a descendant repo. `code_prefix` is repo-unique ship metadata, not
+routing — it is stripped from every ancestor's contribution before merging and is never
+itself inherited.
+
+Ancestor resolution excludes the repo itself. Inside `$HOME`, the walk goes up to and
+including `$HOME` and never above it (the intended `~/xp`/`~/work` folder-default
+shape). Outside `$HOME`, the walk covers every ancestor directory except the filesystem
+root. A worktree under `<repo>/.worktrees/<name>` has the primary repo as one of its
+ancestors, so it inherits the primary repo's `task` block the same way any other
+descendant does. Each ancestor's `task` block is independently validated (the same
+`_validate_task` used for the global/repo layers), so a malformed ancestor config fails
+closed, naming that ancestor's file. Disable the whole mechanism with
+`riglib.config.load(..., include_ancestors=False)`.
+
+**`include_repo=False` stays GLOBAL-only.** A caller that excludes the repo scope
+(`load(..., include_repo=False)` — e.g. a global-config-only read) never sees ancestor
+task routing leak in either: ancestors are repo-scoped folder defaults, not global
+config, so the ancestor overlay is gated by `include_repo` in addition to
+`include_ancestors`. The global layer itself still loads normally in this mode.
+
+**Provenance (`LoadedConfig.layers`).** Every ancestor file that actually contributed to
+the merged `task` block (i.e. whose contribution was non-empty after stripping
+`code_prefix`) is listed in `LoadedConfig.layers` as `ancestor:<path>`, positioned
+between the `global:<path>` and `repo:<path>` entries — matching the `global <
+ancestors < repo` cascade order, outermost ancestor first. An ancestor consulted but
+contributing nothing (no `rig.yaml`, no `task:` key, or a `task:` block that only set
+`code_prefix`) is not listed.
+
+### `backend: forgejo` — native Forgejo issues (UB-25)
+
+A fourth tracker backend value: native Forgejo issues on a self-hosted instance (e.g.
+`git.hyperide.ai`). This is a real issue backend, not an alias of `github-issues`. The canonical
+name is exactly `forgejo`; there is no `fj` alias. Coordinates live under `task.forgejo`:
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `forgejo.url` | str or null | — | the Forgejo instance base URL, e.g. `https://git.hyperide.ai`. Must be `https://` with a host (and a numeric port, if any), no whitespace, no query/fragment, no `@` or `%` (so no embedded `user:token@` credentials, plain or percent-escaped), and must NOT end in `/api/v1` or `/`. A rejection never echoes the value, since a malformed base URL is where a pasted token tends to hide. Why the suffixes matter: task-cli derives the API base by appending `/api/v1`, so either suffix would produce a doubled path and is rejected. |
+| `forgejo.repo` | str or null | — | this repo's issue store as `owner/name` (e.g. `ultrabricks/rig-cli`), or `auto` to resolve it from the repo's own git `origin` at runtime. Anything else (`owner/`, `a/b/c`, any whitespace including a trailing newline, `AUTO`) is rejected. |
+| `forgejo.attachment_mode` | str or null | — | `native` (upload through the Forgejo API) or `link` (register an already-hosted URL as-is) |
+| `forgejo` | object or null | — | the nested section; a bare `forgejo:` header (null) is tolerated the same as absent, `forgejo: false` is rejected |
+
+All three leaves are also registered as wizard options (`riglib/schema.py`, `task` Area), so
+`rig setup` and `rig config set` accept them. The default backend contract for a repo is:
+
+```yaml
+task:
+  backend: forgejo
+  forgejo:
+    url: https://git.hyperide.ai
+    repo: owner/name
+    attachment_mode: native
+```
+
+#### Cascade contract for `task.forgejo`
+
+**The contract, in one sentence:** an explicit `task.forgejo.repo` is inherited normally from
+ancestor configs in BOTH rig and task-cli, and only `code_prefix` is stripped; `repo: auto` is the
+documented workspace fallback for when each repo should resolve its own origin.
+
+In detail: `task.forgejo` cascades exactly like every other `task` routing key, in both rig and
+task-cli: `global < ancestors (outermost first, nearest wins) < repo`, merged per key. An explicit
+`owner/name` in an ancestor `rig.yaml` IS inherited by every repo underneath that does not set its
+own. rig and task-cli must resolve the same file to the same value, so rig neither strips, refuses,
+nor warns about an inherited explicit `repo`.
+
+Because of that, the rule is:
+
+- A folder-default ancestor sets `backend`, `forgejo.url`, and `forgejo.repo: auto`. Each repo
+  underneath then resolves its own `owner/name` from its own `origin` remote.
+- An explicit `forgejo.repo: owner/name` belongs only in the repo's OWN `rig.yaml`. It overrides
+  an inherited `auto`.
+- An explicit `owner/name` in a folder-level ancestor therefore routes every repo beneath it
+  that does not override `repo` into that one repository. That is intended when the ancestor is
+  a primary checkout (its `rig.yaml` is a legitimate ancestor of its own `.worktrees/<name>`
+  worktrees and carries exactly such a value); for a workspace folder, use `auto`.
+
+Per-repo explicit example (the repo pins its own issue store):
+
+```yaml
+# ~/xp/rig-cli/rig.yaml
+task:
+  backend: forgejo
+  forgejo:
+    url: https://git.hyperide.ai
+    repo: ultrabricks/rig-cli
+    attachment_mode: native
+```
+
+Inheritance-fallback example (a folder default supplies the backend and instance; each repo
+supplies only its own identity, or nothing at all to fall back to `auto`):
+
+```yaml
+# ~/work/rig.yaml (folder default)
+task:
+  backend: forgejo
+  forgejo:
+    url: https://git.hyperide.ai
+    repo: auto
+```
+
+```yaml
+# ~/work/hyperide/rig.yaml (inherits backend + url; pins its own repo)
+task:
+  forgejo:
+    repo: hyperide/hyperide
+```
+
+A sibling repo under `~/work` with no `task:` block of its own inherits `repo: auto` and resolves
+its issue store from its own `origin`.
+
+#### Migrating a repo to `forgejo`
+
+There is no dedicated migration command. The existing single-key editor handles it: each call
+writes one nested key, validates the result, and rolls back on a validation failure. It is
+idempotent (re-running with the same value changes nothing). To move a repo off a stale
+`github-issues` or `linear` override:
+
+```sh
+rig config set task.backend forgejo
+rig config set task.forgejo.url https://git.hyperide.ai     # omit when an ancestor already sets it
+rig config set task.forgejo.repo owner/name                  # or `auto`
+```
+
+`rig config set` never removes a leftover `task.github`/`task.linear` section or a flat
+`task.repo`; delete those by hand. Remove a flat `task.repo` in particular: rig documents it as
+shorthand for `github.repo`, but task-cli's Forgejo branch also fans it out onto `forgejo.repo`.
+For that reason, under `backend: forgejo` rig applies the same `owner/name`-or-`auto` check to a
+flat `task.repo` as to `task.forgejo.repo`.

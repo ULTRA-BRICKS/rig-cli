@@ -1298,7 +1298,13 @@ _TASK_BLOCK = Block(
         "schema only checks the KEY SET, not that kind of cross-field conflict. `code_prefix` is "
         "a SEPARATE, unrelated concern folded into the same top-level `task:` block (rig-cli#217): "
         "a repo-unique task-code prefix consumed by ship.sh's review-quorum gate, reconciled by "
-        "`rig apply` into `.ship-config` — see the leaf's own doc below."
+        "`rig apply` into `.ship-config` — see the leaf's own doc below. UB-23: `backend: tasks` "
+        "selects the native Tasks-app backend (HTTPS REST), configured via the nested `tasks:` "
+        "block (`url`/`team`/`attachment_mode`), mirroring `github:`/`linear:` below. UB-25: "
+        "`backend: forgejo` selects the native Forgejo backend (self-hosted git, HTTPS REST), "
+        "configured via the nested `forgejo:` block (`url`/`repo`/`attachment_mode`); all three "
+        "cascade from an ancestor like every other routing key, so an ancestor should set "
+        "`repo: auto` and leave an explicit owner/name to each repo's own rig.yaml."
     ),
     # review finding (tg#11652, P2): `_validate_task_enum` returns early on `None` (so
     # `backend`/`attachment_mode`/`linear.attachment_mode` tolerate null) and the flat/nested
@@ -1335,7 +1341,9 @@ _TASK_BLOCK = Block(
             not_pattern=r"[^A-Z0-9]|^.{41,}$",
         ),
         "backend": Leaf(
-            ("string", "null"), "the tracker backend", enum=("github-issues", "linear", None)
+            ("string", "null"),
+            "the tracker backend",
+            enum=("github-issues", "linear", "tasks", "forgejo", None),
         ),
         "team": Leaf(("string", "null"), "flat shorthand for linear.team (e.g. HYP)"),
         "project": Leaf(("string", "null"), "flat shorthand for linear.project"),
@@ -1395,6 +1403,47 @@ _TASK_BLOCK = Block(
                 "attachment_mode": Leaf(
                     ("string", "null"),
                     "same as the flat `attachment_mode` shorthand above, nested form",
+                    enum=("link", "native", None),
+                ),
+            },
+            nullable=True,
+        ),
+        "tasks": Block(
+            doc="Tasks-app (native HTTPS REST) coordinates (used when backend: tasks).",
+            leaves={
+                "url": Leaf(("string", "null"), "the Tasks-app base URL, e.g. https://tasks-ultrabricks.vercel.app"),
+                "team": Leaf(("string", "null"), "the Tasks-app team/workspace key (e.g. UB, HYP)"),
+                "attachment_mode": Leaf(
+                    ("string", "null"),
+                    "how a screenshot/file gets attached to a Tasks-app ticket: 'native' uploads it "
+                    "through the Tasks-app API, 'link' registers an already-hosted URL as-is",
+                    enum=("link", "native", None),
+                ),
+            },
+            nullable=True,
+        ),
+        "forgejo": Block(
+            doc=(
+                "Forgejo (self-hosted git.hyperide.ai) coordinates (used when backend: forgejo, "
+                "UB-25). The API base (`<url>/api/v1`) is DERIVED at runtime — `url` itself must "
+                "NOT carry the `/api/v1` suffix. Every leaf cascades from an ancestor rig.yaml "
+                "(same as task-cli's loader); an ancestor should set `repo: auto` and leave an "
+                "explicit owner/name to each repo's own rig.yaml."
+            ),
+            leaves={
+                "url": Leaf(
+                    ("string", "null"),
+                    "the Forgejo instance base URL, e.g. https://git.hyperide.ai (must NOT end in "
+                    "/api/v1 — that is appended at runtime)",
+                ),
+                "repo": Leaf(
+                    ("string", "null"),
+                    "owner/name on the Forgejo instance, or 'auto' to detect from the git remote",
+                ),
+                "attachment_mode": Leaf(
+                    ("string", "null"),
+                    "how a screenshot/file gets attached to a Forgejo issue: 'native' uploads it "
+                    "through the Forgejo API, 'link' registers an already-hosted URL as-is",
                     enum=("link", "native", None),
                 ),
             },

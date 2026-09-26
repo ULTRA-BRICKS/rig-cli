@@ -581,6 +581,49 @@ def test_cli_set_creates_intermediate_keys(tmp_path, capsys, fake_agent_tools, m
     assert written.data["ci"]["items"]["secret-scan"]["tier"] == "warn"
 
 
+_STALE_GITHUB_TASK_RIG_YAML = (
+    "version: 1\nskills: {enabled: false}\nagent_hooks: {enabled: false}\nmcp: {enabled: false}\n"
+    "git_hooks: {dispatcher: {enabled: false}}\nci: {enabled: false}\n"
+    "task: {backend: github-issues}\n"
+)
+
+
+def test_cli_set_migrates_task_backend_to_forgejo(tmp_path, capsys, fake_agent_tools, monkeypatch, _mock_apply):
+    # UB-25 migration seam: moving a repo off a stale github-issues override is two plain
+    # `rig config set` calls on nested task.* dot-paths — no dedicated migration command.
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "no-global"))
+    repo = tmp_path / "repo"
+    _w(repo / "rig.yaml", f"agent_tools_source: {fake_agent_tools}\n" + _STALE_GITHUB_TASK_RIG_YAML)
+
+    assert main(["config", "set", "task.backend", "forgejo", "-C", str(repo), "--commit"]) == 0
+    assert main(["config", "set", "task.forgejo.repo", "ultrabricks/rig-cli", "-C", str(repo), "--commit"]) == 0
+    assert main(["config", "set", "task.forgejo.url", "https://git.hyperide.ai", "-C", str(repo), "--commit"]) == 0
+
+    task = config.load(repo, include_ancestors=False).data["task"]
+    assert task == {
+        "backend": "forgejo",
+        "forgejo": {"repo": "ultrabricks/rig-cli", "url": "https://git.hyperide.ai"},
+    }
+
+
+@pytest.mark.parametrize(
+    "path,bad_value",
+    [("task.forgejo.repo", "not-a-repo"), ("task.forgejo.url", "https://git.hyperide.ai/api/v1")],
+)
+def test_cli_set_rejects_malformed_forgejo_value(tmp_path, capsys, monkeypatch, _mock_apply, path, bad_value):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "no-global"))
+    repo = tmp_path / "repo"
+    _w(repo / "rig.yaml", _STALE_GITHUB_TASK_RIG_YAML)
+    original = (repo / "rig.yaml").read_text(encoding="utf-8")
+
+    rc = main(["config", "set", path, bad_value, "-C", str(repo), "--commit"])
+
+    assert rc == 2
+    assert path in capsys.readouterr().out
+    assert (repo / "rig.yaml").read_text(encoding="utf-8") == original  # fail-closed: never written
+    assert len(_mock_apply) == 0
+
+
 def test_cli_set_validation_rejects_bad_value(tmp_path, capsys, monkeypatch, _mock_apply):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "no-global"))
     repo = tmp_path / "repo"

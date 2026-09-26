@@ -85,7 +85,7 @@ jobs:
           paths=['docs/grooming/full-2026-09-10/before/tg-cli.json','docs/grooming/full-2026-09-10/plans/tg-cli.json','docs/grooming/full-2026-09-10/pull-requests.json']
           receipt=[]
           for name in paths:
-              p=pathlib.Path(name);text=p.read_text();updated=text.replace('key=claude-rkq4bd','correlation-id=[omitted from public archive]')  # gitleaks:allow — a request correlation id, not a key
+              p=pathlib.Path(name);text=p.read_text();updated=text.replace('key=claude-rkq4bd','correlation-id=[omitted from public archive]')  # gitleaks:allow - log correlation id (see comment above), not a credential
               if updated!=text:
                   json.loads(updated)
                   receipt.append({'path':name,'original_sha256':hashlib.sha256(text.encode()).hexdigest(),'published_sha256':hashlib.sha256(updated.encode()).hexdigest(),'reason':'Incidental request correlation identifier omitted; original issue and PR were not modified. Legacy copy must not be used as an exact mutation baseline.'})

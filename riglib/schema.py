@@ -617,6 +617,39 @@ AREAS: tuple[Area, ...] = (
                  "punctuation — it is spliced directly in front of \"-<n>\"), or ship.sh ignores "
                  "the whole .ship-config file. Unset (default) = bare issue numbers are never "
                  "picked up as task codes (HYP-123/XX-123 codes are unaffected either way)."),
+            _opt("task.backend", KIND_ENUM, None,
+                 "task-cli's per-repo ticket-tracker backend: `github-issues` (bare #NNN), "
+                 "`linear`, `tasks` (UB-23: the native Tasks-app, HTTPS REST), or `forgejo` "
+                 "(UB-25: native Forgejo issues, e.g. git.hyperide.ai). Unlike "
+                 "`code_prefix`, rig writes nothing to disk for this — task-cli reads it "
+                 "directly (tasklib.config.rig_task_overlay) with lower precedence than a "
+                 "repo's own native task.yaml.",
+                 choices=("github-issues", "linear", "tasks", "forgejo")),
+            _opt("task.tasks.url", KIND_STR, None,
+                 "the Tasks-app base URL (used when task.backend is `tasks`), e.g. "
+                 "https://tasks-ultrabricks.vercel.app."),
+            _opt("task.tasks.team", KIND_STR, None,
+                 "the Tasks-app team/workspace key (used when task.backend is `tasks`), "
+                 "e.g. UB, HYP."),
+            _opt("task.tasks.attachment_mode", KIND_ENUM, None,
+                 "how a screenshot/file gets attached to a Tasks-app ticket: `native` uploads "
+                 "it through the Tasks-app API, `link` registers an already-hosted URL as-is "
+                 "without re-uploading.",
+                 choices=("native", "link")),
+            _opt("task.forgejo.url", KIND_STR, None,
+                 "the Forgejo instance base URL (used when task.backend is `forgejo`), e.g. "
+                 "https://git.hyperide.ai. Must NOT end in /api/v1 — task-cli derives the API "
+                 "base by appending it."),
+            _opt("task.forgejo.repo", KIND_STR, None,
+                 "the Forgejo owner/name for THIS repo's issues (used when task.backend is "
+                 "`forgejo`), e.g. ultrabricks/rig-cli, or `auto` to resolve it from the repo's "
+                 "own git remote. Cascades from an ancestor rig.yaml like every task key, so a "
+                 "folder default should set `auto` and leave explicit owner/name to each repo."),
+            _opt("task.forgejo.attachment_mode", KIND_ENUM, None,
+                 "how a screenshot/file gets attached to a Forgejo issue: `native` uploads it "
+                 "through the Forgejo API, `link` registers an already-hosted URL as-is without "
+                 "re-uploading.",
+                 choices=("native", "link")),
         ),
     ),
     Area(
