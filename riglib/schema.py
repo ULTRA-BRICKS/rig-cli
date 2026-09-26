@@ -627,7 +627,8 @@ AREAS: tuple[Area, ...] = (
                  choices=("github-issues", "linear", "tasks", "forgejo")),
             _opt("task.tasks.url", KIND_STR, None,
                  "the Tasks-app base URL (used when task.backend is `tasks`), e.g. "
-                 "https://tasks-ultrabricks.vercel.app."),
+                 "https://tasks-ultrabricks.vercel.app. Must be a bare https origin: no "
+                 "userinfo, query, fragment or path (task-cli appends /api/v1 itself)."),
             _opt("task.tasks.team", KIND_STR, None,
                  "the Tasks-app team/workspace key (used when task.backend is `tasks`), "
                  "e.g. UB, HYP."),
