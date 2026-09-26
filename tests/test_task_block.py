@@ -708,3 +708,42 @@ def test_task_flat_repo_is_shape_checked_when_backend_is_forgejo():
 def test_task_flat_repo_shape_unchanged_for_other_backends():
     # pre-existing behavior for github-issues/linear is untouched (string-only check).
     validate({"version": 1, "task": {"backend": "github-issues", "repo": "a/b/c"}})
+
+
+# ── task.tasks.url: the same origin rules task-cli's tasks backend enforces (UB-3 review) ──
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        f"https://user:{_SECRET}@tasks.example.com",  # userinfo
+        f"https://tasks.example.com/?access_token={_SECRET}",  # query
+        f"https://tasks.example.com/#{_SECRET}",  # fragment
+        f"http://tasks.example.com/{_SECRET}",  # plaintext
+        f"https://tasks.example.com/{_SECRET}",  # a path (task-cli appends /api/v1 itself)
+        f"file:///{_SECRET}",
+        f"https://tasks.example.com:{_SECRET}",  # non-numeric port
+        f"https://tasks.example.com/%40{_SECRET}",
+        f"https://tasks.example.com /{_SECRET}",
+    ],
+)
+def test_task_tasks_url_rejects_non_origin_without_echoing_it(url):
+    with pytest.raises(ConfigError) as excinfo:
+        validate({"version": 1, "task": {"tasks": {"url": url}}})
+    assert excinfo.value.schema_path == "task.tasks.url"
+    assert _SECRET not in _chain_text(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["https://tasks-ultrabricks.vercel.app", "https://tasks.example.com/", "https://tasks.example.com:8443"],
+)
+def test_task_tasks_url_accepts_a_bare_https_origin(url):
+    validate({"version": 1, "task": {"backend": "tasks", "tasks": {"url": url, "team": "UB"}}})
+
+
+def test_task_tasks_url_empty_string_is_not_an_origin():
+    # same as task.forgejo.url: only an ABSENT key means unset
+    with pytest.raises(ConfigError) as excinfo:
+        validate({"version": 1, "task": {"tasks": {"url": ""}}})
+    assert excinfo.value.schema_path == "task.tasks.url"
