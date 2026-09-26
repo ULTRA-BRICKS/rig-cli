@@ -857,9 +857,12 @@ def _fetch(url: str) -> bytes:
 
 
 def read_windows_user_env(name: str) -> str | None:
-    """The persisted per-user value (``HKCU\\Environment``), not this process's copy."""
-    import winreg  # Windows-only; callers check os.name
-
+    """The persisted per-user value (``HKCU\\Environment``), not this process's copy; ``None`` when
+    it is unset or there is no registry to ask (not Windows)."""
+    try:
+        import winreg
+    except ImportError:
+        return None
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
             value, _ = winreg.QueryValueEx(key, name)

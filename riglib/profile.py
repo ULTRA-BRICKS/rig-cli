@@ -743,7 +743,7 @@ def record_profile_block(url: str, auto_sync: bool | None, notify: Notify) -> bo
         changed = True
     elif block["repo"] != url:
         notify("info", f"note: profile.repo in {path} is {block['repo']!r}; this checkout tracks {url!r} — left as is")
-    if auto_sync is not None and block.get("auto_sync") is not auto_sync:
+    if auto_sync is not None and block.get("auto_sync") != auto_sync:
         block["auto_sync"] = auto_sync
         changed = True
     if not changed:

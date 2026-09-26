@@ -58,6 +58,7 @@ git clone https://git.hyperide.ai/ultrabricks/rig-cli && cd rig-cli && ./install
 - After **1** or **2**, run `rig install-skill` once so coding agents discover `rig` (3 and 4 do it for you).
 - **Unreleased `main`:** `uv tool install git+https://git.hyperide.ai/ultrabricks/rig-cli` (or the same with `pipx install`).
 - **Update:** `uv tool upgrade hyper-rig` · `pipx upgrade hyper-rig` · re-run the one-liner · `git pull`.
+- **Installed before the rename** (as `rig-cli`, from git)? Remove that first — `uv tool uninstall rig-cli` or `pipx uninstall rig-cli` — or two installs both claim `rig`.
 - **Run without installing:** `uvx --from git+https://git.hyperide.ai/ultrabricks/rig-cli rig doctor`,
   or from a checkout `uv run bin/rig …` / `python3 bin/rig …`.
 

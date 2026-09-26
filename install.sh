@@ -25,6 +25,7 @@ case "$(uname -s)" in
       echo "       Install it:  winget install astral-sh.uv   (or: powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\")" >&2
       exit 1
     fi
+    _with=(); [[ -n "${UV_WITH:-}" ]] && _with=(--with "$UV_WITH")  # one argument, spaces and all
     _here=""
     if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
       _here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,10 +33,10 @@ case "$(uname -s)" in
     if [[ -n "$_here" && -f "$_here/$ENTRY" ]]; then
       _src="$_here"; command -v cygpath >/dev/null 2>&1 && _src="$(cygpath -w "$_here")"
       echo "$TOOL: Windows — uv tool install --editable $_src"
-      uv tool install --force --editable "$_src" ${UV_WITH:+--with "$UV_WITH"}
+      uv tool install --force --editable "$_src" ${_with[@]+"${_with[@]}"}
     else
       echo "$TOOL: Windows — uv tool install git+${EXPECT_URL%.git}"
-      uv tool install --force "git+${EXPECT_URL%.git}" ${UV_WITH:+--with "$UV_WITH"}
+      uv tool install --force "git+${EXPECT_URL%.git}" ${_with[@]+"${_with[@]}"}
     fi
     _bindir="$(uv tool dir --bin 2>/dev/null || true)"
     if [[ -n "$_bindir" ]] && command -v cygpath >/dev/null 2>&1; then _bindir="$(cygpath -u "$_bindir")"; fi
@@ -53,18 +54,27 @@ case "$(uname -s)" in
     ;;
 esac
 
-# Origins that are the same repo: the canonical Forgejo URL (https or ssh) and the pre-migration
-# GitHub ones. A GitHub origin is re-pointed at Forgejo — the GitHub copy is frozen.
-_origin_is_canonical() {
-  case "$1" in
-    "$EXPECT_URL"|"${EXPECT_URL%.git}"|*hyperide.ai*/ultrabricks/"$REPO"|*hyperide.ai*/ultrabricks/"$REPO".git) return 0 ;;
+# Origins that are the same repo: the canonical Forgejo one and the pre-migration GitHub ones (a
+# GitHub origin is re-pointed at Forgejo — the GitHub copy is frozen). Compared as HOST + PATH, never
+# as a substring: an origin that merely contains "hyperide.ai" (git.hyperide.ai.evil.example,
+# evil.example/git.hyperide.ai/…) must not pass for the canonical repo and get pulled + installed.
+_url_host_path() {  # https / ssh / scp-style git URL -> "host path" (user@, :port, .git, trailing / dropped)
+  _u=${1%/}; _u=${_u%.git}
+  case "$_u" in
+    https://*|ssh://*) _u=${_u#*://}; _hp=${_u%%/*}; _path=${_u#*/} ;;
+    *@*:*) _hp=${_u%%:*}; _path=${_u#*:} ;;
+    *) return 1 ;;
   esac
-  return 1
+  [ "$_path" != "$_u" ] || return 1
+  _host=${_hp##*@}; _host=${_host%%:*}
+  printf '%s %s\n' "$_host" "$_path"
+}
+_origin_is_canonical() {
+  [ "$(_url_host_path "$1")" = "git.hyperide.ai ultrabricks/$REPO" ]
 }
 _origin_is_legacy() {
-  case "$1" in
-    *github.com[:/]alex-mextner/"$REPO"|*github.com[:/]alex-mextner/"$REPO".git) return 0 ;;
-    *github.com[:/]ultrabricks/"$REPO"|*github.com[:/]ultrabricks/"$REPO".git) return 0 ;;
+  case "$(_url_host_path "$1")" in
+    "github.com alex-mextner/$REPO"|"github.com ultrabricks/$REPO") return 0 ;;
   esac
   return 1
 }

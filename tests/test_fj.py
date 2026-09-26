@@ -935,3 +935,19 @@ def test_write_atomic_leaves_no_temp_file_behind_on_failure(tmp_path, monkeypatc
     with pytest.raises(OSError, match="disk full"):
         fj._write_atomic(tmp_path / "bin" / "fj", b"#!/bin/sh\n")
     assert list((tmp_path / "bin").iterdir()) == []
+
+
+def test_apply_verifies_the_fj_action_with_the_status_comparison(monkeypatch):
+    from riglib.plan import Action
+    from riglib.verify import _VERIFIERS
+
+    action = Action(kind="provision_fj", category="fj", item="git.example.com",
+                    source=Path("."), target=Path("client_ids"), options=_opts())
+    verify = _VERIFIERS["provision_fj"]
+    monkeypatch.setattr(fj, "pending_changes", lambda options: [])
+    [ok] = verify(action)
+    assert ok.passed and ok.item == "git.example.com"
+    monkeypatch.setattr(fj, "pending_changes", lambda options: [
+        ("missing", "fj-wrapper", Path("fj"), "`fj ship` is not set up yet")])
+    [bad] = verify(action)
+    assert bad.passed is False and bad.item == "fj-wrapper" and "fj ship" in bad.evidence
