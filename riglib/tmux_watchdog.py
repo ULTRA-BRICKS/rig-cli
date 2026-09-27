@@ -279,7 +279,7 @@ def socket_owner_pids(socket_path: Path, lsof_bin: str = "lsof") -> set[int]:
             text=True,
             timeout=5,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, UnicodeError, subprocess.TimeoutExpired) as exc:
         raise InspectionUnavailable("socket ownership inspection unavailable") from exc
     if result.returncode not in (0, 1) or result.stderr.strip():
         raise InspectionUnavailable("socket ownership inspection failed")

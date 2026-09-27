@@ -294,3 +294,10 @@ def test_socket_scan_warning_is_incomplete_even_on_success(monkeypatch, tmp_path
     monkeypatch.setattr(wd.subprocess, "run", lambda *a, **k: SimpleNamespace(returncode=rc, stdout="", stderr="lsof: WARNING: partial results"))
     with pytest.raises(wd.InspectionUnavailable):
         wd.socket_owner_pids(tmp_path / "tmux.sock")
+
+
+def test_socket_decode_error_is_reported_as_unavailable(monkeypatch, tmp_path):
+    from riglib import tmux_watchdog as wd
+    monkeypatch.setattr(wd.subprocess, "run", Mock(side_effect=UnicodeDecodeError("utf8", b"\xff", 0, 1, "bad byte")))
+    with pytest.raises(wd.InspectionUnavailable):
+        wd.socket_owner_pids(tmp_path / "sock")
