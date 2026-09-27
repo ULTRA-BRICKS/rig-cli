@@ -450,6 +450,7 @@ def test_global_only_categories_matches_writable_layer_classification():
     categories = global_only_categories()
     assert categories == {
         "gitignore", "spotlight", "bun", "git", "profile", "tg_ctl", "tcc_watch", "tgctl_reaper", "tmux", "mode",
+        "tracked_files",
     }
     for cat in categories:
         assert writable_layer_for_category(cat) == GLOBAL

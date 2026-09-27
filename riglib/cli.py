@@ -1901,16 +1901,65 @@ def cmd_apply(args: argparse.Namespace) -> int:
         print(_dim("  run `rig init` (or `rig export -o rig.yaml`) to create one first."))
         return 2
 
-    if args.only:
-        wanted = _scope_categories(args.only)
+    # tracked_files: rig-owned COMMITTED repo files are landed on the default branch (one PR, the
+    # gated ship), never written into this checkout — plan.build already held their actions back
+    # in plan.diverted (riglib/tracked_files.py). Read before --only narrows plan.actions.
+    tracked = _tracked_files_context(plan, loaded, env, args.config)
+    wanted = _scope_categories(args.only) if args.only else None
+
+    if wanted is not None:
         plan.actions = [a for a in plan.actions if _action_in_only_scope(a, wanted)]
 
     if mode == "info":
         rc = _apply_info(plan, args)
+        if tracked is not None:
+            _print_tracked_files_plan(tracked, preview=True)
         if auto_sync_enabled():
             print(_dim("  (profile.auto_sync is on: `rig apply commit` syncs the profile first)"))
         return rc
-    return _apply_commit(plan, args)
+    rc = _apply_commit(plan, args)
+    if tracked is not None:
+        if wanted is not None and "tracked_files" not in wanted:
+            # the held-back actions still stay out of this checkout; landing waits for a run
+            # whose scope includes it (said only when there is something to land)
+            if tracked.discovery.landings or tracked.diverted_pending:
+                print(_dim("  tracked_files: not landing (outside --only); add tracked_files to --only to land"))
+        else:
+            rc = max(rc, _tracked_files_commit(tracked))
+    return rc
+
+
+def _tracked_files_context(plan, loaded, env, config_arg: str | None = None):
+    """``riglib.tracked_files.apply_context`` for this command; ``None`` when the block is off."""
+    from . import tracked_files as tf
+
+    if not getattr(env, "is_git_repo", False):
+        return None
+    # the landing worktree rebuilds its plan from ITS rig.yaml: an explicit --config naming this
+    # checkout's own rig.yaml must not override the landed one; any other --config applies as given
+    explicit = _resolve_explicit_config(env, config_arg)
+    landing_config = None if explicit is None or explicit == (env.repo_root / "rig.yaml").resolve() else str(explicit)
+    return tf.apply_context(plan, loaded.data, env.repo_root, landing_config=landing_config)
+
+
+def _print_tracked_files_plan(ctx, *, preview: bool) -> None:
+    from . import tracked_files as tf
+
+    tf.print_plan(ctx, preview=preview, emit=print, bold=_bold)
+
+
+def _tracked_files_commit(ctx) -> int:
+    from . import tracked_files as tf
+
+    return tf.commit(ctx, build_plan=lambda p: _load_plan(str(p), ctx.landing_config)[0],
+                     emit=print, ok=_ok, err=_err, dim=_dim)
+
+
+def _print_tracked_files_status(plan, loaded, env, config_arg: str | None = None) -> None:
+    """`rig status`: the pending tracked_files merges (informational; never changes the exit code)."""
+    ctx = _tracked_files_context(plan, loaded, env, config_arg)
+    if ctx is not None:
+        _print_tracked_files_plan(ctx, preview=True)
 
 
 def _resolve_apply_mode(args: argparse.Namespace) -> str:
@@ -2232,7 +2281,8 @@ def cmd_status(args: argparse.Namespace) -> int:
     # disabled-dispatcher/disabled-global-excludes augmentations have run; schedule/tg-ctl drift
     # is already in the report from detect(). Printed FIRST so it is the headline, with the richer
     # per-area detail lines (schedule cron time, tg-ctl launchd label) following it.
-    _render_area_summary(effective_plan, report, env, extra_configured_actions=dropped_ship_delegator)
+    _render_area_summary(effective_plan, report, env, extra_configured_actions=dropped_ship_delegator,
+                         held_back_actions=getattr(plan, "diverted", []) if env.is_git_repo else ())
 
     # A harness kind with zero agents-hooks bridge coverage (currently pi/commandcode) has NO
     # register_hook_bridge action at all, so the area summary line above can only say
@@ -2255,6 +2305,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     _print_harness_mode_status(effective_plan, report)
     if env.is_git_repo:
         _print_stale_worktree_status(env.repo_root)
+        _print_tracked_files_status(plan, loaded, env, args.config)
 
     # missing-target: a hook command in the harness settings.json that points at a file gone
     # from disk (the dead-rtk-hook case) surfaces PROACTIVELY here, before it bites at runtime
@@ -2343,12 +2394,13 @@ def _area_notes_suffix(area, report) -> str:
     return _dim("  (" + "; ".join(notes) + ")") if notes else ""
 
 
-def _area_state_line(area, plan, report, extra_configured_actions=()) -> str:
+def _area_state_line(area, plan, report, extra_configured_actions=(), held_back_actions=()) -> str:
     """The rendered state for ONE area, plus any informational notes for it."""
-    return _area_state_core(area, plan, report, extra_configured_actions) + _area_notes_suffix(area, report)
+    return (_area_state_core(area, plan, report, extra_configured_actions, held_back_actions)
+            + _area_notes_suffix(area, report))
 
 
-def _area_state_core(area, plan, report, extra_configured_actions=()) -> str:
+def _area_state_core(area, plan, report, extra_configured_actions=(), held_back_actions=()) -> str:
     """The rendered state for ONE area: "not configured" / "in sync" / "drift (…)".
 
     The reliable, unit-stable numbers are the DRIFT counts (config→disk + disk→config), so those
@@ -2416,6 +2468,12 @@ def _area_state_core(area, plan, report, extra_configured_actions=()) -> str:
         if not _on_darwin():
             return _dim("unsupported (macOS-only; no-op off darwin)")
 
+    # an area whose only actions tracked_files holds back (plan.diverted): configured, but its file
+    # lands on the default branch instead of this checkout — the tracked_files section says how
+    held_back = any(area_matches_action(area, a.category, a.options) for a in held_back_actions)
+    if not configured and held_back and missing == 0 and extra == 0:
+        return _dim("held back — lands on the default branch via tracked_files (below)") + known_note
+
     # an area the config turns OFF stays "not configured" even when the machine-wide target holds
     # known items (the extras scan runs regardless of configured actions) — "in sync" would claim a
     # reconciliation that never happens; the known count still shows beside it.
@@ -2434,7 +2492,7 @@ def _area_state_core(area, plan, report, extra_configured_actions=()) -> str:
     return _warn(f"drift ({', '.join(parts)})") + known_note
 
 
-def _render_area_summary(plan, report, env, extra_configured_actions=()) -> None:
+def _render_area_summary(plan, report, env, extra_configured_actions=(), held_back_actions=()) -> None:
     """Print the AREA SUMMARY: every reconciled area, grouped by layer, with in-sync vs drift.
 
     The pre-summary status rendered ONLY drifting items as a flat dump dominated by skill rows
@@ -2452,6 +2510,8 @@ def _render_area_summary(plan, report, env, extra_configured_actions=()) -> None
     the machine-wide ship_env artifact, and with it dropped a clean env file would render
     ``not configured`` even though apply manages the file from this cwd too. They feed only the
     configured-ness check, never drift counts (their repo-side drift stays out of a non-git run).
+    ``held_back_actions`` are the actions ``tracked_files`` holds back (``plan.diverted``): an area
+    carried only by them reads "held back", not "not configured".
     """
     from .areas import areas_for_layer
     from .layers import GLOBAL, REPO
@@ -2464,7 +2524,7 @@ def _render_area_summary(plan, report, env, extra_configured_actions=()) -> None
     for layer in layers:
         print(_dim(f"    {_LAYER_HEADERS[layer]}"))
         for area in areas_for_layer(layer):
-            line = _area_state_line(area, plan, report, extra_configured_actions)
+            line = _area_state_line(area, plan, report, extra_configured_actions, held_back_actions)
             print(f"      {area.label}: {line}")
 
 

@@ -465,6 +465,16 @@ that the repo layer / `rig.yaml` is N/A; it does not tell you to commit a repo c
 repo exists. An explicit `--config` can still declare GLOBAL areas in that mode, but repo-scoped
 areas remain N/A until you run status inside a git repository.
 
+### Committed files rig owns — landed once, not written into every worktree
+
+`rig.yaml`, task-cli's `task.yaml` and the `.ship-config` rig reconciles are committed to the
+repo. With a `tracked_files:` block in the global config (it is global-only), `rig apply` does not write
+them into whichever checkout it runs in. It lands them once per repo instead: an identical
+uncommitted edit that several worktrees carry, plus rig's own reconcile of those files, goes into
+one PR against the default branch and through the gated ship. Once that merges, worktrees whose
+copy equals the default branch get the file checked out again. `rig apply` (the preview) lists
+the pending merges. See [`docs/config-schema.md`](docs/config-schema.md#tracked_files).
+
 ## How rig consumes agent-tools (the integration seam)
 
 `rig` never vendors agent-tools content. At runtime it locates an agent-tools checkout —

@@ -565,6 +565,12 @@ def _default_liveness_factory() -> LivenessCheck:
     return _liveness_check_from_snapshot(_live_process_cwds())
 
 
+def snapshot_liveness_check() -> LivenessCheck:
+    """Public: one ``pgrep``/``lsof`` snapshot as a ``Callable[[Path], bool]`` for a batch of checks
+    (riglib.tracked_files takes one per normalize pass)."""
+    return _default_liveness_factory()
+
+
 # ── PR lookup (injectable) ───────────────────────────────────────────────────────
 class GhLookupError(RuntimeError):
     """``gh pr list`` could not be run/trusted — see :func:`make_default_pr_lookup`."""

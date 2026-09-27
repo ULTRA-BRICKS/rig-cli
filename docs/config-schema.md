@@ -3369,6 +3369,137 @@ real reload nor touch the real global hooks dir.
 
 ---
 
+## `tracked_files`
+
+Some files rig owns are **committed** to the repo: `rig.yaml` itself, task-cli's `task.yaml`, the
+`.ship-config` rig reconciles. Writing such a file into whichever checkout `rig apply` runs in leaves
+that checkout dirty — and when the same change reaches every worktree of a repo, the identical
+uncommitted edit piles up in dozens of worktrees while never reaching the default branch (a
+task-routing migration once left about 200 worktrees dirty this way). This block makes `rig apply`
+**land** those files once on the default branch instead. Block PRESENCE opts in; `enabled: false`
+opts out. `tracked_files: {}` takes every default; a bare `tracked_files:` (null) is rejected rather
+than read as either.
+
+**Global config only.** `tracked_files` runs the ship command and pushes branches with your
+credentials, and it decides which files leave the machine. A committed repo `rig.yaml` — itself a
+file this block harvests — must choose neither, so `config.load` rejects the block from any
+non-global layer, and `rig config set tracked_files.…` writes the global file.
+
+```yaml
+# ~/.config/rig/config.yaml
+tracked_files:
+  paths: [rig.yaml, task.yaml, .ship-config]   # default shown; git pathspec globs
+  land: ship                 # ship (PR + gated ship in the background) | pr (PR only)
+  harvest_min_worktrees: 2   # land an uncommitted edit only when this many worktrees agree on it
+  normalize_worktrees: true
+  normalize_min_age_minutes: 120
+  ship:
+    task_code: UB-3          # ticket for ship's review-quorum + acceptance gates
+    task_config: ~/.config/task/tasks-ub.yaml    # optional: ship's --task-config for that ticket
+    args: [--no-version-bump-ok, "config-only: rig-owned tracked files"]
+    command: gh ship         # default shown
+  review:
+    models: omp:anthropic/claude-opus-4-8,oc:zai/glm-5.2,oc:xai/grok-4.6   # optional; review-cli's pool by default
+```
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `enabled` | bool | `true` | land tracked-owned files (block presence opts in) |
+| `paths` | array of str | `[rig.yaml, task.yaml, .ship-config]` | repo-relative files rig lands; must stay inside the repo. Globs `*`, `**` and `?` follow git's `:(glob)` pathspec rules: `*` stays in one directory (`*.yml` is the repo root only), `**` crosses them; classes and braces are rejected. An entry names files: one naming a directory matches nothing, and `rig status` says so |
+| `land` | `ship` \| `pr` | `ship` | `ship` opens the PR and runs the gated ship in the background; `pr` opens the PR only |
+| `harvest_min_worktrees` | int ≥ 1 | `2` | an uncommitted edit lands only when at least this many worktrees carry it byte-identically |
+| `normalize_worktrees` | bool | `true` | check a path out again in every worktree whose uncommitted copy equals the default branch |
+| `normalize_min_age_minutes` | int ≥ 0 | `120` | leave a copy alone while it changed within this many minutes |
+| `ship.task_code` | str | — | the ticket ship's review-quorum and acceptance gates read (`REVIEW_TASK_CODE`); without it the PR opens but ship is not started |
+| `ship.task_config` | str | — | task-cli config ship passes as `--task-config` for that ticket |
+| `ship.args` | array of str | `[]` | extra `gh ship` arguments, verbatim |
+| `ship.command` | str | `gh ship` | the ship command (the gated merge path) |
+| `review.models` | str | review-cli's pool | seats for the review recorded on the staged landing diff |
+
+**What rig does with it.**
+
+1. **Divert.** The plan builder moves every action whose target is a listed file — and rig's
+   `.ship-config` reconcile (the `SHIP_TASK_CODE_PREFIX` line from `task.code_prefix`) — out of
+   the plan into `plan.diverted`. No plan consumer — `rig apply`, `rig config set`, `rig init`,
+   config-web — writes such a file into a working checkout, and `rig status` does not report it
+   as drift there; it lists it as a pending merge instead. An installer that targets a whole
+   directory (the `ci` workflows under `.github/workflows`) is not held back, even when a glob
+   matches the files it writes: those copies are still harvested and normalized below.
+2. **Harvest.** `rig apply` scans every worktree of the repo, the primary checkout included, for an
+   uncommitted edit of a listed path whose committed copy (`HEAD`) still equals
+   `origin/<default>`'s — a file neither has yet counts too (a new `rig.yaml`, say). Byte-identical
+   edits are grouped; the group at least
+   `harvest_min_worktrees` worktrees agree on becomes the landing content. When two different edits
+   both reach the threshold, that path is a **conflict** and nothing lands for it. Only regular
+   files count: a deleted copy or a symlink (which could point at anything, a key included) is
+   never harvested or normalized. A file rig generates from other config (`.ship-config`, from
+   `task.code_prefix`) is never harvested either — ship reads it, so only rig's own reconcile
+   writes it on the landing branch.
+3. **Land** (`rig apply commit` only). In one non-interactive batch: fetch `origin/<default>`,
+   create a locked worktree there — always `<primary checkout>/.worktrees/rig-tracked-files`,
+   whichever checkout `rig apply` runs in — write the harvested content,
+   rebuild the plan in that worktree (so it reads the landed `rig.yaml`) and run the held-back
+   actions there, record a review of the staged diff (`review diff --staged --task <task_code>`,
+   when review-cli is installed), commit, push a fresh `rig/tracked-files-<hash>-<utc>` branch, and
+   open the PR (`gh pr create` for a GitHub or `github.*` Enterprise origin, `fj pr create` for any other forge). With `land: ship` and a
+   `task_code`, the gated ship starts in the background (`python -m riglib.tracked_files
+   ship-loop`). It retries while CI is pending or the review-dwell window is open, merges the
+   default branch in (never a force-push) when the PR falls BEHIND, stops on any other refusal,
+   and gives up after 8 hours. Every attempt goes to the landing log. A failure before the push
+   leaves nothing behind; a leftover landing worktree from an earlier run is cleaned up first.
+4. **Normalize.** Every `rig apply commit` (and the background lander right after its merge)
+   checks each listed path out again in every worktree whose uncommitted copy equals
+   `origin/<default>`: a modified copy is restored to `HEAD`, an untracked new file is removed. It
+   skips locked worktrees, worktrees a live agent sits in (checked at that moment), and copies
+   changed within `normalize_min_age_minutes`. Anything that differs from the default branch is
+   left alone. A worktree whose branch predates the merge gets the change through its next merge
+   of the default branch.
+
+**Preview and dry-run.** `rig apply` (= `rig apply info`), `rig apply commit --dry-run` and
+`rig status` print the pending merges under `tracked_files — pending merges to the default
+branch:` and change nothing. For example:
+
+```
+tracked_files — pending merges to the default branch:
+  · land rig.yaml (7 lines) from 33 worktree(s) → PR against origin/main, then gated ship
+  · normalize 4 worktree(s) whose copy already equals origin/main
+```
+
+`rig apply commit --only <categories>` lands only when `tracked_files` is one of them; the held-back
+actions stay out of the checkout either way. A repo with no origin default branch (a local-only
+repo) has nowhere to land, so there nothing is held back: rig writes the files into the checkout
+as without the block, and says so in the plan notes.
+
+**State.** One JSON file per repo under `$XDG_STATE_HOME/rig/tracked-files/` (default
+`~/.local/state/rig/tracked-files/`), keyed by the repo's shared git dir so every checkout of it
+uses the same file, with the landing log and a lock file beside it. The lock (a kernel file lock, released
+when its holder exits, so it never goes stale) lets one landing — or one post-merge cleanup — run per repo at a
+time; a second `rig apply commit` meanwhile reports the landing in flight and exits 0. The
+background lander holds a second lock (`<state>.lander`) for its whole life and records its own
+pid, so even with the state file deleted by hand no new landing removes the worktree it works in.
+While an earlier landing's PR may still be open — shipping, or stopped with
+`ship-refused`/`timed-out`/`ship-stopped` — `rig apply commit` asks the forge (`gh pr view`,
+`fj pr view`), reports that PR with its last refusal, and opens no second one. If the forge cannot
+answer, the PR number was never read, or a run died between pushing its branch and opening the PR
+(a checkpoint is written before the push), it also opens none and says so; a branch whose PR could
+not be opened is deleted from the forge again. Once `origin/<default>`
+carries the landed content (however it merged) or the PR is closed — and its background lander has exited — a new landing may start. A lander that finds a newer landing in the state file stops without touching it.
+Previews and `rig status` read this state but never write it.
+
+**Safety checks.** Every comparison uses the blob git would store (`git hash-object --path`), so
+`core.autocrlf` and clean filters do not split identical copies. A copy whose index holds something
+of its own (staged content that is neither `HEAD`'s nor the default branch's) is never reset, and
+each copy is re-checked right before it is reset, so an edit made after the scan is kept. Every git
+call drops a leaked `GIT_DIR`/`GIT_WORK_TREE`/`GIT_CONFIG_*` environment (as `rig` does for its
+core.bare check), so a hook or wrapper cannot redirect a commit or push to another repo. Transport
+settings (`GIT_SSH_COMMAND`, `GIT_ASKPASS`, a proxy) are yours and pass through, as for any push.
+The landing and lander locks are kernel file locks (`flock`, or `msvcrt.locking` on Windows), so
+neither trusts a pid.
+
+**Never** does it force-push, merge outside the ship gate, or touch a path outside `paths`.
+
+---
+
 ## Editing this config — `rig setup` (wizard) and `rig config get|set`
 
 `rig setup` is the **interactive configuration wizard**. In a terminal it (1) SHOWS what is

@@ -176,6 +176,11 @@ class InstallPlan:
     # the user's side of the same classification. Carried on the plan so `detect` has ONE input
     # channel for provenance (catalog + config), not a kwarg only some callers remember to pass.
     known_names: dict[str, set[str]] | None = None
+    # Actions held back from this checkout because they write a committed file the
+    # ``tracked_files`` block lands on the default branch instead (riglib/tracked_files.py). Every
+    # plan consumer (apply, config set, init, config-web, status/drift) sees them removed from
+    # ``actions``; `rig apply commit` runs them in the landing worktree.
+    diverted: list[Action] = field(default_factory=list)
 
     def __len__(self) -> int:
         return len(self.actions)
@@ -1079,7 +1084,36 @@ def build(
 
 # ── internal_dev (per-repo daemon auto-reload post-commit hook) ────────────────
     _build_internal_dev(config, plan)
+
+    # ── tracked_files: hold back writes to committed files that are landed, not written ──
+    _divert_tracked_files(config, plan)
     return plan
+
+
+def _divert_tracked_files(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Move actions that write a ``tracked_files`` path out of ``plan.actions`` into ``plan.diverted``.
+
+    Done here, in the one plan builder, so no plan consumer writes such a file into a working
+    checkout (see :mod:`riglib.tracked_files`). A no-op without the block or outside a git repo,
+    and in a repo with no origin default branch to land on (a local-only repo, say): there the
+    files are written into the checkout as usual, never held back with nowhere to go.
+    """
+    from . import tracked_files
+
+    settings = tracked_files.settings_from_config(config.data)
+    if not settings.enabled or not tracked_files.inside_work_tree(config.repo_root):
+        return
+    if tracked_files.default_branch(config.repo_root) is None:
+        plan.notes.append("tracked_files: no origin default branch to land on here (neither origin/HEAD nor "
+                          "origin/main|master; `git remote set-head origin --auto` sets origin/HEAD) — rig-owned "
+                          "committed files are written into this checkout as usual")
+        return
+    plan.actions, plan.diverted = tracked_files.divert_actions(plan.actions, config.repo_root, settings)
+    if plan.diverted:
+        plan.notes.append(
+            f"tracked_files: {len(plan.diverted)} action(s) writing a committed file are held back from this "
+            "checkout; `rig apply commit` lands them on the default branch"
+        )
 
 
 # claude-code's PROJECT settings file: a NON-auto mode on the PRIMARY kind is written here
