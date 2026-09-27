@@ -209,3 +209,88 @@ def test_pane_restore_uses_absolute_rig_binary(tmp_path, monkeypatch):
 
     argv = shlex.split(calls[0][1].split(" && ", 1)[1])
     assert os.path.isabs(argv[0]) and Path(argv[0]).is_file()
+
+
+def test_generated_abduco_command_is_recognized_by_the_pane_map():
+    import shlex
+
+    assert ol.omp_inspect.parse_abduco_argv(
+        shlex.join(ol.build_run_argv(["omp"], "durable"))
+    ) == ("durable", "omp")
+
+
+def test_missing_session_file_preserves_the_last_verified_map(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    target = tmp_path / "map"
+    target.write_text("verified previous state\n")
+    monkeypatch.setattr(ol, "list_tmux_panes", lambda *_: [("main:1", 11, "/work")])
+    monkeypatch.setattr(
+        ol.omp_inspect, "capture_ps_snapshot", lambda: "11 1 /bin/omp\n"
+    )
+    host = SimpleNamespace(
+        pid=11,
+        session_id="new",
+        session_file=str(tmp_path / "not-written.jsonl"),
+        cwd="/work",
+        durable_session=None,
+    )
+    monkeypatch.setattr(ol.omp_inspect, "live_omp_sessions", lambda *_: ([host], True))
+    assert ol.save_panes(target) is False
+    assert target.read_text() == "verified previous state\n"
+
+
+def test_unrecorded_server_with_missing_socket_is_never_replaced(tmp_path):
+    import os, signal, subprocess, time
+    from shutil import which
+    from riglib import tmux_watchdog as wd
+
+    if not which("tmux") or not which("lsof"):
+        pytest.skip("requires tmux and lsof for real socket ownership proof")
+    socket = tmp_path / "tmux.sock"
+    command = ["tmux", "-S", str(socket), "-f", "/dev/null"]
+
+    def start():
+        subprocess.run(
+            [*command, "new-session", "-d", "-s", "private"],
+            check=True,
+            stdin=subprocess.DEVNULL,
+        )
+        return int(
+            subprocess.check_output(
+                [*command, "display-message", "-p", "#{pid}"], text=True
+            )
+        )
+
+    a = start()
+    identity = wd.query_server(socket)
+    wd.save_identity(identity, tmp_path)
+    subprocess.run([*command, "kill-server"], check=True)
+    time.sleep(0.15)
+    b = start()
+    assert a != b
+    try:
+        socket.unlink()
+        forbidden = tmp_path / "should-not-launch"
+        boot = tmp_path / "boot.sh"
+        boot.write_text('#!/bin/sh\ntouch "' + str(forbidden) + '"\n')
+        boot.chmod(0o755)
+        result = wd.run_once(socket, home=tmp_path, boot_script=boot)
+        assert result.action == "blocked" and result.reason == "server_identity_changed"
+        assert not forbidden.exists()
+    finally:
+        os.kill(b, signal.SIGUSR1)
+        for _ in range(20):
+            if socket.exists():
+                break
+            time.sleep(0.05)
+        subprocess.run([*command, "kill-server"], capture_output=True)
+
+
+@pytest.mark.parametrize("rc", [0, 1])
+def test_socket_scan_warning_is_incomplete_even_on_success(monkeypatch, tmp_path, rc):
+    from types import SimpleNamespace
+    from riglib import tmux_watchdog as wd
+    monkeypatch.setattr(wd.subprocess, "run", lambda *a, **k: SimpleNamespace(returncode=rc, stdout="", stderr="lsof: WARNING: partial results"))
+    with pytest.raises(wd.InspectionUnavailable):
+        wd.socket_owner_pids(tmp_path / "tmux.sock")

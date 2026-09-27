@@ -25,7 +25,7 @@ class BuildArgvTests(unittest.TestCase):
             ["omp", "--resume", "/x.jsonl"], "sid-1", abduco_bin="abduco"
         )
         self.assertEqual(
-            argv, ["abduco", "-A", "-f", "sid-1", "omp", "--resume", "/x.jsonl"]
+            argv, ["abduco", "-f", "-A", "sid-1", "omp", "--resume", "/x.jsonl"]
         )
 
     def test_run_argv_rejects_empty_command(self):
@@ -54,7 +54,7 @@ class RunSessionInjectedExecTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         path, argv, env = calls[0]
         self.assertEqual(path, "abduco")
-        self.assertEqual(argv, ["abduco", "-A", "-f", sid, "omp"])
+        self.assertEqual(argv, ["abduco", "-f", "-A", sid, "omp"])
         self.assertEqual(env["RIG_OMP_SESSION"], sid)
 
     def test_run_session_honors_explicit_session_id(self):
@@ -234,7 +234,7 @@ class WrapperInstallTests(unittest.TestCase):
             )
             path, argv, env = calls[0]
             self.assertEqual(path, "abduco")
-            self.assertEqual(argv[:2], ["abduco", "-A"])
+            self.assertEqual(argv[:3], ["abduco", "-f", "-A"])
             self.assertIn("/real/omp", argv)
             self.assertIn("RIG_OMP_SESSION", env)
 

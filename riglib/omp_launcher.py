@@ -65,7 +65,7 @@ def generate_durable_id() -> str:
 def build_run_argv(
     omp_argv: list[str], session_id: str, *, abduco_bin: str = DEFAULT_ABDUCO_BIN
 ) -> list[str]:
-    """``abduco -A -f <session_id> <omp_argv...>`` — connect-or-create, so a duplicate `rig omp
+    """``abduco -f -A <session_id> <omp_argv...>`` — connect-or-create, so a duplicate `rig omp
     run` with the SAME id (e.g. a restore racing a still-starting durable launch) reuses the
     existing process instead of erroring. -f only replaces an already terminated worker;
     an active session is still attached without launching another process."""
@@ -73,7 +73,7 @@ def build_run_argv(
         raise ValueError(
             "omp_argv must be non-empty (the real omp binary + its arguments)"
         )
-    return [abduco_bin, "-A", "-f", validate_durable_id(session_id), *omp_argv]
+    return [abduco_bin, "-f", "-A", validate_durable_id(session_id), *omp_argv]
 
 
 def build_attach_argv(
@@ -390,7 +390,7 @@ def save_panes(
         ):
             return False
         header = omp_inspect.session_header(file)
-        if Path(file).exists() and (not header or header["id"] != host.session_id):
+        if not header or header["id"] != host.session_id:
             return False
         entries.append(
             (addr, host.cwd, file, host.durable_session or durable, host.session_id)

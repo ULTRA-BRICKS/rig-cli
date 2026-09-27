@@ -263,6 +263,38 @@ def preserve_crash_reports(home: Path | None = None) -> None:
         pass
 
 
+def socket_owner_pids(socket_path: Path, lsof_bin: str = "lsof") -> set[int]:
+    """Find live tmux owners even when the socket name was unlinked from the filesystem.
+
+    Inspect all same-user tmux Unix descriptors, not the missing pathname and not just
+    the stale saved PID. Any failed inspection forbids creating another server.
+    A lingering client with the same named descriptor also blocks conservatively;
+    an ambiguous namespace must never authorize a second server.
+    """
+    try:
+        result = subprocess.run(
+            [lsof_bin, "-nP", "-a", "-u", str(os.getuid()), "-c", "tmux", "-U", "-Fpn"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise InspectionUnavailable("socket ownership inspection unavailable") from exc
+    if result.returncode not in (0, 1) or result.stderr.strip():
+        raise InspectionUnavailable("socket ownership inspection failed")
+    target = socket_path.resolve()
+    owners = set()
+    pid = None
+    for line in result.stdout.splitlines():
+        if line.startswith("p"):
+            pid = int(line[1:]) if line[1:].isdigit() else None
+        elif line.startswith("n/") and pid is not None:
+            if Path(line[1:]).resolve() == target:
+                owners.add(pid)
+    return owners
+
+
 def recover_socket(pid: int) -> bool:
     try:
         os.kill(pid, signal.SIGUSR1)
@@ -305,6 +337,8 @@ def run_once(
             if cooldown_active(home, seconds=cooldown_seconds):
                 return ServerPlan("none", "cooldown")
             current = probe_saved_identity(saved)
+            if current is None and socket_owner_pids(socket_path, lsof_bin):
+                return ServerPlan("blocked", "server_identity_changed")
             plan = plan_server_recovery(
                 saved,
                 current,
