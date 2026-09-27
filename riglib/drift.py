@@ -324,6 +324,7 @@ def compute_drift_report(
         effective_plan = InstallPlan(
             actions=global_actions, on_conflict=plan.on_conflict, notes=plan.notes,
             catalog_items=plan.catalog_items, known_names=plan.known_names,
+            diverted=list(getattr(plan, "diverted", [])),  # every InstallPlan field travels along
         )
         # ship_delegator carries the GLOBAL ship_env (machine env file) check, and apply does
         # NOT drop repo actions outside git — it still reconciles that file. Remember the dropped

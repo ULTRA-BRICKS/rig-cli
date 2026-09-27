@@ -2377,6 +2377,94 @@
       },
       "additionalProperties": false
     },
+    "tracked_files": {
+      "type": "object",
+      "description": "land rig-owned COMMITTED repo files (rig.yaml, task.yaml, .ship-config) once on the default branch instead of writing them into every worktree: `rig apply` harvests an identical uncommitted edit found in several worktrees, holds rig's own reconcile of these files back from the checkout, opens ONE PR and runs the gated ship, then checks the files out again in worktrees whose copy equals the default branch. GLOBAL config only; block PRESENCE opts in.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "land tracked-owned files (block presence opts in; false opts out)",
+          "default": true
+        },
+        "paths": {
+          "type": "array",
+          "description": "repo-relative files rig owns and lands (git pathspec globs: `*` stays in one directory, `**` crosses them)",
+          "default": [
+            "rig.yaml",
+            "task.yaml",
+            ".ship-config"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "land": {
+          "type": "string",
+          "description": "ship: open the PR and run the gated ship in the background; pr: open the PR only",
+          "enum": [
+            "ship",
+            "pr"
+          ],
+          "default": "ship"
+        },
+        "harvest_min_worktrees": {
+          "type": "integer",
+          "description": "land an uncommitted edit only when at least this many worktrees carry it identically",
+          "default": 2,
+          "minimum": 1
+        },
+        "normalize_worktrees": {
+          "type": "boolean",
+          "description": "check the files out again in worktrees whose copy equals the default branch",
+          "default": true
+        },
+        "normalize_min_age_minutes": {
+          "type": "integer",
+          "description": "leave a worktree's copy alone while it changed within this many minutes",
+          "default": 120,
+          "minimum": 0
+        },
+        "ship": {
+          "type": "object",
+          "description": "how the landing PR is shipped (`gh ship`, the gated merge path)",
+          "properties": {
+            "task_code": {
+              "type": "string",
+              "description": "ticket code for ship's review-quorum and acceptance gates (REVIEW_TASK_CODE)"
+            },
+            "task_config": {
+              "type": "string",
+              "description": "task-cli config ship passes as --task-config for that ticket"
+            },
+            "args": {
+              "type": "array",
+              "description": "extra `gh ship` arguments, verbatim (e.g. --no-version-bump-ok <reason>)",
+              "items": {
+                "type": "string"
+              }
+            },
+            "command": {
+              "type": "string",
+              "description": "the ship command",
+              "default": "gh ship"
+            }
+          },
+          "additionalProperties": false
+        },
+        "review": {
+          "type": "object",
+          "description": "the review recorded on the staged landing diff before it is committed (review-cli)",
+          "properties": {
+            "models": {
+              "type": "string",
+              "description": "review-cli seats (`review diff -m`), default: review-cli's own pool"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "scope": {
       "type": "string",
       "description": "removed legacy key (tolerated, ignored)",

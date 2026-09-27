@@ -1573,6 +1573,55 @@ _TOP_LEAVES: dict[str, Leaf] = {
     ),
 }
 
+_TRACKED_FILES_BLOCK = Block(
+    doc=(
+        "land rig-owned COMMITTED repo files (rig.yaml, task.yaml, .ship-config) once on the "
+        "default branch instead of writing them into every worktree: `rig apply` harvests an "
+        "identical uncommitted edit found in several worktrees, holds rig's own reconcile of these "
+        "files back from the checkout, opens ONE PR and runs the gated ship, then checks the files "
+        "out again in worktrees whose copy equals the default branch. GLOBAL config only; block PRESENCE opts in."
+    ),
+    leaves={
+        "enabled": Leaf("boolean", "land tracked-owned files (block presence opts in; false opts out)", default=True),
+        "paths": Leaf(
+            "array", "repo-relative files rig owns and lands (git pathspec globs: `*` stays in one directory, `**` crosses them)",
+            default=["rig.yaml", "task.yaml", ".ship-config"], items_type="string",
+        ),
+        "land": Leaf(
+            "string", "ship: open the PR and run the gated ship in the background; pr: open the PR only",
+            enum=("ship", "pr"), default="ship",
+        ),
+        "harvest_min_worktrees": Leaf(
+            "integer", "land an uncommitted edit only when at least this many worktrees carry it identically",
+            default=2, minimum=1,
+        ),
+        "normalize_worktrees": Leaf(
+            "boolean", "check the files out again in worktrees whose copy equals the default branch", default=True,
+        ),
+        "normalize_min_age_minutes": Leaf(
+            "integer", "leave a worktree's copy alone while it changed within this many minutes", default=120, minimum=0,
+        ),
+    },
+    nested={
+        "ship": Block(
+            doc="how the landing PR is shipped (`gh ship`, the gated merge path)",
+            leaves={
+                "task_code": Leaf("string", "ticket code for ship's review-quorum and acceptance gates (REVIEW_TASK_CODE)"),
+                "task_config": Leaf("string", "task-cli config ship passes as --task-config for that ticket"),
+                "args": Leaf("array", "extra `gh ship` arguments, verbatim (e.g. --no-version-bump-ok <reason>)",
+                             items_type="string"),
+                "command": Leaf("string", "the ship command", default="gh ship"),
+            },
+        ),
+        "review": Block(
+            doc="the review recorded on the staged landing diff before it is committed (review-cli)",
+            leaves={
+                "models": Leaf("string", "review-cli seats (`review diff -m`), default: review-cli's own pool"),
+            },
+        ),
+    },
+)
+
 BLOCKS: dict[str, Block] = {
     "defaults": _DEFAULTS_BLOCK,
     "scripts": _SCRIPTS_BLOCK,
@@ -1606,6 +1655,7 @@ BLOCKS: dict[str, Block] = {
     "project_tools": _PROJECT_TOOLS_BLOCK,
     "ecosystem_readme": _ECOSYSTEM_README_BLOCK,
     "task": _TASK_BLOCK,
+    "tracked_files": _TRACKED_FILES_BLOCK,
 }
 
 # Every valid TOP-LEVEL key (scalars + blocks). Mirrors config._VALID_TOP_KEYS; the sync test

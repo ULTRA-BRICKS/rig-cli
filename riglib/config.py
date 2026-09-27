@@ -56,6 +56,11 @@ CONFIG_FILENAME = "rig.yaml"
 _GLOBAL_LAYER_ONLY_BLOCKS: dict[str, str] = {
     "git": "git.config writes the machine's GLOBAL git config (`git config --global`)",
     "profile": "profile points rig at the repo your GLOBAL config is synced with",
+    "tracked_files": (
+        "tracked_files runs the ship command and pushes branches with your credentials, and picks "
+        "which files leave the machine — a committed repo rig.yaml (itself a harvested file) must "
+        "not choose either"
+    ),
 }
 
 # `fj` is repo-writable, but only its `host` (the forge this repo's logins use). Every other key is
@@ -102,6 +107,7 @@ _VALID_TOP_KEYS = {
     "scripts",
     "dev",
     "task",
+    "tracked_files",
 }
 _VALID_CATEGORIES = {"skills", "agent_hooks", "git_hooks", "ci", "mcp"}
 _VALID_ON_CONFLICT = {"skip", "overwrite", "backup"}
@@ -1041,6 +1047,7 @@ def validate(data: dict[str, Any]) -> None:
     _validate_project_tools(data.get("project_tools", {}))
     _validate_ecosystem_readme(data.get("ecosystem_readme", {}))
     _validate_task(data.get("task", {}))
+    _validate_tracked_files(data.get("tracked_files", {}))
 
 
 def _validate_stack(data: dict[str, Any]) -> None:
@@ -2709,6 +2716,90 @@ def _validate_ecosystem_readme(er: dict[str, Any]) -> None:
             f"ecosystem_readme.target must be a relative path inside the repo, got {target!r}",
             schema_path="ecosystem_readme.target",
         )
+
+
+_TRACKED_FILES_LAND_MODES = ("ship", "pr")
+
+
+def _validate_tracked_files(tf: Any) -> None:
+    """Validate the ``tracked_files`` block — landing rig-owned committed files (riglib/tracked_files.py).
+
+    Block PRESENCE opts in (``enabled: false`` opts out). ``paths`` are repo-relative (globs
+    allowed) and must stay inside the repo. ``ship.task_code`` is the ticket ship's review and
+    acceptance gates read; ``ship.args`` pass through to ``gh ship`` verbatim.
+    """
+    if tf is None:
+        # a bare `tracked_files:` line is present yet names nothing: say which spelling is meant
+        # rather than read it as either on or off
+        raise ConfigError(
+            "tracked_files is empty (null) — write `tracked_files: {}` to land with the defaults, "
+            "or remove the line",
+            schema_path="tracked_files",
+        )
+    if not isinstance(tf, dict):
+        raise ConfigError("tracked_files must be a mapping", schema_path="tracked_files")
+    if not tf:
+        return
+    _reject_unknown_keys(tf, "tracked_files")
+
+    # strict: a PRESENT key must have its type — `land:` left empty (null) must not quietly turn
+    # into "PR only", nor `enabled:` into "off"
+    def _typed(block: dict[str, Any], key: str, path: str, kind: type, what: str) -> None:
+        if key in block and not isinstance(block[key], kind):
+            raise ConfigError(f"{path} must be {what}, got {block[key]!r}", schema_path=path)
+
+    for key in ("enabled", "normalize_worktrees"):
+        _typed(tf, key, f"tracked_files.{key}", bool, "a bool")
+    _check_int_min(tf, "harvest_min_worktrees", "tracked_files.harvest_min_worktrees", 1)
+    _check_int_min(tf, "normalize_min_age_minutes", "tracked_files.normalize_min_age_minutes", 0)
+    _typed(tf, "paths", "tracked_files.paths", list, "a list of strings")
+    _check_str_list(tf, "paths", "tracked_files.paths")
+    if tf.get("paths") == []:
+        raise ConfigError(
+            "tracked_files.paths must list at least one file (to land nothing, set tracked_files.enabled: false)",
+            schema_path="tracked_files.paths",
+        )
+    for p in tf.get("paths") or []:
+        if not p.strip() or p.endswith("/") or linter_path_escapes_repo(p):
+            raise ConfigError(
+                f"tracked_files.paths entries must be relative file paths inside the repo, got {p!r}",
+                schema_path="tracked_files.paths",
+            )
+        if any(c in p for c in "[]{}"):
+            raise ConfigError(
+                f"tracked_files.paths supports `*`, `**` and `?` globs only, not classes or braces: {p!r}",
+                schema_path="tracked_files.paths",
+            )
+    if "land" in tf and tf["land"] not in _TRACKED_FILES_LAND_MODES:
+        raise ConfigError(
+            f"tracked_files.land must be one of {list(_TRACKED_FILES_LAND_MODES)}, got {tf['land']!r}",
+            schema_path="tracked_files.land",
+        )
+    for name, keys in (("ship", ("task_code", "task_config", "command")), ("review", ("models",))):
+        if name not in tf:
+            continue
+        block = tf[name]
+        if not isinstance(block, dict):
+            raise ConfigError(f"tracked_files.{name} must be a mapping", schema_path=f"tracked_files.{name}")
+        _reject_unknown_keys(block, f"tracked_files.{name}")
+        for key in keys:
+            _typed(block, key, f"tracked_files.{name}.{key}", str, "a string")
+            if key in block and not block[key].strip():
+                raise ConfigError(
+                    f"tracked_files.{name}.{key} must not be empty (omit the key for its default)",
+                    schema_path=f"tracked_files.{name}.{key}",
+                )
+        if name == "ship":
+            _typed(block, "args", "tracked_files.ship.args", list, "a list of strings")
+            _check_str_list(block, "args", "tracked_files.ship.args")
+            if "command" in block:
+                import shlex
+
+                try:  # the background lander splits it the same way
+                    shlex.split(block["command"])
+                except ValueError as exc:
+                    raise ConfigError(f"tracked_files.ship.command does not parse as a command line: {exc}",
+                                      schema_path="tracked_files.ship.command") from None
 
 
 def _validate_env(e: dict[str, Any]) -> None:
