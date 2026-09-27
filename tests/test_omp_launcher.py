@@ -176,6 +176,63 @@ class RestoreOnePaneDecisionTests(unittest.TestCase):
     """Exercises restore_one_pane's DECISION only (the plan_restore call); the tmux
     send-keys execution is a real subprocess call left to the tmux-backed integration test."""
 
+    def test_legacy_resume_does_not_require_abduco_listing_when_live_inspection_is_known(self):
+        with tempfile.TemporaryDirectory() as d:
+            session = Path(d) / "session.jsonl"
+            session.write_text(json.dumps({"type": "session", "id": "sid-legacy", "cwd": "/cwd"}) + "\n")
+            old_empty = ol._pane_is_empty_shell
+            old_send = ol.send_keys
+            old_resolve = ol.resolve_rig_binary
+            sent = []
+            try:
+                ol._pane_is_empty_shell = lambda *a, **k: True
+                ol.send_keys = lambda addr, command, tmux_bin: sent.append(command) or True
+                ol.resolve_rig_binary = lambda requested=None: "/usr/local/bin/rig"
+                plan = ol.restore_one_pane(
+                    "addr", "/cwd", str(session), None,
+                    live=[], live_ok=True, durable_sockets=set(), durable_ok=False,
+                )
+            finally:
+                ol._pane_is_empty_shell = old_empty
+                ol.send_keys = old_send
+                ol.resolve_rig_binary = old_resolve
+            self.assertEqual(plan.action, "resume")
+            self.assertEqual(plan.reason, "original_not_running")
+            self.assertEqual(len(sent), 1)
+            self.assertIn("rig omp run --session-id", sent[0])
+
+    def test_durable_restore_still_blocks_when_abduco_listing_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as d:
+            session = Path(d) / "session.jsonl"
+            session.write_text(
+                json.dumps({"type": "session", "id": "sid-durable", "cwd": "/cwd"}) + "\n"
+            )
+            old_empty = ol._pane_is_empty_shell
+            old_send = ol.send_keys
+            sent = []
+            try:
+                ol._pane_is_empty_shell = lambda *a, **k: True
+                ol.send_keys = lambda addr, command, tmux_bin: sent.append(command) or True
+                plan = ol.restore_one_pane(
+                    "addr",
+                    "/cwd",
+                    str(session),
+                    "dur-1",
+                    live=[],
+                    live_ok=True,
+                    durable_sockets=set(),
+                    durable_ok=False,
+                )
+            finally:
+                ol._pane_is_empty_shell = old_empty
+                ol.send_keys = old_send
+            self.assertEqual(plan.action, "blocked")
+            self.assertEqual(plan.reason, "inspection_unavailable")
+            self.assertEqual(len(sent), 1)
+            self.assertIn("inspection_unavailable", sent[0])
+            self.assertNotIn(" rig omp run ", sent[0])
+            self.assertNotIn(" rig omp attach ", sent[0])
+
     def test_durable_terminal_attach_does_not_call_tmux_when_pane_unreachable(self):
         plan = ol.restore_one_pane(
             "addr",

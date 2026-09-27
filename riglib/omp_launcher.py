@@ -457,11 +457,19 @@ def restore_one_pane(
         return RestorePlan("blocked", "pane_unreachable")
     session_id = session_id or omp_inspect.saved_session_id_for(session_file)
     saved = SavedPane(addr, cwd, session_id, session_file, durable_session)
+    # A legacy saved pane with no durable id does not need an abduco listing to
+    # prove absence of a live OMP owner: live_ok already covers that safety
+    # boundary. Requiring abduco here made clean Linux runners (and hosts that
+    # have not opted into durable sessions yet) block an otherwise exact
+    # resume. Once a durable id is recorded, however, failing to inspect the
+    # durable namespace must still fail closed because an attachable original
+    # may exist outside tmux.
+    durable_inspection_needed = bool(durable_session)
     plan = plan_restore(
         saved,
         live,
         durable_sockets,
-        inspection_ok=live_ok and durable_ok,
+        inspection_ok=live_ok and (durable_ok or not durable_inspection_needed),
         session_file_exists=Path(session_file).exists(),
         pane_is_empty_shell=pane_empty,
     )

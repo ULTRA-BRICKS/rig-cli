@@ -276,7 +276,12 @@ def test_unrecorded_server_with_missing_socket_is_never_replaced(tmp_path):
         boot.write_text('#!/bin/sh\ntouch "' + str(forbidden) + '"\n')
         boot.chmod(0o755)
         result = wd.run_once(socket, home=tmp_path, boot_script=boot)
-        assert result.action == "blocked" and result.reason == "server_identity_changed"
+        # Host lsof may conservatively report an incomplete scan (common on
+        # containerized Linux runners). Both reasons are safe: neither may
+        # replace an unverified server. The exact identity_changed path is
+        # pinned separately by pure tests with controlled inspection.
+        assert result.action == "blocked"
+        assert result.reason in {"server_identity_changed", "inspection_unavailable"}
         assert not forbidden.exists()
     finally:
         os.kill(b, signal.SIGUSR1)
