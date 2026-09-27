@@ -585,8 +585,8 @@ def _add_env_parser(sub: "argparse._SubParsersAction") -> None:
 
 
 def _add_lint_parser(sub: "argparse._SubParsersAction") -> None:
-    """`rig lint rules` — lint-domain policy introspection; top-level `rig rules` stays cross-domain."""
-    lp = sub.add_parser("lint", help="lint/format policy inspection")
+    """`rig lint rules|text|code` — lint policy introspection plus the on-demand text and code checks."""
+    lp = sub.add_parser("lint", help="lint policy inspection; check Markdown drafts and code")
     lp.set_defaults(_lint_parser=lp)
     lsub = lp.add_subparsers(dest="lint_command", metavar="<action>")
     rp = lsub.add_parser("rules", help="show the effective lint rule policy and provider selection")
@@ -594,6 +594,36 @@ def _add_lint_parser(sub: "argparse._SubParsersAction") -> None:
     rp.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
     rp.add_argument("--config", help="config file (default: ./rig.yaml + global)")
     rp.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    from .text_check import DEFAULT_SLOTS, DEFAULT_TASK  # stdlib-only module; keeps one source for defaults
+
+    default_slots = "; ".join(f"{name}={'|'.join(seats)}" for name, seats in DEFAULT_SLOTS)
+    slot_names = " and ".join(name for name, _seats in DEFAULT_SLOTS)
+    tp = lsub.add_parser(
+        "text",
+        help="check Markdown drafts (Vale, slopless, LanguageTool, phrase dictionaries, model copy-edit); "
+        "write <name>.report.md and <name>.checked.md",
+        epilog="Settings: agent-tools linters/prose/. Default model slots: " + default_slots + ". "
+        "Missing tools and failed checks are listed in the report. Exit 0 when every file was checked, "
+        "whatever the findings.",
+    )
+    tp.add_argument("files", nargs="+", metavar="FILE", help="Markdown draft(s)")
+    models = tp.add_mutually_exclusive_group()
+    models.add_argument(
+        "-m", "--model", action="append", dest="models", metavar="[NAME=]SEAT[|SEAT...]",
+        help=f"a review slot; seats are tried in order until one answers (repeatable; default: {slot_names})",
+    )
+    models.add_argument("--no-models", action="store_true", help="run only the rule-based checks")
+    tp.add_argument("--out-dir", help="directory for the report and revised draft (default: next to each FILE)")
+    tp.add_argument("--settings", metavar="DIR", help="prose settings directory (default: linters/prose in the agent-tools checkout)")
+    tp.add_argument("-C", "--cwd", default=".", help="where to read rig config for the agent-tools checkout (default: cwd)")
+    tp.add_argument("--task", default=DEFAULT_TASK, help=f"review task code recorded for the model calls (default: {DEFAULT_TASK})")
+    cp = lsub.add_parser(
+        "code",
+        help="run the repository's Oxlint policy (anti-slop rules included) over the tree or PATHs",
+        epilog="PATHs are relative to where rig runs; from a subdirectory with no PATH it lints that subdirectory. Exit code: Oxlint's own (0 clean, 1 findings); 124 when Oxlint timed out, 126 when it could not start.",
+    )
+    cp.add_argument("paths", nargs="*", metavar="PATH", help="files or directories (default: the current directory)")
+    cp.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
 
 
 def _add_stats_parser(sub: "argparse._SubParsersAction") -> None:
@@ -3760,6 +3790,13 @@ def cmd_evolve(args: argparse.Namespace) -> int:
 
 
 def cmd_lint(args: argparse.Namespace) -> int:
+    command = getattr(args, "lint_command", None)
+    if command == "text":
+        from .text_check import run as run_text
+        return run_text(args)
+    if command == "code":
+        from .code_check import run as run_code
+        return run_code(args)
     from .lint_rules_cli import run
     return run(args)
 

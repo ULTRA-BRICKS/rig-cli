@@ -52,6 +52,8 @@ rig env list                       # list keys; values masked (files are plainte
 rig env del BRAVE_API_KEY          # remove a key, then reconcile
 rig doctor                      # detect deps; --yes to install across brew/apt/dnf/pacman/zypper
 rig export -o rig.yaml          # write a starter rig.yaml from detected defaults
+rig lint text draft.md          # check a draft before publishing: writes draft.report.md + draft.checked.md
+rig lint code                   # run the repo's Oxlint policy, anti-slop rules included
 ```
 
 ## Key facts

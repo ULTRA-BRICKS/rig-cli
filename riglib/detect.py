@@ -121,6 +121,16 @@ def _git(args: list[str], cwd: Path) -> str | None:
     return out.stdout.strip()
 
 
+def git_toplevel(path: Path) -> Path | None:
+    """The work-tree root containing ``path``, or None outside a repository.
+
+    For commands that only need the repo root: unlike :func:`detect_environment` it runs one
+    git call and nothing else (no `gh auth status`, no stack scan).
+    """
+    top = _git(["rev-parse", "--show-toplevel"], path)
+    return Path(top).resolve() if top else None
+
+
 def detect_stack(repo_root: Path) -> str:
     if (repo_root / "package.json").is_file():
         return "bun-node"

@@ -355,6 +355,22 @@ _RULE_PROVIDER_CARRIERS = {
     "anti-slop": "vendor/anti-slop/skills/install-anti-slop/assets/anti-slop",
 }
 
+_PROSE_CARRIER = "linters/prose"
+
+
+def prose_carrier(source: Path) -> Path:
+    """The prose-lint settings `rig lint text` reads (vale.ini, languagetool.json, dict/, prompt.md)."""
+    return validate_prose_dir(source / _PROSE_CARRIER)
+
+
+def validate_prose_dir(path: Path) -> Path:
+    """Validate a prose-settings directory (the catalog's own, or an explicit `--settings` copy)."""
+    missing = [n for n in ("vale.ini", "languagetool.json", "prompt.md") if not (path / n).is_file()]
+    if missing:
+        raise CatalogError(f"prose lint settings are incomplete at {path} (missing: {', '.join(missing)})")
+    return path
+
+
 def rule_provider_carrier(source: Path, provider: str) -> tuple[str, Path]:
     """Resolve a provider's supported vendored payload; layout knowledge lives in the catalog."""
     rel = _RULE_PROVIDER_CARRIERS.get(provider)
