@@ -45,12 +45,12 @@ RIG="python3 $ROOT/bin/rig"
 # below relies on this too.)
 export RIG_TG_CTL_DRY_RUN=1
 
-# Provision the `gh ship` alias in DRY-RUN for the WHOLE smoke: gh_ship_alias is default-on, so the
-# apply leg would otherwise shell out to a REAL `gh alias set` and rewrite the developer's actual
-# `gh ship` alias (gh reads its config from $GH_CONFIG_DIR / $XDG_CONFIG_HOME, which smoke does NOT
-# isolate — only $HOME). RIG_GH_ALIAS_DRY_RUN skips the live `gh alias set` while still exercising
-# the plan/handler. Mirrors RIG_TG_CTL_DRY_RUN / RIG_TMUX_DRY_RUN — the hard "never touch real
-# machine state in a test" rule.
+# Provision the `gh ship` alias in DRY-RUN by default: gh_ship_alias is default-on, and gh reads its
+# config from $GH_CONFIG_DIR / $XDG_CONFIG_HOME / ~/.config/gh, so a live `gh alias set` could
+# rewrite the developer's actual `gh ship` alias. RIG_GH_ALIAS_DRY_RUN skips the live `gh alias set`
+# while still exercising the plan/handler. Mirrors RIG_TG_CTL_DRY_RUN / RIG_TMUX_DRY_RUN — the hard
+# "never touch real machine state in a test" rule. Only the heavy apply legs below lift it, after
+# pointing GH_CONFIG_DIR into their throwaway HOME, and they re-arm it when done (see there).
 export RIG_GH_ALIAS_DRY_RUN=1
 
 # Resolve an agent-tools checkout ONCE, up front, against the REAL HOME — the apply leg below
@@ -185,6 +185,13 @@ else
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
   export HOME="$TMP/home"; mkdir -p "$HOME"
+  # gh's config must move into the throwaway HOME too: HOME alone does not isolate a developer's
+  # $GH_CONFIG_DIR / $XDG_CONFIG_HOME. With it isolated, the heavy apply legs below lift the
+  # dry-run and run the REAL `gh alias set`, so `rig status` finds the `gh ship` alias apply
+  # declared. Under the dry-run, every machine with gh installed reported that alias as missing
+  # and the in-sync check failed. CI stayed green because these legs never ran there: its full
+  # smoke has no agent-tools checkout (they self-skip) and the real-catalog job runs `--fast`.
+  export GH_CONFIG_DIR="$HOME/.config/gh"
   # exercise the tmux catalog area through the real CLI but NEVER touch the live machine: the
   # dry-run guard writes the on-disk artifacts (config + boot script + plist) into the throwaway
   # HOME while skipping every live step (no plugin clone, no `launchctl load`, no resurrect save).
@@ -244,7 +251,10 @@ YAML
   pass "rig init --dry-run wrote nothing"
 
   # real apply — `--apply` is the explicit one-shot (init SCAFFOLDS + previews by default; the
-  # plan is applied only on --apply, or via a separate `rig apply`).
+  # plan is applied only on --apply, or via a separate `rig apply`). The gh alias dry-run is
+  # lifted ONLY for these legs (gh's config is isolated above) and re-armed after the in-sync
+  # check, so no later leg can reach a live `gh alias set`.
+  unset RIG_GH_ALIAS_DRY_RUN
   $RIG init -C "$TMP" --config "$TMP/rig.yaml" --yes --apply >/dev/null || fail "init --yes --apply"
   [[ -d "$HOME/.agents/skills" ]] || fail "skills not installed"
   [[ -f "$TMP/.github/workflows/secret-scan.yml" ]] || fail "secret-scan workflow not written"
@@ -319,9 +329,32 @@ PY
   [[ "$marker_count" -eq 2 ]] || fail "global-excludes block churned/duplicated on re-apply (markers=$marker_count, want 2)"
   pass "global-excludes block is byte-stable across re-apply (markers=2)"
 
+  # the `gh ship` alias landed in the ISOLATED gh config. The alias comes from the default-on
+  # ship_delegator area (the ci `ship` item above has gh_alias: false). Only checkable where gh is
+  # installed (without gh, rig skips the alias on both the apply and status sides) and the checkout
+  # ships ci/ship/ship.sh (without it, the plan notes the skip and emits no alias action).
+  # Read it through rig's own resolver (the one apply and drift share), not a grep of gh's YAML.
+  if command -v gh >/dev/null 2>&1 && [[ -f "$SRC/ci/ship/ship.sh" ]]; then
+    python3 - "$ROOT" "$GH_CONFIG_DIR" <<'PY' || fail "gh ship alias not written to the isolated gh config ($GH_CONFIG_DIR/config.yml)"
+import sys
+sys.path.insert(0, sys.argv[1])
+from riglib.gh_ship_alias import gh_config_path, resolve_gh_ship_alias
+# the resolver must be reading the ISOLATED config, and find the desired alias there
+cfg = gh_config_path()
+if not str(cfg).startswith(sys.argv[2]):
+    sys.exit(f"gh config resolved outside the isolated dir: {cfg}")
+state = resolve_gh_ship_alias().state
+sys.exit(0 if state == "ok" else f"gh ship alias state: {state}")
+PY
+    pass "rig apply set the gh ship alias in the isolated gh config"
+  else
+    printf '  \033[33m○ skip\033[0m gh ship alias check — no gh on PATH or no ci/ship/ship.sh in the checkout\n'
+  fi
+
   # status reports in sync
   $RIG status -C "$TMP" --config "$TMP/rig.yaml" >/dev/null || fail "status nonzero when in sync"
   pass "rig status: in sync"
+  export RIG_GH_ALIAS_DRY_RUN=1   # re-arm: every later leg stays dry-run for the gh alias
   fi  # end HEAVY apply legs (--fast skips to the cheap real-catalog status legs below)
 
   # ── error-system v2: a removed slot prints the 3-part error + exit code 4 ──────
@@ -370,11 +403,11 @@ permissions: { enabled: false }
 YAML
   CLEANREPO="$TMP/clean-repo"; mkdir -p "$CLEANREPO"; ( cd "$CLEANREPO" && git init -q )
   cp "$CLEAN" "$CLEANREPO/rig.yaml"
-  # a PRISTINE HOME/XDG: the earlier `rig init --yes` populated $TMP/home with skills+hooks, so
+  # a PRISTINE HOME/XDG/gh config: the earlier `rig init --yes` populated $TMP/home with skills+hooks, so
   # reusing it would show them as drift against this all-disabled config. A clean sample must be
   # judged against a clean machine.
   set +e
-  HOME="$TMP/clean-home" XDG_CONFIG_HOME="$TMP/clean-xdg" $RIG status -C "$CLEANREPO" >/dev/null 2>&1
+  HOME="$TMP/clean-home" XDG_CONFIG_HOME="$TMP/clean-xdg" GH_CONFIG_DIR="$TMP/clean-xdg/gh" $RIG status -C "$CLEANREPO" >/dev/null 2>&1
   clean_rc=$?
   set -e
   [[ "$clean_rc" -eq 0 ]] || fail "clean sample: exit code $clean_rc != 0"
@@ -386,7 +419,7 @@ YAML
   # would not exercise the non-git path at all. Use a sibling mktemp dir outside any repo.
   NONGIT="$(mktemp -d)"; trap 'rm -rf "$TMP" "$NONGIT"' EXIT   # a plain dir, no .git, no repo above
   set +e
-  nongit_out="$(HOME="$TMP/clean-home" XDG_CONFIG_HOME="$TMP/clean-xdg" $RIG status -C "$NONGIT" 2>&1)"
+  nongit_out="$(HOME="$TMP/clean-home" XDG_CONFIG_HOME="$TMP/clean-xdg" GH_CONFIG_DIR="$TMP/clean-xdg/gh" $RIG status -C "$NONGIT" 2>&1)"
   set -e
   echo "$nongit_out" | grep -qi "should be committed" && fail "non-git: still nags 'should be committed'"
   echo "$nongit_out" | grep -qi "not a git repository" || fail "non-git: does not say 'not a git repository'"
@@ -454,6 +487,9 @@ YAML
   rm -rf "$TG_TMP"
   pass "rig provisions tg-ctl boot LaunchAgent (dry-run, isolated, idempotent)"
 fi
+
+# The unit suite pins HOME/XDG per test; don't hand it the heavy legs' populated gh config dir.
+unset GH_CONFIG_DIR
 
 # ── 4. unit suite ─────────────────────────────────────────────────────────────
 # Run pytest the way the repo actually runs it: prefer `uv run --with pytest` (the documented
