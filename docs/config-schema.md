@@ -4103,3 +4103,42 @@ rig config set task.forgejo.repo owner/name                  # or `auto`
 shorthand for `github.repo`, but task-cli's Forgejo branch also fans it out onto `forgejo.repo`.
 For that reason, under `backend: forgejo` rig applies the same `owner/name`-or-`auto` check to a
 flat `task.repo` as to `task.forgejo.repo`.
+
+
+## `tmux.recovery.enabled` — restore a lost server without cloning agents
+
+Default `false`. With independent macOS autosave enabled, recovery runs on its configured
+`tmux.continuum.save_interval` cadence (15 minutes by default), before the no-server exit.
+It records only a responding server's PID, owner, executable, birth time and socket.
+A missing socket belonging to that same live server is repaired with SIGUSR1; a positively
+dead recorded server is recreated with the managed boot script and normal resurrect hooks.
+Unknown process inspection never permits a signal or replacement. Create the private
+`~/.config/rig/tmux/recovery-paused` marker to suppress automatic recovery intentionally.
+A kernel lock and cooldown avoid racing recovery; bounded forensic logs and the newest
+8 crash reports remain under `~/.config/rig/tmux/` for diagnosis.
+
+OMP restoration now stores the exact header session ID and file for each pane, including
+Bun-launched OMP. An unknown live owner preserves the previous map and refuses a duplicate.
+No latest-file-by-cwd fallback is used: two agents can legitimately share one directory.
+
+For persistent interactive sessions, install `abduco`, then run `rig omp run -- /absolute/omp`
+or install the opt-in managed launcher using `rig omp install-wrapper --target NEW_PATH
+--real-bin /absolute/vendor/omp`. An existing unmanaged file/symlink is never overwritten.
+The launcher records its vendor executable and passes noninteractive OMP CLI calls through.
+`rig omp list --json` lists durable terminal sessions; `rig omp attach ID` reconnects without
+starting an agent. The default socket namespace is `~/.local/state/rig/abduco` (private).
+`rig omp run --session-id ID --resume EXACT_FILE` restores a dead original only by explicit
+history identity. Existing unwrapped live processes need a one-time saved stop/resume to
+enter this durable lifecycle; a live legacy process is never adopted by duplicating it.
+
+`tg-ctl omp-live` is preferred for exact live identity; when absent, rig inspects the original
+process's own TTY breadcrumb/open transcript. If no inspector is available, recovery blocks
+rather than interpreting that as an empty machine. The transport requires the original-process
+extension; see tg-cli's `docs/omp-original-process.md` for installation and receipt semantics.
+
+
+The opt-in reproducible real-process proof is `python3 scripts/verify-omp-recovery.py
+--tg-cli-root /path/to/tg-cli --omp-bin /path/to/omp --output /private/evidence-dir`.
+It uses only a new private tmux socket, a no-tools OMP, and one short model acknowledgment;
+it verifies socket recreation, server death/recovery, exact map identity, and SAME original
+PID/instance/session after reattach. It does not stop or restart the default tmux server.

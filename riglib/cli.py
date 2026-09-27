@@ -401,6 +401,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_daily_parser(sub)
     _add_usage_parser(sub)
     _add_worktree_parser(sub)
+    _add_omp_parser(sub)
     _add_report_parser(sub)
 
     return p
@@ -818,6 +819,87 @@ def _add_worktree_gc_subparser(wsub: "argparse._SubParsersAction") -> None:
     )
 
 
+
+def _add_omp_parser(sub: "argparse._SubParsersAction") -> None:
+    """`rig omp run/attach/list/save-panes/restore-panes/install-wrapper/exec` — the durable
+    OMP launcher (abduco-backed) and the pane save/restore executors the tmux omp-save/
+    omp-restore scripts shell out to. See riglib/omp_launcher.py's module docstring."""
+    op = sub.add_parser("omp", help="durable OMP launcher (abduco) + tmux pane save/restore")
+    op.set_defaults(_omp_parser=op)
+    osub = op.add_subparsers(dest="omp_command", metavar="<run|attach|list|...>")
+
+    rp = osub.add_parser(
+        "run",
+        help="launch OMP in a durable abduco session (connect-or-create)",
+        description="Wrap the given OMP command line in a durable abduco session (`abduco -A "
+        "<id> <argv...>`), so a killed/detached terminal never loses the running agent. Either "
+        "give the full command as the positional argv (`rig omp run -- omp --resume <file>`), "
+        "or use --resume for the common case (`rig omp run --resume <file>` wraps "
+        "`<omp-bin> --resume <file>`, `omp` by default). Replaces this process (exec) — never "
+        "returns.",
+    )
+    rp.add_argument("omp_argv", nargs=argparse.REMAINDER, help="the omp binary + its arguments")
+    rp.add_argument("--resume", metavar="FILE", help="shorthand: wrap `<omp-bin> --resume FILE`")
+    rp.add_argument("--omp-bin", default="omp", help="the omp binary to run with --resume (default: omp)")
+    rp.add_argument("--session-id", help="durable session id to use (default: a fresh random one)")
+    rp.add_argument("--abduco-bin", default=_omp_launcher().DEFAULT_ABDUCO_BIN)
+
+    ap = osub.add_parser("attach", help="attach to an existing durable abduco session")
+    ap.add_argument("session_id")
+    ap.add_argument("--abduco-bin", default=_omp_launcher().DEFAULT_ABDUCO_BIN)
+
+    lp = osub.add_parser("list", help="list durable abduco sessions")
+    lp.add_argument("--json", action="store_true")
+    lp.add_argument("--abduco-bin", default=_omp_launcher().DEFAULT_ABDUCO_BIN)
+
+    sp = osub.add_parser(
+        "save-panes", help="record every tmux pane's live OMP session into the map file (internal)"
+    )
+    sp.add_argument("--map", required=True, dest="map_path")
+    sp.add_argument("--tmux-bin", default="tmux")
+    sp.add_argument("--tg-ctl-bin", default="tg-ctl")
+
+    rsp = osub.add_parser(
+        "restore-panes", help="restore mapped tmux panes' OMP sessions (internal)"
+    )
+    rsp.add_argument("--map", required=True, dest="map_path")
+    rsp.add_argument("--tmux-bin", default="tmux")
+    rsp.add_argument("--tg-ctl-bin", default="tg-ctl")
+    rsp.add_argument("--rig-bin", default=None)
+
+    wp = osub.add_parser("watchdog", help="identity-checked tmux server/socket recovery (internal)")
+    wp.add_argument("--socket", required=True, dest="socket_path")
+    wp.add_argument("--boot-script")
+    wp.add_argument("--tmux-bin", default="tmux")
+    wp.add_argument("--json", action="store_true")
+    wp.add_argument("--paused", action="store_true")
+
+    iw = osub.add_parser(
+        "install-wrapper",
+        help="write the opt-in durable-OMP wrapper script (does not activate it)",
+        description="Write a small wrapper script that classifies each OMP invocation "
+        "(interactive launch -> durably wrapped via abduco; headless/acp/print/subcommand -> "
+        "passed straight through, unwrapped) to --target, recording the real OMP binary path "
+        "for it to call through to. Never overwrites the real binary. Placing --target earlier "
+        "in PATH than the real binary (to actually activate it) is the caller's job.",
+    )
+    iw.add_argument("--target", required=True, help="path to write the wrapper script to")
+    iw.add_argument("--real-bin", required=True, help="absolute path to the real OMP binary")
+    iw.add_argument("--config", help="where to record --real-bin (default: ~/.config/rig/omp-wrapper.json)")
+
+    ep = osub.add_parser(
+        "exec", help="the installed wrapper's own body: classify + wrap-or-passthrough (internal)"
+    )
+    ep.add_argument("omp_argv", nargs=argparse.REMAINDER)
+    ep.add_argument("--config", help="where --real-bin was recorded (default: ~/.config/rig/omp-wrapper.json)")
+
+
+def _omp_launcher():
+    from . import omp_launcher
+
+    return omp_launcher
+
+
 def main(argv: list[str] | None = None) -> int:
     from .stdio import ensure_utf8_stdio
 
@@ -850,6 +932,7 @@ def main(argv: list[str] | None = None) -> int:
         "usage": cmd_usage,
         "worktree": cmd_worktree,
         "sysmon": cmd_sysmon,
+        "omp": cmd_omp,
         "report": cmd_report,
     }
     # The single top-level error handler (error-system v2): any structured RigError a command
@@ -1218,6 +1301,149 @@ def cmd_worktree(args: argparse.Namespace) -> int:
         return _cmd_worktree_gc(args)
     args._worktree_parser.print_help()
     return 2
+
+
+def cmd_omp(args: argparse.Namespace) -> int:
+    if not getattr(args, "omp_command", None):
+        args._omp_parser.print_help()
+        return 0
+    handlers = {
+        "run": _cmd_omp_run,
+        "attach": _cmd_omp_attach,
+        "list": _cmd_omp_list,
+        "save-panes": _cmd_omp_save_panes,
+        "restore-panes": _cmd_omp_restore_panes,
+        "install-wrapper": _cmd_omp_install_wrapper,
+        "exec": _cmd_omp_exec,
+        "watchdog": _cmd_omp_watchdog,
+    }
+    handler = handlers.get(args.omp_command)
+    if handler is None:
+        args._omp_parser.print_help()
+        return 2
+    return handler(args)
+
+
+def _cmd_omp_watchdog(args: argparse.Namespace) -> int:
+    if sys.platform == "win32":
+        print("tmux watchdog requires POSIX", file=sys.stderr)
+        return 2
+    from dataclasses import asdict
+    from .tmux_watchdog import run_once
+    result = run_once(
+        Path(args.socket_path),
+        boot_script=Path(args.boot_script) if args.boot_script else None,
+        tmux_bin=args.tmux_bin, paused=args.paused,
+    )
+    if args.json:
+        print(json.dumps(asdict(result)))
+    elif result.action != "none":
+        print(f"tmux recovery: {result.action}: {result.reason}")
+    return 1 if result.action == "blocked" else 0
+
+
+def _strip_remainder_separator(argv: list[str]) -> list[str]:
+    """A leading bare ``--`` in an ``argparse.REMAINDER`` positional is the conventional
+    "end of my own flags" marker; drop it so it never leaks into the wrapped command line."""
+    if argv and argv[0] == "--":
+        return argv[1:]
+    return argv
+
+
+def _cmd_omp_run(args: argparse.Namespace) -> int:
+    from . import errors as errors_module
+
+    ol = _omp_launcher()
+    if args.resume and _strip_remainder_separator(args.omp_argv):
+        print(_err("error: cannot combine --resume shorthand with an explicit command"))
+        return errors_module.EXIT_CONFIG
+    if args.resume:
+        omp_argv = [args.omp_bin, "--resume", args.resume]
+    else:
+        omp_argv = _strip_remainder_separator(args.omp_argv)
+    if not omp_argv:
+        print(_err("error: rig omp run needs the OMP command to launch, e.g. `rig omp run omp --resume <file>`"))
+        return errors_module.EXIT_CONFIG
+    try:
+        ol.run_session(omp_argv, session_id=args.session_id, abduco_bin=args.abduco_bin)
+    except FileNotFoundError:
+        print(_err(f"error: '{args.abduco_bin}' not found — install it (e.g. `brew install abduco`)"))
+        return errors_module.EXIT_MISSING_DEP
+    except (ValueError, RuntimeError) as exc:
+        print(_err(f"error: {exc}"))
+        return errors_module.EXIT_CONFIG
+    return 0  # unreachable on success: run_session execs and never returns
+
+
+def _cmd_omp_attach(args: argparse.Namespace) -> int:
+    from . import errors as errors_module
+
+    ol = _omp_launcher()
+    try:
+        ol.attach_session(args.session_id, abduco_bin=args.abduco_bin)
+    except FileNotFoundError:
+        print(_err(f"error: '{args.abduco_bin}' not found — install it (e.g. `brew install abduco`)"))
+        return errors_module.EXIT_MISSING_DEP
+    except (ValueError, RuntimeError) as exc:
+        print(_err(f"error: {exc}"))
+        return errors_module.EXIT_CONFIG
+    return 0  # unreachable on success
+
+
+def _cmd_omp_list(args: argparse.Namespace) -> int:
+    from . import errors as errors_module
+
+    ol = _omp_launcher()
+    sessions, ok = ol.list_sessions(abduco_bin=args.abduco_bin)
+    if not ok:
+        print(_err(f"error: could not list sessions via '{args.abduco_bin}' — is it installed?"))
+        return errors_module.EXIT_MISSING_DEP
+    if args.json:
+        print(json.dumps(sessions))
+        return 0
+    if not sessions:
+        print(_dim("no durable OMP sessions"))
+        return 0
+    for s in sessions:
+        marker = "*" if s["attached"] else ("+" if s["terminated"] else " ")
+        print(f"{marker} {s['name']}\t{s['created']}")
+    return 0
+
+
+def _cmd_omp_save_panes(args: argparse.Namespace) -> int:
+    ol = _omp_launcher()
+    ok = ol.save_panes(Path(args.map_path), tmux_bin=args.tmux_bin, tg_ctl_bin=args.tg_ctl_bin)
+    return 0 if ok else 1
+
+
+def _cmd_omp_restore_panes(args: argparse.Namespace) -> int:
+    ol = _omp_launcher()
+    blocked = ol.restore_panes(Path(args.map_path), tmux_bin=args.tmux_bin, tg_ctl_bin=args.tg_ctl_bin, rig_bin=args.rig_bin)
+    if blocked:
+        print(_warn(f"omp-restore: {blocked} pane(s) left untouched (see stderr) — never duplicated"))
+    return 0
+
+
+def _cmd_omp_install_wrapper(args: argparse.Namespace) -> int:
+    ol = _omp_launcher()
+    config = Path(args.config) if args.config else ol.default_wrapper_config_path()
+    ol.install_wrapper(Path(args.target), args.real_bin, config)
+    print(_ok(f"wrapper written to {args.target} (real binary recorded at {config})"))
+    print(_dim("not activated — put this path earlier in PATH than the real binary to enable it"))
+    return 0
+
+
+def _cmd_omp_exec(args: argparse.Namespace) -> int:
+    from . import errors as errors_module
+
+    ol = _omp_launcher()
+    config = Path(args.config) if args.config else None
+    try:
+        ol.exec_or_wrap(_strip_remainder_separator(args.omp_argv), config_path=config)
+    except RuntimeError as exc:
+        print(_err(f"error: {exc}"))
+        return errors_module.EXIT_CONFIG
+    return 0  # unreachable on success
 
 
 def _resolve_worktree_repo_env(cwd: str) -> tuple["Environment | None", int]:
