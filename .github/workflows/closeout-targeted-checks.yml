@@ -39,7 +39,7 @@ jobs:
           persist-credentials: false
       - name: Install pinned Bun and isolated test dependencies
         run: |
-          curl -fsSL https://bun.sh/install | bash -s 'bun-v1.3.10'
+          curl -fsSL https://bun.sh/install | bash -s 'bun-v1.4.2'
           "$HOME/.bun/bin/bun" install --ignore-scripts
           echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
       - name: Repeat the failing files without changing deadlines or product code
