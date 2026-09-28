@@ -34,6 +34,12 @@ def test_schema_is_valid_draft7():
     jsonschema.Draft7Validator.check_schema(config_schema.json_schema())
 
 
+def test_schema_id_points_at_canonical_forgejo_home():
+    assert config_schema.SCHEMA_ID == (
+        "https://git.hyperide.ai/ultrabricks/rig-cli/raw/branch/main/schema/rig.schema.json"
+    )
+
+
 def test_schema_top_level_is_strict_and_complete():
     doc = config_schema.json_schema()
     assert doc["additionalProperties"] is False  # an unknown top-level key is a violation

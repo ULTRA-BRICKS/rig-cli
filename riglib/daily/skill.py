@@ -18,8 +18,8 @@ SKILL_MD = """\
 name: daily
 description: >-
   Generate a categorized "what shipped" report of merged pull requests, ready to paste
-  into a Slack Daily channel. Pulls real merged-PR facts via `gh pr list` — never an
-  LLM call, never a ticket status alone. Use when asked for a daily/standup update,
+  into a Slack Daily channel. Pulls real merged-PR facts from GitHub or Forgejo — never
+  an LLM call, never a ticket status alone. Use when asked for a daily/standup update,
   a "what shipped" summary, or a Slack report of recent merges. e.g. `rig daily`.
 metadata:
   author: alex-mextner
@@ -37,13 +37,15 @@ line, ticket/PR reference last in parentheses. Paste the output directly into Sl
 rig daily                          # since the last run (first run: last 24h)
 rig daily --since 48h              # relative window, read-only (does not save state)
 rig daily --since 2026-08-18T00:00:00Z   # explicit UTC timestamp, read-only
-rig daily --repo owner/name        # repeatable; overrides the configured repo list
+rig daily --repo owner/name        # GitHub; repeatable
+rig daily --repo git.hyperide.ai/owner/name  # Forgejo; repeatable
 rig daily --dry-run                # print the report, don't advance the saved watermark
 ```
 
 ## Key facts
-- Source of truth is `gh pr list --state merged` — a ticket's Linear status is NEVER
-  used to decide "did this ship"; only an actual merged PR counts.
+- Source of truth is the repository forge: GitHub uses `gh pr list --state merged`;
+  `host/owner/repo` specs use Forgejo REST with the credential already stored by `fj`.
+  A ticket's Linear status is NEVER used to decide "did this ship"; only an actual merged PR counts.
 - Default repos: `hyperide/hyper-saas`, `hyperide/hyper-ext-e2e`. Override persistently
   in `~/.config/rig/daily.yaml` (`repos: [...]`) or per-run with `--repo`.
 - State (the last reported merge time, PER REPO) lives at

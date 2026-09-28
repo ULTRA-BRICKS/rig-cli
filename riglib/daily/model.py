@@ -7,9 +7,9 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class MergedPR:
-    """One merged pull request, as read from ``gh pr list --json ...``.
+    """One merged pull request, normalized from GitHub or Forgejo.
 
-    ``merged_at`` is an ISO-8601 UTC timestamp string (``...Z``) — gh's own format, kept
+    ``merged_at`` is an ISO-8601 UTC timestamp string (``...Z``) — the provider format, kept
     as a string end-to-end so no naive local-time conversion can creep in (Alex is in
     Belgrade, UTC+2; the whole pipeline compares in UTC). Use :mod:`riglib.daily.timeutil`
     to parse it when a comparison/max is actually needed.

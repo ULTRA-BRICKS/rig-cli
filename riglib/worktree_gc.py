@@ -152,7 +152,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from . import errors
+from . import errors, forgejo_prs
 
 DEFAULT_OLDER_THAN_DAYS = 14
 
@@ -576,8 +576,34 @@ class GhLookupError(RuntimeError):
     """``gh pr list`` could not be run/trusted — see :func:`make_default_pr_lookup`."""
 
 
+def _forgejo_target(repo_root: Path) -> forgejo_prs.ForgejoRepo | None:
+    """The Forgejo repo behind ``origin`` when it is a canonical Forgejo host, else None (→ gh)."""
+    try:
+        res = subprocess.run(
+            ["git", "-C", str(repo_root), "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=_GH_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if res.returncode != 0:
+        return None
+    return forgejo_prs.forgejo_repo_from_remote(res.stdout.strip())
+
+
+def _fetch_forgejo_pr_index(target: forgejo_prs.ForgejoRepo) -> dict[str, PrInfo]:
+    """The same per-branch index as :func:`_fetch_pr_index`, read from Forgejo (``fj`` has no JSON)."""
+    try:
+        raw = forgejo_prs.fetch_pulls(target, state="all", limit=_GH_PAGE_LIMIT)
+    except forgejo_prs.ForgeLookupError as exc:
+        raise GhLookupError(f"Forgejo pull-request list failed: {exc}") from exc
+    return _index_prs_by_branch(raw)
+
+
 def _fetch_pr_index(repo_root: Path) -> dict[str, PrInfo]:
     """One ``gh pr list --state all`` call for the whole repo, indexed by head branch name.
+
+    A canonical Forgejo ``origin`` is routed to :func:`_fetch_forgejo_pr_index` instead — ``gh``
+    cannot see a Forgejo repo.
 
     A single call (rather than one ``gh`` invocation per worktree) is both cheaper — matters for
     `rig status`, which calls into this on every invocation — and simpler to reason about. Like
@@ -586,6 +612,9 @@ def _fetch_pr_index(repo_root: Path) -> dict[str, PrInfo]:
     self-limiting: a branch this misses just reads as "no PR found" and falls through to the
     ``no-pr-stale`` bucket, which is never removed without both ``--yes`` AND ``--include-stale``.
     """
+    forgejo_target = _forgejo_target(repo_root)
+    if forgejo_target is not None:
+        return _fetch_forgejo_pr_index(forgejo_target)
     try:
         res = subprocess.run(
             [
@@ -720,7 +749,7 @@ def make_default_pr_lookup(repo_root: Path) -> PrLookup:
         by_branch: dict[str, PrInfo] | None = _fetch_pr_index(repo_root)
     except GhLookupError as exc:
         print(
-            f"worktree-gc: warning — `gh pr list` unavailable ({exc}); every branch will read "
+            f"worktree-gc: warning — PR lookup unavailable ({exc}); every branch will read "
             "as having no PR (no-pr-stale still requires --include-stale to remove)",
             file=sys.stderr,
         )

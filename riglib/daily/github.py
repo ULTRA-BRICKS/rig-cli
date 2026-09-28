@@ -14,6 +14,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
+from .. import forgejo_prs
 from .model import MergedPR
 from .timeutil import parse_utc
 
@@ -52,7 +53,33 @@ def fetch_merged_prs(repo: str, since_utc) -> FetchResult:
 
     Raises :class:`GhError` when ``gh`` itself can't be run or the repo is unreachable —
     the caller decides whether that's fatal for the whole report or just this one repo.
+
+    A host-prefixed spec (``git.hyperide.ai/owner/name``) is read from Forgejo instead of ``gh``
+    (see :mod:`riglib.forgejo_prs`); a plain ``owner/name`` slug stays a GitHub repo.
     """
+    forgejo = forgejo_prs.forgejo_repo_from_spec(repo)
+    if forgejo is not None:
+        raw, page = _fetch_forgejo_raw(repo, forgejo)
+    else:
+        raw = _fetch_gh_raw(repo)
+        page = raw
+    prs, any_skipped = _parse_and_filter(repo, raw, since_utc)
+    truncated = _page_may_be_truncated(page, since_utc)
+    return _finish_fetch(repo, prs, any_skipped, truncated)
+
+
+def _fetch_forgejo_raw(repo: str, target: forgejo_prs.ForgejoRepo) -> tuple[list, list]:
+    """``(merged records, full closed page)`` — the API has no ``merged`` state filter, so merged PRs
+    are picked out of the ``closed`` list; truncation is judged on the UNFILTERED page."""
+    try:
+        page = forgejo_prs.fetch_pulls(target, state="closed", limit=_PAGE_LIMIT)
+    except forgejo_prs.ForgeLookupError as exc:
+        raise GhError(f"Forgejo pull-request list for {repo} failed: {exc}") from exc
+    return [p for p in page if p.get("state") == "MERGED"], page
+
+
+def _fetch_gh_raw(repo: str) -> list:
+    """One ``gh pr list --state merged`` page for ``repo``, parsed to a list of records."""
     try:
         proc = subprocess.run(
             [
@@ -86,9 +113,10 @@ def fetch_merged_prs(repo: str, since_utc) -> FetchResult:
         # escaping `command.py`'s per-repo `except GhError` and aborting every other
         # repo's report too (codex review P1 finding, round 5).
         raise GhError(f"`gh pr list -R {repo}` returned a non-list JSON root ({type(raw).__name__})")
+    return raw
 
-    prs, any_skipped = _parse_and_filter(repo, raw, since_utc)
-    truncated = _page_may_be_truncated(raw, since_utc)
+
+def _finish_fetch(repo: str, prs: list[MergedPR], any_skipped: bool, truncated: bool) -> FetchResult:
     if truncated:
         print(
             f"daily: warning — {repo} returned the full {_PAGE_LIMIT}-PR page (sorted by "

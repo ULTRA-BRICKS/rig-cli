@@ -881,6 +881,8 @@ def test_make_default_pr_lookup_degrades_to_no_pr_when_gh_missing(tmp_path, monk
     def fake_run(cmd, *args, **kwargs):
         if cmd[0] == "gh":
             raise FileNotFoundError("gh not found")
+        if cmd[:2] == ["git", "-C"] and "get-url" in cmd:  # forge detection: no origin -> GitHub path
+            return subprocess.CompletedProcess(cmd, 2, stdout="", stderr="")
         raise AssertionError(f"unexpected subprocess call: {cmd}")
 
     monkeypatch.setattr(subprocess, "run", fake_run)

@@ -96,6 +96,8 @@ def test_guard_registry_covers_the_baseline_intents():
 
 def test_render_guard_ts_embeds_rules_and_provenance():
     ts = render_guard_ts()
+    assert "https://git.hyperide.ai/ultrabricks/rig-cli" in ts
+    assert "https://github.com/alex-mextner/rig-cli" not in ts
     # every rule id + hint from the SINGLE registry is in the generated file
     for rule in (*OMP_GUARD_DENY_RULES, *OMP_GUARD_ASK_RULES):
         assert rule.id in ts

@@ -14,8 +14,8 @@ Known, accepted limitations (tracked as rig-cli#281, not re-litigated here):
    hitting the page limit while still inside the window by CREATION order).
 2. The watermark is second-granularity and the since-filter is strictly exclusive
    (``>``), so two PRs that merge in the exact same UTC second — where one is somehow
-   absent from an otherwise-successful, non-truncated fetch (e.g. a `gh`/GitHub API
-   race) — could see the missing one permanently skipped on the next run.
+   absent from an otherwise-successful, non-truncated provider fetch — could see the missing
+   one permanently skipped on the next run.
 
 For this tool's actual scale — two repos, single-digit merges/day, a 300-item page —
 both are real gaps but low-probability ones; a full fix needs either a merge-time-sorted
@@ -58,9 +58,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--repo",
         action="append",
-        metavar="OWNER/NAME",
-        help="repo to report on (repeatable). Default: the configured list "
-        "(~/.config/rig/daily.yaml `repos:`), else the built-in hyperide repos.",
+        metavar="OWNER/NAME|HOST/OWNER/NAME",
+        help="repo to report on (repeatable): owner/name for GitHub, host/owner/name for Forgejo. "
+        "Default: the configured list (~/.config/rig/daily.yaml `repos:`), else the built-in hyperide repos.",
     )
     parser.add_argument(
         "--config",

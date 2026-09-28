@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/alex-mextner/rig-cli/blob/main/schema/rig.schema.json",
+  "$id": "https://git.hyperide.ai/ultrabricks/rig-cli/raw/branch/main/schema/rig.schema.json",
   "title": "rig.yaml — rig-cli declarative config",
   "description": "The committed source of truth for a repo's setup (and ~/.config/rig/config.yaml). See docs/config-schema.md for the human-readable reference.",
   "type": "object",

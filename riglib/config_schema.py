@@ -51,7 +51,7 @@ _HARNESS_KIND_ENUM: tuple[str, ...] = tuple(
 
 # ── the published-schema identity (referenced by editors via `$schema`/`$id`) ─────────
 SCHEMA_DIALECT = "http://json-schema.org/draft-07/schema#"
-SCHEMA_ID = "https://github.com/alex-mextner/rig-cli/blob/main/schema/rig.schema.json"
+SCHEMA_ID = "https://git.hyperide.ai/ultrabricks/rig-cli/raw/branch/main/schema/rig.schema.json"
 # The relative path the generator writes to and the validator cites in errors. One constant so
 # the CLI, the docs, and the sync test name the same file.
 SCHEMA_REL_PATH = "schema/rig.schema.json"
