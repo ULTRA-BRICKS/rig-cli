@@ -84,6 +84,9 @@ from .actions.runner import (
     transient_ship_root_skip_reason,
     schedule_plan_from_action,
     self_merge_allow_present,
+    SELF_MERGE_LEGACY_ALLOW,
+    SELF_MERGE_PERMISSIONS_DENY,
+    self_merge_legacy_allow_present,
     self_merge_permissions_addable,
     SELF_MERGE_PERMISSIONS_ALLOW,
     skill_harness_link_target,
@@ -1829,12 +1832,10 @@ def _check_harness(action: Action, report: DriftReport) -> None:
         # `not present`) so a MALFORMED permissions.allow — already a shape `modified` from the
         # permissions check — doesn't get an inaccurate 'absent' row either.
         if current == value and self_merge_permissions_addable(data):
-            report.items.append(
-                DriftItem(
-                    "missing", "harness", action.item, config_file,
-                    "self-merge ship rules absent from permissions.allow (config declares self_merge)",
-                )
-            )
+            detail = "self-merge ship rules absent from permissions.allow/deny (config declares self_merge)"
+            if self_merge_legacy_allow_present(data):
+                detail += "; legacy never-matching Bash(*/pr-ship.sh:*) / Bash(*/ship.sh:*) allow rules present"
+            report.items.append(DriftItem("missing", "harness", action.item, config_file, detail))
         if not self_merge_allow_present(data):
             report.items.append(
                 DriftItem(
@@ -2113,7 +2114,9 @@ def _report_container_extras(
             present = list(node) if isinstance(node, dict) else []
         extras = [k for k in present if k not in union and k not in exclude]
         if rep_spec.role == "allow" and self_merge_owned:
-            extras = [e for e in extras if e not in SELF_MERGE_PERMISSIONS_ALLOW]
+            extras = [e for e in extras if e not in (*SELF_MERGE_PERMISSIONS_ALLOW, *SELF_MERGE_LEGACY_ALLOW)]
+        elif rep_spec.role == "deny" and self_merge_owned:
+            extras = [e for e in extras if e not in SELF_MERGE_PERMISSIONS_DENY]
         _report_permission_extras(action, rep_spec, extras, config_file, report)
 
 

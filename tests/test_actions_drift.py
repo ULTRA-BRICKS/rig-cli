@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -16,7 +17,9 @@ from riglib.actions import run_plan
 from riglib.actions.runner import (
     HOOK_BRIDGE_TIMEOUT_S,
     SELF_MERGE_CARVE_OUT,
+    SELF_MERGE_LEGACY_ALLOW,
     SELF_MERGE_PERMISSIONS_ALLOW,
+    SELF_MERGE_PERMISSIONS_DENY,
     codex_hook_bridge_block,
     desired_mcp_server_entry,
     hook_bridge_entries,
@@ -1807,14 +1810,59 @@ def test_self_merge_writes_ship_rules_to_permissions_allow(fake_agent_tools, tmp
     plan = build(_auto_harness_cfg(repo, fake_agent_tools), cat, project_type="unknown")
     run_plan(plan)
 
-    allow = json.loads(_user_settings().read_text(encoding="utf-8"))["permissions"]["allow"]
-    for rule in ("Bash(gh ship:*)", "Bash(*/pr-ship.sh:*)", "Bash(*/ship.sh:*)"):
+    perms = json.loads(_user_settings().read_text(encoding="utf-8"))["permissions"]
+    allow = perms["allow"]
+    for rule in ("Bash(gh ship:*)", "Bash(fj ship:*)"):
         assert rule in allow, f"{rule} not written to permissions.allow"
+    # the raw scripts are DENIED (gh ship / fj ship are the only ship doors), never allowed
+    assert not [r for r in allow if "ship.sh" in r]
+    for rule in SELF_MERGE_PERMISSIONS_DENY:
+        assert rule in perms["deny"], f"{rule} not written to permissions.deny"
+    # Claude Code rejects a rule mixing a leading/inner `*` with the trailing `:*` prefix syntax
+    for rule in (*SELF_MERGE_PERMISSIONS_ALLOW, *SELF_MERGE_PERMISSIONS_DENY):
+        assert not (rule.endswith(":*)") and "*" in rule.removesuffix(":*)")), f"{rule} mixes * with :*"
 
     # idempotent: re-apply adds nothing more
     run_plan(plan)
     allow2 = json.loads(_user_settings().read_text(encoding="utf-8"))["permissions"]["allow"]
     assert allow2.count("Bash(gh ship:*)") == 1
+
+
+def _bash_rule_matches(rule: str, command: str) -> bool:
+    # Only what the deny set relies on: `*` matches any characters (including `/` and spaces).
+    inner = rule.removeprefix("Bash(").removesuffix(")")
+    pattern = ".*".join(re.escape(part) for part in inner.split("*"))
+    return re.fullmatch(pattern, command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "ship.sh", "ship.sh 12", "pr-ship.sh", "pr-ship.sh 12",
+        "./ship.sh 12", "../ship.sh 12", "../scripts/ship.sh 12",
+        "scripts/ship.sh", "scripts/ship.sh 12", "scripts/pr-ship.sh 12",
+        ".claude/scripts/pr-ship.sh 12", "ci/ship/ship.sh 12",
+        "/abs/path/ship.sh 12", "~/x/pr-ship.sh 12",
+        "bash scripts/ship.sh", "bash ./ci/ship/ship.sh 3", "sh ~/x/ship.sh 3",
+        "zsh scripts/ship.sh", "source scripts/ship.sh", ". ./ship.sh",
+    ],
+)
+def test_ship_script_deny_covers_invocation_shape(command):
+    # GH-635: the deny set must catch each realistic raw-script invocation.
+    assert any(_bash_rule_matches(rule, command) for rule in SELF_MERGE_PERMISSIONS_DENY), (
+        f"{command!r} not denied"
+    )
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["gh ship", "gh ship 12", "fj ship 12", "cat scripts/ship.sh", "git add scripts/ship.sh"],
+)
+def test_ship_script_deny_leaves_sanctioned_doors_and_reads_alone(command):
+    # deny outranks allow, so an over-broad rule here would break `gh ship` / `fj ship` themselves.
+    assert not any(_bash_rule_matches(rule, command) for rule in SELF_MERGE_PERMISSIONS_DENY), (
+        f"{command!r} must not be denied"
+    )
 
 
 def test_self_merge_preserves_permissions_allow_and_keeps_gh_pr_merge_deny(fake_agent_tools, tmp_path):
@@ -5228,3 +5276,47 @@ def test_hook_bridge_quotes_python_interpreter(fake_agent_tools, tmp_path):
     bash_cmd = next(b["hooks"][0]["command"] for b in data["hooks"]["PreToolUse"] if b["matcher"] == "Bash")
     # the space-containing interpreter path must be quoted, not left bare
     assert "'/opt/my py/bin/python3'" in bash_cmd, bash_cmd
+
+
+def test_self_merge_migrates_legacy_ship_script_allow_rules(fake_agent_tools, tmp_path):
+    # rig-cli#635: older rig wrote Bash(*/pr-ship.sh:*) / Bash(*/ship.sh:*) into permissions.allow;
+    # Claude Code rejects that syntax (never matches, warns every start). Apply removes exactly those
+    # two strings (an exact-string migration — the user's other allow entries survive) and status
+    # reports them until then.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _user_settings().parent.mkdir(parents=True, exist_ok=True)
+    _user_settings().write_text(
+        json.dumps({"permissions": {"defaultMode": "auto", "allow": ["Bash(docker:*)", *SELF_MERGE_LEGACY_ALLOW]}}),
+        encoding="utf-8",
+    )
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_auto_harness_cfg(repo, fake_agent_tools), cat, project_type="unknown")
+    assert [x for x in detect(plan).items if x.category == "harness" and "legacy" in x.detail]
+
+    run_plan(plan)
+    perms = json.loads(_user_settings().read_text(encoding="utf-8"))["permissions"]
+    assert "Bash(docker:*)" in perms["allow"]
+    assert not [r for r in perms["allow"] if r in SELF_MERGE_LEGACY_ALLOW]
+    assert not [x for x in detect(plan).items if x.category == "harness"]
+    second = run_plan(plan)
+    assert all(r.status == "skipped" for r in second.results if r.action.category == "harness")
+
+
+def test_self_merge_leaves_malformed_permissions_deny_untouched(fake_agent_tools, tmp_path):
+    # a NON-list permissions.deny is a shape error, same as a malformed allow: apply_harness must not
+    # overwrite it, and drift must not add a second 'ship rules absent' row for it.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _user_settings().parent.mkdir(parents=True, exist_ok=True)
+    _user_settings().write_text(
+        json.dumps({"permissions": {"defaultMode": "auto", "allow": ["Bash(docker:*)"], "deny": "oops"}}),
+        encoding="utf-8",
+    )
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_auto_harness_cfg(repo, fake_agent_tools), cat, project_type="unknown")
+    assert not [x for x in detect(plan).items if x.category == "harness" and "ship rules absent" in x.detail]
+    run_plan(plan)
+    perms = json.loads(_user_settings().read_text(encoding="utf-8"))["permissions"]
+    assert perms["deny"] == "oops"
+    assert perms["allow"] == ["Bash(docker:*)"]

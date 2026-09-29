@@ -916,8 +916,31 @@ def _ensure_self_merge_allow(data: dict) -> bool:
 # shared "what rig writes" constant so apply and status can never diverge.
 _PERMISSIONS_SECTION = "permissions"
 _PERMISSIONS_ALLOW_KEY = "allow"
+_PERMISSIONS_DENY_KEY = "deny"
 SELF_MERGE_PERMISSIONS_ALLOW: tuple[str, ...] = (
     "Bash(gh ship:*)",
+    "Bash(fj ship:*)",
+)
+# `gh ship` / `fj ship` are the only ship doors, so the raw scripts are DENIED (rig-cli#635). Every
+# rule uses the space-wildcard form (`Bash(cmd *)`); a leading/inner `*` combined with the trailing
+# `:*` prefix syntax is rejected by Claude Code as never-matching. Each shape is listed with and
+# without arguments because `Bash(x *)` does not match the bare `x`. This covers the common invocation
+# shapes (bare, ./, ../, absolute, ~/, .claude/, ci/, scripts/, via bash/sh/zsh/source), not every
+# directory or wrapper (`env`, `exec`, `bin/`).
+_SHIP_SCRIPT_NAMES: tuple[str, ...] = ("ship.sh", "pr-ship.sh")
+_SHIP_SCRIPT_PATH_PREFIXES: tuple[str, ...] = (
+    "./", "../", "/", "~/", ".claude/", "ci/", "scripts/",
+    "bash ", "sh ", "zsh ", "source ", ". ",
+)
+_SHIP_SCRIPT_INVOCATIONS: tuple[str, ...] = _SHIP_SCRIPT_NAMES + tuple(
+    f"{prefix}*ship.sh" for prefix in _SHIP_SCRIPT_PATH_PREFIXES
+)
+SELF_MERGE_PERMISSIONS_DENY: tuple[str, ...] = tuple(
+    f"Bash({prefix}{suffix})" for prefix in _SHIP_SCRIPT_INVOCATIONS for suffix in ("", " *")
+)
+# Older rig versions wrote these into ``permissions.allow``; the syntax never matched and Claude Code
+# warns about it on every start. Apply removes exactly these two strings (exact-match migration).
+SELF_MERGE_LEGACY_ALLOW: tuple[str, ...] = (
     "Bash(*/pr-ship.sh:*)",
     "Bash(*/ship.sh:*)",
 )
@@ -937,7 +960,21 @@ def self_merge_permissions_present(data: dict) -> bool:
     lst = block.get(_PERMISSIONS_ALLOW_KEY)
     if not isinstance(lst, list):
         return False
-    return all(rule in lst for rule in SELF_MERGE_PERMISSIONS_ALLOW)
+    deny = block.get(_PERMISSIONS_DENY_KEY)
+    if not isinstance(deny, list):
+        return False
+    return (
+        all(rule in lst for rule in SELF_MERGE_PERMISSIONS_ALLOW)
+        and all(rule in deny for rule in SELF_MERGE_PERMISSIONS_DENY)
+        and not any(rule in lst for rule in SELF_MERGE_LEGACY_ALLOW)
+    )
+
+
+def self_merge_legacy_allow_present(data: dict) -> bool:
+    """True when ``permissions.allow`` still carries a never-matching legacy ship-script rule."""
+    perms = data.get(_PERMISSIONS_SECTION) if isinstance(data, dict) else None
+    lst = perms.get(_PERMISSIONS_ALLOW_KEY) if isinstance(perms, dict) else None
+    return isinstance(lst, list) and any(rule in lst for rule in SELF_MERGE_LEGACY_ALLOW)
 
 
 def self_merge_permissions_addable(data: dict) -> bool:
@@ -956,18 +993,27 @@ def self_merge_permissions_addable(data: dict) -> bool:
     if not isinstance(perms, dict):
         return False  # malformed section — surfaced by the mode-key/permissions shape check
     lst = perms.get(_PERMISSIONS_ALLOW_KEY)
-    if lst is None:
+    deny = perms.get(_PERMISSIONS_DENY_KEY)
+    if any(node is not None and not isinstance(node, list) for node in (lst, deny)):
+        return False  # malformed — surfaced by provision_permissions' fail-closed shape check
+    if lst is None or deny is None:
         return True  # apply seeds the list
-    if not isinstance(lst, list):
-        return False  # malformed allow — surfaced by provision_permissions' fail-closed shape check
-    return any(rule not in lst for rule in SELF_MERGE_PERMISSIONS_ALLOW)
+    return (
+        any(rule not in lst for rule in SELF_MERGE_PERMISSIONS_ALLOW)
+        or any(rule not in deny for rule in SELF_MERGE_PERMISSIONS_DENY)
+        or any(rule in lst for rule in SELF_MERGE_LEGACY_ALLOW)
+    )
 
 
 def _ensure_self_merge_permissions(data: dict) -> bool:
-    """Additively ensure ``permissions.allow`` carries the ship rules. Returns True if it changed.
+    """Ensure ``permissions`` carries the ship rules. Returns True if it changed.
+
+    Adds the ``gh ship`` / ``fj ship`` allow rules and the raw-script deny rules, and removes the
+    two never-matching legacy allow strings (:data:`SELF_MERGE_LEGACY_ALLOW`) — the only non-additive
+    step, an exact-string migration.
 
     SELF-TARGETS the ``permissions`` section directly (creating it if absent) rather than the harness
-    action's mode section — the ship rules always live under ``permissions.allow``, and
+    action's mode section — the ship rules always live under ``permissions.allow``/``deny``, and
     :func:`self_merge_permissions_present` (drift) reads exactly there, so apply and status can never
     diverge even if the mode key ever moves out of ``permissions``. Never clobbers: every existing
     allow entry is kept, only the MISSING ship rules are appended (a re-apply is a no-op).
@@ -985,13 +1031,20 @@ def _ensure_self_merge_permissions(data: dict) -> bool:
     elif not isinstance(perms, dict):
         return False  # malformed section — the mode-key path / provision_permissions surfaces this
     lst = perms.get(_PERMISSIONS_ALLOW_KEY)
-    if lst is not None and not isinstance(lst, list):
+    deny = perms.get(_PERMISSIONS_DENY_KEY)
+    if (lst is not None and not isinstance(lst, list)) or (deny is not None and not isinstance(deny, list)):
         return False  # malformed — leave it for provision_permissions to fail-close on
     lst = lst if isinstance(lst, list) else []
-    added = [rule for rule in SELF_MERGE_PERMISSIONS_ALLOW if rule not in lst]
-    if not added:
+    deny = deny if isinstance(deny, list) else []
+    removed = [rule for rule in lst if rule in SELF_MERGE_LEGACY_ALLOW]
+    kept = [rule for rule in lst if rule not in removed]
+    added = [rule for rule in SELF_MERGE_PERMISSIONS_ALLOW if rule not in kept]
+    denied = [rule for rule in SELF_MERGE_PERMISSIONS_DENY if rule not in deny]
+    if not (added or denied or removed):
         return False
-    perms[_PERMISSIONS_ALLOW_KEY] = [*lst, *added]
+    perms[_PERMISSIONS_ALLOW_KEY] = [*kept, *added]
+    if denied:
+        perms[_PERMISSIONS_DENY_KEY] = [*deny, *denied]
     return True
 
 
