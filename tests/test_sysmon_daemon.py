@@ -23,12 +23,16 @@ def _proc(pid, ppid, comm="sleep", args=None, uid=ME, tty="??", stat="S", etime=
                 cpu_pct=0.0, comm=comm, args=args or comm)
 
 
+PAGE = 16384  # this Mac's VM page (vm.pagesize)
+
+
 def _sample(**over):
     base = dict(
         taken_at=1000.0, ncpu=14, load1=2.0, load5=2.0, load15=2.0, mem_total=24 * GIB, wired=5 * GIB,
         free=1 * GIB, inactive=6 * GIB, speculative=0, purgeable=0, reclaimable=7 * GIB,
         compressor_pages=100, compressor_limit_pages=1000, swap_total=4 * GIB, swap_used=1 * GIB,
         pressure_level=1, proc_total=700, proc_max=6000, disk_free=50 * GIB, boot_id="boot-a",
+        page_size=PAGE, data_volume="/System/Volumes/Data", data_used=200 * GIB, data_free=250 * GIB,
     )
     base.update(over)
     return probe.Sample(**base)
@@ -223,6 +227,8 @@ def test_cmux_attribution_names_the_workspace_and_surface():
 @pytest.mark.parametrize("metric, value, sev", [
     ("wired_pct", 74.9, "ok"), ("wired_pct", 75.0, SEVERITY_WARNING), ("wired_pct", 85.0, SEVERITY_CRITICAL),
     ("reclaimable_gb", 2.1, "ok"), ("reclaimable_gb", 2.0, SEVERITY_WARNING), ("reclaimable_gb", 0.9, SEVERITY_CRITICAL),
+    ("free_gb", 0.06, "ok"), ("free_gb", 0.05, SEVERITY_WARNING), ("free_gb", 0.02, SEVERITY_CRITICAL),
+    ("data_used_pct", 89.9, "ok"), ("data_used_pct", 90.0, SEVERITY_WARNING), ("data_used_pct", 95.0, SEVERITY_CRITICAL),
 ])
 def test_level_boundaries_both_directions(metric, value, sev):
     assert detect.level(metric, value, TH) == sev
@@ -238,6 +244,65 @@ def test_panic_values_are_critical_although_memorystatus_says_normal():
 
 def test_healthy_sample_has_no_findings():
     assert detect.sample_findings(_sample(), TH) == []
+
+
+@pytest.mark.parametrize("pages, sev", [
+    # Calibration (this Mac, 2026-09-30): the pageout daemon holds free pages near
+    # vm_page_free_target (4000 x 16 KB = 62.5 MB); the 2026-09-29 panic's 4,610 free pages sat
+    # at that same level, so it must stay silent here.
+    (4000, None),
+    (3000, SEVERITY_WARNING),  # under vm_page_free_min (3500): the pageout daemon is losing
+    (1000, SEVERITY_CRITICAL),  # near vm_page_free_reserved (910): only VM-privileged allocations
+])
+def test_free_pages_are_their_own_threshold(pages, sev):
+    found = {f.key: f for f in detect.sample_findings(_sample(free=pages * PAGE), TH)}
+    assert (found["free"].severity if "free" in found else None) == sev
+    if sev:
+        assert found["free"].kind == "memory" and f"{pages:,} pages" in found["free"].summary
+
+
+def test_a_momentary_free_page_dip_is_normal_load_and_only_a_sustained_one_counts():
+    """10,616 reads at 50 ms over 10 minutes of normal load on this Mac (median 17,974 pages): 25
+    under the warn line, 1.25 s in all, one of them at 911 pages (the reserve itself). A 10-s
+    sample landing on such a dip must not page; staying under the line for 3 samples does."""
+    dip = _sample(taken_at=1020.0, free=911 * PAGE)
+    calm = [_sample(taken_at=1000.0, free=6000 * PAGE), _sample(taken_at=1010.0, free=5000 * PAGE)]
+    assert "free" not in {f.key for f in detect.sample_findings(dip, TH, calm)}
+    low = [_sample(taken_at=1000.0, free=1200 * PAGE), _sample(taken_at=1010.0, free=1500 * PAGE)]
+    [f] = [f for f in detect.sample_findings(dip, TH, low) if f.key == "free"]
+    assert f.severity == SEVERITY_CRITICAL and "911 pages" in f.summary
+
+
+@pytest.mark.parametrize("used_gb, free_gb, sev, pct", [
+    (91, 9, SEVERITY_WARNING, "91.0%"),
+    (96, 4, SEVERITY_CRITICAL, "96.0%"),
+])
+def test_data_volume_percent_full_names_the_volume_and_percent(used_gb, free_gb, sev, pct):
+    s = _sample(data_used=used_gb * GIB, data_free=free_gb * GIB)
+    [f] = [f for f in detect.sample_findings(s, TH) if f.key == "data_volume"]
+    assert f.kind == "disk" and f.severity == sev
+    assert "/System/Volumes/Data" in f.summary and pct in f.summary and f"{free_gb:.1f} GB free" in f.summary
+
+
+def test_data_volume_percent_is_used_over_used_plus_available_like_df():
+    """APFS volumes share one container: df's Capacity is Used / (Used + Available), not Used /
+    Size. ``df -k /System/Volumes/Data`` on 2026-09-30: Size 482797652, Used 427549236,
+    Available 20400976 KB → 96% (95.4 exact); Used / Size would read 88.6% and never warn."""
+    s = _sample(data_used=427549236 * 1024, data_free=20400976 * 1024)
+    assert round(s.data_used_pct, 1) == 95.4
+    assert detect.level("data_used_pct", s.data_used_pct, TH) == SEVERITY_CRITICAL
+
+
+def test_free_pages_exclude_the_speculative_ones_like_vm_stat():
+    """host_statistics64's free_count INCLUDES speculative pages; vm_stat's "Pages free" (and so
+    the free threshold) is free_count - speculative_count, and reclaimable counts them once."""
+    from types import SimpleNamespace
+
+    stats = SimpleNamespace(free_count=37622, speculative_count=34058, inactive_count=419722,
+                            purgeable_count=698, wire_count=500000)
+    mem = probe.vm_page_bytes(stats, PAGE)
+    assert mem["free"] == 3564 * PAGE and mem["speculative"] == 34058 * PAGE
+    assert mem["reclaimable"] == (3564 + 34058 + 419722 + 698) * PAGE
 
 
 def test_process_growth_rate_uses_the_window():
@@ -654,3 +719,241 @@ def test_a_big_storm_writes_its_incident_once_per_heal_batch_not_once_per_offend
     mon.tick(1000.0)
     assert len(band.bg) == 320  # every storm member was throttled ...
     assert len(saves) <= 4 and saves[-1] >= 320  # ... and the incident was written a handful of times
+
+
+# ── a full data volume: the reclaimable-candidates report (rig-cli#645; report only) ──────
+T0 = 1_800_000_000.0
+DAY = 86400.0
+FULL = dict(data_used=96 * GIB, data_free=4 * GIB)
+APPLE_DF = {"images": {"total": 15, "active": 2, "sizeInBytes": 4452966400, "reclaimable": 3679227904}}
+
+
+class _Host:
+    """The commands a reclaim scan runs, answered from tables. Every argv and its timeout is
+    recorded, so a test sees exactly what ran — and that nothing that removes anything did."""
+
+    def __init__(self, du_kb, *, binaries=("container",), docker_df="", slow=()):
+        self.du_kb, self.binaries, self.docker_df, self.slow = du_kb, set(binaries), docker_df, set(slow)
+        self.calls = []
+
+    def which(self, name):
+        return f"/fake/bin/{name}" if name in self.binaries else None
+
+    def __call__(self, argv, **kw):
+        import subprocess
+
+        self.calls.append((list(argv), kw.get("timeout")))
+        name = os.path.basename(argv[0])
+        if name == "du":
+            if argv[-1] in self.slow:
+                raise subprocess.TimeoutExpired(argv, kw.get("timeout"))
+            kb = self.du_kb.get(argv[-1])
+            return subprocess.CompletedProcess(argv, 0 if kb else 1, f"{kb}\t{argv[-1]}\n" if kb else "", "")
+        if name == "container":
+            return subprocess.CompletedProcess(argv, 0, json.dumps(APPLE_DF), "")
+        if name == "docker":
+            return subprocess.CompletedProcess(argv, 0, self.docker_df, "")
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    def ran(self, name):
+        return [a for a, _ in self.calls if os.path.basename(a[0]) == name]
+
+
+def _tree(tmp_path):
+    """Two dev roots holding rig worktrees of different ages, plus a review-cli job cache."""
+
+    def worktree(root, repo, name, idle_days, git_active_days=None):
+        d = tmp_path / root / repo / ".worktrees" / name
+        d.mkdir(parents=True)
+        if git_active_days is not None:  # a checkout whose git index moved recently is in use
+            admin = tmp_path / root / repo / ".git" / "worktrees" / name
+            admin.mkdir(parents=True)
+            (admin / "index").write_text("")
+            os.utime(admin / "index", (T0 - git_active_days * DAY,) * 2)
+            (d / ".git").write_text(f"gitdir: {admin}\n")
+        os.utime(d, (T0 - idle_days * DAY,) * 2)
+        return str(d)
+
+    cache = tmp_path / "cache" / "review-cli" / "jobs"
+    cache.mkdir(parents=True)
+    return {
+        "old_big": worktree("xp", "app", "old-big", 30),
+        "old_small": worktree("xp", "app", "old-small", 10),
+        "fresh": worktree("xp", "app", "fresh", 1),
+        "busy": worktree("work", "lib", "busy", 40, git_active_days=0.5),
+        "cache": str(cache),
+    }
+
+
+def _du_table(paths):
+    return {paths["old_big"]: 3_000_000, paths["old_small"]: 20_000, paths["fresh"]: 5_000_000,
+            paths["busy"]: 4_000_000, paths["cache"]: 70_000}
+
+
+def _reclaim_cfg(tmp_path, **alert_over):
+    cfg = config.load(None)
+    cfg["state_dir"] = str(tmp_path / "state")
+    cfg["events"]["enabled"] = False
+    cfg["alert"].update(alert_over)
+    cfg["reclaim"].update(
+        worktree_roots=[str(tmp_path / "xp"), str(tmp_path / "work"), str(tmp_path / "absent")],
+        cache_dirs=[str(tmp_path / "cache" / "review-cli" / "jobs"), str(tmp_path / "absent-cache")],
+    )
+    return cfg
+
+
+def _disk_monitor(tmp_path, host, samples, **alert_over):
+    it = iter(samples)
+    return daemon.Monitor(_reclaim_cfg(tmp_path, **alert_over), sampler=lambda now=None: next(it),
+                          censor=lambda: [], run=host, which=host.which)
+
+
+def test_critical_data_volume_alert_lists_reclaimable_candidates_by_size_and_deletes_nothing(tmp_path, monkeypatch):
+    import shutil
+
+    paths = _tree(tmp_path)
+    host = _Host(_du_table(paths))
+    mon = _disk_monitor(tmp_path, host, [_sample(**FULL)])
+    removed = []
+    for owner, name in ((os, "remove"), (os, "unlink"), (os, "rmdir"), (os, "removedirs"), (shutil, "rmtree"),
+                        (shutil, "move"), (Path, "unlink"), (Path, "rmdir")):
+        monkeypatch.setattr(owner, name, lambda *a, _n=name, **k: removed.append(_n))
+    mon.tick(T0)
+    monkeypatch.undo()
+
+    report = store.load_incident(mon.state_dir, mon.memory["open_incident"])["reclaimable"]
+    assert [(c["kind"], c["path"]) for c in report["candidates"]] == [
+        ("container-images", "container"), ("worktree", paths["old_big"]),
+        ("review-cache", paths["cache"]), ("worktree", paths["old_small"]),
+    ]  # the fresh worktree and the one whose git index moved today are in use, never listed
+    [tg] = host.ran("tg")
+    body = tg[-1]
+    order = [body.index(s) for s in ("3.4 GB", f"2.9 GB worktree {paths['old_big']}",
+                                     f"68 MB review-cli job cache {paths['cache']}", "20 MB worktree")]
+    assert order == sorted(order) and "idle 30 d" in body
+    assert "deleted nothing" in body and paths["fresh"] not in body and paths["busy"] not in body
+    # nothing was removed: no removal call, no removing command, every directory still there
+    assert removed == []
+    assert not [a for a, _ in host.calls
+                if os.path.basename(a[0]) in ("rm", "rmdir", "unlink") or {"rm", "rmi", "prune", "delete"} & set(a[1:3])]
+    assert all(Path(p).is_dir() for p in paths.values())
+
+
+def _pages(host):
+    """The problem alerts sent (``tg --tag problem``), not the resolved lines."""
+    return [a for a in host.ran("tg") if a[1:3] == ["--tag", "problem"]]
+
+
+def test_a_full_disk_pages_once_per_six_hours_per_level_always_with_the_candidates(tmp_path):
+    """Owner decision 2026-09-30: a full disk stays full until someone cleans up, so it must not
+    page every 30-minute cooldown. Each level pages at most once per ``disk_cooldown_minutes``
+    (6 h), clearing and coming back inside that window does not page again, an escalation to a
+    level not yet sent does, and every disk page lists the reclaim candidates."""
+    paths = _tree(tmp_path)
+    host = _Host(_du_table(paths))
+    warn, crit, calm = _sample(data_used=91 * GIB, data_free=9 * GIB), _sample(**FULL), _sample()
+    hour = 3600.0
+    ticks = [
+        (T0, warn, 1),                     # first warning: pages
+        (T0 + 10, crit, 2),                # escalation to critical: pages
+        (T0 + 10 + 30 * 60, crit, 2),      # the old 30-min re-page: silent now
+        (T0 + 2 * hour, calm, 2),          # clears ...
+        (T0 + 2 * hour + 600, calm, 2),    # ... for 10 min (one "resolved" line, not a page)
+        (T0 + 3 * hour, crit, 2),          # back at critical inside 6 h: silent
+        (T0 + 3 * hour + 10, warn, 2),     # warning was paged at T0: silent
+        (T0 + 10 + 6 * hour - 1, crit, 2), # a second short of 6 h: silent
+        (T0 + 10 + 6 * hour, crit, 3),     # 6 h after the critical page: pages again
+    ]
+    mon = _disk_monitor(tmp_path, host, [s for _, s, _ in ticks], min_severity="warning")
+    for now, _, pages in ticks:
+        mon.tick(now)
+        assert len(_pages(host)) == pages, now - T0
+    assert len(host.ran("tg")) == 4  # the three pages and the one resolved line
+    for page in _pages(host):
+        body = page[-1]
+        assert f"worktree {paths['old_big']}" in body and "review-cli job cache" in body
+        assert "unused Apple container images" in body and "deleted nothing" in body
+    assert all(Path(p).is_dir() for p in paths.values())
+
+
+def test_the_scan_is_reused_inside_the_alert_cooldown(tmp_path):
+    paths = _tree(tmp_path)
+    host = _Host(_du_table(paths))
+    warn, crit = _sample(data_used=91 * GIB, data_free=9 * GIB), _sample(**FULL)
+    mon = _disk_monitor(tmp_path, host, [warn, crit], min_severity="warning")
+    mon.tick(T0)
+    scanned = len(host.ran("du"))
+    assert scanned > 0 and len(_pages(host)) == 1
+    mon.tick(T0 + 10)  # the escalation pages with the report the warning scanned 10 s ago
+    assert len(host.ran("du")) == scanned and len(_pages(host)) == 2
+
+
+def test_a_memory_finding_keeps_its_own_cooldown_beside_a_quiet_disk():
+    cfg = _cfg()
+    disk = Finding(key="data_volume", kind="disk", severity=SEVERITY_CRITICAL, summary="full")
+    due, _, st = alert.decide([disk, _f()], {}, cfg, 0.0)
+    assert [f.key for f in due] == ["data_volume", "wired"]
+    due, _, st = alert.decide([disk, _f()], st, cfg, 30 * 60.0)
+    assert [f.key for f in due] == ["wired"]
+    due, _, st = alert.decide([disk, _f()], st, cfg, 6 * 3600.0)
+    assert [f.key for f in due] == ["data_volume", "wired"]
+
+
+def test_a_disk_page_held_by_the_hourly_budget_is_sent_later_and_each_volume_has_its_own_window():
+    """A disk page the hourly budget holds must not count as sent (else a full disk stays silent
+    for 6 h), and the data and swap volumes keep separate windows."""
+    cfg = _cfg(max_per_hour=1)
+    data = Finding(key="data_volume", kind="disk", severity=SEVERITY_CRITICAL, summary="full")
+    swap = Finding(key="disk", kind="disk", severity=SEVERITY_CRITICAL, summary="swap volume full")
+    due, _, st = alert.decide([_f()], {}, cfg, 0.0)
+    assert [f.key for f in due] == ["wired"]  # the budget is spent
+    due, _, st = alert.decide([_f(), data], st, cfg, 60.0)
+    assert due == []  # held
+    due, _, st = alert.decide([data], st, cfg, 3600.0)
+    assert [f.key for f in due] == ["data_volume"]  # sent once the budget frees up
+    due, _, st = alert.decide([_f(), data, swap], st, cfg, 2 * 3600.0)
+    assert [f.key for f in due] == ["wired", "disk"]  # the swap volume's first page is its own
+
+
+def test_a_du_that_times_out_is_counted_unmeasured_and_every_command_is_bounded(tmp_path):
+    from riglib.sysmon_daemon import reclaim
+
+    paths = _tree(tmp_path)
+    host = _Host(_du_table(paths), binaries=(), slow={paths["old_big"]})
+    report = reclaim.scan(_reclaim_cfg(tmp_path), T0, run=host, which=host.which)
+    assert [c["path"] for c in report["candidates"]] == [paths["cache"], paths["old_small"]]
+    assert report["unmeasured"] == 1
+    assert {os.path.basename(a[0]) for a, _ in host.calls} == {"du"}  # no container runtime: none asked
+    assert all(t is not None and 0 < t <= reclaim.COMMAND_TIMEOUT_S for _, t in host.calls)
+
+
+def test_docker_images_come_from_system_df_and_an_unsized_answer_is_skipped(tmp_path):
+    from riglib.sysmon_daemon import reclaim
+
+    cfg = _reclaim_cfg(tmp_path)
+    cfg["reclaim"].update(worktree_roots=[], cache_dirs=[])
+    rows = [{"Type": "Images", "TotalCount": "5", "Active": "1", "Size": "2.4GB", "Reclaimable": "1.2GB (50%)"},
+            {"Type": "Containers", "TotalCount": "2", "Active": "0", "Size": "10MB", "Reclaimable": "10MB (100%)"}]
+    host = _Host({}, binaries=("docker",), docker_df="\n".join(json.dumps(r) for r in rows))
+    [c] = reclaim.scan(cfg, T0, run=host, which=host.which)["candidates"]
+    assert (c["kind"], c["size_bytes"]) == ("docker-images", 1_200_000_000)
+    # the Apple-container `docker` front prints a table with N/A sizes: nothing to report
+    table = "TYPE  TOTAL  ACTIVE  SIZE  RECLAIMABLE\nImages  15  15  N/A  0B\n"
+    host = _Host({}, binaries=("docker",), docker_df=table)
+    assert reclaim.scan(cfg, T0, run=host, which=host.which)["candidates"] == []
+
+
+def test_a_full_disk_does_not_force_a_census_every_tick(tmp_path):
+    """A full disk is no process problem: unlike a memory or storm finding it must not turn the
+    ps census on for every sample while it lasts (days, until someone cleans up). On APFS the
+    data and swap volumes share one container's free space, so both disk findings go critical
+    together."""
+    census = _Census([_proc(70, 1, comm="bash")])
+    host = _Host({}, binaries=())
+    full = _sample(disk_free=1 * GIB, **FULL)
+    mon = daemon.Monitor(_reclaim_cfg(tmp_path), sampler=lambda now=None: full, censor=census,
+                         run=host, which=host.which)
+    for i in range(3):
+        mon.tick(T0 + 10 * i)
+    assert {f.key for f in mon.findings if f.severity == SEVERITY_CRITICAL} == {"data_volume", "disk"}
+    assert census.calls == 1 and mon.incident is not None

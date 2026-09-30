@@ -3,11 +3,12 @@
 Four inputs, five detectors, one output shape:
 
 - :func:`sample_findings` — the in-process :class:`~.probe.Sample`: load per CPU, swap, WIRED
-  share of RAM, reclaimable pages, compressor use against its page limit, free disk on the swap
-  volume, process-table use and process-count growth, and the kernel's own memorystatus level.
-  Wired memory and reclaimable pages are here because the 2026-09-29 12:47 panic sat at 95.7%
-  wired (GPU buffers of 13 ``whisper-cli`` model loads) and 112 MB reclaimable for minutes
-  while ``kern.memorystatus_vm_pressure_level`` still said "normal".
+  share of RAM, reclaimable pages, free pages, compressor use against its page limit, free disk
+  on the swap volume, how full the data volume is, process-table use and process-count growth,
+  and the kernel's own memorystatus level. Wired memory and reclaimable pages are here because
+  the 2026-09-29 12:47 panic sat at 95.7% wired (GPU buffers of 13 ``whisper-cli`` model loads)
+  and 112 MB reclaimable for minutes while ``kern.memorystatus_vm_pressure_level`` still said
+  "normal".
 - :func:`census_findings` — the ``ps`` census: same-name process storms (every user's processes,
   absolute and as a percent of ``kern.maxproc``), GPU-model processes
   above the agent-tools#817 slot cap, and task_for_pid tools stuck behind a SecurityAgent
@@ -44,7 +45,16 @@ from .model import (
 from .probe import GIB, Sample
 
 #: Metrics where a LOWER value is worse.
-LOWER_IS_WORSE = frozenset({"reclaimable_gb", "disk_free_gb"})
+LOWER_IS_WORSE = frozenset({"reclaimable_gb", "free_gb", "disk_free_gb"})
+
+#: Free pages must stay under a line for this many consecutive samples (20 s at the default
+#: 10-s cadence). Normal load dips for a moment: 10 minutes of 50-ms reads on the 16 KB-page Mac
+#: (2026-09-30) put 25 of 10,616 reads (1.25 s) under the warn line and one at 911 pages, the
+#: kernel's reserve itself, so a single sample landing on such a dip would page about daily.
+#: With fewer samples (the first 20 s after a daemon start, ``rig sysmon sample``'s one reading)
+#: the available readings decide; a critical dip is 1 in ~10,000 reads, so that window costs next
+#: to nothing and keeps a one-off reading honest.
+FREE_SUSTAIN_SAMPLES = 3
 
 #: Tools that need task_for_pid on macOS; with Developer Mode off they wait on a SecurityAgent
 #: password prompt (``system.privilege.taskport.debug``) and hang until someone answers it.
@@ -96,6 +106,10 @@ def _pct(n: int, limit: Optional[int]) -> Optional[float]:
     return 100.0 * n / limit if limit else None
 
 
+def _fmt_mb(v: Optional[int]) -> str:
+    return "n/a" if v is None else f"{v / 1024 ** 2:.0f} MB"
+
+
 def sample_findings(
     s: Sample, thresholds: Dict[str, Dict[str, float]], history: Sequence[Sample] = ()
 ) -> List[Finding]:
@@ -119,6 +133,13 @@ def sample_findings(
     add("reclaimable", "memory", "reclaimable_gb", _gb(s.reclaimable),
         f"only {_fmt_gb(s.reclaimable)} reclaimable (free+inactive+speculative+purgeable)",
         free_gb=_gb(s.free))
+    # A momentary dip to the reserve is normal load; judge the best of the last few readings.
+    recent = [x.free for x in (*history[-(FREE_SUSTAIN_SAMPLES - 1):], s) if x.free is not None]
+    held = f"; at most {_fmt_mb(max(recent))} over the last {len(recent)} samples" if len(recent) > 1 else ""
+    pages = f" ({s.free_pages:,} pages{held})" if s.free_pages is not None else ""
+    add("free", "memory", "free_gb", _gb(max(recent)) if recent else None,
+        f"free memory down to {_fmt_mb(s.free)}{pages} — the pageout daemon is not keeping the "
+        f"free-page pool filled", free_pages=s.free_pages)
     add("swap", "swap", "swap_pct", s.swap_pct,
         f"swap {_fmt_gb(s.swap_used)} of {_fmt_gb(s.swap_total)} used ({(s.swap_pct or 0):.0f}%)",
         swap_used_gb=_gb(s.swap_used), swap_total_gb=_gb(s.swap_total))
@@ -128,6 +149,9 @@ def sample_findings(
     add("disk", "disk", "disk_free_gb", _gb(s.disk_free),
         f"only {_fmt_gb(s.disk_free)} free on the swap volume — swap cannot grow",
     )
+    add("data_volume", "disk", "data_used_pct", s.data_used_pct,
+        f"data volume {s.data_volume} {(s.data_used_pct or 0):.1f}% full ({_fmt_gb(s.data_free)} free)",
+        volume=s.data_volume, data_free_gb=_gb(s.data_free))
     add("procs", "procs", "procs_pct", s.procs_pct,
         f"{s.proc_total} processes of the {s.proc_max} process-table limit",
         proc_total=s.proc_total, proc_max=s.proc_max)

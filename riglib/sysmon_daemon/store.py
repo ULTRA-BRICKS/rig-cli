@@ -12,7 +12,8 @@ Layout under ``state_dir`` (default ``~/.config/rig/sysmon/state``)::
 ``opened_at`` / ``updated_at`` (epoch); ``severity``; ``findings`` (``model.Finding`` as JSON);
 ``sample`` (``probe.Sample.as_dict()``); ``sessions`` (``sessions.SessionRecord`` dicts active at
 incident time); ``crash`` (``sessions.detect_crash`` result or null); ``heal`` (heal step results);
-``remediation`` (spawn result or null); ``restore`` (restore step results); ``alerts`` (sent).
+``remediation`` (spawn result or null); ``restore`` (restore step results); ``alerts`` (sent);
+``reclaimable`` (only after a critical data volume alerted: the report-only ``reclaim.scan``).
 
 Every write is atomic (temp file + ``os.replace``) so a crash mid-write never leaves a
 truncated JSON file that the next start would have to guess about.

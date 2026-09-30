@@ -3229,7 +3229,9 @@ sysmon:
   thresholds:                      # any subset; the rest keep their defaults
     wired_pct: { warn: 75, critical: 85 }
     reclaimable_gb: { warn: 2, critical: 1 }      # lower is worse
-  alert: { min_severity: critical, cooldown_minutes: 30, max_per_hour: 6, resolved: true, dry_run: false }
+    data_used_pct: { warn: 90, critical: 95 }     # every disk alert lists reclaimable candidates
+  alert: { min_severity: critical, cooldown_minutes: 30, disk_cooldown_minutes: 360, max_per_hour: 6,
+           resolved: true, dry_run: false }
   heal: { enabled: true, notify_agent: true, throttle: true, kill_orphans: false, kill_owned: false,
           grace_seconds: 120, dry_run: false,        # every kill path is opt-in
           restart_daemons: true, restart_labels: ["ai.hyperide.*", "com.hyperide.*"],
@@ -3237,6 +3239,8 @@ sysmon:
   remediation: { agent: omp, cooldown_minutes: 60, dry_run: false }   # omp | claude-code | codex | opencode
   sessions: { restore_on_boot: false, tmux_session: main }
   gpu: { slots: 2, slot_dir: ~/.local/state/agent-tools/gpu-slots }   # default: env.vars.RIG_GPU_SLOTS / RIG_GPU_SLOT_DIR
+  reclaim: { worktree_roots: [~/xp, ~/work], worktree_age_days: 7, max_candidates: 10,
+             cache_dirs: [~/Library/Caches/review-cli/jobs, ~/.cache/review-cli/jobs] }   # report only
   # advanced: label (ai.hyperide.sysmon), config_dir (~/.config/rig/sysmon), python_bin (which python3)
 ```
 
@@ -3246,8 +3250,10 @@ sysmon:
 | `swap_pct` | 80 | 95 | `vm.swapusage` (macOS grows swap in 1 GB files while disk allows — pair with `disk_free_gb`) |
 | `wired_pct` | 75 | 85 | `host_statistics64` wired pages / `hw.memsize` |
 | `reclaimable_gb` (lower is worse) | 2 | 1 | free + inactive + speculative + purgeable pages |
+| `free_gb` (lower is worse) | 0.05 | 0.025 | free pages, vm_stat's "Pages free" (`free_count` − speculative; Linux `MemFree`) |
 | `compressor_pct` | 70 | 90 | `vm.compressor_segment_pages_compressed` / `…_limit` |
 | `disk_free_gb` (lower is worse) | 5 | 2 | free space on `/System/Volumes/VM` (swap growth) |
+| `data_used_pct` | 90 | 95 | the data volume (`/System/Volumes/Data`, Linux `/`) as df's Capacity: Used / (Used + Available) |
 | `procs_pct` | 60 | 80 | `proc_listallpids` / `kern.maxproc` |
 | `storm_same_name` | 150 | 300 | processes sharing one executable name, every user counted (another user's stay untouched by heal) |
 | `storm_pct` | 4 | 8 | the same storm as a percent of `kern.maxproc` (the worse of the two lines wins) |
@@ -3265,6 +3271,36 @@ GPU-model processes (whisper, llama.cpp, mlx) is always critical. `gpu.slots` is
 agent-tools#817 GPU-model slot pool; when rig's `env` block exports `RIG_GPU_SLOTS` /
 `RIG_GPU_SLOT_DIR`, the monitor follows them. Watchdogd WindowServer check-in trouble is always
 critical.
+
+**Free pages** have their own line because the reclaimable sum hides the moment the kernel loses
+the race. The defaults are calibrated on a 24 GB Mac with 16 KB pages: the pageout daemon keeps
+free pages near `vm_page_free_target` (4000 pages, 62.5 MB) by reclaiming inactive pages, so a low
+free count alone is normal load. Ten minutes of 50-ms reads at normal load had a median of 17,974
+pages and 1 % under 3,635, and the 2026-09-29 panic still showed 4,610 (its signal was the ~2,000
+inactive pages left, which `reclaimable_gb` catches). Staying below the target means nothing is
+left to reclaim: `free_gb` warns at 0.05 GB (3,277 pages, just under `vm_page_free_min`, 3,500)
+and is critical at 0.025 GB (1,638 pages, under half of `free_min` and 728 pages above
+`vm_page_free_reserved`, 910, where only VM-privileged threads may still allocate). Normal load
+also dips under both lines for a moment (25 of those 10,616 reads, one at 911 pages), so a line
+counts only after it held for 3 consecutive samples (20 s at the default cadence).
+
+**A full data volume** warns at 90 % and is critical at 95 % (df's Capacity; APFS volumes share
+their container's free space, so the used share of the volume's own size would under-read). Swap
+grows on the same disk. Every disk alert (`data_volume` or the swap volume's `disk`, any level) lists
+**reclaimable candidates**, largest first, capped at `reclaim.max_candidates`:
+
+- rig worktrees (`<root>/<repo>/.worktrees/<name>` under each `reclaim.worktree_roots` dev root)
+  that neither the directory nor its git `index`/`HEAD`/`logs/HEAD` changed for
+  `reclaim.worktree_age_days`;
+- review-cli job caches (`reclaim.cache_dirs`);
+- container images no container uses, from `container system df` (Apple) and `docker system df`,
+  only when the binary is on PATH.
+
+Sizes come from `du -sk -x` and those `system df` commands, each bounded to 10 s and 30 s in all
+(what the budget leaves unmeasured is counted). The scan runs at most once per alert cooldown and
+is kept in the incident as `reclaimable`. **It is a report only: sysmon never deletes, moves or
+prunes anything**, and the alert says so. `rig sysmon simulate --scenario disk` renders it in
+dry-run against this machine.
 
 **How it watches (event-driven where macOS publishes events).**
 
@@ -3310,6 +3346,11 @@ finding, its numbers and who owns the offenders. They are deduplicated per findi
 
 - a key alerts when it first reaches `min_severity`, when it escalates, and otherwise at most once
   per cooldown;
+- a disk finding (`data_volume`, `disk`) alerts at most once per `disk_cooldown_minutes` (default
+  6 hours) per key and severity level: a full disk stays full until someone cleans up, so it must
+  not page every cooldown. The window survives the finding clearing and coming back, so a volume
+  hovering at a threshold does not re-page either; a level not sent within the window, up or
+  down, still alerts (with the default `min_severity: critical`, one page per 6 hours);
 - one message per tick carries every due finding;
 - at most `max_per_hour` messages go out per hour;
 - one "resolved" line is sent after a key stays clear for 5 minutes.

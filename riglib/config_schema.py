@@ -1561,7 +1561,7 @@ _SYSMON_BLOCK = Block(
     },
     nested={
         "thresholds": Block(
-            doc="warn/critical lines per metric (reclaimable_gb and disk_free_gb: lower is worse)",
+            doc="warn/critical lines per metric (reclaimable_gb, free_gb and disk_free_gb: lower is worse)",
             nested={
                 name: _sysmon_threshold(doc)
                 for name, doc in (
@@ -1569,8 +1569,11 @@ _SYSMON_BLOCK = Block(
                     ("swap_pct", "swap used, percent"),
                     ("wired_pct", "wired memory, percent of RAM"),
                     ("reclaimable_gb", "free+inactive+speculative+purgeable GB"),
+                    ("free_gb", "free memory pages GB (vm_stat 'Pages free'; Linux MemFree)"),
                     ("compressor_pct", "compressor pages, percent of its limit"),
                     ("disk_free_gb", "free GB on the swap volume"),
+                    ("data_used_pct", "data volume used percent, df Capacity (a critical one lists "
+                                      "reclaimable candidates, never deletes)"),
                     ("procs_pct", "processes, percent of kern.maxproc"),
                     ("storm_same_name", "processes (every user) with one executable name"),
                     ("storm_pct", "processes with one executable name, percent of kern.maxproc"),
@@ -1593,6 +1596,8 @@ _SYSMON_BLOCK = Block(
                                      default="critical"),
                 "cooldown_minutes": Leaf("integer", "re-alert an unchanged finding after this long", default=30,
                                          minimum=1),
+                "disk_cooldown_minutes": Leaf("integer", "re-alert a disk finding at the same level after this long",
+                                              default=360, minimum=1),
                 "max_per_hour": Leaf("integer", "messages per rolling hour", default=6, minimum=1),
                 "resolved": Leaf("boolean", "send one line when an alerted finding clears", default=True),
                 "dry_run": Leaf("boolean", "record alerts without sending", default=False),
@@ -1646,6 +1651,18 @@ _SYSMON_BLOCK = Block(
             leaves={
                 "slots": Leaf("integer", "slot count (default: env.vars.RIG_GPU_SLOTS, else 2)", minimum=1),
                 "slot_dir": Leaf("string", "lock dir (default: env.vars.RIG_GPU_SLOT_DIR, else the pool default)"),
+            },
+        ),
+        "reclaim": Block(
+            doc="what a critical data_used_pct alert lists as reclaimable (REPORT ONLY: sysmon never deletes)",
+            leaves={
+                "worktree_roots": Leaf("array", "dev roots whose <repo>/.worktrees/<name> checkouts are listed "
+                                       "when idle (default ~/xp, ~/work)", items_type="string"),
+                "worktree_age_days": Leaf("integer", "a worktree is idle after this many days without a change",
+                                          default=7, minimum=1),
+                "cache_dirs": Leaf("array", "cache dirs listed with their size (default: review-cli's job dirs)",
+                                   items_type="string"),
+                "max_candidates": Leaf("integer", "largest candidates listed", default=10, minimum=1),
             },
         ),
     },

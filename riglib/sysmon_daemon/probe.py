@@ -3,8 +3,8 @@
 Two cadences (see the package docstring):
 
 - :func:`sample` — in-process syscalls only (``host_statistics64``, ``sysctlbyname``,
-  ``proc_listallpids``, ``statvfs``; ``/proc`` on Linux). Cheap enough to run every few
-  seconds; never spawns a process.
+  ``proc_listallpids``, ``statvfs``, ``getattrlist``; ``/proc`` on Linux). Cheap enough to run
+  every few seconds; never spawns a process.
 - :func:`census` — one ``ps`` snapshot of every process (two calls: the fixed columns and the
   argv), taken on a slower cadence or when a sample crosses a warn line.
 
@@ -29,7 +29,7 @@ import sys
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 from .model import LaunchdJob, Proc
 
@@ -50,7 +50,7 @@ class Sample:
     load15: float
     mem_total: int
     wired: Optional[int]
-    free: Optional[int]
+    free: Optional[int]  # vm_stat's "Pages free": host_statistics64 free_count minus speculative
     inactive: Optional[int]
     speculative: Optional[int]
     purgeable: Optional[int]
@@ -64,6 +64,10 @@ class Sample:
     proc_max: Optional[int]
     disk_free: Optional[int]  # bytes free on the volume that holds swap
     boot_id: Optional[str]
+    page_size: Optional[int] = None  # bytes per VM page (vm_stat's unit)
+    data_volume: Optional[str] = None  # where user data lives: /System/Volumes/Data (macOS), / (Linux)
+    data_used: Optional[int] = None  # bytes used on it (df "Used")
+    data_free: Optional[int] = None  # bytes available to unprivileged users (df "Available")
 
     @property
     def load_per_cpu(self) -> float:
@@ -93,9 +97,24 @@ class Sample:
             return None
         return 100.0 * self.proc_total / self.proc_max
 
+    @property
+    def free_pages(self) -> Optional[int]:
+        if self.free is None or not self.page_size:
+            return None
+        return self.free // self.page_size
+
+    @property
+    def data_used_pct(self) -> Optional[float]:
+        """df's Capacity: Used / (Used + Available). The APFS volumes of one container share its
+        free space, so Used / Size would under-read (88.6% where df said 96% on 2026-09-30)."""
+        if self.data_used is None or self.data_free is None or self.data_used + self.data_free <= 0:
+            return None
+        return 100.0 * self.data_used / (self.data_used + self.data_free)
+
     def as_dict(self) -> Dict[str, object]:
         out: Dict[str, object] = {k: getattr(self, k) for k in self.__dataclass_fields__}
-        for derived in ("load_per_cpu", "wired_pct", "swap_pct", "compressor_pct", "procs_pct"):
+        for derived in ("load_per_cpu", "wired_pct", "swap_pct", "compressor_pct", "procs_pct",
+                        "free_pages", "data_used_pct"):
             out[derived] = getattr(self, derived)
         return out
 
@@ -123,6 +142,20 @@ class _VMStatistics64(ctypes.Structure):
     )
 
 
+class _AttrList(ctypes.Structure):
+    """``struct attrlist`` (sys/attr.h) for ``getattrlist``."""
+
+    _fields_ = [("bitmapcount", ctypes.c_ushort), ("reserved", ctypes.c_uint16)] + [
+        (n, ctypes.c_uint32) for n in ("commonattr", "volattr", "dirattr", "fileattr", "forkattr")
+    ]
+
+
+_ATTR_BIT_MAP_COUNT = 5
+_ATTR_VOL_INFO = 0x80000000
+_ATTR_VOL_SPACEAVAIL = 0x00000010
+_ATTR_VOL_SPACEUSED = 0x00800000
+#: The macOS volume that holds user data (the sealed system volume is read-only and never fills).
+DARWIN_DATA_VOLUME = "/System/Volumes/Data"
 _HOST_VM_INFO64 = 4
 _PROC_PIDLISTFDS = 1
 _PROC_PIDFDVNODEPATHINFO = 2
@@ -183,6 +216,46 @@ def _sysctl_str(name: str) -> Optional[str]:
     return raw.split(b"\0", 1)[0].decode("utf-8", "replace") if raw else None
 
 
+def vm_page_bytes(stats: "_VMStatistics64", page: int) -> Dict[str, int]:
+    """Byte counts from a ``host_statistics64`` reading. Its ``free_count`` INCLUDES the
+    speculative pages (xnu: ``free_count = vm_page_free_count + vm_page_speculative_count``);
+    vm_stat's "Pages free" subtracts them and so does ``free`` here, so the free threshold reads
+    the number vm_stat shows and the reclaimable sum counts speculative pages once."""
+    free = max(0, stats.free_count - stats.speculative_count)
+    return {
+        "wired": stats.wire_count * page,
+        "free": free * page,
+        "inactive": stats.inactive_count * page,
+        "speculative": stats.speculative_count * page,
+        "purgeable": stats.purgeable_count * page,
+        "reclaimable": (free + stats.inactive_count + stats.speculative_count + stats.purgeable_count) * page,
+    }
+
+
+def _darwin_volume_usage(path: str) -> Tuple[Optional[int], Optional[int]]:
+    """``(used, available)`` bytes of the APFS volume at ``path``, as ``df`` reports them: the
+    volume's OWN used space (``ATTR_VOL_SPACEUSED``; ``statfs`` only knows the container's) and
+    the space available to unprivileged users."""
+    libc, _ = _darwin_libs()
+    attrs = _AttrList(_ATTR_BIT_MAP_COUNT, 0, 0, _ATTR_VOL_INFO | _ATTR_VOL_SPACEAVAIL | _ATTR_VOL_SPACEUSED, 0, 0, 0)
+    buf = ctypes.create_string_buffer(64)
+    if libc.getattrlist(path.encode(), ctypes.byref(attrs), buf, ctypes.sizeof(buf), 0) != 0:
+        return None, None
+    # u_int32_t length, then the attributes packed in bit order: off_t avail, off_t used. A shorter
+    # answer means the volume did not return both, and a guess would be a false alarm.
+    length, avail, used = struct.unpack_from("=Iqq", buf.raw)
+    return (used, avail) if length >= struct.calcsize("=Iqq") else (None, None)
+
+
+def _statvfs_usage(path: str) -> Tuple[Optional[int], Optional[int]]:
+    """``(used, available)`` bytes as GNU ``df`` computes them from ``statvfs``."""
+    try:
+        st = os.statvfs(path)
+    except OSError:
+        return None, None
+    return (st.f_blocks - st.f_bfree) * st.f_frsize, st.f_bavail * st.f_frsize
+
+
 def _darwin_sample(now: float) -> Sample:
     libc, libproc = _darwin_libs()
     stats = _VMStatistics64()
@@ -206,14 +279,8 @@ def _darwin_sample(now: float) -> Sample:
     except OSError:
         disk_free = None
 
-    def pages(v: int) -> Optional[int]:
-        return v * page if vm_ok else None
-
-    reclaimable = None
-    if vm_ok:
-        reclaimable = page * (
-            stats.free_count + stats.inactive_count + stats.speculative_count + stats.purgeable_count
-        )
+    mem = vm_page_bytes(stats, page) if vm_ok else {}
+    data_used, data_free = _darwin_volume_usage(DARWIN_DATA_VOLUME)
     return Sample(
         taken_at=now,
         ncpu=os.cpu_count() or 1,
@@ -221,12 +288,12 @@ def _darwin_sample(now: float) -> Sample:
         load5=load5,
         load15=load15,
         mem_total=_sysctl_int("hw.memsize") or 0,
-        wired=pages(stats.wire_count),
-        free=pages(stats.free_count),
-        inactive=pages(stats.inactive_count),
-        speculative=pages(stats.speculative_count),
-        purgeable=pages(stats.purgeable_count),
-        reclaimable=reclaimable,
+        wired=mem.get("wired"),
+        free=mem.get("free"),
+        inactive=mem.get("inactive"),
+        speculative=mem.get("speculative"),
+        purgeable=mem.get("purgeable"),
+        reclaimable=mem.get("reclaimable"),
         compressor_pages=_sysctl_int("vm.compressor_segment_pages_compressed"),
         compressor_limit_pages=_sysctl_int("vm.compressor_segment_pages_compressed_limit"),
         swap_total=int(swap_total),
@@ -236,6 +303,10 @@ def _darwin_sample(now: float) -> Sample:
         proc_max=_sysctl_int("kern.maxproc"),
         disk_free=disk_free,
         boot_id=_sysctl_str("kern.bootsessionuuid"),
+        page_size=page,
+        data_volume=DARWIN_DATA_VOLUME,
+        data_used=data_used,
+        data_free=data_free,
     )
 
 
@@ -271,6 +342,7 @@ def _linux_sample(now: float) -> Sample:
     except OSError:
         disk_free = None
     swap_total = mem.get("SwapTotal", 0)
+    data_used, data_free = _statvfs_usage("/")
     return Sample(
         taken_at=now,
         ncpu=os.cpu_count() or 1,
@@ -293,6 +365,10 @@ def _linux_sample(now: float) -> Sample:
         proc_max=int(pid_max) if pid_max.isdigit() else None,
         disk_free=disk_free,
         boot_id=(_read("/proc/sys/kernel/random/boot_id") or "").strip() or None,
+        page_size=os.sysconf("SC_PAGE_SIZE"),
+        data_volume="/",
+        data_used=data_used,
+        data_free=data_free,
     )
 
 

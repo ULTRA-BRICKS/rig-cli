@@ -206,7 +206,7 @@ def runtime_config(block: Dict[str, Any], *, config_dir: Path, gpu_env: Dict[str
             rt[key] = block[key]
     if "events" in block:
         rt["events"] = {"enabled": bool(block["events"])}
-    for section in ("thresholds", "alert", "heal", "remediation", "sessions", "gpu"):
+    for section in ("thresholds", "alert", "heal", "remediation", "sessions", "gpu", "reclaim"):
         if isinstance(block.get(section), dict):
             rt[section] = _merge(rt[section], block[section])
     gpu = dict(rt["gpu"])
