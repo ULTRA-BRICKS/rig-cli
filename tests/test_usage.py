@@ -2,7 +2,7 @@
 
 Strategy (mirrors tests/test_stats.py): write SYNTHETIC, real-shaped per-message usage
 JSONL lines into a throwaway HOME (``~/.claude/projects/...`` for the default account,
-``~/.claude-accounts/account-N/projects/...`` for each claude-rotate account), then assert
+``~/.claude-accounts/account-N/projects/...`` for each per-account dir), then assert
 the parser -> dedup -> aggregator -> renderers produce exact token/cost figures. No real
 logs, no network.
 """

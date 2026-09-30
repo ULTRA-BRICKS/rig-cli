@@ -1333,7 +1333,7 @@ def _build_harness_claude_code(config: LoadedConfig, plan: InstallPlan, h: dict[
     else:
         settings_path = _HARNESS_SETTINGS[kind]
     # One action PER settings file a live `claude` on this machine may load: the user-scope
-    # write fans out to every claude-rotate config dir (rig-cli#368) — see claude_config_dirs.
+    # write fans out to every ~/.claude-accounts config dir (rig-cli#368) — see claude_config_dirs.
     for target in _claude_settings_targets(config, kind, _expand(str(settings_path), config.repo_root)):
         plan.actions.append(
             Action(
@@ -1613,7 +1613,7 @@ def _build_permissions(config: LoadedConfig, catalog: Catalog, plan: InstallPlan
             # `_explicit_tools_git_hosting`'s docstring for the incident.
             "explicit_tools_git_hosting": _explicit_tools_git_hosting(p),
         }
-        # one action per settings file a live `claude` may load (claude-rotate dirs, rig-cli#368)
+        # one action per settings file a live `claude` may load (~/.claude-accounts dirs, rig-cli#368)
         for target in _claude_settings_targets(config, kind, primary):
             plan.actions.append(
                 Action(
@@ -2345,7 +2345,7 @@ def _build_hook_bridge_for_kind(
         extra_stop_hooks = _codex_extra_stop_hooks(config)
         if extra_stop_hooks:
             options["extra_stop_hooks"] = extra_stop_hooks
-    # the claude-code JSON bridge fans out to every claude-rotate config dir (rig-cli#368);
+    # the claude-code JSON bridge fans out to every ~/.claude-accounts config dir (rig-cli#368);
     # every other format/kind resolves to its single primary file
     primary = _expand(str(settings_path), config.repo_root)
     targets = (

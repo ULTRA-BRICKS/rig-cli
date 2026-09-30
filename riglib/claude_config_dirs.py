@@ -1,11 +1,11 @@
-"""Claude Code config-dir discovery — the ONE place that knows the claude-rotate layout.
+"""Claude Code config-dir discovery — the ONE place that knows the ~/.claude-accounts layout.
 
 Claude Code reads its user-scope ``settings.json`` from ``$CLAUDE_CONFIG_DIR`` when that
-variable is set, and from ``~/.claude`` otherwise. ``claude-rotate`` (the multi-account
-launcher) starts EVERY interactive session with ``CLAUDE_CONFIG_DIR=~/.claude-accounts/account-N``,
-so a rig that provisions hooks/permissions/auto-mode into ``~/.claude/settings.json`` alone
-leaves those sessions with ZERO rig-managed hooks — no guard, no Stop gate, no tg-ctl inbox —
-while ``rig status`` stays green (rig-cli#368). This module resolves the full set of
+variable is set, and from ``~/.claude`` otherwise. The per-account layout runs a session with
+``CLAUDE_CONFIG_DIR=~/.claude-accounts/account-N``, so a rig that provisions
+hooks/permissions/auto-mode into ``~/.claude/settings.json`` alone leaves those sessions with
+ZERO rig-managed hooks — no guard, no Stop gate, no tg-ctl inbox — while ``rig status`` stays
+green (rig-cli#368). This module resolves the full set of
 user-scope settings files a claude-code write must fan out to:
 
 * the primary target (``~/.claude/settings.json``, or ``harness.settings_path``),
@@ -37,7 +37,7 @@ CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR"
 def account_sort_key(account_dir: Path) -> tuple[int, str]:
     """Natural-sort ``account-N`` by the numeric suffix, not lexically — a plain
     ``sorted()`` on directory names would order ``account-10`` before ``account-2`` once a
-    machine accumulates a 10th rotated account. A non-numeric or missing suffix sorts after
+    machine accumulates a 10th account. A non-numeric or missing suffix sorts after
     every numeric one, so this can't raise on an unexpected directory name."""
     suffix = account_dir.name.removeprefix("account-")
     # ASCII digits only: ``str.isdigit`` is true for superscripts/other Unicode digits that
@@ -59,7 +59,7 @@ def primary_config_dir(home: Path | None = None) -> Path:
 def discover_claude_config_dirs(home: Path | None = None) -> list[Path]:
     """Every ``~/.claude-accounts/account-*`` DIRECTORY on disk, natural-sorted.
 
-    Directories only — the launcher keeps ``current``/``rotate.log`` FILES beside them. A
+    Directories only — plain state FILES (``current``, ``rotate.log``) may sit beside them. A
     missing ``~/.claude-accounts`` is a normal empty result, not an error. Never creates
     anything: a dir that does not exist is not a session that could ever load settings.
     """
@@ -268,7 +268,7 @@ def _doctor_candidates(
     """``$CLAUDE_CONFIG_DIR`` first, then the SAME managed targets the plan fans out to, then
     the account dirs a ``discover_config_dirs: false`` opted OUT of (listed as unmanaged).
 
-    An env dir that IS one of the managed targets (claude-rotate exports
+    An env dir that IS one of the managed targets (a per-account session exports
     ``CLAUDE_CONFIG_DIR=~/.claude-accounts/account-N`` into the very shell running doctor)
     keeps its managed role, so its gap names ``rig apply commit`` — the fix that actually
     converges it — instead of the ad-hoc ``settings_paths`` advice meant for a foreign dir."""

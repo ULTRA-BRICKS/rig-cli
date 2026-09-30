@@ -687,8 +687,8 @@ def _add_report_parser(sub: "argparse._SubParsersAction") -> None:
 
 def _add_usage_parser(sub: "argparse._SubParsersAction") -> None:
     """`rig usage` — real Claude token/cost usage across the default account plus every
-    claude-rotate account on this machine (`riglib/usage.py`). Bare = current week + current
-    month. `--json` is the stable, versioned contract a scheduled Telegram push (built
+    ~/.claude-accounts/account-* dir on this machine (`riglib/usage.py`). Bare = current week +
+    current month. `--json` is the stable, versioned contract a scheduled Telegram push (built
     separately, in tg-cli) invokes unattended."""
     from .usage import add_arguments as _add_usage_report_args
 
@@ -3131,9 +3131,9 @@ def _doctor_repo_root() -> Path:
 _CONFIG_DIR_ROLE_TEXT = {
     "default": "default (no CLAUDE_CONFIG_DIR)",
     "env": "CLAUDE_CONFIG_DIR (this shell)",
-    "account": "claude-rotate account",
+    "account": "account dir",
     "configured": "harness.settings_paths",
-    "unmanaged-account": "claude-rotate account, discover_config_dirs: false",
+    "unmanaged-account": "account dir, discover_config_dirs: false",
 }
 
 
@@ -3225,7 +3225,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             print(f"      {_ok('fix:')} {f.fix}")
 
     # claude config dirs: which settings.json an interactive `claude` on THIS machine actually
-    # loads (CLAUDE_CONFIG_DIR / claude-rotate account dirs) and whether the rig-managed hooks
+    # loads (CLAUDE_CONFIG_DIR / ~/.claude-accounts/account-* dirs) and whether the rig-managed hooks
     # are there — the rig-cli#368 class, invisible to `rig status` before the fan-out.
     config_dir_gaps = _print_claude_config_dirs()
 

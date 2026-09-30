@@ -1504,7 +1504,7 @@ def load_harness_fan_out(repo_root: Path) -> dict[str, Any]:
 
 
 def _validate_harness_fan_out(h: dict[str, Any]) -> None:
-    """Validate the claude-rotate fan-out keys (rig-cli#368): ``settings_paths`` + ``discover_config_dirs``.
+    """Validate the per-account config-dir fan-out keys (rig-cli#368): ``settings_paths`` + ``discover_config_dirs``.
 
     ``settings_paths`` lists EXTRA user-scope ``settings.json`` files the claude-code write reaches
     (each must be a ``.json`` path); ``discover_config_dirs`` (bool, default true) toggles the

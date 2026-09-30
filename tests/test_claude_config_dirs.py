@@ -1,7 +1,7 @@
-"""rig-cli#368 — claude-code writes fan out to every claude-rotate config dir.
+"""rig-cli#368 — claude-code writes fan out to every ~/.claude-accounts config dir.
 
-Claude Code reads its user-scope settings from ``$CLAUDE_CONFIG_DIR``; claude-rotate starts
-every interactive session with ``CLAUDE_CONFIG_DIR=~/.claude-accounts/account-N``. A rig that
+Claude Code reads its user-scope settings from ``$CLAUDE_CONFIG_DIR``; the per-account layout
+runs a session with ``CLAUDE_CONFIG_DIR=~/.claude-accounts/account-N``. A rig that
 writes hooks/permissions/auto-mode only into ``~/.claude/settings.json`` leaves those sessions
 with zero guards while ``rig status`` stays green. These tests pin: discovery, the plan
 fan-out (one action per target, per writer), apply + idempotent re-apply, drift that NAMES the
@@ -229,7 +229,7 @@ def test_apply_writes_every_config_dir_and_reapply_is_noop(home, repo, fake_agen
 
 
 def test_bridge_outer_timeout_fans_out_to_every_config_dir(home, repo, fake_agent_tools):
-    # UB-25: the finite outer hook timeout must reach every claude-rotate account dir, not just
+    # UB-25: the finite outer hook timeout must reach every ~/.claude-accounts account dir, not just
     # ~/.claude — a session under CLAUDE_CONFIG_DIR=account-N would otherwise keep the 600s
     # default and fail open on a long guard.
     from riglib.actions.runner import HOOK_BRIDGE_TIMEOUT_S
@@ -363,7 +363,7 @@ def test_doctor_malformed_settings_is_always_a_gap(tmp_path):
 
 
 def test_doctor_env_dir_that_is_a_managed_account_dir_keeps_the_managed_fix(tmp_path):
-    # claude-rotate exports CLAUDE_CONFIG_DIR=<account dir> into the shell running doctor; that
+    # a per-account session exports CLAUDE_CONFIG_DIR=<account dir> into the shell running doctor; that
     # dir is ALSO a discovered fan-out target, so the fix must be `rig apply commit` (which
     # converges it), not the settings_paths advice meant for a foreign, unmanaged dir
     home = _fake_home(tmp_path, ("account-0",))

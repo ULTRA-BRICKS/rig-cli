@@ -58,8 +58,8 @@ def _isolate_home(monkeypatch, tmp_path):
     # doesn't get false target-assertion failures; override inline where needed.
     monkeypatch.delenv("PI_CODING_AGENT_DIR", raising=False)
     monkeypatch.delenv("PI_CONFIG_DIR", raising=False)
-    # The claude-rotate launcher exports CLAUDE_CONFIG_DIR=~/.claude-accounts/account-N into every
-    # agent session — including the one running this suite. `rig doctor` reads it to report the
+    # A per-account agent session runs with CLAUDE_CONFIG_DIR=~/.claude-accounts/account-N —
+    # including the one running this suite. `rig doctor` reads it to report the
     # config dir a live `claude` would load; clear it so a hermetic test never inspects (or is
     # tempted to write into) the developer's REAL account dir (rig-cli#368).
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)

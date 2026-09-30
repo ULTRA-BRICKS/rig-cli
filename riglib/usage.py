@@ -8,7 +8,7 @@ a fixed-depth assumption was tried and found wrong on real logs):
     (``<encoded-project-dir>/<session-uuid>.jsonl``) plus, per session, however many
     delegated-agent transcripts it spawned (``<session-uuid>/subagents/*.jsonl``,
     ``<session-uuid>/subagents/workflows/<run>/*.jsonl``)
-  * ``~/.claude-accounts/account-*/projects/**/*.jsonl`` (each claude-rotate account, same
+  * ``~/.claude-accounts/account-*/projects/**/*.jsonl`` (each per-account dir, same
     nested layout)
 
 Each line that carries token usage has ``message.usage.{input_tokens,output_tokens,
@@ -233,7 +233,7 @@ def _resolve_home(home: Path | None) -> Path:
 def resolve_account_roots(home: Path | None = None) -> list[tuple[str, Path]]:
     """``[("default", ~/.claude/projects), ("account-0", ~/.claude-accounts/account-0/projects), ...]``
     — only roots that actually exist on disk. Globs ``account-*`` rather than hardcoding a
-    count, so a 4th rotated account is picked up with zero code changes; a missing
+    count, so a 4th account is picked up with zero code changes; a missing
     ``~/.claude-accounts`` directory is a normal skip, not an error."""
     home = _resolve_home(home)
     roots: list[tuple[str, Path]] = []
@@ -722,7 +722,7 @@ def render_text(reports: dict[str, PeriodReport], *, accounts_scanned: list[str]
     fast and dependency-light like every other `rig` command)."""
     # accounts_scanned is directory names (from disk, not JSONL content), but sanitize
     # them the same way as model/account rows — the header is text output too, and a
-    # crafted claude-rotate account directory name shouldn't get a free pass just because
+    # crafted ~/.claude-accounts directory name shouldn't get a free pass just because
     # it landed here instead of in a per-account row (review finding).
     sanitized_accounts = [_sanitize_display(a) for a in accounts_scanned]
     lines: list[str] = [
