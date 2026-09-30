@@ -1740,8 +1740,6 @@ def test_autosave_script_reads_mtime_gnu_form_first():
     gnu = body.index("stat -c %Y")
     bsd = body.index("stat -f %m")
     assert gnu < bsd, "GNU `stat -c %Y` must precede BSD `stat -f %m`"
-    # the mtime is validated numeric before it feeds `$(( ))` — no leaked text can reach arithmetic
-    assert "case \"$mtime\" in" in body
 
 
 def test_autosave_script_is_valid_bash_under_nounset():

@@ -1389,9 +1389,72 @@ health() {{ printf '{{"ts":"%s","result":"%s","detail":"%s"}}\\n' "$(now)" "$1" 
 count_lines() {{ local n; n=$("$@" 2>/dev/null | wc -l | tr -d ' '); printf '%s' "${{n:-0}}"; }}
 count_panes() {{ local n; n=$(grep -c '^pane' "$1" 2>/dev/null); printf '%s' "${{n:-0}}"; }}
 
-# single-flight: mkdir is an atomic lock (portable, no flock dependency).
-if ! mkdir "$LOCK" 2>/dev/null; then log "busy: lock held, skipping"; health busy "lock held"; exit 0; fi
-trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+# mtime (epoch secs) of $1, or 0 when unknown: try `stat -c %Y` (GNU) FIRST, `stat -f %m`
+# (BSD/macOS) as the fallback — the form that fails on THIS platform must fail CLEANLY. GNU
+# `stat -f %m FILE` treats `%m` as a missing file but FILE as a valid one: it prints FILE's
+# filesystem block (`  File: "..."`) to STDOUT and still exits non-zero, so a BSD-first `||` chain
+# concatenates that block with the fallback's number and feeds `File:` into `$(( ))` → `File:
+# unbound variable` under `set -u`. GNU-first fixes it: on Linux the first form succeeds (no
+# fallback); on macOS `stat -c` errors to stderr only (no stdout leak) and the BSD form runs. The
+# numeric guard is belt-and-braces against any future leak.
+path_mtime() {{ local m; m=$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0); case "$m" in ''|*[!0-9]*) m=0 ;; esac; printf '%s' "$m"; }}
+
+# single-flight: mkdir is an atomic lock (portable, no flock dependency). The holder records its
+# pid INSIDE the lock so a later run can tell a live holder from one that died without its EXIT
+# trap (SIGKILL, OOM, hang then kill, crash-reboot) — before #627 one such run left a lock that made
+# every later run skip forever.
+# Returns 0 = taken (pid recorded), 1 = held by someone else, 2 = taken but the pid could not be
+# recorded (lock released again, error logged): a lock we hold MUST name us, else release_lock could
+# never remove it.
+take_lock() {{
+  mkdir "$LOCK" 2>/dev/null || return 1
+  if ! echo "$$" > "$LOCK/pid" 2>/dev/null; then
+    rm -f "$LOCK/pid"; rmdir "$LOCK" 2>/dev/null
+    log "ERROR cannot record pid in lock $LOCK"; health error "cannot record lock pid"; return 2
+  fi
+}}
+# Release only a lock that is still OURS: if a hung run outlived STALE_SECS and its lock was broken,
+# its late EXIT must not delete the lock the breaking run now holds. The pid file goes before rmdir
+# (rmdir refuses a non-empty dir).
+release_lock() {{ if [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ]; then rm -f "$LOCK/pid"; rmdir "$LOCK" 2>/dev/null; fi; }}
+# The breaker mutex is held for milliseconds; one older than BREAK_STALE_SECS is taken to be leaked
+# by a breaker killed mid-break and is reclaimed once, so it can never re-create the skip-forever
+# bug. (A breaker ALIVE but stalled that long would be raced; it only does a few fs ops.)
+BREAK_STALE_SECS=60
+take_break() {{
+  mkdir "$LOCK.break" 2>/dev/null && return 0
+  [ $(( $(date +%s) - $(path_mtime "$LOCK.break") )) -gt "$BREAK_STALE_SECS" ] || return 1
+  log "stale breaker mutex $LOCK.break reclaimed"
+  rmdir "$LOCK.break" 2>/dev/null; mkdir "$LOCK.break" 2>/dev/null
+}}
+# Break the lock iff its recorded holder is dead or it is older than STALE_SECS (which also covers a
+# legacy empty lock with no pid file), then retry mkdir ONCE. Breakers serialise on a sibling mkdir
+# and re-judge under it, so two runs racing to break the same stale lock can never delete the lock
+# the other just re-took: exactly one wins. A live holder younger than STALE_SECS is left alone.
+# Same return codes as take_lock; 1 also covers "another run is breaking it right now".
+break_stale_lock() {{
+  take_break || return 1
+  local holder age reason="" rc
+  if [ -d "$LOCK" ]; then
+    holder=$(cat "$LOCK/pid" 2>/dev/null); case "$holder" in ''|*[!0-9]*) holder=none ;; esac
+    age=$(( $(date +%s) - $(path_mtime "$LOCK") ))
+    if [ "$holder" != none ] && ! kill -0 "$holder" 2>/dev/null; then reason="holder dead"
+    elif [ "$age" -gt "$STALE_SECS" ]; then reason="older than ${{STALE_SECS}}s"; fi
+    if [ -n "$reason" ]; then
+      log "stale lock $LOCK: holder pid $holder, $reason, age ${{age}}s — breaking it"
+      health stale-lock "broke lock: holder pid $holder, $reason, age ${{age}}s"
+      rm -rf "$LOCK"
+    fi
+  fi
+  take_lock; rc=$?
+  rmdir "$LOCK.break" 2>/dev/null
+  return $rc
+}}
+take_lock; got=$?
+if [ "$got" -eq 1 ]; then break_stale_lock; got=$?; fi
+if [ "$got" -eq 1 ]; then log "busy: lock held, skipping"; health busy "lock held"; exit 0; fi
+if [ "$got" -ne 0 ]; then exit 1; fi
+trap release_lock EXIT
 
 {recovery_step}
 # no server → nothing to save (a cold boot with no tmux yet is NORMAL, not an error).
@@ -1421,16 +1484,7 @@ if [ ! -x "$SAVE" ]; then log "ERROR resurrect save.sh missing at $SAVE"; health
 "$SAVE" quiet || log "WARN resurrect save.sh exited $? — checking for a snapshot anyway"
 newest=$(ls -t "$RDIR"/tmux_resurrect_*.txt 2>/dev/null | head -1)
 if [ -n "$newest" ] && [ -s "$newest" ]; then
-  # mtime: try `stat -c %Y` (GNU) FIRST, `stat -f %m` (BSD/macOS) as the fallback — the form that
-  # fails on THIS platform must fail CLEANLY. GNU `stat -f %m FILE` treats `%m` as a missing file
-  # but FILE as a valid one: it prints FILE's filesystem block (`  File: "..."`) to STDOUT and still
-  # exits non-zero, so a BSD-first `||` chain concatenates that block with the fallback's number and
-  # feeds `File:` into `$(( ))` → `File: unbound variable` under `set -u`. GNU-first fixes it: on
-  # Linux the first form succeeds (no fallback); on macOS `stat -c` errors to stderr only (no stdout
-  # leak) and the BSD form runs. The numeric guard is belt-and-braces against any future leak.
-  mtime=$(stat -c %Y "$newest" 2>/dev/null || stat -f %m "$newest" 2>/dev/null || echo 0)
-  case "$mtime" in ''|*[!0-9]*) mtime=0 ;; esac
-  age=$(( $(date +%s) - mtime ))
+  age=$(( $(date +%s) - $(path_mtime "$newest") ))
   if [ "$age" -gt "$STALE_SECS" ]; then log "WARN saved but newest snapshot age ${{age}}s > ${{STALE_SECS}}s"; fi
   log "saved $(basename "$newest") panes=$panes sessions=$sessions"
   health ok "$(basename "$newest")"
