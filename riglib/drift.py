@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -38,6 +39,8 @@ from .actions.runner import (
     _spotlight_dry_run,
     _tg_ctl_dry_run,
     _tgctl_reaper_dry_run,
+    _sysmon_dry_run,
+    _sysmon_service_loaded,
     _tmux_dry_run,
     _resolve_excludes_target,
     build_hook_descriptor,
@@ -92,6 +95,8 @@ from .actions.runner import (
     skill_harness_link_target,
     tg_ctl_plan_from_action,
     tgctl_reaper_plan_from_action,
+    sysmon_desired_files,
+    sysmon_plan_from_action,
     tmux_plan_from_action,
     env_plan_from_action,
 )
@@ -603,6 +608,8 @@ def detect(
             _check_tg_ctl(action, report)
         elif action.kind == "provision_tgctl_reaper":
             _check_tgctl_reaper(action, report)
+        elif action.kind == "provision_sysmon":
+            _check_sysmon(action, report)
         elif action.kind == "provision_spotlight":
             _check_spotlight(action, report)
         elif action.kind == "provision_bunfig":
@@ -3738,6 +3745,53 @@ def _check_tgctl_reaper(action: Action, report: DriftReport) -> None:
             DriftItem("missing", "tgctl_reaper", action.item, plan.plist_path,
                       f"tgctl-reaper LaunchAgent '{plan.label}' installed but not loaded")
         )
+
+
+def _check_sysmon(action: Action, report: DriftReport) -> None:
+    """Flag drift on the rig-managed sysmon resource monitor (rig-cli#622).
+
+    missing  — a package module, ``sysmon.json`` or the service file is absent; the service is
+               not loaded; or it is loaded but its heartbeat is stale (the daemon is crash-looping
+               or wedged — a monitor that does not run must not read as healthy).
+    modified — a package module / ``sysmon.json`` / the service file differs from the render
+               (a hand edit, or a rig upgrade not yet applied). ``rig apply`` reconciles.
+    Shares every desired byte with the install handler (``sysmon_plan_from_action``).
+    """
+    if sys.platform != "darwin" and not sys.platform.startswith("linux"):
+        return
+    plan = sysmon_plan_from_action(action)
+    desired_files = sysmon_desired_files(plan)
+    missing = [p for p in desired_files if not p.is_file()]
+    differs = [p for p, text in desired_files.items() if p.is_file() and p.read_text(encoding="utf-8") != text]
+    for path in missing[:3]:
+        report.items.append(DriftItem("missing", "sysmon", action.item, path, "sysmon file not installed"))
+    for path in differs[:3]:
+        report.items.append(DriftItem("modified", "sysmon", action.item, path,
+                                      "sysmon file differs from the configured render"))
+    service_path = plan.plist_path if sys.platform == "darwin" else plan.unit_path
+    desired = plan.render_plist() if sys.platform == "darwin" else plan.render_unit()
+    if not service_path.is_file():
+        report.items.append(DriftItem("missing", "sysmon", action.item, service_path, "sysmon service not installed"))
+        return
+    if service_path.read_text(encoding="utf-8") != desired:
+        report.items.append(DriftItem("modified", "sysmon", action.item, service_path,
+                                      "sysmon service differs from the configured render"))
+        return
+    if missing or differs or _sysmon_dry_run():
+        return
+    if not _sysmon_service_loaded(plan):
+        report.items.append(DriftItem("missing", "sysmon", action.item, service_path,
+                                      f"sysmon service '{plan.label}' installed but not loaded"))
+        return
+    from .sysmon_daemon.cli import health
+    from .sysmon_daemon.config import load
+
+    h = health(load(plan.config_path))
+    if h["state"] != "running":
+        age = f", heartbeat {h['age_s']:.0f}s old" if h["age_s"] is not None else ""
+        report.items.append(DriftItem("missing", "sysmon", action.item, plan.state_dir,
+                                      f"sysmon service loaded but the daemon is {h['state']}{age}"))
+
 
 
 def _check_internal_dev(action: Action, report: DriftReport) -> None:

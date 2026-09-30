@@ -1526,6 +1526,113 @@ _TGCTL_REAPER_BLOCK = Block(
     },
 )
 
+def _sysmon_threshold(doc: str) -> Block:
+    return Block(
+        doc=doc,
+        leaves={
+            "warn": Leaf("number", "warning line"),
+            "critical": Leaf("number", "critical line"),
+        },
+    )
+
+
+_SYSMON_BLOCK = Block(
+    doc="the sysmon resource monitor (rig-cli#622): a per-machine resident daemon (LaunchAgent on "
+    "macOS, systemd --user unit on Linux) that watches load, swap, wired/compressed memory, process "
+    "storms, GPU-model processes, stuck task_for_pid tools and WindowServer freeze precursors; alerts "
+    "via tg; heals safely (notify -> throttle -> stop orphans); can launch a remediation agent; and "
+    "restores the omp sessions an incident interrupted.",
+    leaves={
+        "enabled": Leaf("boolean", "provision the sysmon daemon", default=True),
+        "label": Leaf("string", "launchd Label / systemd unit stem", default="ai.hyperide.sysmon"),
+        "config_dir": Leaf("string", "package, sysmon.json, state and logs dir", default="~/.config/rig/sysmon"),
+        "python_bin": Leaf("string", "the python3 the daemon runs under"),
+        "sample_interval_seconds": Leaf("integer", "seconds between in-process samples", default=10, minimum=1),
+        "census_interval_seconds": Leaf("integer", "seconds between ps censuses", default=60, minimum=5),
+        "snapshot_interval_seconds": Leaf("integer", "seconds between live-session snapshots", default=300,
+                                          minimum=30),
+        "events": Leaf("boolean", "stream WindowServer/watchdogd/authd log events (macOS)", default=True),
+        "auto_remediate": Leaf("boolean", "launch a detached coding-agent session on a critical incident",
+                               default=False),
+    },
+    nested={
+        "thresholds": Block(
+            doc="warn/critical lines per metric (reclaimable_gb and disk_free_gb: lower is worse)",
+            nested={
+                name: _sysmon_threshold(doc)
+                for name, doc in (
+                    ("load_per_cpu", "1-minute load average per CPU"),
+                    ("swap_pct", "swap used, percent"),
+                    ("wired_pct", "wired memory, percent of RAM"),
+                    ("reclaimable_gb", "free+inactive+speculative+purgeable GB"),
+                    ("compressor_pct", "compressor pages, percent of its limit"),
+                    ("disk_free_gb", "free GB on the swap volume"),
+                    ("procs_pct", "processes, percent of kern.maxproc"),
+                    ("storm_same_name", "processes of one user with one executable name"),
+                    ("proc_growth_per_min", "process-count growth per minute"),
+                    ("display_delays_per_min", "WindowServer 'Timer delayed' lines per minute"),
+                    ("display_max_delay_s", "longest WindowServer timer delay in the last minute"),
+                    ("taskport_stuck_s", "age of a task_for_pid tool stuck behind SecurityAgent"),
+                )
+            },
+        ),
+        "alert": Block(
+            doc="Telegram alerts via tg-cli",
+            leaves={
+                "enabled": Leaf("boolean", "send alerts", default=True),
+                "min_severity": Leaf("string", "lowest severity that alerts", enum=("warning", "critical"),
+                                     default="critical"),
+                "cooldown_minutes": Leaf("integer", "re-alert an unchanged finding after this long", default=30,
+                                         minimum=1),
+                "max_per_hour": Leaf("integer", "messages per rolling hour", default=6, minimum=1),
+                "resolved": Leaf("boolean", "send one line when an alerted finding clears", default=True),
+                "dry_run": Leaf("boolean", "record alerts without sending", default=False),
+            },
+        ),
+        "heal": Block(
+            doc="the auto-heal ladder (never touches user-interactive processes)",
+            leaves={
+                "enabled": Leaf("boolean", "run the ladder", default=True),
+                "notify_agent": Leaf("boolean", "message the offending agent", default=True),
+                "throttle": Leaf("boolean", "move offenders to the background band on critical (restored when "
+                                 "the pressure clears)", default=True),
+                "kill_orphans": Leaf("boolean", "stop proven-orphan offender trees (their agent host died) after "
+                                     "the grace period", default=False),
+                "kill_owned": Leaf("boolean", "also stop agent-owned offenders after the grace period",
+                                   default=False),
+                "grace_seconds": Leaf("integer", "critical must persist this long before a stop", default=120,
+                                      minimum=0),
+                "dry_run": Leaf("boolean", "record steps without executing them", default=False),
+            },
+        ),
+        "remediation": Block(
+            doc="the auto-remediation agent session (only when auto_remediate is true)",
+            leaves={
+                "agent": Leaf("string", "harness to launch", enum=("omp", "claude-code", "codex", "opencode"),
+                              default="omp"),
+                "cooldown_minutes": Leaf("integer", "at most one launch per this many minutes", default=60,
+                                         minimum=1),
+                "dry_run": Leaf("boolean", "build the brief and command without launching", default=False),
+            },
+        ),
+        "sessions": Block(
+            doc="session snapshot and restore",
+            leaves={
+                "restore_on_boot": Leaf("boolean", "resume interrupted omp sessions after a crash reboot",
+                                        default=False),
+                "tmux_session": Leaf("string", "tmux session that receives restored windows", default="main"),
+            },
+        ),
+        "gpu": Block(
+            doc="the agent-tools#817 GPU-model slot pool the monitor checks",
+            leaves={
+                "slots": Leaf("integer", "slot count (default: env.vars.RIG_GPU_SLOTS, else 2)", minimum=1),
+                "slot_dir": Leaf("string", "lock dir (default: env.vars.RIG_GPU_SLOT_DIR, else the pool default)"),
+            },
+        ),
+    },
+)
+
 _INTERNAL_DEV_BLOCK = Block(
     doc=(
         "internal development of the rig-ecosystem tools themselves (rig, tg-cli, review-cli, …): "
@@ -1650,6 +1757,7 @@ BLOCKS: dict[str, Block] = {
     "tg_ctl": _TG_CTL_BLOCK,
     "tcc_watch": _TCC_WATCH_BLOCK,
     "tgctl_reaper": _TGCTL_REAPER_BLOCK,
+    "sysmon": _SYSMON_BLOCK,
 
 "internal_dev": _INTERNAL_DEV_BLOCK,    "ship_delegator": _SHIP_DELEGATOR_BLOCK,
     "linters": _LINTERS_BLOCK,

@@ -67,7 +67,7 @@ _HARNESS_KIND_CHOICES: tuple[str, ...] = tuple(
 # Routing a GLOBAL-only value into a committed repo rig.yaml is the footgun this map prevents.
 # A category absent here defaults to REPO (the conservative "it lives in the committed file").
 _GLOBAL_ONLY_CATEGORIES = {
-    "gitignore", "spotlight", "bun", "git", "profile", "tg_ctl", "tcc_watch", "tgctl_reaper", "tmux", "mode",
+    "gitignore", "spotlight", "bun", "git", "profile", "tg_ctl", "tcc_watch", "tgctl_reaper", "sysmon", "tmux", "mode",
     "tracked_files",
 }
 
@@ -593,6 +593,27 @@ AREAS: tuple[Area, ...] = (
         ),
     ),
     Area(
+        "sysmon", "sysmon resource monitor",
+        "A resident daemon (macOS LaunchAgent / Linux systemd --user) that watches load, swap, "
+        "wired/compressed memory, process storms, GPU-model processes, stuck task_for_pid tools and "
+        "WindowServer freeze precursors; alerts via tg; heals safely (notify, throttle, stop orphans); "
+        "can hand an incident to a coding agent; restores interrupted omp sessions (rig-cli#622).",
+        (
+            _opt("sysmon.enabled", KIND_BOOL, True,
+                 "Provision the sysmon daemon. GLOBAL-only (one per machine) — never written to a "
+                 "repo rig.yaml."),
+            _opt("sysmon.auto_remediate", KIND_BOOL, False,
+                 "On a critical incident, launch a detached coding-agent session (sysmon.remediation."
+                 "agent: omp by default) with the full incident context to fix the root cause, report "
+                 "via `tg report` and resume interrupted sessions. Default OFF."),
+            _opt("sysmon.heal.enabled", KIND_BOOL, True,
+                 "Run the heal ladder: notify the offending agent, throttle offenders on critical, stop "
+                 "ORPHANED offender trees after the grace period. Never touches user-interactive processes."),
+            _opt("sysmon.alert.min_severity", KIND_ENUM, "critical",
+                 "Lowest severity that sends a Telegram alert.", choices=("warning", "critical")),
+        ),
+    ),
+    Area(
         "internal_dev", "internal-dev daemon auto-reload",
         "A per-repo committed post-commit hook that gracefully reloads the daemon when a commit touches its source.",
         (
@@ -750,7 +771,7 @@ def set_path(data: dict[str, Any], dotted: str, value: Any) -> None:
 # when the block is missing/empty, or requires `enabled` to be truthy), NOT as enabled-by-default:
 # `_build_harness`/`_build_models` bail on a missing block, and the git-hooks dispatcher only runs
 # when `dispatcher.enabled` is truthy. The other default-ON categories (skills, agent_hooks, ci,
-# mcp, agents_md, github, gitignore, tg_ctl, tcc_watch, tgctl_reaper) gate on `enabled is False`, so an absent block IS
+# mcp, agents_md, github, gitignore, tg_ctl, tcc_watch, tgctl_reaper, sysmon) gate on `enabled is False`, so an absent block IS
 # active for them and the registry default is the correct live value. Keeping this in lockstep
 # with plan.py is what stops `rig setup`/`config get` from claiming auto-mode, the schedule, or the
 # dispatcher are on when `rig apply` would skip them. (tmux defaults OFF, so it needs no entry.)

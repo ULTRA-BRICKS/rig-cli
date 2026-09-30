@@ -355,6 +355,33 @@ def _verify_tgctl_reaper(action: Action) -> list[VerifyResult]:
     )
 
 
+# ── sysmon ───────────────────────────────────────────────────────────────────────────
+@register_verifier("provision_sysmon")
+def _verify_sysmon(action: Action) -> list[VerifyResult]:
+    """The sysmon service file is present and the service is loaded/active (launchd ``gui/<uid>``
+    on macOS, ``systemctl --user`` on Linux). The daemon's own heartbeat is judged by ``rig
+    status`` (drift), not here: right after a (re)load it has not ticked yet."""
+    from .actions.runner import _launchctl_gui_loaded, _sysmon_service_loaded, sysmon_plan_from_action
+
+    plan = sysmon_plan_from_action(action)
+    if _is_darwin():
+        return _verify_launchd_agent(
+            "sysmon", "monitor", plan.label, plan.plist_path, "RIG_SYSMON_DRY_RUN",
+            loaded_check=_launchctl_gui_loaded,
+        )
+    exists = plan.unit_path.is_file()
+    results = [VerifyResult("sysmon", "monitor", exists,
+                            f"unit {'present' if exists else 'MISSING'}: {plan.unit_path}")]
+    skip = _live_check_skip_reason("RIG_SYSMON_DRY_RUN")
+    if skip is not None:
+        results.append(VerifyResult("sysmon", "monitor", None, f"systemd active check skipped ({skip})"))
+    elif exists:
+        active = _sysmon_service_loaded(plan)
+        results.append(VerifyResult("sysmon", "monitor", active,
+                                    f"systemd --user unit '{plan.unit_name}' {'active' if active else 'NOT active'}"))
+    return results
+
+
 def _read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")

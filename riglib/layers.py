@@ -45,6 +45,7 @@ _CATEGORY_LAYER = {
     "fj": GLOBAL,
     "tg_ctl": GLOBAL,
     "tgctl_reaper": GLOBAL,
+    "sysmon": GLOBAL,
     "tools": GLOBAL,
     # the machine-level agent-tools/env file (AGENT_TOOLS_ROOT). The CHECK runs from the
     # repo-scoped ship_delegator action, but the artifact is machine-wide — its drift is the

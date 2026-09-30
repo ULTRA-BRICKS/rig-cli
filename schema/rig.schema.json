@@ -1835,6 +1835,395 @@
       },
       "additionalProperties": false
     },
+    "sysmon": {
+      "type": "object",
+      "description": "the sysmon resource monitor (rig-cli#622): a per-machine resident daemon (LaunchAgent on macOS, systemd --user unit on Linux) that watches load, swap, wired/compressed memory, process storms, GPU-model processes, stuck task_for_pid tools and WindowServer freeze precursors; alerts via tg; heals safely (notify -> throttle -> stop orphans); can launch a remediation agent; and restores the omp sessions an incident interrupted.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "provision the sysmon daemon",
+          "default": true
+        },
+        "label": {
+          "type": "string",
+          "description": "launchd Label / systemd unit stem",
+          "default": "ai.hyperide.sysmon"
+        },
+        "config_dir": {
+          "type": "string",
+          "description": "package, sysmon.json, state and logs dir",
+          "default": "~/.config/rig/sysmon"
+        },
+        "python_bin": {
+          "type": "string",
+          "description": "the python3 the daemon runs under"
+        },
+        "sample_interval_seconds": {
+          "type": "integer",
+          "description": "seconds between in-process samples",
+          "default": 10,
+          "minimum": 1
+        },
+        "census_interval_seconds": {
+          "type": "integer",
+          "description": "seconds between ps censuses",
+          "default": 60,
+          "minimum": 5
+        },
+        "snapshot_interval_seconds": {
+          "type": "integer",
+          "description": "seconds between live-session snapshots",
+          "default": 300,
+          "minimum": 30
+        },
+        "events": {
+          "type": "boolean",
+          "description": "stream WindowServer/watchdogd/authd log events (macOS)",
+          "default": true
+        },
+        "auto_remediate": {
+          "type": "boolean",
+          "description": "launch a detached coding-agent session on a critical incident",
+          "default": false
+        },
+        "thresholds": {
+          "type": "object",
+          "description": "warn/critical lines per metric (reclaimable_gb and disk_free_gb: lower is worse)",
+          "properties": {
+            "load_per_cpu": {
+              "type": "object",
+              "description": "1-minute load average per CPU",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "swap_pct": {
+              "type": "object",
+              "description": "swap used, percent",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "wired_pct": {
+              "type": "object",
+              "description": "wired memory, percent of RAM",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "reclaimable_gb": {
+              "type": "object",
+              "description": "free+inactive+speculative+purgeable GB",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "compressor_pct": {
+              "type": "object",
+              "description": "compressor pages, percent of its limit",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "disk_free_gb": {
+              "type": "object",
+              "description": "free GB on the swap volume",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "procs_pct": {
+              "type": "object",
+              "description": "processes, percent of kern.maxproc",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "storm_same_name": {
+              "type": "object",
+              "description": "processes of one user with one executable name",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "proc_growth_per_min": {
+              "type": "object",
+              "description": "process-count growth per minute",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "display_delays_per_min": {
+              "type": "object",
+              "description": "WindowServer 'Timer delayed' lines per minute",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "display_max_delay_s": {
+              "type": "object",
+              "description": "longest WindowServer timer delay in the last minute",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "taskport_stuck_s": {
+              "type": "object",
+              "description": "age of a task_for_pid tool stuck behind SecurityAgent",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "alert": {
+          "type": "object",
+          "description": "Telegram alerts via tg-cli",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "send alerts",
+              "default": true
+            },
+            "min_severity": {
+              "type": "string",
+              "description": "lowest severity that alerts",
+              "enum": [
+                "warning",
+                "critical"
+              ],
+              "default": "critical"
+            },
+            "cooldown_minutes": {
+              "type": "integer",
+              "description": "re-alert an unchanged finding after this long",
+              "default": 30,
+              "minimum": 1
+            },
+            "max_per_hour": {
+              "type": "integer",
+              "description": "messages per rolling hour",
+              "default": 6,
+              "minimum": 1
+            },
+            "resolved": {
+              "type": "boolean",
+              "description": "send one line when an alerted finding clears",
+              "default": true
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "record alerts without sending",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "heal": {
+          "type": "object",
+          "description": "the auto-heal ladder (never touches user-interactive processes)",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "run the ladder",
+              "default": true
+            },
+            "notify_agent": {
+              "type": "boolean",
+              "description": "message the offending agent",
+              "default": true
+            },
+            "throttle": {
+              "type": "boolean",
+              "description": "move offenders to the background band on critical (restored when the pressure clears)",
+              "default": true
+            },
+            "kill_orphans": {
+              "type": "boolean",
+              "description": "stop proven-orphan offender trees (their agent host died) after the grace period",
+              "default": false
+            },
+            "kill_owned": {
+              "type": "boolean",
+              "description": "also stop agent-owned offenders after the grace period",
+              "default": false
+            },
+            "grace_seconds": {
+              "type": "integer",
+              "description": "critical must persist this long before a stop",
+              "default": 120,
+              "minimum": 0
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "record steps without executing them",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "remediation": {
+          "type": "object",
+          "description": "the auto-remediation agent session (only when auto_remediate is true)",
+          "properties": {
+            "agent": {
+              "type": "string",
+              "description": "harness to launch",
+              "enum": [
+                "omp",
+                "claude-code",
+                "codex",
+                "opencode"
+              ],
+              "default": "omp"
+            },
+            "cooldown_minutes": {
+              "type": "integer",
+              "description": "at most one launch per this many minutes",
+              "default": 60,
+              "minimum": 1
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "build the brief and command without launching",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "sessions": {
+          "type": "object",
+          "description": "session snapshot and restore",
+          "properties": {
+            "restore_on_boot": {
+              "type": "boolean",
+              "description": "resume interrupted omp sessions after a crash reboot",
+              "default": false
+            },
+            "tmux_session": {
+              "type": "string",
+              "description": "tmux session that receives restored windows",
+              "default": "main"
+            }
+          },
+          "additionalProperties": false
+        },
+        "gpu": {
+          "type": "object",
+          "description": "the agent-tools#817 GPU-model slot pool the monitor checks",
+          "properties": {
+            "slots": {
+              "type": "integer",
+              "description": "slot count (default: env.vars.RIG_GPU_SLOTS, else 2)",
+              "minimum": 1
+            },
+            "slot_dir": {
+              "type": "string",
+              "description": "lock dir (default: env.vars.RIG_GPU_SLOT_DIR, else the pool default)"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "internal_dev": {
       "type": "object",
       "description": "internal development of the rig-ecosystem tools themselves (rig, tg-cli, review-cli, …): a per-repo COMMITTED opt-in that installs a post-commit git hook so a commit touching the daemon's source gracefully reloads the running daemon (tg-ctl restart) — zero manual restart.",

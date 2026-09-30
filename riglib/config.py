@@ -99,6 +99,7 @@ _VALID_TOP_KEYS = {
     "tg_ctl",
     "tcc_watch",
     "tgctl_reaper",
+    "sysmon",
     "internal_dev",
     "ship_delegator",
     "linters",
@@ -1041,6 +1042,7 @@ def validate(data: dict[str, Any]) -> None:
     _validate_tg_ctl(data.get("tg_ctl", {}))
     _validate_tcc_watch(data.get("tcc_watch", {}))
     _validate_tgctl_reaper(data.get("tgctl_reaper", {}))
+    _validate_sysmon(data.get("sysmon", {}))
     _validate_internal_dev(data.get("internal_dev", {}))
     _validate_ship_delegator(data.get("ship_delegator", {}))
     _validate_linters(data.get("linters", {}))
@@ -3762,6 +3764,100 @@ def _validate_tgctl_reaper(t: dict[str, Any]) -> None:
                 f"tgctl_reaper.{strkey} must be a string, got {value!r}",
                 schema_path=f"tgctl_reaper.{strkey}",
             )
+
+
+#: metrics where a LOWER value is worse (warn must sit ABOVE critical) — mirrors
+#: riglib.sysmon_daemon.detect.LOWER_IS_WORSE.
+_SYSMON_LOWER_IS_WORSE = {"reclaimable_gb", "disk_free_gb"}
+_SYSMON_BOOLS = {
+    "alert": ("enabled", "resolved", "dry_run"),
+    "heal": ("enabled", "notify_agent", "throttle", "kill_orphans", "kill_owned", "dry_run"),
+    "remediation": ("dry_run",),
+    "sessions": ("restore_on_boot",),
+}
+_SYSMON_INTS = {
+    "alert": {"cooldown_minutes": 1, "max_per_hour": 1},
+    "heal": {"grace_seconds": 0},
+    "remediation": {"cooldown_minutes": 1},
+    "gpu": {"slots": 1},
+}
+_SYSMON_STRS = {"sessions": ("tmux_session",), "gpu": ("slot_dir",)}
+
+
+def _sysmon_fail(path: str, message: str) -> None:
+    raise ConfigError(message, schema_path=f"sysmon.{path}" if path else "sysmon")
+
+
+def _is_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _validate_sysmon(t: dict[str, Any]) -> None:
+    """Validate the ``sysmon`` block — the rig-managed resource monitor (rig-cli#622; see
+    :mod:`riglib.sysmon`). Per-MACHINE, so GLOBAL layer only (``~/.config/rig/config.yaml``).
+    Default **ON**: an EMPTY/absent block still provisions the daemon; ``enabled: false`` opts out.
+
+    Fail-closed on every shape error (a monitor misconfigured into silence is the failure it
+    exists to prevent): unknown keys at every level, non-bool flags, integers out of range,
+    thresholds that are not ``{warn, critical}`` numbers or whose order is inverted (warn must be
+    reached BEFORE critical: ``warn <= critical``, or ``warn >= critical`` for the lower-is-worse
+    ``reclaimable_gb``/``disk_free_gb``), an unknown remediation agent or alert severity.
+    """
+    if not isinstance(t, dict):
+        _sysmon_fail("", "sysmon must be a mapping")
+    if not t:
+        return
+    _reject_unknown_keys(t, "sysmon")
+    for key in ("enabled", "events", "auto_remediate"):
+        if key in t and not isinstance(t[key], bool):
+            _sysmon_fail(key, f"sysmon.{key} must be a bool, got {t[key]!r}")
+    for key, low in (("sample_interval_seconds", 1), ("census_interval_seconds", 5), ("snapshot_interval_seconds", 30)):
+        if key in t and (not _is_int(t[key]) or t[key] < low):
+            _sysmon_fail(key, f"sysmon.{key} must be an int >= {low}, got {t[key]!r}")
+    for key in ("label", "config_dir", "python_bin"):
+        if key in t and (not isinstance(t[key], str) or not t[key].strip()):
+            _sysmon_fail(key, f"sysmon.{key} must be a non-empty string, got {t[key]!r}")
+    for section in ("thresholds", "alert", "heal", "remediation", "sessions", "gpu"):
+        if section in t and not isinstance(t[section], dict):
+            _sysmon_fail(section, f"sysmon.{section} must be a mapping")
+        if isinstance(t.get(section), dict):
+            _reject_unknown_keys(t[section], f"sysmon.{section}")
+    for metric, pair in (t.get("thresholds") or {}).items():
+        if not isinstance(pair, dict):
+            _sysmon_fail(f"thresholds.{metric}", f"sysmon.thresholds.{metric} must be a mapping")
+        _reject_unknown_keys(pair, f"sysmon.thresholds.{metric}")
+        if set(pair) != {"warn", "critical"}:
+            _sysmon_fail(f"thresholds.{metric}", f"sysmon.thresholds.{metric} needs both warn and critical")
+        for k in ("warn", "critical"):
+            v = pair[k]
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or v < 0:
+                _sysmon_fail(f"thresholds.{metric}.{k}", f"sysmon.thresholds.{metric}.{k} must be a number >= 0")
+        inverted = pair["warn"] < pair["critical"] if metric in _SYSMON_LOWER_IS_WORSE else pair["warn"] > pair["critical"]
+        if inverted:
+            order = ">=" if metric in _SYSMON_LOWER_IS_WORSE else "<="
+            _sysmon_fail(f"thresholds.{metric}", f"sysmon.thresholds.{metric}: warn must be {order} critical")
+    for section, keys in _SYSMON_BOOLS.items():
+        for key in keys:
+            value = (t.get(section) or {}).get(key)
+            if value is not None and not isinstance(value, bool):
+                _sysmon_fail(f"{section}.{key}", f"sysmon.{section}.{key} must be a bool, got {value!r}")
+    for section, bounds in _SYSMON_INTS.items():
+        for key, low in bounds.items():
+            value = (t.get(section) or {}).get(key)
+            if value is not None and (not _is_int(value) or value < low):
+                _sysmon_fail(f"{section}.{key}", f"sysmon.{section}.{key} must be an int >= {low}, got {value!r}")
+    for section, keys in _SYSMON_STRS.items():
+        for key in keys:
+            value = (t.get(section) or {}).get(key)
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                _sysmon_fail(f"{section}.{key}", f"sysmon.{section}.{key} must be a non-empty string")
+    severity = (t.get("alert") or {}).get("min_severity")
+    if severity is not None and severity not in ("warning", "critical"):
+        _sysmon_fail("alert.min_severity", f"sysmon.alert.min_severity must be warning|critical, got {severity!r}")
+    agent = (t.get("remediation") or {}).get("agent")
+    if agent is not None and agent not in ("omp", "claude-code", "codex", "opencode"):
+        _sysmon_fail("remediation.agent",
+                     f"sysmon.remediation.agent must be omp|claude-code|codex|opencode, got {agent!r}")
 
 
 def _validate_task(t: dict[str, Any]) -> None:

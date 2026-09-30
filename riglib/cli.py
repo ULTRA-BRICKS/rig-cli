@@ -706,6 +706,15 @@ def _add_worktree_parser(sub: "argparse._SubParsersAction") -> None:
     lifecycle. Each subcommand's own argparse registration is split into its own helper below —
     the table of help/description/epilog text for three subcommands made this one long enough to
     warrant it."""
+    smp = sub.add_parser(
+        "sysmon",
+        help="the resource monitor: status | sample | test-alert | simulate | incidents | restore",
+        description="Forward to the sysmon daemon's CLI (rig-cli#622) with --config defaulting to the "
+        "installed sysmon.json (sysmon.config_dir in the global config). "
+        "`rig sysmon <command> --help` shows each command's flags.",
+    )
+    smp.add_argument("sysmon_args", nargs=argparse.REMAINDER, help="command and its flags")
+
     wp = sub.add_parser("worktree", help="create/remove/gc a standardized agent worktree under .worktrees/")
     wp.set_defaults(_worktree_parser=wp)
     wsub = wp.add_subparsers(dest="worktree_command", metavar="<create|remove|gc>")
@@ -840,6 +849,7 @@ def main(argv: list[str] | None = None) -> int:
         "daily": cmd_daily,
         "usage": cmd_usage,
         "worktree": cmd_worktree,
+        "sysmon": cmd_sysmon,
         "report": cmd_report,
     }
     # The single top-level error handler (error-system v2): any structured RigError a command
@@ -848,6 +858,25 @@ def main(argv: list[str] | None = None) -> int:
     from . import errors
 
     return errors.guard(lambda: handlers[args.command](args))
+
+
+def cmd_sysmon(args: argparse.Namespace) -> int:
+    """``rig sysmon …`` — a thin forward to :func:`riglib.sysmon_daemon.cli.main` (the SAME code
+    the installed daemon runs), pointing ``--config`` at the installed ``sysmon.json``."""
+    from .config import global_config_path, read_yaml_file
+    from .sysmon import CONFIG_NAME, DEFAULT_CONFIG_DIR
+    from .sysmon_daemon import cli as sysmon_cli
+
+    argv = list(args.sysmon_args or [])
+    if not argv:
+        sysmon_cli.build_parser().print_help()
+        return 0
+    if "--config" not in argv and argv[0] not in ("-h", "--help"):
+        gpath = global_config_path()
+        block = (read_yaml_file(gpath).get("sysmon") if gpath.is_file() else None) or {}
+        config_dir = str(block.get("config_dir") or DEFAULT_CONFIG_DIR)
+        argv[1:1] = ["--config", str(Path(config_dir).expanduser() / CONFIG_NAME)]
+    return sysmon_cli.main(argv)
 
 
 # ── shared helpers ────────────────────────────────────────────────────────────────
@@ -965,6 +994,7 @@ _CATEGORY_LABELS = {
     "tg_ctl": "tg-ctl",
     "tcc_watch": "tcc-watch",
     "tgctl_reaper": "tgctl-reaper",
+    "sysmon": "sysmon",
 }
 
 
@@ -2019,6 +2049,7 @@ _LIVE_ACTIVATION_KINDS = frozenset({
     "provision_tg_ctl",
     "provision_tcc_watch",
     "provision_tgctl_reaper",
+    "provision_sysmon",
     "provision_schedule",
     "provision_spotlight",
     "provision_project_tool",
@@ -2300,6 +2331,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     _print_schedule_status(effective_plan, report)
     _print_tg_ctl_status(effective_plan, report)
     _print_tgctl_reaper_status(effective_plan, report)
+    _print_sysmon_status(effective_plan, report)
     _print_tmux_autosave_status(effective_plan)
     _print_tmux_pty_pressure_status(effective_plan)
     _print_harness_mode_status(effective_plan, report)
@@ -2456,6 +2488,11 @@ def _area_state_core(area, plan, report, extra_configured_actions=(), held_back_
 
         if not _on_darwin():
             return _dim("unsupported (macOS-only; no-op off darwin)")
+
+    # sysmon runs under launchd (macOS) or systemd --user (Linux); anything else is a no-op.
+    if area.key == "sysmon" and configured and missing == 0 and extra == 0:
+        if sys.platform != "darwin" and not sys.platform.startswith("linux"):
+            return _dim(f"unsupported (no launchd/systemd on {sys.platform})")
 
     # tgctl_reaper off Darwin: same rationale as tg_ctl above — the sweep is macOS-only.
     if area.key == "tgctl_reaper" and configured and missing == 0 and extra == 0:
@@ -2683,6 +2720,43 @@ def _print_tg_ctl_status(plan, report) -> None:
         drifted = [d for d in report.items if d.category == "tg_ctl" and d.direction != "extra"]
         state = _warn(f"drifted ({drifted[0].detail})") if drifted else _ok("installed")
     print(f"\n  [GLOBAL] tg-ctl inbound daemon: {state}  " + _dim(f"(launchd boot agent, '{tg.boot_label}')"))
+
+
+def _print_sysmon_status(plan, report) -> None:
+    """Report the sysmon resource monitor (GLOBAL): service state from drift plus the daemon's
+    LIVE health from its heartbeat — the numbers it last read and what it currently flags — so
+    `rig status` answers "is the machine being watched, and is it healthy right now?"."""
+    from .actions.runner import sysmon_plan_from_action
+    from .sysmon_daemon.cli import health
+    from .sysmon_daemon.config import load
+
+    actions = [a for a in plan.actions if a.kind == "provision_sysmon"]
+    if not actions:
+        return
+    mon = sysmon_plan_from_action(actions[0])
+    drifted = [d for d in report.items if d.category == "sysmon" and d.direction != "extra"]
+    h = health(load(mon.config_path))
+    if drifted:
+        state = _warn(f"drifted ({drifted[0].detail})")
+    elif h["state"] == "running":
+        state = _ok(f"running (heartbeat {h['age_s']:.0f}s ago)")
+    else:
+        state = _warn(h["state"])
+    print(f"\n  [GLOBAL] sysmon resource monitor: {state}  " + _dim(f"('{mon.label}', {mon.config_dir})"))
+    status = h["status"] or {}
+    sample = status.get("sample") or {}
+    if sample:
+        gb = 1024 ** 3
+        print(_dim(
+            f"    load {sample['load1']:.1f}/{sample['ncpu']} CPU · wired {(sample.get('wired') or 0) / gb:.1f}"
+            f"/{sample['mem_total'] / gb:.1f} GB · reclaimable {(sample.get('reclaimable') or 0) / gb:.1f} GB · "
+            f"swap {sample['swap_used'] / gb:.1f}/{sample['swap_total'] / gb:.1f} GB · {sample['proc_total']} procs"
+        ))
+    for f in status.get("findings") or []:
+        line = f"    {f['severity'].upper()} {f['key']}: {f['summary']}"
+        print(_warn(line) if f["severity"] == "critical" else _dim(line))
+    if status.get("open_incident"):
+        print(_warn(f"    open incident {status['open_incident']} — rig sysmon incidents --show {status['open_incident']}"))
 
 
 def _print_tgctl_reaper_status(plan, report) -> None:

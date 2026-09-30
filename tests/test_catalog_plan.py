@@ -601,7 +601,7 @@ def test_expand_user_path_contract(tmp_path, monkeypatch):
 def test_plan_disabled_category(fake_agent_tools, tmp_path):
     cat = Catalog.scan(str(fake_agent_tools))
     # agents_md, the ship_delegator, every github sub-block (ruleset/merge/ghas/actions/browser),
-    # the global-excludes block, tg_ctl, tcc_watch, tgctl_reaper, and the permission allowlist are
+    # the global-excludes block, tg_ctl, tcc_watch, tgctl_reaper, sysmon, and the permission allowlist are
     # default-ON, so turn them
     # off too to assert a truly empty plan.
     cfg = _cfg(
@@ -623,6 +623,7 @@ def test_plan_disabled_category(fake_agent_tools, tmp_path):
             "tg_ctl": {"enabled": False},
             "tcc_watch": {"enabled": False},
             "tgctl_reaper": {"enabled": False},
+            "sysmon": {"enabled": False},
             "permissions": {"enabled": False},
         },
         tmp_path,

@@ -1082,6 +1082,9 @@ def build(
     # ── tgctl_reaper (rig-managed periodic orphan-sweep LaunchAgent, agent-tools#697) ──
     _build_tgctl_reaper(config, plan)
 
+    # ── sysmon (rig-managed resource monitor + alerts + auto-heal + session restore, #622) ──
+    _build_sysmon(config, plan)
+
 # ── internal_dev (per-repo daemon auto-reload post-commit hook) ────────────────
     _build_internal_dev(config, plan)
 
@@ -3752,6 +3755,40 @@ def _build_tgctl_reaper(config: LoadedConfig, plan: InstallPlan) -> None:
                 "label": t.get("label"),
                 "config_dir": t.get("config_dir"),
                 "python_bin": t.get("python_bin"),
+            },
+        )
+    )
+
+
+def _build_sysmon(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the rig-managed sysmon resource-monitor daemon, unless ``enabled: false``.
+
+    Default **ON** (like ``tg_ctl``/``tcc_watch``/``tgctl_reaper``): an ABSENT or empty
+    ``sysmon:`` block still provisions the monitor — it is the layer that catches the NEXT
+    resource-exhaustion cause before the kernel panics (rig-cli#622; see :mod:`riglib.sysmon`).
+    GLOBAL-only (one monitor per machine). The whole validated block rides in the action
+    options; :func:`riglib.actions.runner.sysmon_plan_from_action` resolves it into the pure
+    :class:`riglib.sysmon.SysmonPlan` that apply, drift, verify and status share. The global
+    ``env.vars`` ride along so the GPU-slot cap follows ``RIG_GPU_SLOTS`` when rig exports it.
+    """
+    from .sysmon import DEFAULT_LABEL
+
+    block = config.data.get("sysmon") or {}
+    if block.get("enabled") is False:
+        return
+    env_block = config.data.get("env") if isinstance(config.data.get("env"), dict) else {}
+    env_vars = env_block.get("vars") if isinstance(env_block.get("vars"), dict) else {}
+    plan.actions.append(
+        Action(
+            kind="provision_sysmon",
+            category="sysmon",
+            item="monitor",
+            source=config.repo_root,  # no carrier; rig renders the service + copies the package
+            # target is the service LABEL (not a filesystem path), like provision_tcc_watch.
+            target=Path(block.get("label") or DEFAULT_LABEL),
+            options={
+                "block": {k: v for k, v in block.items() if k != "enabled"},
+                "gpu_env": {k: str(v) for k, v in env_vars.items() if k in ("RIG_GPU_SLOTS", "RIG_GPU_SLOT_DIR")},
             },
         )
     )

@@ -6767,6 +6767,137 @@ def _do_provision_tgctl_reaper(action: Action, on_conflict: str) -> ActionResult
     return ActionResult(action, status, f"tgctl_reaper/sweep: {'; '.join(details)}", headline_backup)
 
 
+# ── sysmon resource monitor (LaunchAgent on macOS, systemd --user unit on Linux, #622) ────
+def _sysmon_dry_run() -> bool:
+    """Honor RIG_SYSMON_DRY_RUN — write every artifact but skip the live service (re)load.
+    ALSO true under a sandboxed HOME (:func:`_home_is_sandboxed`, rig-cli#116): launchctl and
+    ``systemctl --user`` act on the REAL user session whatever ``$HOME`` says."""
+    return _env_flag("RIG_SYSMON_DRY_RUN") or _home_is_sandboxed()
+
+
+def sysmon_plan_from_action(action: Action):
+    """Rebuild the pure :class:`~riglib.sysmon.SysmonPlan` an action describes — shared by the
+    install handler, drift, verify and status so all four agree on every rendered byte."""
+    from ..sysmon import build_sysmon
+
+    return build_sysmon(
+        home=Path.home(),
+        block=dict(action.options.get("block") or {}),
+        gpu_env=dict(action.options.get("gpu_env") or {}),
+    )
+
+
+def sysmon_desired_files(plan) -> dict[Path, str]:
+    """Every rig-owned file of the monitor except the service definition: the package modules
+    and ``sysmon.json``. These are GENERATED (config lives in rig.yaml), so a hand edit is
+    drift that apply overwrites without a backup; the service file honors ``on_conflict``."""
+    files = {plan.package_dir / name: text for name, text in plan.render_package().items()}
+    files[plan.config_path] = plan.render_config()
+    return files
+
+
+def _systemctl_user(*args: str) -> int:
+    try:
+        res = subprocess.run(["systemctl", "--user", *args], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return 1
+    return res.returncode
+
+
+def _sysmon_service_loaded(plan) -> bool:
+    if sys.platform == "darwin":
+        return _launchctl_gui_loaded(plan.label)
+    return _systemctl_user("is-active", "--quiet", plan.unit_name) == 0
+
+
+def _do_provision_sysmon(action: Action, on_conflict: str) -> ActionResult:
+    """Provision the sysmon resource monitor (idempotent): package + config + service.
+
+    - copy ``riglib/sysmon_daemon/*.py`` byte-for-byte to ``<config_dir>/sysmon_daemon/`` and
+      render ``<config_dir>/sysmon.json`` from the ``sysmon:`` block (overwritten when they
+      differ — generated artifacts, see :func:`sysmon_desired_files`);
+    - render the service: the ``RunAtLoad``/``KeepAlive`` LaunchAgent on macOS, a systemd
+      ``--user`` unit on Linux (backup-noted per ``on_conflict``);
+    - (re)load it when anything changed or it is not loaded, so a new package or config takes
+      effect on this apply: ``launchctl bootout``/``bootstrap`` in ``gui/<uid>``, or
+      ``systemctl --user daemon-reload`` + ``enable`` + ``restart``. The daemon is stateless
+      w.r.t. user sessions (its state is files), so a restart never disturbs a live session.
+
+    ``RIG_SYSMON_DRY_RUN`` / a sandboxed HOME writes the artifacts and skips the live (re)load.
+    Any other platform is a ``skipped`` no-op.
+    """
+    label = "sysmon/monitor"
+    if sys.platform != "darwin" and not sys.platform.startswith("linux"):
+        return ActionResult(action, "skipped", f"{label}: skipped (no launchd/systemd on {sys.platform})")
+    plan = sysmon_plan_from_action(action)
+    dry = _sysmon_dry_run()
+    details: list[str] = []
+    changed = False
+    headline_backup: Path | None = None
+
+    plan.config_dir.mkdir(parents=True, exist_ok=True)
+    plan.state_dir.mkdir(parents=True, exist_ok=True)
+    wrote: list[str] = []
+    for path, text in sysmon_desired_files(plan).items():
+        out = fsutil.write_file(path, text, "overwrite")
+        if out.status == "error":
+            return ActionResult(action, "error", f"{label}: {out.detail}")
+        if out.status != "skipped":
+            wrote.append(path.name)
+    if wrote:
+        changed = True
+        details.append(f"wrote {', '.join(wrote[:6])}{' …' if len(wrote) > 6 else ''}")
+
+    service_path = plan.plist_path if sys.platform == "darwin" else plan.unit_path
+    desired_service = plan.render_plist() if sys.platform == "darwin" else plan.render_unit()
+    service_path.parent.mkdir(parents=True, exist_ok=True)
+    current = service_path.read_text(encoding="utf-8") if service_path.is_file() else None
+    if current != desired_service:
+        out = fsutil.write_file(service_path, desired_service, on_conflict)
+        if out.status == "error":
+            return ActionResult(action, "error", f"{label}: {out.detail}", out.backup)
+        if out.status == "skipped":
+            details.append(
+                f"{service_path.name} differs but on_conflict=skip — left unchanged "
+                "(drift NOT reconciled; re-run with on_conflict=backup/overwrite)"
+            )
+            return ActionResult(action, "created" if changed else "skipped", f"{label}: {'; '.join(details)}")
+        if out.backup:
+            headline_backup = out.backup
+            details.append(f"backed up prior {service_path.name} → {out.backup.name}")
+        changed = True
+        details.append(f"wrote {service_path.name}")
+
+    if dry:
+        return ActionResult(
+            action,
+            "backed_up" if headline_backup else ("created" if changed else "skipped"),
+            f"{label}: {'; '.join(details) or 'artifacts already current'} "
+            f"({_live_skip_reason('RIG_SYSMON_DRY_RUN', 'service (re)load')})",
+            headline_backup,
+        )
+
+    if changed or not _sysmon_service_loaded(plan):
+        if sys.platform == "darwin":
+            _launchctl_bootout(str(service_path))
+            rc = _launchctl_bootstrap(str(service_path))
+        else:
+            rc = _systemctl_user("daemon-reload") or _systemctl_user("enable", plan.unit_name) \
+                or _systemctl_user("restart", plan.unit_name)
+        if rc != 0:
+            return ActionResult(action, "error",
+                                f"{label}: wrote artifacts but the service (re)load failed (rc={rc})",
+                                headline_backup)
+        details.append(f"(re)loaded service '{plan.label}'")
+        changed = True
+
+    if not changed:
+        return ActionResult(action, "skipped", f"{label}: service '{plan.label}' already installed and running")
+    return ActionResult(action, "backed_up" if headline_backup else "created",
+                        f"{label}: {'; '.join(details)}", headline_backup)
+
+
+
 # ── AGENTS.md / CLAUDE.md canonical + symlink ─────────────────────────────────────
 # One file is the real source of truth; the other is a relative symlink to it, so every
 # agent harness (Claude Code reads CLAUDE.md; Codex/others read AGENTS.md) sees identical
@@ -10068,6 +10199,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_tg_ctl": _do_provision_tg_ctl,
     "provision_tcc_watch": _do_provision_tcc_watch,
     "provision_tgctl_reaper": _do_provision_tgctl_reaper,
+    "provision_sysmon": _do_provision_sysmon,
     "provision_bunfig": _do_provision_bunfig,
     "provision_fj": _do_provision_fj,
     "provision_git_config": _do_provision_git_config,

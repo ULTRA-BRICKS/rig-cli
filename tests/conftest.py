@@ -105,6 +105,11 @@ def _isolate_scheduler(monkeypatch):
 
         return ActionResult(action, "skipped", "tcc_watch/watch: daemon provisioner stubbed in tests")
 
+    def _noop_sysmon(action, on_conflict):
+        from riglib.actions.runner import ActionResult
+
+        return ActionResult(action, "skipped", "sysmon/monitor: provisioner stubbed in tests")
+
     def _noop_tgctl_reaper(action, on_conflict):
         from riglib.actions.runner import ActionResult
 
@@ -152,6 +157,11 @@ def _isolate_scheduler(monkeypatch):
     # tmp dirs + stubbed launchctl seams, which override this stub for those tests.
     monkeypatch.setattr(runner, "_do_provision_tgctl_reaper", _noop_tgctl_reaper)
     monkeypatch.setitem(runner._HANDLERS, "provision_tgctl_reaper", _noop_tgctl_reaper)
+    # sysmon: default-on too (rig-cli#622), and its provisioner would write a real LaunchAgent /
+    # systemd unit and (re)load it. Neutralized suite-wide like tgctl_reaper; test_sysmon.py calls
+    # `_do_provision_sysmon` with a HOME-isolated tmp dir + stubbed service seams.
+    monkeypatch.setattr(runner, "_do_provision_sysmon", _noop_sysmon)
+    monkeypatch.setitem(runner._HANDLERS, "provision_sysmon", _noop_sysmon)
     # tools: is DEFAULT-OFF (opt-in), so no default e2e plan emits a provision_tools action and
     # nothing here is strictly required. But a test that DOES enable a tools: block would otherwise
     # shell out to a real install.sh (clone/symlink/install-skill on the host). Neutralize it
@@ -172,6 +182,8 @@ def _isolate_scheduler(monkeypatch):
     # is stubbed, so apply never writes it, leaving a permanent phantom drift in e2e tests).
     # Neutralize it suite-wide too (the dedicated test_tgctl_reaper.py restores the real one).
     monkeypatch.setattr(driftmod, "_check_tgctl_reaper", lambda action, report: None)
+    # sysmon: same phantom-drift concern (stubbed provisioner); test_sysmon.py restores the real check.
+    monkeypatch.setattr(driftmod, "_check_sysmon", lambda action, report: None)
     # spotlight: is default-OFF, so no default e2e plan emits a provision_spotlight action. But a
     # test that DOES enable a spotlight: block on a macOS dev box would otherwise (1) shell out to
     # the real `launchctl load` on apply and (2) have its drift check probe the real launchctl for

@@ -314,6 +314,11 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Installs + (re)loads the tcc-watch TCC-dialog-watcher daemon's launchd LaunchAgent "
         "(Phase 1 detection-only) — a live machine-wide service, not scoped to one repo.",
     ),
+    "provision_sysmon": _tag(
+        "provision_sysmon", "starts_reloads_service", AUDIENCE_HUMAN,
+        "Installs + (re)loads the sysmon resource-monitor daemon (LaunchAgent on macOS, systemd "
+        "--user unit on Linux) — a live machine-wide service, not scoped to one repo.",
+    ),
     "provision_tgctl_reaper": _tag(
         "provision_tgctl_reaper", "starts_reloads_service", AUDIENCE_HUMAN,
         "Installs + (re)loads the tgctl-reaper periodic orphan-sweep's launchd LaunchAgent "

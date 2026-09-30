@@ -213,8 +213,9 @@ def _build_fake_agent_tools(root: Path) -> None:
 
 # The clean-room rig.yaml. Carries the four ROADMAP acceptance subjects ON (skills, agent_hooks,
 # git_hooks dispatcher, ci, harness auto-mode + hook-bridge) and turns OFF the daemon/network
-# categories (models cron, github ruleset, tg-ctl, tmux live activation, global git-excludes) so
-# `rig status` is DETERMINISTICALLY clean inside a slim container with no cron/launchd/gh-remote.
+# categories (models cron, github ruleset, tg-ctl, tmux live activation, the sysmon service,
+# global git-excludes) so `rig status` is DETERMINISTICALLY clean inside a slim container with no
+# cron/launchd/systemd/gh-remote.
 # `__SRC__` is replaced with the in-container agent-tools path. Auto-mode + hook-bridge are pinned
 # to the SAME user-scope settings file so both land in one place the assertions can read.
 _CLEANROOM_CONFIG = """\
@@ -241,6 +242,7 @@ models:    { enabled: false }
 github:    { ruleset: { enabled: false } }
 tg_ctl:    { enabled: false }
 tmux:      { enabled: false }
+sysmon:    { enabled: false }
 gitignore: { enabled: false }
 """
 

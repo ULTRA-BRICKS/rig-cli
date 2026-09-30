@@ -93,6 +93,7 @@ profile: { ... }              # `rig profile`: the PRIVATE repo this global conf
 tg_ctl: { ... }               # tg-ctl inbound daemon as a macOS boot LaunchAgent, default ON (macOS-only)
 tcc_watch: { ... }            # TCC dialog-watcher daemon (Phase 1 detection-only), a macOS boot LaunchAgent, default ON (macOS-only)
 tgctl_reaper: { ... }         # tgctl-reaper periodic orphan-sweep LaunchAgent (StartInterval), default ON (macOS-only)
+sysmon: { ... }               # sysmon resource monitor + tg alerts + auto-heal + session restore (LaunchAgent / systemd --user), default ON
 ```
 
 If `agent_tools_source` is omitted, rig resolves it from `$RIG_AGENT_TOOLS_SOURCE`, then
@@ -3193,6 +3194,215 @@ status` drift line yet", `tgctl_reaper` gets the SAME `rig status` treatment as 
 dedicated `[GLOBAL] tgctl-reaper orphan sweep: …` line reporting installed / drifted /
 unsupported (off darwin), backed by a real `rig status` drift check (missing/modified on both
 the plist and the sweeper script, plus a not-loaded check) — not just "apply reconciles it".
+
+---
+
+## `sysmon`
+
+rig provisions the **sysmon resource monitor** (rig-cli#622), a resident daemon that catches a
+resource-exhaustion incident before the kernel does. It exists because of three crashes in 48 hours
+on one Mac:
+
+- 2026-09-27: a WindowServer hang.
+- 2026-09-27: a kernel panic from a tg-ctl process leak that pushed the memory compressor to its
+  limit and exhausted swap.
+- 2026-09-29 12:47: a WindowServer-watchdog panic at **95.7 % wired memory**. Thirteen concurrent
+  `whisper-cli` runs each loaded a 1.6 GB model into Metal buffers, while
+  `kern.memorystatus_vm_pressure_level` still read "normal".
+
+There was also a near-miss the same afternoon: load ~19 on 14 CPUs, swap 3.8/5 GB, and an agent's
+`lldb` raised a SecurityAgent `system.privilege.taskport.debug` password dialog that hung htop,
+`sample`, `footprint` and `lsof`.
+
+**Default ON** (an absent or empty `sysmon:` block still provisions it). It is **GLOBAL-only**: one
+monitor per machine, configured in `~/.config/rig/config.yaml`. It runs as a `RunAtLoad`/`KeepAlive`
+LaunchAgent on macOS and as a systemd `--user` unit on Linux.
+
+```yaml
+sysmon:
+  enabled: true
+  auto_remediate: false            # hand a critical incident to a coding agent (default OFF)
+  sample_interval_seconds: 10      # in-process sample cadence
+  census_interval_seconds: 60      # ps census cadence (also run at once on any warn)
+  snapshot_interval_seconds: 300   # live omp-session snapshot cadence
+  events: true                     # macOS unified-log event stream
+  thresholds:                      # any subset; the rest keep their defaults
+    wired_pct: { warn: 75, critical: 85 }
+    reclaimable_gb: { warn: 2, critical: 1 }      # lower is worse
+  alert: { min_severity: critical, cooldown_minutes: 30, max_per_hour: 6, resolved: true, dry_run: false }
+  heal: { enabled: true, notify_agent: true, throttle: true, kill_orphans: false, kill_owned: false,
+          grace_seconds: 120, dry_run: false }        # every kill path is opt-in
+  remediation: { agent: omp, cooldown_minutes: 60, dry_run: false }   # omp | claude-code | codex | opencode
+  sessions: { restore_on_boot: false, tmux_session: main }
+  gpu: { slots: 2, slot_dir: ~/.local/state/agent-tools/gpu-slots }   # default: env.vars.RIG_GPU_SLOTS / RIG_GPU_SLOT_DIR
+  # advanced: label (ai.hyperide.sysmon), config_dir (~/.config/rig/sysmon), python_bin (which python3)
+```
+
+| Threshold | warn | critical | Measured from |
+|---|---|---|---|
+| `load_per_cpu` | 1.25 | 2.0 | `getloadavg()` / CPUs |
+| `swap_pct` | 80 | 95 | `vm.swapusage` (macOS grows swap in 1 GB files while disk allows — pair with `disk_free_gb`) |
+| `wired_pct` | 75 | 85 | `host_statistics64` wired pages / `hw.memsize` |
+| `reclaimable_gb` (lower is worse) | 2 | 1 | free + inactive + speculative + purgeable pages |
+| `compressor_pct` | 70 | 90 | `vm.compressor_segment_pages_compressed` / `…_limit` |
+| `disk_free_gb` (lower is worse) | 5 | 2 | free space on `/System/Volumes/VM` (swap growth) |
+| `procs_pct` | 60 | 80 | `proc_listallpids` / `kern.maxproc` |
+| `storm_same_name` | 150 | 300 | processes of one user sharing one executable name |
+| `proc_growth_per_min` | 200 | 500 | process-count change over the last 20–120 s |
+| `display_delays_per_min` | 2 | 5 | WindowServer `Timer delayed by N s` log lines |
+| `display_max_delay_s` | 1.5 | 3.0 | longest such delay in the last minute |
+| `taskport_stuck_s` | 20 | 60 | age of a `sample`/`footprint`/`lldb`/`htop`/`lsof`/… while SecurityAgent is up |
+
+`kern.memorystatus_vm_pressure_level` WARN/CRITICAL is also reported. More than `gpu.slots`
+GPU-model processes (whisper, llama.cpp, mlx) is always critical. `gpu.slots` is the size of the
+agent-tools#817 GPU-model slot pool; when rig's `env` block exports `RIG_GPU_SLOTS` /
+`RIG_GPU_SLOT_DIR`, the monitor follows them. Watchdogd WindowServer check-in trouble is always
+critical.
+
+**How it watches (event-driven where macOS publishes events).**
+
+- **Events:** the daemon `select()`s on one `log stream --style ndjson` child. Its predicate covers
+  WindowServer `Timer delayed`, watchdogd WindowServer lines and authd `system.privilege.taskport*`,
+  so an event is evaluated the moment it arrives. On 2026-09-29 the display-freeze precursor started
+  26 minutes before the panic.
+- **Sampling:** memory, swap, load and process counts have no change events, so they are sampled
+  in-process on the select timeout (ctypes `host_statistics64`/`sysctlbyname`/`proc_listallpids`),
+  with no fork.
+- **Census:** a `ps` census runs every `census_interval_seconds`; while a finding is at warning it
+  runs every 30 s, and while one is critical on every sample. A log event triggers one too, but
+  a burst of events reuses a census younger than 10 s. Each census also records every process's
+  start time; the heal ladder's pid-reuse guard compares against that snapshot.
+- **What the daemon never calls:** `lsof`, `sample`, `footprint`, a debugger, or anything else
+  that needs `task_for_pid`. Per-process detail comes from `libproc`, which keeps working while a
+  SecurityAgent prompt blocks taskgated.
+
+**Attribution.** Every offending process is walked up its ppid chain to the owning agent host
+(omp, claude, codex or opencode), that host's exact session transcript (the `.jsonl` it holds
+open), and the tmux pane (`list-panes pane_pid`) or cmux surface it runs in (`cmux:<workspace>/<surface>`,
+from the `CMUX_WORKSPACE_ID`/`CMUX_SURFACE_ID` cmux exports into every surface).
+
+An **orphan** needs positive evidence: an earlier census saw the tree under an agent host (pid and
+start time), and that host has died since. A host missing from one census is checked live before
+it counts as dead. A tree that is merely reparented to launchd (ppid 1), such as an agent-browser
+daemon, a `nohup`'d job of a live agent or rig's ship-loop, is not an orphan. The evidence lives
+in the daemon's memory only, so a tree whose host died before the daemon (re)started is never an
+orphan: it is throttled and alerted on, never killed.
+
+**Alerts.** Alerts go through `tg --tag problem --subagent sysmon` with an HTML body that lists the
+finding, its numbers and who owns the offenders. They are deduplicated per finding key:
+
+- a key alerts when it first reaches `min_severity`, when it escalates, and otherwise at most once
+  per cooldown;
+- one message per tick carries every due finding;
+- at most `max_per_hour` messages go out per hour;
+- one "resolved" line is sent after a key stays clear for 5 minutes.
+
+The dedup state lives in `state/memory.json`, so a restart never re-sends.
+
+**Heal ladder (safe by default).**
+
+1. **warning:** notify the owning agent. Delivery tries, in order:
+   - `tg-ctl omp-live send` when that omp host is registered;
+   - typing the note into the agent's tmux pane (`send-keys`) or cmux surface (`cmux send`), as one
+     line followed by Enter. The target is resolved live from the host pid, and the note is typed
+     only when the screen shows the agent's input box EMPTY. Typed user text, a menu, copy mode or
+     an unknown screen refuse. Enter is pressed only once the box shows the whole note and nothing
+     else (a note still rendering is waited for); if a human types meanwhile, or the box scrolled
+     or cut the note short, Enter is withheld;
+   - the harness Stop-hook inbox (`tg-ctl inbox queue`, agents outside tmux).
+
+   The note names the offending pids, their process names and RSS, never their command lines (a
+   process chooses its own argv, and the note lands in an agent's prompt). A refused note is tried
+   again on the next ticks, at most 3 times per finding and agent (a new process on a reused host
+   pid is a new agent). Throttles and restores run before any note is typed. When every channel
+   refuses, the Telegram alert is the only signal.
+2. **critical:** also throttle every unprotected offender into the OS background band
+   (`taskpolicy -b` on macOS, the idle I/O class on Linux). A process that was already in the
+   background band is left as it was. The throttle is **restored** when no finding blames the
+   process any more: the finding cleared, the process left it, `heal.enabled` was turned off, or
+   the daemon stops. A throttle that fails is retried on the next ticks (3 attempts). Every
+   throttle is recorded, and written to disk right after the tick's throttle burst, so a daemon
+   stopped or killed later in the tick still restores it. A failed restore is retried on the
+   next 3 ticks, then kept until the process is blamed again or the daemon stops, and retried
+   then. A kill that did not happen (dry-run, refused) keeps the throttle to restore.
+   The ladder never renices, because an unprivileged process can never lower a nice value again.
+3. **Still critical after `grace_seconds`:** SIGTERM, then SIGKILL, only where opted in:
+   `kill_orphans: true` for proven orphans, `kill_owned: true` for an agent's own offenders. Both
+   default to `false`.
+
+Before every throttle, restore, signal or typed note, the pid's start time is compared with the one
+the census recorded, so a reused pid is never hit; a pid whose start time is unknown is never
+touched.
+
+**Never touched:** user-interactive processes (a foreground terminal job no agent started, an
+interactive shell), agent hosts, terminals/tmux/cmux, GUI apps, another user's processes, system
+binaries and launchd jobs.
+
+**Incidents.** The first critical finding opens `state/incidents/<id>/incident.json`. It holds the
+findings, the sample, the live omp sessions at that moment, and the alert/heal/remediation/restore
+logs. The incident closes after 5 quiet minutes.
+
+**Auto-remediation (`auto_remediate: true`, default OFF).** On a critical incident (at most once per
+`remediation.cooldown_minutes`) the daemon writes `remediation-brief.md` into the incident dir and
+launches a detached coding-agent session through the rig-detached launcher family
+(`~/.agents/skills/rig-detached-{omp,codex,opencode}`). claude-code has no launcher in the family,
+so the same detached contract runs inline. The brief tells the agent to:
+
+1. find and fix the root cause in its owning repo (killing processes is not a fix);
+2. resume the interrupted sessions with `rig sysmon restore --incident <id>`;
+3. report through `tg report`;
+4. write the handoff file named in the brief.
+
+**Session restore.** Every `snapshot_interval_seconds` the daemon records the live interactive omp
+sessions in `state/sessions.json` (pid, start time, cwd, exact transcript, pane). At start it
+compares the previous heartbeat with the boot session: a boot change without a clean-shutdown
+marker is a crash. The crash opens a `post-crash` incident that carries that snapshot and the newest
+`.panic` excerpt, and then:
+
+- it alerts;
+- it hands the incident to remediation when enabled;
+- with `sessions.restore_on_boot`, it restores the sessions itself.
+
+`rig sysmon restore [--incident ID] [--dry-run] [--tmux-socket S]` resumes each interrupted session
+in a **new** tmux window, running `omp --resume <transcript> "<explanation of the incident>"`. It
+refuses any session a live omp still holds open, so there is never a second writer (rig-cli#619),
+and it fails closed when liveness cannot be verified.
+
+**Commands.** `rig sysmon status` shows daemon health plus a live reading; it exits 3 when the
+daemon is not running. The other commands:
+
+- `rig sysmon sample`: one reading plus every detector, with no side effects.
+- `rig sysmon test-alert`: the forced-condition smoke test. It sends ONE labelled TEST message with
+  the 2026-09-27 leak, compressor and swap pattern.
+- `rig sysmon simulate --scenario wired|storm|display|taskport`: runs the production evaluation path
+  on synthetic findings. Alerts and heal are forced to dry-run; remediation follows the config.
+- `rig sysmon incidents [--show ID]`.
+- `rig sysmon restore`.
+
+All of them forward to the same package the daemon runs.
+
+**What rig writes.**
+
+- `<config_dir>/sysmon_daemon/*.py`: `riglib/sysmon_daemon/` copied byte for byte.
+- `<config_dir>/sysmon.json`: the block merged over the daemon defaults. Both files are generated,
+  so a hand edit is drift that apply overwrites.
+- `~/Library/LaunchAgents/ai.hyperide.sysmon.plist` (macOS) or
+  `~/.config/systemd/user/ai.hyperide.sysmon.service` (Linux), backup-noted per `on_conflict`.
+
+Any change reloads the service with `launchctl bootout`/`bootstrap` in `gui/<uid>`, or with
+`systemctl --user daemon-reload` + `enable` + `restart`. The daemon keeps its state in files and
+has no user session riding on it, so a reload is safe. `RIG_SYSMON_DRY_RUN=1`, or a sandboxed HOME
+(rig-cli#116), writes the artifacts and skips the live reload.
+
+**`rig status`.** It prints `[GLOBAL] sysmon resource monitor: running (heartbeat Ns ago)` with the
+last reading, the current findings and any open incident. Drift covers:
+
+- missing/modified package, config or service files;
+- a service that is not loaded;
+- a loaded service whose daemon is `stale` or `stopped`: its heartbeat is older than 3 sample
+  intervals + 30 s, or it wrote a clean-shutdown marker.
+
+A monitor that does not tick never reads as healthy.
 
 ---
 
