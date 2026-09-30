@@ -120,6 +120,21 @@ DEFAULT_GENERATED_DIR = "~/.config/rig/tmux"
 # over the managed-block splice. Lives here with every other tmux default.
 DEFAULT_APPLY_MODE = "import"
 
+
+def _resolve_rig_bin() -> str:
+    """Absolute path to the ``rig`` binary invoked by generated scripts, resolved at RENDER
+    time (not at the script's own run time): the omp-save/omp-restore hooks run inside
+    whatever environment spawned the tmux server — the boot LaunchAgent's deliberately minimal,
+    non-user-writable PATH (see this module's other PATH comments) does NOT include
+    ``~/.local/bin``, where `rig` typically lives, so a bare ``rig`` there could silently
+    resolve to nothing. Falls back to the bare name (best-effort, matches the pre-existing
+    behavior) when `rig` cannot be found on the CURRENT PATH — e.g. a test harness running
+    straight out of a checkout without an installed entry point.
+    """
+    found = shutil.which("rig")
+    return found if found else "rig"
+
+
 # ── pane titles (2026-07-20, Alex tg#… "pane titles at top, no date") ─────────────────────
 # tmux's built-in status-right DEFAULTS to a clock+date (`%H:%M %d-%b-%y`) that rig never
 # overrode, so every rig-managed session showed a wasted-space "10:39 20-Jul-26" at the bottom.
@@ -365,6 +380,9 @@ class TmuxPlan:
     # would bake a different dir across invocations → permanent drift flap (same determinism
     # contract as login_shell — resolve at plan time, from a stable source).
     tmux_bin: str
+    # The `rig` binary generated omp-save/omp-restore scripts call, resolved ONCE at plan time
+    # for the SAME determinism reason as tmux_bin above — see _resolve_rig_bin.
+    rig_bin: str
     # ── independent autosave agent (#138) ────────────────────────────────────────────
     autosave_enabled: bool
     autosave_label: str
@@ -384,6 +402,7 @@ class TmuxPlan:
     # `DEFAULT_MODE_KEYS` for why this exists and is independent of the clipboard settings
     # above. Rendered unconditionally (same explicit-every-apply contract as focus_events).
     mode_keys: str
+    recovery_enabled: bool = False
 
     # ── resolved artifact paths ──────────────────────────────────────────────────────
     @property
@@ -981,248 +1000,56 @@ done < "$MAP_FILE"
 
     # ── the omp-save / omp-restore managed scripts ────────────────────────────────────
     def render_omp_save(self) -> str:
-        """omp-save: record each omp pane's cwd -> newest omp session FILE for that cwd.
-
-        Mirrors render_cc_save's process-tree walk (a pane's `omp` process is a DESCENDANT of
-        the pane's shell, not the shell itself — same reasoning as claude's DEFECT 2 fix). omp
-        installs as a single compiled binary (no Claude-style versioned-binary symlink quirk —
-        `which omp` resolves straight to a Mach-O/ELF executable, verified on this machine), so
-        the executable match is a plain basename/path-suffix check on argv[0]: `omp` or
-        `*/omp`. KNOWN COLLISION (accepted, documented): `oh-my-posh`'s CLI is ALSO named
-        `omp` — but it renders one prompt line and exits within milliseconds, so it is
-        vanishingly unlikely to still be running when this periodic resurrect save hook
-        snapshots the process table; a long-lived omp harness session is not confused with it
-        in practice.
-
-        Session store: omp keys `~/.omp/agent/sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl` (a
-        SIBLING `<cwd-slug>/<ISO-ts>_<uuid>/` dir holds nested Task/eval-child transcripts, so
-        a plain `*.jsonl` glob in the cwd-slug dir already excludes them). The slug is the cwd
-        RELATIVE TO $HOME with every `/` -> `-` (dots preserved) — VERIFIED against a real
-        on-disk session dir: cwd `$HOME/xp/review-cli/.worktrees/450-mimo-seat` ->
-        `-xp-review-cli-.worktrees-450-mimo-seat`. This differs from Claude Code's own
-        `~/.claude/projects/<enc>` encoding, which encodes the FULL absolute path and also
-        folds `.` into `-`. `PI_CODING_AGENT_DIR` (a full override) / `PI_CONFIG_DIR` (renames
-        the `.omp` dirname under `$HOME`) are honored, mirroring
-        `riglib.harness_skills.omp_agent_root()`'s exact precedence — a bare resurrect hook has
-        no live omp process env to inherit these from, so only an AMBIENT value (e.g. exported
-        in the user's shell profile) takes effect; the default is `$HOME/.omp/agent`.
-
-        The map records the resolved session FILE'S FULL PATH, not a bare id: `omp --help`
-        documents `-r, --resume=<value>` as "Resume a session (by ID prefix, path, or picker if
-        omitted)" — a path sidesteps any ambiguity over whether the accepted "id" includes the
-        session file's leading ISO-timestamp segment.
+        """omp-save: a thin wrapper around ``rig omp save-panes`` — the actual pane-tree walk
+        (bun + compiled omp detection, durable-abduco-session identity), session-file lookup,
+        and atomic map write live in :mod:`riglib.omp_launcher` (tested there directly; a bash
+        reimplementation of that logic drifted out of sync with real bun-based omp launches —
+        rig-cli#619 — and is not repeated here).
         """
         map_file = self.omp_map_path
+        rig_bin = self.rig_bin
         return f"""#!/usr/bin/env bash
 # rig-managed: omp-save — GENERATED by rig from rig.yaml. Do not hand-edit.
-# Records, for every tmux pane whose process TREE contains an `omp` process, a map line:
-#   <session>:<window>.<pane><TAB><cwd><TAB><newest-session-file>
-# so omp-restore can relaunch `omp --resume <path>` in the right window after a reboot.
-# Session store: $AGENT_ROOT/sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl, where <cwd-slug> is the
-# cwd RELATIVE TO $HOME with every '/' -> '-' (dots preserved) — verified against a real
-# on-disk session dir, NOT Claude Code's full-absolute-path/dot-folding convention.
-set -euo pipefail
+# Records, for every tmux pane whose process tree contains a live (compiled OR bun-launched)
+# interactive OMP process, a map line rig omp restore-panes can act on. The tree-walk, session
+# store lookup (sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl), and durable-abduco-session
+# detection live in `rig omp save-panes` (riglib/omp_launcher.py) — see its module docstring.
+set -uo pipefail
 
-MAP_FILE="{map_file}"
-
-_expand_home_path() {{
-  # absolute -> as-is; ~/... or bare '~' -> $HOME-anchored; otherwise -> $HOME/<value> (a bare
-  # PI_CONFIG_DIR dirname's documented contract). Mirrors
-  # riglib.harness_skills.omp_agent_root()'s override normalization.
-  case "$1" in
-    /*) printf '%s' "$1" ;;
-    "~") printf '%s' "$HOME" ;;
-    ~/*) printf '%s' "$HOME/${{1#\\~/}}" ;;
-    *) printf '%s/%s' "$HOME" "$1" ;;
-  esac
-}}
-
-resolve_agent_root() {{
-  # PI_CODING_AGENT_DIR is a FULL override (omp profiles re-point the whole agent dir);
-  # PI_CONFIG_DIR only renames the '.omp' dirname under $HOME. Only takes effect if set in the
-  # AMBIENT environment this hook runs under (no live omp process to inherit it from here).
-  if [ -n "${{PI_CODING_AGENT_DIR:-}}" ]; then
-    _expand_home_path "$PI_CODING_AGENT_DIR"
-  elif [ -n "${{PI_CONFIG_DIR:-}}" ]; then
-    printf '%s/agent' "$(_expand_home_path "$PI_CONFIG_DIR")"
-  else
-    printf '%s/.omp/agent' "$HOME"
-  fi
-}}
-AGENT_ROOT=$(resolve_agent_root)
-SESSIONS="$AGENT_ROOT/sessions"
-
-encode_cwd() {{
-  # cwd RELATIVE TO $HOME, every '/' -> '-'; a cwd outside $HOME falls back to encoding the
-  # full absolute path (best-effort — omp's own out-of-$HOME slug convention is unconfirmed).
-  local cwd="$1" rel
-  case "$cwd" in
-    "$HOME"/*) rel="${{cwd#"$HOME"}}" ;;
-    "$HOME") rel="" ;;
-    *) rel="$cwd" ;;
-  esac
-  printf '%s' "$rel" | tr '/' '-'
-}}
-
-newest_session_file() {{
-  # newest top-level *.jsonl (by mtime) directly under the cwd-slug dir. A nested Task/eval
-  # child transcript lives in a SIBLING <same-stem>/ directory, never matching this glob (see
-  # module docstring), so it can never be mistaken for the resumable top-level session.
-  local dir="$1" listing newest
-  [ -d "$dir" ] || return 1
-  listing=$(ls -t "$dir"/*.jsonl 2>/dev/null) || return 1
-  newest=${{listing%%$'\n'*}}
-  [ -n "$newest" ] || return 1
-  printf '%s' "$newest"
-}}
-
-# Snapshot the whole process table ONCE — see render_cc_save for why (consistency + cost).
-PS_SNAPSHOT=$(ps -eo pid=,ppid=,args= 2>/dev/null || true)
-
-pane_has_omp() {{
-  local root="$1"
-  local -a queue=("$root")
-  local pid ppid rest exe cur
-  while [ "${{#queue[@]}}" -gt 0 ]; do
-    cur="${{queue[0]}}"
-    queue=("${{queue[@]:1}}")
-    while read -r pid ppid rest; do
-      [ -n "$pid" ] || continue
-      if [ "$pid" = "$cur" ]; then
-        exe=${{rest%% *}}
-        case "$exe" in
-          omp|*/omp) return 0 ;;
-        esac
-      fi
-      if [ "$ppid" = "$cur" ]; then
-        queue+=("$pid")
-      fi
-    done <<< "$PS_SNAPSHOT"
-  done
-  return 1
-}}
-
-: > "$MAP_FILE"
-tmux list-panes -a -F '#{{session_name}}:#{{window_index}}.#{{pane_index}}\t#{{pane_pid}}\t#{{pane_current_path}}' \
-  | while IFS=$'\t' read -r addr pane_pid cwd; do
-      pane_has_omp "$pane_pid" || continue
-      enc=$(encode_cwd "$cwd")
-      sf=$(newest_session_file "$SESSIONS/$enc") || continue
-      printf '%s\t%s\t%s\n' "$addr" "$cwd" "$sf" >> "$MAP_FILE"
-    done
+"{rig_bin}" omp save-panes --map "{map_file}"
 """
 
     def render_omp_restore(self) -> str:
-        """omp-restore: after a reboot, resume each mapped window's omp session.
+        """omp-restore: a thin wrapper around ``rig omp restore-panes`` — the decision logic
+        (never duplicate a live original, prefer reattaching an existing durable abduco
+        session over relaunching, resume-by-path as the last resort) is
+        :func:`riglib.omp_recovery.plan_restore`, a pure fail-closed decision table with its
+        own unit tests; the live-process/session inspection and the actual `tmux send-keys`
+        execution live in :mod:`riglib.omp_launcher`'s ``restore_panes``/``restore_one_pane``
+        (tested there directly).
 
-        Same fresh-shell-only / never-clobber / shell-quoted-values contract as
-        render_cc_restore, PLUS a system-wide (not pane-scoped) duplicate guard —
-        see the rendered script's own header comment for the full incident writeup
-        (2026-09-25: a tmux server crash left NO automatic recovery for ~17h; the
-        user started a replacement omp directly in a plain terminal tty, outside
-        any tmux pane entirely; when tmux was later restored this hook's ONLY
-        duplicate check — `pane_current_command` on the one pane resurrect
-        recreated — was structurally blind to that orphan and launched a SECOND
-        independent `omp --resume` for the identical cwd). `tmux list-panes` can
-        never see a process outside tmux, so the guard here instead snapshots every
-        LIVE omp process's cwd via `lsof -d cwd` (the portable macOS/BSD substitute
-        for `/proc/<pid>/cwd`) ONCE before touching any pane, and skips + WARNS (in
-        the pane itself, plus a log line) instead of silently duplicating.
-
-        A stale/missing session file falls back to `omp --continue` (documented:
-        "Continue previous session") so a reboot never leaves a dead pane.
+        Historical context this design fixes (2026-09-25 incident): a tmux server crash left
+        no automatic recovery for ~17h; the user started a replacement omp directly in a plain
+        terminal tty, outside any tmux pane entirely. The OLD bash restore's pane-scoped
+        duplicate guard was structurally blind to that orphan; its system-wide `lsof` guard
+        also silently permitted a duplicate launch whenever `lsof` itself was unavailable
+        (`... || true` swallowed the failure). `rig omp restore-panes` fixes both: its
+        system-wide live-process scan fails CLOSED (blocks rather than launches) when
+        inspection is unavailable, and a durable abduco session found still alive is
+        reattached (`rig omp attach <id>`) instead of only warning.
         """
         map_file = self.omp_map_path
+        rig_bin = self.rig_bin
         return f"""#!/usr/bin/env bash
 # rig-managed: omp-restore — GENERATED by rig from rig.yaml. Do not hand-edit.
-# After resurrect/continuum restores the windows, relaunch omp per mapped window by its EXACT
-# recorded session file (`omp --resume <path>`). Only into a FRESH shell pane — never on top of
-# a running omp IN THAT PANE, and never alongside an omp ALREADY LIVE for that cwd ANYWHERE on
-# the system.
-#
-# The system-wide half of that guard exists because of a real incident (2026-09-25): tmux's
-# server crashed and stayed down ~17h (nothing auto-restarts a genuinely crashed server outside
-# of a fresh login); the user, finding tmux dead, started a FRESH omp directly in a plain
-# terminal tty — never inside any tmux pane — to keep working. When tmux was finally restored,
-# continuum-restore fired this hook, which recreated the old pane as a bare shell (resurrect has
-# no idea a replacement session already exists) and the OLD pane-only guard — checking
-# `pane_current_command` on that ONE pane — saw a fresh shell and happily launched a SECOND,
-# independent `omp --resume` for the identical cwd, running unbeknownst to both processes.
-# `tmux list-panes` can never see a process outside tmux, so the fix looks at the OS process
-# table instead: snapshot every live `omp` process's cwd (via `lsof -d cwd` — macOS/BSD has no
-# /proc/<pid>/cwd) ONCE before touching any pane, and skip + WARN (in the pane itself, so it is
-# impossible to miss, plus a log line) any map entry whose cwd already has a live omp process,
-# instead of silently duplicating it.
-set -euo pipefail
+# After resurrect/continuum restores the windows, `rig omp restore-panes` decides + executes
+# the restore for every mapped pane: reattach a still-alive durable abduco session, resume the
+# exact saved session file through the durable launcher, or (fail-closed) leave a pane alone
+# rather than risk a duplicate OMP process for the same session. See
+# riglib/omp_recovery.py (the decision) and riglib/omp_launcher.py (the execution).
+set -uo pipefail
 
-MAP_FILE="{map_file}"
-[ -f "$MAP_FILE" ] || exit 0
-WARN_LOG="$(dirname "$MAP_FILE")/omp-restore-warnings.log"
-
-# Snapshot every live omp process's cwd ONCE, system-wide — NOT scoped to tmux panes (see the
-# header comment above for why the pane-scoped guard alone missed the 2026-09-25 incident).
-# Argv[0] match mirrors omp-save's pane_has_omp (`omp` / `*/omp`); each match's cwd comes from
-# `lsof -a -p <pid> -d cwd -Fn`, the portable way to read a process's cwd on macOS/BSD.
-PS_SNAPSHOT=$(ps -eo pid=,args= 2>/dev/null || true)
-LIVE_OMP_CWDS=""
-while read -r pid rest; do
-  [ -n "$pid" ] || continue
-  exe=${{rest%% *}}
-  case "$exe" in
-    omp|*/omp) ;;
-    *) continue ;;
-  esac
-  # `|| true`: under `set -o pipefail`, lsof exiting 1 (pid died between the ps snapshot and
-  # here, or belongs to another user we can't inspect) propagates through the pipe to `sed`'s
-  # otherwise-0 exit and would abort the WHOLE script under `set -e` — same defensive pattern as
-  # resolve_rdir's `show-option ... || true` above. Losing this one candidate's cwd is fine
-  # (falls through to the empty-pcwd skip below); aborting mid-restore over every OTHER pane is not.
-  pcwd=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' || true)
-  [ -n "$pcwd" ] || continue
-  # Build the record via `printf -v` (writes straight into a shell variable) rather than
-  # `LIVE_OMP_CWDS="$LIVE_OMP_CWDS$(printf ...)"`: a `$(...)` command substitution strips ALL
-  # trailing newlines, so the moment a SECOND live omp process is found its record would glue
-  # onto the first with no separator, corrupting the awk lookup below for BOTH cwds — silently
-  # reverting to pre-fix (duplicate-launching) behavior for the exact multi-session case this
-  # guard exists to catch. `printf -v` performs the same backslash-escape substitution as a
-  # normal `printf` but assigns the fully-expanded result directly, so the trailing newline
-  # survives untouched.
-  printf -v _rec '%s\t%s\n' "$pid" "$pcwd"
-  LIVE_OMP_CWDS="$LIVE_OMP_CWDS$_rec"
-done <<< "$PS_SNAPSHOT"
-
-# First live omp pid already running in cwd $1, or empty — an exact field match (awk `==`), so
-# a cwd that is merely a PREFIX of another (`/x` vs `/x-extra`) can never cross-match.
-live_omp_pid_for_cwd() {{
-  awk -F'\t' -v c="$1" '$2 == c {{ print $1; exit }}' <<< "$LIVE_OMP_CWDS"
-}}
-
-while IFS=$'\t' read -r addr cwd sf; do
-  [ -n "$addr" ] || continue
-  cur=$(tmux display-message -p -t "$addr" '#{{pane_current_command}}' 2>/dev/null || true)
-  [ -n "$cur" ] || continue
-  case "$cur" in
-    sh|bash|zsh|fish|dash|ksh|tcsh|-sh|-bash|-zsh) ;;
-    *) continue ;;
-  esac
-  # `|| true`: same defensive reason as the lsof pipe above — if `awk` itself were ever missing
-  # (unlikely; POSIX-mandated) this must fail OPEN (treat as "no orphan known", fall through to
-  # the normal launch below) rather than abort the restore for every OTHER pane in the map.
-  live_pid=$(live_omp_pid_for_cwd "$cwd" || true)
-  if [ -n "$live_pid" ]; then
-    warn="omp already running for $cwd (pid $live_pid, outside this pane) — NOT auto-resuming, would duplicate it"
-    printf '%s %s (addr=%s saved=%s)\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$warn" "$addr" "$sf" >> "$WARN_LOG" 2>/dev/null || true
-    tmux send-keys -t "$addr" "echo $(printf '%q' "⚠ $warn — see $WARN_LOG")" Enter
-    continue
-  fi
-  qcwd=$(printf '%q' "$cwd")
-  qsf=$(printf '%q' "$sf")
-  if [ -f "$sf" ]; then
-    tmux send-keys -t "$addr" "cd $qcwd && omp --resume $qsf" Enter
-  else
-    tmux send-keys -t "$addr" "cd $qcwd && omp --continue" Enter
-  fi
-done < "$MAP_FILE"
+"{rig_bin}" omp restore-panes --map "{map_file}" --rig-bin "{rig_bin}"
 """
 
     # ── the codex-save / codex-restore managed scripts ────────────────────────────────
@@ -1460,12 +1287,14 @@ fi
 set -euo pipefail
 TMUX_BIN={tmux_q}
 SESSION={session}
+set --
+if [ -n "${{RIG_TMUX_RECOVERY_SOCKET:-}}" ]; then set -- -S "$RIG_TMUX_RECOVERY_SOCKET"; fi
 # already up (warm login) → do nothing (no duplicate session — anti-sprawl at boot).
-if "$TMUX_BIN" has-session -t "$SESSION" 2>/dev/null; then
+if "$TMUX_BIN" "$@" has-session -t "$SESSION" 2>/dev/null; then
   exit 0
 fi
 # create the detached session — this loads the conf and triggers continuum-restore.
-"$TMUX_BIN"{f_arg} new-session -d -s "$SESSION"
+"$TMUX_BIN" "$@"{f_arg} new-session -d -s "$SESSION"
 """
 
     # ── the boot launchd plist (macOS) ───────────────────────────────────────────────
@@ -1516,6 +1345,14 @@ fi
         health_q = shlex.quote(str(self.autosave_health_path))
         lock_q = shlex.quote(str(self.generated_dir / ".tmux-autosave.lock"))
         stale_secs = self.autosave_stale_after * 60
+        recovery_step = ""
+        if self.recovery_enabled:
+            recovery_step = (
+                f'{shlex.quote(self.rig_bin)} omp watchdog '
+                '--socket "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/default" '
+                f'--boot-script {shlex.quote(str(self.boot_script_path))} '
+                f'--tmux-bin {shlex.quote(self.tmux_bin)} --json >/dev/null || true\n'
+            )
         return f"""#!/bin/bash
 # rig-managed: INDEPENDENT tmux autosave — GENERATED by rig from rig.yaml. Do not hand-edit.
 # Runs every interval via the launchd agent. Decoupled from continuum's status-right hook so a
@@ -1556,6 +1393,7 @@ count_panes() {{ local n; n=$(grep -c '^pane' "$1" 2>/dev/null); printf '%s' "${
 if ! mkdir "$LOCK" 2>/dev/null; then log "busy: lock held, skipping"; health busy "lock held"; exit 0; fi
 trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
 
+{recovery_step}
 # no server → nothing to save (a cold boot with no tmux yet is NORMAL, not an error).
 if ! "$TMUX_BIN" has-session 2>/dev/null; then log "no server, nothing to save"; health inactive "no server"; exit 0; fi
 
@@ -1861,6 +1699,7 @@ def build_tmux(
     boot: dict | None = None,
     login_shell: dict | None = None,
     autosave: dict | None = None,
+    recovery: dict | None = None,
     pane_titles: dict | None = None,
     focus_events: dict | None = None,
     clipboard: dict | None = None,
@@ -1887,6 +1726,7 @@ def build_tmux(
     login_shell = login_shell or {}
     focus_events = focus_events or {}
     autosave = autosave or {}
+    recovery = recovery or {}
     pane_titles = pane_titles or {}
     clipboard = clipboard or {}
     copy_mode = copy_mode or {}
@@ -1936,6 +1776,7 @@ def build_tmux(
         login_shell=str(_knob(login_shell, "shell", "")),
         # Resolve tmux ONCE here (plan time) so every render is deterministic across invocations.
         tmux_bin=_resolve_tmux_bin(),
+        rig_bin=_resolve_rig_bin(),
         autosave_enabled=bool(_knob(autosave, "enabled", True)),
         autosave_label=str(_knob(autosave, "label", DEFAULT_AUTOSAVE_LABEL)),
         autosave_stale_after=int(_knob(autosave, "stale_after", DEFAULT_STALE_AFTER)),
@@ -1947,6 +1788,7 @@ def build_tmux(
         clipboard_enabled=bool(_knob(clipboard, "enabled", DEFAULT_CLIPBOARD_ENABLED)),
         clipboard_command=_resolve_clipboard_command(clipboard),
         mode_keys=_resolve_mode_keys(copy_mode),
+        recovery_enabled=bool(_knob(recovery, "enabled", False)),
     )
 
 

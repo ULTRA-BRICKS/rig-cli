@@ -1375,121 +1375,44 @@ def test_attach_script_shell_quotes_session_name():
 
 
 # ── omp-save / omp-restore script rendering ──────────────────────────────────────────────
-def test_omp_save_encodes_cwd_relative_to_home_dot_preserved():
-    """omp's session-dir slug is the cwd RELATIVE TO $HOME with '/' -> '-' — dots are
-    PRESERVED (unlike Claude Code's full-path, dot-folding encoding). VERIFIED against a real
-    on-disk session dir: $HOME/xp/review-cli/.worktrees/450-mimo-seat ->
-    -xp-review-cli-.worktrees-450-mimo-seat."""
+# The actual pane-tree walk (bun + compiled omp detection, session-file lookup, durable-abduco
+# identity) and restore decision (never duplicate a live original, prefer reattaching a still-
+# alive durable session) moved to tested Python (riglib/omp_recovery.py, riglib/omp_inspect.py,
+# riglib/omp_launcher.py — rig-cli#619, fixing the bun-launch/lsof-failure defects a bash
+# reimplementation kept drifting on); these scripts are now thin wrappers, tested wired-up here.
+def test_omp_save_is_a_thin_wrapper_calling_rig_omp_save_panes():
     body = _plan().render_omp_save()
-    assert "sessions" in body
-    assert ".jsonl" in body
-    # a bare '/' -> '-' encoder (NOT the claude tr './' '--' one — dots must stay literal).
-    assert "tr '/' '-'" in body
-    assert "tr './' '--'" not in body
+    assert "omp save-panes" in body
+    assert "--map" in body
+    assert "omp-sessions.map" in body
+    # the old inline bash tree-walk/session-lookup logic is gone from THIS file.
+    assert "pane_has_omp" not in body
+    assert "newest_session_file()" not in body  # the bash function; riglib.omp_launcher has the Python one
 
 
-def test_omp_save_walks_pane_process_tree():
-    body = _plan().render_omp_save()
-    assert "ps -eo pid=,ppid=,args=" in body
-    assert "pane_current_path" in body or "#{pane_current_path}" in body
-
-
-def test_omp_save_matches_omp_basename_only():
-    """Matches `omp`/`*/omp` (argv[0] only) — omp is a single compiled binary, no versioned-
-    symlink quirk to also match (unlike claude)."""
-    body = _plan().render_omp_save()
-    assert "omp|*/omp" in body
-
-
-def test_omp_save_records_full_session_path_not_bare_id():
-    """`omp --resume` accepts an id prefix OR a path; the map stores the resolved session
-    FILE'S FULL PATH to sidestep any ambiguity over what counts as the bare 'id'."""
-    body = _plan().render_omp_save()
-    assert "newest_session_file" in body
-    assert "send-keys" not in body  # omp-save only RECORDS; resume is omp-restore's job.
-
-
-def test_omp_save_honors_pi_coding_agent_dir_override():
-    body = _plan().render_omp_save()
-    assert "PI_CODING_AGENT_DIR" in body
-    assert "PI_CONFIG_DIR" in body
-
-
-def test_omp_restore_resumes_by_exact_path():
+def test_omp_restore_is_a_thin_wrapper_calling_rig_omp_restore_panes():
     body = _plan().render_omp_restore()
-    assert "omp --resume $qsf" in body
-    assert "omp --continue" in body  # stale/missing-file fallback
+    assert "omp restore-panes" in body
+    assert "--map" in body
+    assert "omp-sessions.map" in body
+    # the old inline bash duplicate-guard/send-keys logic is gone from THIS file.
+    assert "pane_current_command" not in body
+    assert "live_omp_pid_for_cwd" not in body
 
 
-def test_omp_restore_does_not_clobber_running_omp():
-    body = _plan().render_omp_restore()
-    assert "pane_current_command" in body or "#{pane_current_command}" in body
+def test_omp_save_and_restore_call_rig_via_an_absolute_path_when_resolvable(monkeypatch):
+    """The boot LaunchAgent's PATH deliberately excludes ~/.local/bin (see this module's other
+    PATH comments) — a bare `rig` there could silently resolve to nothing, so the wrapper bakes
+    in whatever `rig` resolves to on the CURRENT PATH at render (apply) time."""
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: "/opt/rig-test/bin/rig" if name == "rig" else None)
+    assert '"/opt/rig-test/bin/rig" omp save-panes' in _plan().render_omp_save()
+    assert '"/opt/rig-test/bin/rig" omp restore-panes' in _plan().render_omp_restore()
 
 
-def test_omp_restore_skips_missing_and_nonshell_panes():
-    body = _plan().render_omp_restore()
-    assert '[ -n "$cur" ] || continue' in body
-    assert "sh|bash|zsh|fish" in body
-    assert "*) continue" in body
-
-
-def test_omp_restore_shell_quotes_runtime_values():
-    body = _plan().render_omp_restore()
-    assert "printf '%q'" in body
-    assert "omp --resume $qsf" in body and "cd $qcwd" in body
-    assert 'send-keys -t "$addr" "cd $cwd && omp --resume $sf"' not in body
-
-
-def test_omp_restore_renders_the_system_wide_orphan_guard():
-    """Pin the new 2026-09-25 orphan guard's presence + its exact-field (never prefix) match, so
-    a future edit can't silently delete the whole guard while every other omp-restore assertion
-    (which never exercises the per-pane loop with a non-empty map) stays green."""
-    body = _plan().render_omp_restore()
-    assert "lsof -a -p" in body
-    assert "live_omp_pid_for_cwd" in body
-    assert "$2 == c" in body  # exact-field match — never a prefix/glob cross-match
-    assert "omp-restore-warnings.log" in body
-
-
-def test_omp_restore_orphan_scan_survives_a_dead_pid_under_pipefail(tmp_path):
-    """REGRESSION: the system-wide orphan scan (2026-09-25 duplicate-session incident) resolves
-    each `omp`-matched pid's cwd via `lsof -d cwd` — but a pid can die between the `ps` snapshot
-    and that lsof call (or belong to another user lsof can't inspect), and `lsof` then exits 1.
-    Under this script's own `set -euo pipefail`, a bare `lsof | sed` pipeline would propagate
-    that 1 through to the `pcwd=$(...)` assignment and abort the ENTIRE restore — turning a
-    single stale/foreign pid into a total restore failure for every OTHER pane in the map, which
-    would have been strictly WORSE than the bug this feature fixes. Drives the REAL rendered
-    script (not a paraphrase) with a `ps` shim reporting a pid (999999) that does not exist, so
-    the real `lsof -a -p 999999 -d cwd -Fn` genuinely fails — hermetic (no tmux needed: an empty
-    map makes the per-pane loop a no-op, isolating this to the snapshot-building half)."""
-    plan = tmux.build_tmux(repo_home=tmp_path)
-    gen = plan.generated_dir
-    gen.mkdir(parents=True, exist_ok=True)
-    script = gen / "omp-restore.sh"
-    script.write_text(plan.render_omp_restore(), encoding="utf-8")
-    script.chmod(0o755)
-    (gen / "omp-sessions.map").write_text("", encoding="utf-8")  # present but empty → no tmux call
-
-    bindir = tmp_path / "bin"
-    bindir.mkdir()
-    real_ps = shutil.which("ps")
-    # a `ps` shim that reports ONE extra bogus row (pid 999999, argv0 `omp`) ahead of the real
-    # table, so the script's own `omp` argv[0] filter matches it and calls `lsof -p 999999`.
-    (bindir / "ps").write_text(
-        "#!/usr/bin/env bash\n"
-        'echo "999999 omp bogus-dead-pid"\n'
-        f'exec {real_ps} "$@"\n',
-        encoding="utf-8",
-    )
-    (bindir / "ps").chmod(0o755)
-    env = dict(os.environ)
-    env["PATH"] = f"{bindir}{os.pathsep}{env.get('PATH', '')}"
-
-    r = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True, timeout=30)
-    assert r.returncode == 0, (
-        f"omp-restore.sh aborted on a dead/foreign pid instead of skipping it "
-        f"(stdout={r.stdout!r} stderr={r.stderr!r})"
-    )
+def test_omp_save_and_restore_fall_back_to_bare_rig_when_unresolvable(monkeypatch):
+    monkeypatch.setattr(tmux.shutil, "which", lambda name: None)
+    assert '"rig" omp save-panes' in _plan().render_omp_save()
+    assert '"rig" omp restore-panes' in _plan().render_omp_restore()
 
 
 def test_omp_scripts_have_shebang():

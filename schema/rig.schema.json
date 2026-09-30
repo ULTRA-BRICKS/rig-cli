@@ -1361,6 +1361,18 @@
           },
           "additionalProperties": false
         },
+        "recovery": {
+          "type": "object",
+          "description": "identity-checked server/socket recovery on the independent autosave cadence (macOS).",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "recover a previously recorded server; never replace an unknown live process",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
         "autosave": {
           "type": "object",
           "description": "an INDEPENDENT launchd saver (decoupled from continuum's status-right hook); when on, continuum's own autosave is disabled so there is one authoritative saver.",

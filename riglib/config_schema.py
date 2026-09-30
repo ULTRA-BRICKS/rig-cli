@@ -956,6 +956,10 @@ _TMUX_BLOCK = Block(
             doc="a launchd agent that brings tmux up after a reboot.",
             leaves={"enabled": Leaf("boolean", "write + load the boot agent", default=True), "label": Leaf("string", "the launchd agent label", default="ai.hyperide.tmux-boot")},
         ),
+        "recovery": Block(
+            doc="identity-checked server/socket recovery on the independent autosave cadence (macOS).",
+            leaves={"enabled": Leaf("boolean", "recover a previously recorded server; never replace an unknown live process", default=False)},
+        ),
         "autosave": Block(
             doc="an INDEPENDENT launchd saver (decoupled from continuum's status-right hook); when on, continuum's own autosave is disabled so there is one authoritative saver.",
             leaves={

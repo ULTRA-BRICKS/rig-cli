@@ -3327,6 +3327,7 @@ def _build_tmux(config: LoadedConfig, plan: InstallPlan) -> None:
                 "boot": dict(t.get("boot", {}) or {}),
                 "login_shell": login_shell,
                 "autosave": autosave,
+                "recovery": dict(t.get("recovery", {}) or {}),
                 "pane_titles": dict(t.get("pane_titles", {}) or {}),
                 "focus_events": dict(t.get("focus_events", {}) or {}),
                 "clipboard": dict(t.get("clipboard", {}) or {}),

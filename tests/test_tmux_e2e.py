@@ -145,6 +145,20 @@ def _install_tmux_shim(bindir: Path, socket: str) -> None:
     shim.chmod(0o755)
 
 
+def _install_rig_shim(bindir: Path, repo_root: Path) -> None:
+    """Write a `rig` wrapper on PATH that execs THIS checkout's CLI (``python3 -m riglib.cli``)
+    — the omp-save/omp-restore scripts under test now shell out to `rig omp save-panes`/
+    `restore-panes` (rig-cli#619); without this, a bare `rig` on the test runner's ambient PATH
+    could resolve to a DIFFERENT, possibly stale install lacking those subcommands entirely."""
+    shim = bindir / "rig"
+    shim.write_text(
+        "#!/usr/bin/env bash\n"
+        f'PYTHONPATH="{repo_root}"${{PYTHONPATH:+:$PYTHONPATH}} exec "{sys.executable}" -m riglib.cli "$@"\n',
+        encoding="utf-8",
+    )
+    shim.chmod(0o755)
+
+
 def _socket_path_for(label: str, env: dict[str, str] | None = None) -> Path:
     """The on-disk path tmux uses for a ``-L <label>`` server: ``$TMUX_TMPDIR | /tmp`` +
     ``/tmux-<uid>/<label>``, resolved against ``env`` (defaults to ``os.environ``). Callers MUST
@@ -185,6 +199,7 @@ def tmux_env(tmp_path, monkeypatch):
     bindir = tmp_path / "bin"
     bindir.mkdir()
     _install_tmux_shim(bindir, socket)
+    _install_rig_shim(bindir, Path(__file__).resolve().parents[1])
 
     real_tmux = shutil.which("tmux")
     env = dict(os.environ)
@@ -206,6 +221,10 @@ def tmux_env(tmp_path, monkeypatch):
     # Point the resolver at the shim so EVERY tmux the rig artifacts invoke hits the private socket.
     from riglib import tmux as _tmod
     monkeypatch.setattr(_tmod, "_resolve_tmux_bin", lambda: str(bindir / "tmux"))
+    # Same reasoning for `rig`: omp-save/omp-restore now shell out to `rig omp save-panes`/
+    # `restore-panes` (rig-cli#619) — pin it to the checkout-under-test's own CLI, not whatever
+    # (possibly stale) `rig` happens to be first on the runner's ambient PATH.
+    monkeypatch.setattr(_tmod, "_resolve_rig_bin", lambda: str(bindir / "rig"))
 
     def run(cmd, **kw):
         return subprocess.run(
@@ -543,12 +562,15 @@ def test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live(tmux_env):
 
     work = home / "proj"
     work.mkdir()
-    run(["tmux", "new-session", "-d", "-s", "main", "-c", str(work), "bash --norc -i"])
+    fakebin=home/"fakebin"; fakebin.mkdir()
+    (fakebin/"omp").write_text("#!/bin/sh\necho FAKE_OMP_ONLY\nsleep 1\n")
+    (fakebin/"omp").chmod(0o755)
+    run(["tmux", "new-session", "-d", "-s", "main", "-c", str(work), f"PATH={fakebin}:$PATH RIG_OMP_ABDUCO_DIR={home}/durable exec bash --norc -i"])
     addr = run(["tmux", "list-panes", "-a", "-F",
                 "#{session_name}:#{window_index}.#{pane_index}"]).stdout.splitlines()[0]
 
     sf = home / "fake-session.jsonl"
-    sf.write_text("{}\n", encoding="utf-8")
+    sf.write_text(json.dumps({"type":"session","id":"test-no-orphan","cwd":str(work)})+"\n", encoding="utf-8")
     (gen / "omp-sessions.map").write_text(f"{addr}\t{work}\t{sf}\n", encoding="utf-8")
 
     r = run(["bash", str(gen / "omp-restore.sh")])
@@ -556,7 +578,8 @@ def test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live(tmux_env):
     time.sleep(0.5)
     cap = run(["tmux", "capture-pane", "-t", addr, "-p"])
     joined = cap.stdout.replace("\n", "")
-    assert "omp --resume" in joined, cap.stdout
+    assert "rig omp run --session-id" in joined
+    assert "--resume" in joined, cap.stdout
     assert str(sf) in joined or str(sf).replace("\n", "") in joined, cap.stdout
     assert not (gen / "omp-restore-warnings.log").exists()
 
@@ -605,7 +628,7 @@ def test_omp_restore_skips_and_warns_when_omp_already_live_for_cwd(tmux_env):
                     "#{session_name}:#{window_index}.#{pane_index}"]).stdout.splitlines()[0]
 
         sf = home / "fake-session.jsonl"
-        sf.write_text("{}\n", encoding="utf-8")
+        sf.write_text(json.dumps({"type":"session","id":"test-orphan","cwd":str(work)})+"\n", encoding="utf-8")
         # the map records the ORPHAN's cwd for this pane (mirrors the incident: the saved
         # snapshot's pane cwd is the project dir the orphan is now independently working in).
         (gen / "omp-sessions.map").write_text(f"{addr}\t{work}\t{sf}\n", encoding="utf-8")
@@ -619,7 +642,7 @@ def test_omp_restore_skips_and_warns_when_omp_already_live_for_cwd(tmux_env):
         assert "omp --resume" not in joined, cap.stdout
         assert "omp --continue" not in joined, cap.stdout
         # it must have visibly warned in the pane instead — impossible to miss.
-        assert "already running" in joined, cap.stdout
+        assert "unidentified_live_owner" in joined, cap.stdout
         assert str(orphan.pid) in joined, cap.stdout
         # and left an audit trail on disk.
         warn_log = gen / "omp-restore-warnings.log"
@@ -681,8 +704,8 @@ def test_omp_restore_skips_and_warns_for_every_live_omp_cwd_with_multiple_orphan
 
         sf_a = home / "fake-session-a.jsonl"
         sf_b = home / "fake-session-b.jsonl"
-        sf_a.write_text("{}\n", encoding="utf-8")
-        sf_b.write_text("{}\n", encoding="utf-8")
+        sf_a.write_text(json.dumps({"type":"session","id":"test-orphan-a","cwd":str(work_a)})+"\n", encoding="utf-8")
+        sf_b.write_text(json.dumps({"type":"session","id":"test-orphan-b","cwd":str(work_b)})+"\n", encoding="utf-8")
         (gen / "omp-sessions.map").write_text(
             f"{addr_a}\t{work_a}\t{sf_a}\n{addr_b}\t{work_b}\t{sf_b}\n", encoding="utf-8"
         )
@@ -696,7 +719,7 @@ def test_omp_restore_skips_and_warns_for_every_live_omp_cwd_with_multiple_orphan
             joined = cap.stdout.replace("\n", "")
             assert "omp --resume" not in joined, (addr, cap.stdout)
             assert "omp --continue" not in joined, (addr, cap.stdout)
-            assert "already running" in joined, (addr, cap.stdout)
+            assert "unidentified_live_owner" in joined, (addr, cap.stdout)
             assert str(orphan.pid) in joined, (addr, cap.stdout)
 
         log_text = (gen / "omp-restore-warnings.log").read_text()
