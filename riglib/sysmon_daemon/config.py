@@ -23,7 +23,12 @@ DEFAULT_THRESHOLDS: Dict[str, Dict[str, float]] = {
     "compressor_pct": {"warn": 70.0, "critical": 90.0},
     "disk_free_gb": {"warn": 5.0, "critical": 2.0},
     "procs_pct": {"warn": 60.0, "critical": 80.0},
+    # same-name storms count EVERY user's processes; the percent is of kern.maxproc (rig-cli#644)
     "storm_same_name": {"warn": 150, "critical": 300},
+    "storm_pct": {"warn": 4.0, "critical": 8.0},
+    # one launchd coalition's fan-out (2026-09-27: 684 in one coalition; cmux at rest holds ~100)
+    "coalition_procs": {"warn": 400, "critical": 600},
+    "coalition_pct": {"warn": 8.0, "critical": 12.0},
     "proc_growth_per_min": {"warn": 200, "critical": 500},
     "display_delays_per_min": {"warn": 2, "critical": 5},
     "display_max_delay_s": {"warn": 1.5, "critical": 3.0},

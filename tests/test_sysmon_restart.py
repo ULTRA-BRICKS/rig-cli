@@ -266,6 +266,7 @@ def test_the_monitor_restarts_a_hung_rig_daemon_exactly_once(tmp_path, monkeypat
     from tests.test_sysmon_daemon import _proc, _sample
 
     monkeypatch.setattr(probe, "IS_DARWIN", True)
+    monkeypatch.setattr(probe, "proc_coalition", lambda pid: None)  # the IS_DARWIN patch must not reach libproc on Linux CI
     cfg = config.load(None)
     cfg["state_dir"] = str(tmp_path / "state")
     cfg["events"]["enabled"] = False

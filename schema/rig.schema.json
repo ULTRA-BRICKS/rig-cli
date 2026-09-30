@@ -2009,7 +2009,52 @@
             },
             "storm_same_name": {
               "type": "object",
-              "description": "processes of one user with one executable name",
+              "description": "processes (every user) with one executable name",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "storm_pct": {
+              "type": "object",
+              "description": "processes with one executable name, percent of kern.maxproc",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "coalition_procs": {
+              "type": "object",
+              "description": "processes in one launchd coalition (one job's whole fan-out)",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "coalition_pct": {
+              "type": "object",
+              "description": "processes in one launchd coalition, percent of kern.maxproc",
               "properties": {
                 "warn": {
                   "type": "number",

@@ -138,6 +138,8 @@ _BSDINFO_PPID_OFFSET = 16  # pbi_ppid (after pbi_flags, pbi_status, pbi_xstatus,
 _BSDINFO_START_OFFSET = 120  # pbi_start_tvsec, pbi_start_tvusec (uint64 each)
 _TASKINFO_SIZE = 96  # struct proc_taskinfo
 _TASKINFO_PRIORITY_OFFSET = 92  # pti_priority, the task's base scheduling priority
+_PROC_PIDCOALITIONINFO = 20
+_COALITIONINFO_SIZE = 40  # struct proc_pidcoalitioninfo: coalition_id[2] (resource, jetsam) + 3 reserved
 #: MAXPRI_THROTTLE: the base priority of a task in the DARWIN_BG band. A nice-20 task sits at 11,
 #: so a base priority at or below this is the background band, never a mere renice.
 _DARWIN_BG_BASE_PRIORITY = 4
@@ -443,6 +445,31 @@ def proc_is_background(pid: int) -> Optional[bool]:
     if libproc.proc_pidinfo(pid, _PROC_PIDTASKINFO, 0, buf, _TASKINFO_SIZE) != _TASKINFO_SIZE:
         return None
     return struct.unpack_from("<i", buf.raw, _TASKINFO_PRIORITY_OFFSET)[0] <= _DARWIN_BG_BASE_PRIORITY
+
+
+def proc_coalition(pid: int) -> Optional[str]:
+    """The group launchd accounts ``pid`` to, ``None`` when unreadable.
+
+    macOS: the RESOURCE coalition id (``proc_pidinfo(PROC_PIDCOALITIONINFO)``, no task port).
+    launchd puts every job — a daemon, an app — in its own coalition, and everything the job
+    spawns stays in it however it reparents, so one coalition is one job's whole fan-out.
+    Linux: the systemd unit of the process's cgroup, the same notion."""
+    if IS_DARWIN:
+        _, libproc = _darwin_libs()
+        buf = ctypes.create_string_buffer(_COALITIONINFO_SIZE)
+        if libproc.proc_pidinfo(pid, _PROC_PIDCOALITIONINFO, 0, buf, _COALITIONINFO_SIZE) != _COALITIONINFO_SIZE:
+            return None
+        return str(struct.unpack_from("<Q", buf.raw, 0)[0])
+    return unit_from_cgroup(_read(f"/proc/{pid}/cgroup") or "")
+
+
+def unit_from_cgroup(text: str) -> Optional[str]:
+    """The innermost ``*.service``/``*.scope`` of a ``/proc/<pid>/cgroup`` path (cgroup v2 line)."""
+    for line in text.splitlines():
+        if line.startswith("0::"):
+            units = [part for part in line[3:].split("/") if part.endswith((".service", ".scope"))]
+            return units[-1] if units else None
+    return None
 
 
 @functools.lru_cache(maxsize=1)

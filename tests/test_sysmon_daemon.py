@@ -261,12 +261,6 @@ def _census(procs, **kw):
     return detect.census_findings(procs, TH, **args)
 
 
-def test_storm_is_per_user_and_name():
-    procs = [_proc(1000 + i, 1) for i in range(150)] + [_proc(2000 + i, 1, uid=ME + 1) for i in range(400)]
-    [f] = _census(procs)
-    assert f.key == "storm:sleep" and f.severity == SEVERITY_WARNING and f.healable and len(f.offenders) == 150
-
-
 def test_gpu_models_over_cap_is_critical_and_blames_the_whole_orphan_tree():
     procs = [_proc(90, 1, comm="bash"), *[_proc(91 + i, 90, comm="whisper-cli") for i in range(3)]]
     [f] = _census(procs, tree_of=lambda pid: [90, 91, 92, 93])
@@ -647,3 +641,16 @@ def test_a_burst_of_log_events_reuses_a_fresh_census(tmp_path):
     mon.window.add({"kind": "display_delay", "at": 1011.0, "value": 5.0, "text": "Timer delayed"})
     mon.on_events(1011.0)
     assert census.calls == 2
+
+
+def test_a_big_storm_writes_its_incident_once_per_heal_batch_not_once_per_offender(tmp_path, monkeypatch):
+    """Each heal result used to rewrite incident.json, which lists every offender: a 684-process
+    coalition made that 684 writes of a 684-offender file per tick (~10 s of the daemon's loop)."""
+    census = _Census([_proc(70, 1, comm="bash"), *[_proc(1000 + i, 70, comm="sleep") for i in range(320)]])
+    mon, band = _heal_monitor(tmp_path, census)
+    saves = []
+    real = store.save_incident
+    monkeypatch.setattr(store, "save_incident", lambda d, inc: saves.append(len(inc.get("heal") or [])) or real(d, inc))
+    mon.tick(1000.0)
+    assert len(band.bg) == 320  # every storm member was throttled ...
+    assert len(saves) <= 4 and saves[-1] >= 320  # ... and the incident was written a handful of times

@@ -81,6 +81,9 @@ class Monitor:
         # hung / crash-loop detector (rig-cli#643)
         self.jobs: Dict[str, LaunchdJob] = {}
         self.job_runs: Dict[str, Deque[Tuple[float, int]]] = {}
+        # per census: pid → launchd coalition, and coalition → the launchd label living in it (rig-cli#644)
+        self.coalition_of: Dict[int, str] = {}
+        self.coalition_names: Dict[str, str] = {}
         self.census_at = 0.0
         self.snapshot_at = 0.0
         self.findings: List[Finding] = []
@@ -108,6 +111,8 @@ class Monitor:
             lineage=self.lineage,
         )
         self.lineage.observe(self.attributor)
+        self.coalition_of = {p.pid: c for p in procs for c in (probe.proc_coalition(p.pid),) if c is not None}
+        self.coalition_names = detect.coalition_labels(jobs or {}, self.coalition_of)
         self.watch_jobs(jobs or {}, now)
 
     def watch_jobs(self, jobs: Dict[str, LaunchdJob], now: float) -> None:
@@ -159,6 +164,7 @@ class Monitor:
             return []
         g = self.cfg["gpu"]
         slot_dir = config.expand(str(g["slot_dir"]))
+        proc_max = self.sample.proc_max if self.sample is not None else None
         found = detect.census_findings(
             self.procs,
             self.cfg["thresholds"],
@@ -168,13 +174,24 @@ class Monitor:
             gpu_slots_held=probe.gpu_slots_held(slot_dir, int(g["slots"])),
             offender=self._offender,
             tree_of=self.orphan_tree,
+            proc_max=proc_max,
         )
+        found += detect.coalition_findings(self.procs, self.coalition_of, self.coalition_names, proc_max,
+                                           self.cfg["thresholds"], self._offender)
         by_pid = self.attributor.by_pid
         found += detect.daemon_findings(
             self.jobs, {label: list(seen) for label, seen in self.job_runs.items()},
             lambda pid: by_pid[pid].etime_s if pid in by_pid else None, self.cfg["thresholds"], self.census_at,
         )
         return found
+
+    def top_coalitions(self, n: int = 5) -> List[Dict[str, Any]]:
+        """The ``n`` largest launchd coalitions of the last census (no members), for status/sample."""
+        if self.procs is None:
+            return []
+        proc_max = self.sample.proc_max if self.sample is not None else None
+        groups = detect.coalition_groups(self.procs, self.coalition_of, self.coalition_names, proc_max)
+        return [{k: v for k, v in g.items() if k != "members"} for g in groups[:n]]
 
     def with_context(self, findings: List[Finding]) -> List[Finding]:
         """Attach the top resident processes to memory findings (who holds the RAM)."""
@@ -248,13 +265,17 @@ class Monitor:
             # The mitigation first: throttles and restores are quick (macOS: syscalls, no fork),
             # done in one burst and written to disk right after, so a daemon SIGKILLed while it
             # waits on a note or a kill grace leaves no throttle without its restore record. One
-            # write per tick, not per offender: a 300-process storm must not be 300 writes.
+            # write per batch, not per offender: a 684-process coalition must not be 684 writes of
+            # an incident that lists 684 offenders (that was quadratic: ~10 s per tick).
             fast = [s for s in steps if s.action in ("throttle", "restore")]
             heal.execute(fast, self.cfg, self.heal_ops, on_result=self._fold_heal)
             if fast:
                 self._save_memory()
+                self._save_incident()
             slow = [s for s in steps if s.action not in ("throttle", "restore")]
             heal.execute(slow, self.cfg, self.heal_ops, on_result=self._fold_heal)
+            if slow:
+                self._save_incident()
 
         if self.incident is not None and critical and not self.incident.get("remediation"):
             result, self.memory["remediation"] = remediate.maybe_spawn(
@@ -328,10 +349,11 @@ class Monitor:
         if self.incident is not None:
             store.save_incident(self.state_dir, self.incident)
 
-    def _log(self, key: str, record: Dict[str, Any]) -> None:
+    def _log(self, key: str, record: Dict[str, Any], *, save: bool = True) -> None:
         if self.incident is not None:
             self.incident.setdefault(key, []).append(record)
-            self._save_incident()
+            if save:
+                self._save_incident()
         else:
             log = self.memory.setdefault(f"recent_{key}", [])
             log.append(record)
@@ -400,6 +422,7 @@ class Monitor:
             "findings": to_jsonable(self.findings),
             "census_at": self.census_at,
             "proc_count": len(self.procs) if self.procs is not None else None,
+            "coalitions": self.top_coalitions(5),
             "agents": [{"pid": h.pid, "kind": h.kind, "pane": h.pane, "cwd": h.cwd,
                         "session_id": h.session_id, "interactive": h.interactive} for h in hosts],
             "open_incident": self.incident["id"] if self.incident else None,
@@ -460,11 +483,13 @@ class Monitor:
         steps, self.memory["heal"] = heal.release(self.memory.get("heal") or {})
         if steps:
             heal.execute(steps, self.cfg, self.heal_ops, on_result=self._fold_heal)
+            self._save_incident()
 
     def _fold_heal(self, result: Dict[str, Any]) -> None:
         """Each heal outcome lands in memory the moment it happens: a stop signal in the middle of
-        a batch must still find every throttle already applied (``release_throttles``)."""
-        self._log("heal", result)
+        a batch must still find every throttle already applied (``release_throttles``). The
+        incident file is written once per batch by the caller."""
+        self._log("heal", result, save=False)
         self.memory["heal"] = heal.record(self.memory["heal"], [result])
 
     def _save_memory(self) -> None:

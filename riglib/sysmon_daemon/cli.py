@@ -122,10 +122,16 @@ def cmd_sample(args: argparse.Namespace) -> int:
     findings = mon.with_context(
         detect.sample_findings(s, cfg["thresholds"]) + mon.census_findings()
     )
+    coalitions = mon.top_coalitions(5)
     if args.json:
-        print(json.dumps({"sample": s.as_dict(), "findings": to_jsonable(findings)}, indent=1, default=str))
+        print(json.dumps({"sample": s.as_dict(), "coalitions": coalitions, "findings": to_jsonable(findings)},
+                         indent=1, default=str))
         return 0
     print(format_sample(s.as_dict()))
+    print("largest launchd coalitions:")
+    for c in coalitions:
+        share = f" ({c['pct']:.1f}% of the limit)" if c["pct"] is not None else ""
+        print(f"  {c['procs']:5d} procs{share}  {c['label'] or '(no live launchd job)'}  leader {c['leader']}")
     print("findings:")
     _print_findings(to_jsonable(findings))
     return 0

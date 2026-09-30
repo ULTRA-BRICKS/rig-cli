@@ -3249,7 +3249,10 @@ sysmon:
 | `compressor_pct` | 70 | 90 | `vm.compressor_segment_pages_compressed` / `…_limit` |
 | `disk_free_gb` (lower is worse) | 5 | 2 | free space on `/System/Volumes/VM` (swap growth) |
 | `procs_pct` | 60 | 80 | `proc_listallpids` / `kern.maxproc` |
-| `storm_same_name` | 150 | 300 | processes of one user sharing one executable name |
+| `storm_same_name` | 150 | 300 | processes sharing one executable name, every user counted (another user's stay untouched by heal) |
+| `storm_pct` | 4 | 8 | the same storm as a percent of `kern.maxproc` (the worse of the two lines wins) |
+| `coalition_procs` | 400 | 600 | processes in one launchd coalition — one job's whole fan-out, whatever the names or users (`proc_pidinfo(PROC_PIDCOALITIONINFO)`; Linux: the cgroup's systemd unit) |
+| `coalition_pct` | 8 | 12 | the same coalition as a percent of `kern.maxproc` (the worse of the two lines wins) |
 | `proc_growth_per_min` | 200 | 500 | process-count change over the last 20–120 s |
 | `display_delays_per_min` | 2 | 5 | WindowServer `Timer delayed by N s` log lines |
 | `display_max_delay_s` | 1.5 | 3.0 | longest such delay in the last minute |
@@ -3276,6 +3279,16 @@ critical.
   runs every 30 s, and while one is critical on every sample. A log event triggers one too, but
   a burst of events reuses a census younger than 10 s. Each census also records every process's
   start time; the heal ladder's pid-reuse guard compares against that snapshot.
+- **Coalitions (rig-cli#644):** each census also reads every process's launchd resource coalition
+  (`proc_pidinfo(PROC_PIDCOALITIONINFO)`, no task port; on Linux the systemd unit of its cgroup).
+  launchd gives every job — a daemon, an app — its own coalition, and whatever the job spawns
+  stays in it however it reparents, so a coalition is one job's whole fan-out. A coalition is named
+  by the launchd label whose job process (`launchctl list`) lives in it, else by its oldest member
+  (`no live launchd job, leader tmux pid 3209`). One over `coalition_procs` / `coalition_pct` is a
+  healable finding: its unprotected members are throttled like any storm, and when its label is a
+  restartable daemon (`heal.restart_labels`) the restart rung restarts that job; a GUI app or an
+  unlabelled coalition is never restarted. `rig sysmon sample` (and `status.json`) list the five
+  largest coalitions. The 2026-09-27 crash had 684 processes in one coalition.
 - **What the daemon never calls:** `lsof`, `sample`, `footprint`, a debugger, or anything else
   that needs `task_for_pid`. Per-process detail comes from `libproc`, which keeps working while a
   SecurityAgent prompt blocks taskgated.

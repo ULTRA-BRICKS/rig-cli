@@ -1,6 +1,6 @@
 """Detectors: pure functions from readings to :class:`~.model.Finding` verdicts.
 
-Four inputs, four detectors, one output shape:
+Four inputs, five detectors, one output shape:
 
 - :func:`sample_findings` — the in-process :class:`~.probe.Sample`: load per CPU, swap, WIRED
   share of RAM, reclaimable pages, compressor use against its page limit, free disk on the swap
@@ -8,13 +8,16 @@ Four inputs, four detectors, one output shape:
   Wired memory and reclaimable pages are here because the 2026-09-29 12:47 panic sat at 95.7%
   wired (GPU buffers of 13 ``whisper-cli`` model loads) and 112 MB reclaimable for minutes
   while ``kern.memorystatus_vm_pressure_level`` still said "normal".
-- :func:`census_findings` — the ``ps`` census: same-name process storms, GPU-model processes
+- :func:`census_findings` — the ``ps`` census: same-name process storms (every user's processes,
+  absolute and as a percent of ``kern.maxproc``), GPU-model processes
   above the agent-tools#817 slot cap, and task_for_pid tools stuck behind a SecurityAgent
   prompt (the 2026-09-29 ``lldb`` → ``system.privilege.taskport.debug`` dialog that left 32
   ``sample`` processes hanging).
 - :func:`event_findings` — the unified-log event window: WindowServer ``Timer delayed by N s``
   (the display-freeze precursor that began 26 minutes before the WindowServer-watchdog panic),
   watchdogd check-in trouble, and authd taskport prompts.
+- :func:`coalition_findings` — the census grouped by launchd coalition: one job's whole fan-out
+  over an absolute or percent line, named by its launchd label (rig-cli#644).
 - :func:`daemon_findings` — the watched launchd jobs (``launchctl print``): an interval job whose
   run hangs far past its interval, and a job launchd keeps relaunching after failed exits
   (rig-cli#643). These findings name the label the heal ladder's ``restart`` rung acts on.
@@ -25,8 +28,8 @@ Nothing here does I/O; the daemon feeds readings in and acts on the findings.
 from __future__ import annotations
 
 import os
-from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from collections import Counter, defaultdict
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .model import (
     SEVERITY_CRITICAL,
@@ -82,6 +85,15 @@ def _gb(v: Optional[int]) -> Optional[float]:
 
 def _fmt_gb(v: Optional[int]) -> str:
     return "n/a" if v is None else f"{v / GIB:.1f} GB"
+
+
+def _worse(a: str, b: str) -> str:
+    return a if SEVERITY_RANK[a] >= SEVERITY_RANK[b] else b
+
+
+def _pct(n: int, limit: Optional[int]) -> Optional[float]:
+    """``n`` as a percent of the process-table limit (``None`` when the limit is unknown)."""
+    return 100.0 * n / limit if limit else None
 
 
 def sample_findings(
@@ -174,30 +186,37 @@ def census_findings(
     gpu_slots_held: Optional[int],
     offender: OffenderFn,
     tree_of: Callable[[int], List[int]],
+    proc_max: Optional[int] = None,
 ) -> List[Finding]:
     """Findings from the ``ps`` census.
 
     ``offender`` turns a :class:`Proc` into an attributed :class:`Offender` (the daemon binds it
     to an :class:`~.attrib.Attributor`). ``tree_of(pid)`` returns the pids of the orphaned tree a
     GPU-model process belongs to (its reparented root and every descendant), so the heal ladder
-    can stop the loop that keeps relaunching the model, not only the model itself.
+    can stop the loop that keeps relaunching the model, not only the model itself. ``proc_max``
+    (``kern.maxproc``) turns a storm's count into its share of the process table.
     """
     out: List[Finding] = []
     by_pid = {p.pid: p for p in procs}
     mine = [p for p in procs if p.uid == my_uid]
 
-    # same-name storms
+    # same-name storms, machine-wide (rig-cli#644): every user's processes fill the one process
+    # table; another user's offenders are still protected from the heal ladder (attrib).
     groups: Dict[str, List[Proc]] = defaultdict(list)
-    for p in mine:
+    for p in procs:
         groups[p.comm].append(p)
     for comm, members in sorted(groups.items()):
-        sev = level("storm_same_name", len(members), thresholds)
+        n = len(members)
+        pct = _pct(n, proc_max)
+        sev = _worse(level("storm_same_name", n, thresholds), level("storm_pct", pct, thresholds))
         if sev == SEVERITY_OK:
             continue
+        share = f" ({pct:.1f}% of the {proc_max}-process limit)" if pct is not None else ""
         out.append(Finding(
             key=f"storm:{comm}", kind="storm", severity=sev,
-            summary=f"process storm: {len(members)} × {comm}",
-            metrics={"count": len(members), "comm": comm, "storm_same_name": len(members)},
+            summary=f"process storm: {n} × {comm}{share}",
+            metrics={"count": n, "comm": comm, "storm_same_name": n,
+                     "storm_pct": None if pct is None else round(pct, 2)},
             offenders=tuple(offender(p) for p in members),
             healable=True,
         ))
@@ -245,6 +264,71 @@ def census_findings(
 def top_rss(procs: Sequence[Proc], offender: OffenderFn, n: int = 5) -> List[Offender]:
     """The ``n`` largest resident processes (context for memory findings, never healed)."""
     return [offender(p) for p in sorted(procs, key=lambda p: p.rss_kb, reverse=True)[:n]]
+
+
+# ── launchd coalitions ────────────────────────────────────────────────────────────────────
+def coalition_labels(jobs: Dict[str, LaunchdJob], coalition_of: Dict[int, str]) -> Dict[str, str]:
+    """``coalition id → launchd label``: the job whose own process lives in that coalition (by
+    lowest pid when several do). Only what ``launchctl list`` reported — never a guess."""
+    out: Dict[str, str] = {}
+    for label, job in sorted(jobs.items(), key=lambda kv: (kv[1].pid or 0, kv[0])):
+        if job.pid and job.pid in coalition_of:
+            out.setdefault(coalition_of[job.pid], label)
+    return out
+
+
+def coalition_groups(
+    procs: Sequence[Proc], coalition_of: Dict[int, str], labels: Dict[str, str], proc_max: Optional[int]
+) -> List[Dict[str, Any]]:
+    """Every coalition with its members, largest first: ``{coalition, label, procs, pct, leader,
+    members}``. ``leader`` (``"<comm> pid <n>"``) is the oldest member, which names a coalition
+    no live launchd job accounts for (the job exited, its children did not)."""
+    groups: Dict[str, List[Proc]] = defaultdict(list)
+    for p in procs:
+        cid = coalition_of.get(p.pid)
+        if cid is not None:
+            groups[cid].append(p)
+    out = []
+    for cid, members in groups.items():
+        oldest = max(members, key=lambda p: (p.etime_s, -p.pid))
+        pct = _pct(len(members), proc_max)
+        out.append({"coalition": cid, "label": labels.get(cid), "procs": len(members),
+                    "pct": None if pct is None else round(pct, 2), "leader": f"{oldest.comm} pid {oldest.pid}",
+                    "members": members})
+    return sorted(out, key=lambda g: (-g["procs"], g["coalition"]))
+
+
+def coalition_findings(
+    procs: Sequence[Proc],
+    coalition_of: Dict[int, str],
+    labels: Dict[str, str],
+    proc_max: Optional[int],
+    thresholds: Dict[str, Dict[str, float]],
+    offender: OffenderFn,
+) -> List[Finding]:
+    """A coalition over ``coalition_procs`` (absolute) or ``coalition_pct`` (of ``kern.maxproc``)
+    — the machine-wide fan-out of ONE launchd job whatever its processes are called or run as
+    (the 2026-09-27 crash: 684 processes in one coalition). Attributed to the job's launchd
+    label, which the heal ladder's ``restart`` rung may restart when it is an allowlisted daemon."""
+    out: List[Finding] = []
+    for g in coalition_groups(procs, coalition_of, labels, proc_max):
+        n, pct, label = g["procs"], g["pct"], g["label"]
+        sev = _worse(level("coalition_procs", n, thresholds), level("coalition_pct", pct, thresholds))
+        if sev == SEVERITY_OK:
+            continue
+        name = label or f"(no live launchd job, leader {g['leader']})"
+        share = f" ({pct:.1f}% of the {proc_max}-process limit)" if pct is not None else ""
+        mostly = ", ".join(f"{comm} ×{k}" for comm, k in Counter(p.comm for p in g["members"]).most_common(3))
+        out.append(Finding(
+            key=f"coalition:{label or g['coalition']}", kind="coalition", severity=sev,
+            summary=f"launchd coalition {name}: {n} processes{share} — mostly {mostly}",
+            metrics={"coalition_procs": n, "coalition_pct": pct, "label": label, "coalition": g["coalition"],
+                     "leader": g["leader"]},
+            offenders=tuple(offender(p) for p in g["members"]),
+            healable=True,
+            restart_label=label,
+        ))
+    return out
 
 
 # ── launchd daemons ───────────────────────────────────────────────────────────────────────
