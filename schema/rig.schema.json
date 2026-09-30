@@ -2139,6 +2139,12 @@
               "default": 30,
               "minimum": 1
             },
+            "disk_cooldown_minutes": {
+              "type": "integer",
+              "description": "re-alert a disk finding at the same level after this long",
+              "default": 360,
+              "minimum": 1
+            },
             "max_per_hour": {
               "type": "integer",
               "description": "messages per rolling hour",

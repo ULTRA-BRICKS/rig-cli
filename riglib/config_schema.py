@@ -1591,6 +1591,8 @@ _SYSMON_BLOCK = Block(
                                      default="critical"),
                 "cooldown_minutes": Leaf("integer", "re-alert an unchanged finding after this long", default=30,
                                          minimum=1),
+                "disk_cooldown_minutes": Leaf("integer", "re-alert a disk finding at the same level after this long",
+                                              default=360, minimum=1),
                 "max_per_hour": Leaf("integer", "messages per rolling hour", default=6, minimum=1),
                 "resolved": Leaf("boolean", "send one line when an alerted finding clears", default=True),
                 "dry_run": Leaf("boolean", "record alerts without sending", default=False),

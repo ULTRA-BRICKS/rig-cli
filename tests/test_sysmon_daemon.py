@@ -831,20 +831,80 @@ def test_critical_data_volume_alert_lists_reclaimable_candidates_by_size_and_del
     assert all(Path(p).is_dir() for p in paths.values())
 
 
-def test_the_scan_runs_only_at_critical_and_at_most_once_per_cooldown(tmp_path):
+def _pages(host):
+    """The problem alerts sent (``tg --tag problem``), not the resolved lines."""
+    return [a for a in host.ran("tg") if a[1:3] == ["--tag", "problem"]]
+
+
+def test_a_full_disk_pages_once_per_six_hours_per_level_always_with_the_candidates(tmp_path):
+    """Owner decision 2026-09-30: a full disk stays full until someone cleans up, so it must not
+    page every 30-minute cooldown. Each level pages at most once per ``disk_cooldown_minutes``
+    (6 h), clearing and coming back inside that window does not page again, an escalation to a
+    level not yet sent does, and every disk page lists the reclaim candidates."""
+    paths = _tree(tmp_path)
+    host = _Host(_du_table(paths))
+    warn, crit, calm = _sample(data_used=91 * GIB, data_free=9 * GIB), _sample(**FULL), _sample()
+    hour = 3600.0
+    ticks = [
+        (T0, warn, 1),                     # first warning: pages
+        (T0 + 10, crit, 2),                # escalation to critical: pages
+        (T0 + 10 + 30 * 60, crit, 2),      # the old 30-min re-page: silent now
+        (T0 + 2 * hour, calm, 2),          # clears ...
+        (T0 + 2 * hour + 600, calm, 2),    # ... for 10 min (one "resolved" line, not a page)
+        (T0 + 3 * hour, crit, 2),          # back at critical inside 6 h: silent
+        (T0 + 3 * hour + 10, warn, 2),     # warning was paged at T0: silent
+        (T0 + 10 + 6 * hour - 1, crit, 2), # a second short of 6 h: silent
+        (T0 + 10 + 6 * hour, crit, 3),     # 6 h after the critical page: pages again
+    ]
+    mon = _disk_monitor(tmp_path, host, [s for _, s, _ in ticks], min_severity="warning")
+    for now, _, pages in ticks:
+        mon.tick(now)
+        assert len(_pages(host)) == pages, now - T0
+    assert len(host.ran("tg")) == 4  # the three pages and the one resolved line
+    for page in _pages(host):
+        body = page[-1]
+        assert f"worktree {paths['old_big']}" in body and "review-cli job cache" in body
+        assert "unused Apple container images" in body and "deleted nothing" in body
+    assert all(Path(p).is_dir() for p in paths.values())
+
+
+def test_the_scan_is_reused_inside_the_alert_cooldown(tmp_path):
     paths = _tree(tmp_path)
     host = _Host(_du_table(paths))
     warn, crit = _sample(data_used=91 * GIB, data_free=9 * GIB), _sample(**FULL)
-    mon = _disk_monitor(tmp_path, host, [warn, crit, crit, crit], min_severity="warning")
+    mon = _disk_monitor(tmp_path, host, [warn, crit], min_severity="warning")
     mon.tick(T0)
-    assert len(host.ran("tg")) == 1 and host.ran("du") == []  # a warning alerts without scanning
-    mon.tick(T0 + 10)
     scanned = len(host.ran("du"))
-    assert scanned > 0 and len(host.ran("tg")) == 2  # the escalation to critical scans once
-    mon.tick(T0 + 20)
-    assert len(host.ran("du")) == scanned  # still critical inside the cooldown: no rescan
-    mon.tick(T0 + 10 + 30 * 60)
-    assert len(host.ran("du")) == 2 * scanned and len(host.ran("tg")) == 3
+    assert scanned > 0 and len(_pages(host)) == 1
+    mon.tick(T0 + 10)  # the escalation pages with the report the warning scanned 10 s ago
+    assert len(host.ran("du")) == scanned and len(_pages(host)) == 2
+
+
+def test_a_memory_finding_keeps_its_own_cooldown_beside_a_quiet_disk():
+    cfg = _cfg()
+    disk = Finding(key="data_volume", kind="disk", severity=SEVERITY_CRITICAL, summary="full")
+    due, _, st = alert.decide([disk, _f()], {}, cfg, 0.0)
+    assert [f.key for f in due] == ["data_volume", "wired"]
+    due, _, st = alert.decide([disk, _f()], st, cfg, 30 * 60.0)
+    assert [f.key for f in due] == ["wired"]
+    due, _, st = alert.decide([disk, _f()], st, cfg, 6 * 3600.0)
+    assert [f.key for f in due] == ["data_volume", "wired"]
+
+
+def test_a_disk_page_held_by_the_hourly_budget_is_sent_later_and_each_volume_has_its_own_window():
+    """A disk page the hourly budget holds must not count as sent (else a full disk stays silent
+    for 6 h), and the data and swap volumes keep separate windows."""
+    cfg = _cfg(max_per_hour=1)
+    data = Finding(key="data_volume", kind="disk", severity=SEVERITY_CRITICAL, summary="full")
+    swap = Finding(key="disk", kind="disk", severity=SEVERITY_CRITICAL, summary="swap volume full")
+    due, _, st = alert.decide([_f()], {}, cfg, 0.0)
+    assert [f.key for f in due] == ["wired"]  # the budget is spent
+    due, _, st = alert.decide([_f(), data], st, cfg, 60.0)
+    assert due == []  # held
+    due, _, st = alert.decide([data], st, cfg, 3600.0)
+    assert [f.key for f in due] == ["data_volume"]  # sent once the budget frees up
+    due, _, st = alert.decide([_f(), data, swap], st, cfg, 2 * 3600.0)
+    assert [f.key for f in due] == ["wired", "disk"]  # the swap volume's first page is its own
 
 
 def test_a_du_that_times_out_is_counted_unmeasured_and_every_command_is_bounded(tmp_path):

@@ -5,6 +5,11 @@ pure function over persisted state:
 
 - a finding key alerts when it first reaches ``min_severity`` (default ``critical``), again
   when its severity ESCALATES, and otherwise at most once per ``cooldown_minutes``;
+- a DISK finding (kind ``disk``: a full data or swap volume stays full for days, until someone
+  cleans up) alerts at most once per ``disk_cooldown_minutes`` (default 6 h) per key AND severity
+  level. That memory survives the key clearing, so a volume hovering at its threshold cannot
+  re-page as "new" either; a level not sent within the window, up or down, still alerts (with
+  the default ``min_severity`` critical: one page per 6 h);
 - every due finding of one tick goes into ONE message, and at most ``max_per_hour`` messages
   leave per rolling hour (an escalation to critical is still held to that budget: a storm of
   flapping findings must never become a storm of Telegram messages);
@@ -22,10 +27,12 @@ import subprocess
 import time
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from .config import DEFAULTS
 from .model import SEVERITY_RANK, Finding, Offender
 
 HOUR = 3600.0
 RESOLVE_AFTER_S = 300.0
+DISK_KIND = "disk"
 
 
 def decide(
@@ -35,8 +42,17 @@ def decide(
     a = cfg["alert"]
     min_rank = SEVERITY_RANK.get(str(a.get("min_severity") or "critical"), 2)
     cooldown = float(a.get("cooldown_minutes") or 0) * 60.0
+    # Missing or 0 falls back to the default: a zero window would forget every disk page and
+    # re-page each tick (the validator already rejects values under 1).
+    disk_cooldown = float(a.get("disk_cooldown_minutes") or DEFAULTS["alert"]["disk_cooldown_minutes"]) * 60.0
     keys: Dict[str, Dict[str, Any]] = {k: dict(v) for k, v in (state.get("keys") or {}).items()}
     sent = [t for t in state.get("sent") or [] if now - float(t) < HOUR]
+    # key -> {severity: last sent}; entries older than the window are forgotten.
+    disk_sent: Dict[str, Dict[str, float]] = {}
+    for k, levels in (state.get("disk_sent") or {}).items():
+        fresh = {sev: float(t) for sev, t in levels.items() if now - float(t) < disk_cooldown}
+        if fresh:
+            disk_sent[k] = fresh
 
     due: List[Finding] = []
     present = set()
@@ -44,6 +60,10 @@ def decide(
         if SEVERITY_RANK[f.severity] < min_rank:
             continue
         present.add(f.key)
+        if f.kind == DISK_KIND:
+            if f.severity not in disk_sent.get(f.key, {}):
+                due.append(f)
+            continue
         prev = keys.get(f.key)
         escalated = prev is not None and SEVERITY_RANK[f.severity] > SEVERITY_RANK.get(prev.get("severity"), 0)
         if prev is None or escalated or now - float(prev.get("last_sent") or 0) >= cooldown:
@@ -72,9 +92,12 @@ def decide(
     if resolved and budget_left - (1 if due else 0) < 1:
         resolved = []  # "resolved" lines are informational; never spend a problem alert's budget
     for f in due:
+        # A disk key is deduped by disk_sent above; its keys[] entry only feeds the resolve loop.
         keys[f.key] = {"severity": f.severity, "last_sent": now}
+        if f.kind == DISK_KIND:
+            disk_sent.setdefault(f.key, {})[f.severity] = now
     sent.extend([now] * ((1 if due else 0) + (1 if resolved else 0)))
-    return due, resolved, {"keys": keys, "sent": sent}
+    return due, resolved, {"keys": keys, "sent": sent, "disk_sent": disk_sent}
 
 
 def _who(o: Offender) -> str:

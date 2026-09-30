@@ -71,6 +71,7 @@ DEFAULTS: Dict[str, Any] = {
         "enabled": True,
         "tg_bin": "tg",
         "cooldown_minutes": 30,
+        "disk_cooldown_minutes": 360,
         "max_per_hour": 6,
         "resolved": True,
         "min_severity": "critical",
@@ -110,7 +111,7 @@ DEFAULTS: Dict[str, Any] = {
         "slot_dir": "~/.local/state/agent-tools/gpu-slots",
         "patterns": list(DEFAULT_GPU_PATTERNS),
     },
-    # What a critical data_used_pct report lists as reclaimable (report only — see reclaim.py).
+    # What every disk alert lists as reclaimable (report only — see reclaim.py).
     "reclaim": {
         # dev roots holding rig-managed repos (rig's own default: spotlight.DEFAULT_ROOTS); the
         # scan lists <root>/<repo>/.worktrees/<name> checkouts idle for worktree_age_days

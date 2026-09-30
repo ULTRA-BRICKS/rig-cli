@@ -12,9 +12,9 @@ exercises exactly the production path:
 
 1. incident lifecycle — the first critical finding opens an incident and snapshots the live
    agent sessions into it; the incident closes after ``CLOSE_AFTER_S`` without a critical one;
-2. alerts — :func:`.alert.decide` (dedup + budget) then one ``tg`` message; a critical data volume
-   adds the report-only reclaimable-candidates list (:mod:`.reclaim`), scanned at most once per
-   alert cooldown;
+2. alerts — :func:`.alert.decide` (dedup + budget) then one ``tg`` message; every disk alert
+   (at most once per ``alert.disk_cooldown_minutes`` per level) adds the report-only
+   reclaimable-candidates list (:mod:`.reclaim`), scanned at most once per alert cooldown;
 3. heal — :func:`.heal.plan` / :func:`.heal.execute` / :func:`.heal.record` (notify → throttle →
    opt-in kills; throttles are restored when the pressure clears and when the monitor stops);
 4. remediation — :func:`.remediate.maybe_spawn` once per incident when ``auto_remediate``;
@@ -271,10 +271,12 @@ class Monitor:
         ]
 
     def _reclaim_lines(self, due: Sequence[Finding], now: float) -> List[str]:
-        """At a CRITICAL data volume: the reclaimable-candidates report for the alert, also kept
-        in the incident. One scan per alert cooldown at most — the report is reused until then,
-        never recomputed every tick. REPORT ONLY (:mod:`.reclaim` deletes nothing)."""
-        if not any(f.key == "data_volume" and f.severity == SEVERITY_CRITICAL for f in due):
+        """Whenever :func:`.alert.decide` lets a disk finding page (any level; ``decide`` holds each
+        level to once per ``alert.disk_cooldown_minutes``): the reclaimable-candidates report for the
+        alert, also kept in the incident. The ``du`` scan itself is reused within
+        ``alert.cooldown_minutes`` (an escalation seconds after a warning reuses it), never
+        recomputed every tick. REPORT ONLY (:mod:`.reclaim` deletes nothing)."""
+        if not any(f.kind == alert.DISK_KIND for f in due):
             return []
         report = self.memory.get("reclaim")
         cooldown = float(self.cfg["alert"].get("cooldown_minutes") or 0) * 60.0

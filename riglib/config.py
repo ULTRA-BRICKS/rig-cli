@@ -3779,7 +3779,7 @@ _SYSMON_BOOLS = {
     "sessions": ("restore_on_boot",),
 }
 _SYSMON_INTS = {
-    "alert": {"cooldown_minutes": 1, "max_per_hour": 1},
+    "alert": {"cooldown_minutes": 1, "disk_cooldown_minutes": 1, "max_per_hour": 1},
     "heal": {"grace_seconds": 0},
     "remediation": {"cooldown_minutes": 1},
     "gpu": {"slots": 1},

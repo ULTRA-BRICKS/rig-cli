@@ -3229,8 +3229,9 @@ sysmon:
   thresholds:                      # any subset; the rest keep their defaults
     wired_pct: { warn: 75, critical: 85 }
     reclaimable_gb: { warn: 2, critical: 1 }      # lower is worse
-    data_used_pct: { warn: 90, critical: 95 }     # critical lists reclaimable candidates
-  alert: { min_severity: critical, cooldown_minutes: 30, max_per_hour: 6, resolved: true, dry_run: false }
+    data_used_pct: { warn: 90, critical: 95 }     # every disk alert lists reclaimable candidates
+  alert: { min_severity: critical, cooldown_minutes: 30, disk_cooldown_minutes: 360, max_per_hour: 6,
+           resolved: true, dry_run: false }
   heal: { enabled: true, notify_agent: true, throttle: true, kill_orphans: false, kill_owned: false,
           grace_seconds: 120, dry_run: false }        # every kill path is opt-in
   remediation: { agent: omp, cooldown_minutes: 60, dry_run: false }   # omp | claude-code | codex | opencode
@@ -3278,8 +3279,8 @@ counts only after it held for 3 consecutive samples (20 s at the default cadence
 
 **A full data volume** warns at 90 % and is critical at 95 % (df's Capacity; APFS volumes share
 their container's free space, so the used share of the volume's own size would under-read). Swap
-grows on the same disk. A critical `data_volume` alert lists **reclaimable candidates**, largest
-first, capped at `reclaim.max_candidates`:
+grows on the same disk. Every disk alert (`data_volume` or the swap volume's `disk`, any level) lists
+**reclaimable candidates**, largest first, capped at `reclaim.max_candidates`:
 
 - rig worktrees (`<root>/<repo>/.worktrees/<name>` under each `reclaim.worktree_roots` dev root)
   that neither the directory nor its git `index`/`HEAD`/`logs/HEAD` changed for
@@ -3328,6 +3329,11 @@ finding, its numbers and who owns the offenders. They are deduplicated per findi
 
 - a key alerts when it first reaches `min_severity`, when it escalates, and otherwise at most once
   per cooldown;
+- a disk finding (`data_volume`, `disk`) alerts at most once per `disk_cooldown_minutes` (default
+  6 hours) per key and severity level: a full disk stays full until someone cleans up, so it must
+  not page every cooldown. The window survives the finding clearing and coming back, so a volume
+  hovering at a threshold does not re-page either; a level not sent within the window, up or
+  down, still alerts (with the default `min_severity: critical`, one page per 6 hours);
 - one message per tick carries every due finding;
 - at most `max_per_hour` messages go out per hour;
 - one "resolved" line is sent after a key stays clear for 5 minutes.

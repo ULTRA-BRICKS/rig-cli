@@ -1,6 +1,7 @@
-"""Reclaimable-space candidates for a critically full data volume (rig-cli#645).
+"""Reclaimable-space candidates for a full data or swap volume (rig-cli#645).
 
-REPORT ONLY. When ``data_used_pct`` turns critical, the monitor lists what could be removed and
+REPORT ONLY. Whenever a disk finding alerts (``data_volume`` or ``disk``, any level; at most once
+per ``alert.disk_cooldown_minutes`` per level), the monitor lists what could be removed and
 how big it is, in the Telegram alert and the incident record, and a human decides. Nothing here
 removes, moves, prunes or truncates anything: it lists directories, stats them and runs read-only
 size queries (``du -sk -x``, ``container system df``, ``docker system df``).
