@@ -7,12 +7,11 @@ post-crash incident gets one detached agent with a brief built from the incident
 one mission: find the root cause, fix it in the owning repo, resume the interrupted sessions,
 report, and leave a handoff file next to ``incident.json``.
 
-The agent starts through the same rig-detached-<kind> launchers every other detached subagent
-uses, so the hook bridge classifies it as a dispatched subagent (``RIG_AGENT_ID``). claude-code
-has no such launcher; its command is built inline to the same contract (see
-:func:`launch_command`). A cooldown in the persisted state keeps a flapping machine from
-starting an agent per incident. Nothing here raises: every failure is an ``error`` result the
-daemon records in the incident.
+The agent starts through the same rig-detached-<kind> launcher every other detached subagent of
+that harness uses (one per kind: omp, claude-code, codex, opencode — see :func:`launch_command`),
+so the hook bridge classifies it as a dispatched subagent (``RIG_AGENT_ID``). A cooldown in the
+persisted state keeps a flapping machine from starting an agent per incident. Nothing here
+raises: every failure is an ``error`` result the daemon records in the incident.
 """
 
 from __future__ import annotations
@@ -20,7 +19,6 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -30,8 +28,9 @@ from .model import AGENT_KINDS, SEVERITY_CRITICAL
 
 BRIEF_FILE = "remediation-brief.md"
 HANDOFF_FILE = "remediation-handoff.md"
-#: Harnesses with a provisioned ``<skills_dir>/rig-detached-<kind>/rig-detached-<kind>`` launcher.
-LAUNCHER_KINDS = ("omp", "codex", "opencode")
+#: Every harness kind has a provisioned ``<skills_dir>/rig-detached-<kind>/rig-detached-<kind>``
+#: launcher (agent-tools skills), so every configurable agent starts through one.
+LAUNCHER_KINDS = AGENT_KINDS
 #: The launchers return as soon as the child is detached; anything longer is a hang.
 LAUNCH_TIMEOUT_S = 30.0
 #: Offenders listed per finding in the brief; incident.json has the rest.
@@ -39,24 +38,6 @@ MAX_OFFENDERS = 20
 FORBIDDEN_TOOLS = "lldb, sample, footprint, dtrace, spindump, htop or lsof"
 
 Runner = Callable[..., "subprocess.CompletedProcess[str]"]
-
-# claude-code's detached launch, mirroring rig-detached-omp: the brief is read before the cd,
-# the log is private and appended, stdin is /dev/null, and the child gets its own session
-# (os.setsid via python3: macOS has no setsid(1)) so nothing that tree- or group-kills the
-# caller takes the agent with it. It fails fast, before detaching, when claude is missing.
-# Positional args: $1 log dir, $2 workdir, $3 brief file, $4 agent name, $5 python3.
-_CLAUDE_SH = r"""set -e
-command -v claude >/dev/null 2>&1 || { echo "claude not found on PATH" >&2; exit 127; }
-umask 077
-mkdir -p "$1"
-log="$1/$4.log"
-prompt=$(cat -- "$3")
-cd -- "$2"
-echo "--- $(date -u '+%Y-%m-%dT%H:%M:%SZ') launching detached agent '$4' in '$2'" >>"$log"
-nohup "$5" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' \
-    claude -p --permission-mode bypassPermissions "$prompt" </dev/null >>"$log" 2>&1 &
-echo "detached agent '$4' launched (pid $!, log $log)"
-"""
 
 
 def agent_name(incident_id: str) -> str:
@@ -69,28 +50,21 @@ def log_dir() -> Path:
     return Path(os.environ.get("RIG_AGENT_LOG_DIR") or "/tmp/agent-logs")
 
 
-def launch_command(agent: str, name: str, brief: Path, workdir: Path, cfg: Dict[str, Any]) -> Tuple[List[str], Dict[str, str]]:
-    """``(argv, extra_env)`` that starts the remediation agent detached and returns at once.
+def launch_command(agent: str, name: str, brief: Path, workdir: Path, cfg: Dict[str, Any]) -> List[str]:
+    """The argv that starts the remediation agent detached and returns at once: the provisioned
+    ``<skills_dir>/rig-detached-<kind>/rig-detached-<kind>`` launcher for ``agent``, which sets
+    the ``RIG_AGENT_ID``/``RIG_DETACHED_AGENT`` identity markers itself. There is no fallback
+    launch path: a launcher that is missing or not executable is an error.
 
-    omp/codex/opencode: the provisioned ``rig-detached-<kind>`` launcher, which sets the
-    identity markers itself. claude-code: ``/bin/sh -c`` running :data:`_CLAUDE_SH` — a shell
-    line rather than ``Popen(start_new_session=True)`` so the launch goes through the same
-    injectable runner as every other command (tests and dry runs see one argv) and behaves like
-    the launchers (nohup, own session, log append, immediate return with a launch line).
-
-    Raises ``ValueError`` for an unknown agent kind or a launcher that is not installed.
+    Raises ``ValueError`` for an unknown agent kind or a launcher that is missing or not executable.
     """
-    if agent in LAUNCHER_KINDS:
-        skills_dir = config.expand(str(cfg["remediation"]["skills_dir"]))
-        launcher = skills_dir / f"rig-detached-{agent}" / f"rig-detached-{agent}"
-        if not (launcher.is_file() and os.access(launcher, os.X_OK)):
-            raise ValueError(f"launcher not installed or not executable: {launcher} (rig apply provisions it)")
-        return [str(launcher), name, str(brief), str(workdir)], {}
-    if agent == "claude-code":
-        argv = ["/bin/sh", "-c", _CLAUDE_SH, "sysmon-remediate", str(log_dir()), str(workdir), str(brief), name,
-                sys.executable]
-        return argv, {"RIG_AGENT_ID": name, "RIG_DETACHED_AGENT": "1"}
-    raise ValueError(f"unknown remediation agent {agent!r} (one of {', '.join(AGENT_KINDS)})")
+    if agent not in LAUNCHER_KINDS:
+        raise ValueError(f"unknown remediation agent {agent!r} (one of {', '.join(LAUNCHER_KINDS)})")
+    skills_dir = config.expand(str(cfg["remediation"]["skills_dir"]))
+    launcher = skills_dir / f"rig-detached-{agent}" / f"rig-detached-{agent}"
+    if not (launcher.is_file() and os.access(launcher, os.X_OK)):
+        raise ValueError(f"launcher not installed or not executable: {launcher} (rig apply provisions it)")
+    return [str(launcher), name, str(brief), str(workdir)]
 
 
 def maybe_spawn(
@@ -120,7 +94,7 @@ def maybe_spawn(
                               "handoff": str(incident_dir / HANDOFF_FILE), "log": str(log_dir() / f"{name}.log"),
                               "at": now}
     try:
-        argv, extra_env = launch_command(agent, name, brief, config.expand(str(r["workdir"])), cfg)
+        argv = launch_command(agent, name, brief, config.expand(str(r["workdir"])), cfg)
         incident_dir.mkdir(parents=True, exist_ok=True)
         brief.write_text(build_brief(incident, incident_dir, cfg), encoding="utf-8")
     except (ValueError, OSError) as e:
@@ -129,8 +103,7 @@ def maybe_spawn(
     if r["dry_run"]:
         return dict(result, status="dry_run"), state
     try:
-        proc = run(argv, capture_output=True, text=True, timeout=LAUNCH_TIMEOUT_S, stdin=subprocess.DEVNULL,
-                   env={**os.environ, **extra_env})
+        proc = run(argv, capture_output=True, text=True, timeout=LAUNCH_TIMEOUT_S, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.SubprocessError) as e:
         return dict(result, status="error", error=str(e)), state
     if proc.returncode != 0:

@@ -3344,9 +3344,11 @@ logs. The incident closes after 5 quiet minutes.
 
 **Auto-remediation (`auto_remediate: true`, default OFF).** On a critical incident (at most once per
 `remediation.cooldown_minutes`) the daemon writes `remediation-brief.md` into the incident dir and
-launches a detached coding-agent session through the rig-detached launcher family
-(`~/.agents/skills/rig-detached-{omp,codex,opencode}`). claude-code has no launcher in the family,
-so the same detached contract runs inline. The brief tells the agent to:
+launches a detached coding-agent session through the configured `remediation.agent`'s launcher from
+the rig-detached family, `~/.agents/skills/rig-detached-<kind>/rig-detached-<kind>` for every kind
+(omp, claude-code, codex, opencode); a missing or non-executable launcher is an `error` result in
+the incident, never a fallback launch.
+The brief tells the agent to:
 
 1. find and fix the root cause in its owning repo (killing processes is not a fix);
 2. resume the interrupted sessions with `rig sysmon restore --incident <id>`;

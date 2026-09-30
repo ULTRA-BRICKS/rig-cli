@@ -2,22 +2,18 @@
 
 from __future__ import annotations
 
-import os
 import re
-import stat
 import subprocess
-import time
 from pathlib import Path
 
 import pytest
 
 from riglib.sysmon_daemon import config, remediate
-from riglib.sysmon_daemon.model import AgentHost, Attribution, Finding, Offender, to_jsonable
+from riglib.sysmon_daemon.model import AGENT_KINDS, AgentHost, Attribution, Finding, Offender, to_jsonable
 
 NOW = 1_790_000_000.0
 OMP = AgentHost(pid=900, kind="omp", args="omp", cwd="/xp/app", session_file="/s/omp-a.jsonl",
                 session_id="abc", pane="tmux:main:1.0")
-LAUNCHER_KINDS = ("omp", "codex", "opencode")
 
 
 def _incident(kind="live", severity="critical", incident_id="20260929T120000-live"):
@@ -41,7 +37,7 @@ def env(tmp_path, monkeypatch):
     """A tmp HOME with every launcher installed and a tmp agent log dir."""
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("RIG_AGENT_LOG_DIR", str(tmp_path / "agent-logs"))
-    for kind in LAUNCHER_KINDS:
+    for kind in AGENT_KINDS:
         launcher = tmp_path / "skills" / f"rig-detached-{kind}" / f"rig-detached-{kind}"
         launcher.parent.mkdir(parents=True)
         launcher.write_text("#!/bin/sh\nexit 0\n")
@@ -134,16 +130,30 @@ def test_a_failed_launch_is_an_error_result_and_keeps_the_cooldown_free(env, fak
     assert result["status"] == "error" and needle in result["error"] and state == {}
 
 
-@pytest.mark.parametrize("agent", ["pi", "omp-missing"])
-def test_unknown_agent_or_missing_launcher_is_an_error_not_an_exception(env, agent):
+def test_an_unknown_agent_is_an_error_not_an_exception(env):
     home, cfg = env
-    if agent == "omp-missing":
-        (home / "skills/rig-detached-omp/rig-detached-omp").unlink()
-        agent = "omp"
-    cfg["remediation"]["agent"] = agent
+    cfg["remediation"]["agent"] = "pi"
     run = FakeRun()
     result, state = remediate.maybe_spawn(_incident(), home / "inc", cfg, {}, NOW, run=run)
-    assert result["status"] == "error" and result["error"] and run.calls == [] and state == {}
+    assert result["status"] == "error" and "pi" in result["error"] and run.calls == [] and state == {}
+
+
+@pytest.mark.parametrize("breakage", ["missing", "not-executable"])
+@pytest.mark.parametrize("kind", AGENT_KINDS)
+def test_a_missing_or_non_executable_launcher_is_an_error_for_every_kind(env, kind, breakage):
+    """No kind has a fallback launch path: without its provisioned launcher the incident records
+    an error naming the path `rig apply` provisions, nothing runs, and the cooldown stays free."""
+    home, cfg = env
+    launcher = home / f"skills/rig-detached-{kind}/rig-detached-{kind}"
+    if breakage == "missing":
+        launcher.unlink()
+    else:
+        launcher.chmod(0o644)
+    cfg["remediation"]["agent"] = kind
+    run = FakeRun()
+    result, state = remediate.maybe_spawn(_incident(), home / "inc", cfg, {}, NOW, run=run)
+    assert result["status"] == "error" and str(launcher) in result["error"]
+    assert run.calls == [] and state == {}
 
 
 def test_agent_name_is_launcher_safe_whatever_the_incident_id(env):
@@ -155,50 +165,22 @@ def test_agent_name_is_launcher_safe_whatever_the_incident_id(env):
 
 
 # ── launch argv per harness ───────────────────────────────────────────────────────────────
-@pytest.mark.parametrize("kind", LAUNCHER_KINDS)
-def test_launcher_kinds_use_the_rig_detached_launcher_under_the_expanded_skills_dir(env, kind):
+@pytest.mark.parametrize("kind", AGENT_KINDS)
+def test_every_agent_kind_launches_through_its_rig_detached_launcher(env, kind):
+    """omp, claude-code, codex and opencode all start through the provisioned
+    ``<skills_dir>/rig-detached-<kind>/rig-detached-<kind>``, which sets the identity markers
+    itself — the configured agent reaches the runner as exactly that argv."""
     home, cfg = env
-    argv, extra = remediate.launch_command(kind, "n1", Path("/b.md"), Path("/w"), cfg)
-    assert argv == [str(home / f"skills/rig-detached-{kind}/rig-detached-{kind}"), "n1", "/b.md", "/w"]
-    assert extra == {}  # the launcher sets the identity markers itself
-
-
-def test_claude_code_launch_detaches_a_print_run_with_the_brief_and_identity(env):
-    """Run the real /bin/sh line against a fake ``claude`` to prove the argv, env and log."""
-    home, cfg = env
-    bin_dir = home / "bin"
-    bin_dir.mkdir()
-    out = home / "claude-called"
-    fake = bin_dir / "claude"
-    fake.write_text(f'#!/bin/sh\n{{ printf "%s\\n" "$@"; echo "ID=$RIG_AGENT_ID DETACHED=$RIG_DETACHED_AGENT"; }}'
-                    f' > "{out}.tmp"\nmv "{out}.tmp" "{out}"\necho child-output\n')
-    fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
-    brief = home / "brief.md"
-    brief.write_text("# fix the load\nline two\n")
-    argv, extra = remediate.launch_command("claude-code", "n2", brief, home / "work", cfg)
-    assert extra == {"RIG_AGENT_ID": "n2", "RIG_DETACHED_AGENT": "1"}
-    proc = subprocess.run(argv, env={**os.environ, "PATH": f"{bin_dir}:/usr/bin:/bin", **extra},
-                          capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL)
-    assert proc.returncode == 0, proc.stderr
-    deadline = time.time() + 10
-    while not out.exists() and time.time() < deadline:
-        time.sleep(0.05)
-    assert out.read_text().splitlines() == ["-p", "--permission-mode", "bypassPermissions", "# fix the load",
-                                            "line two", "ID=n2 DETACHED=1"]
-    log = home / "agent-logs" / "n2.log"
-    while "child-output" not in (log.read_text() if log.exists() else "") and time.time() < deadline:
-        time.sleep(0.05)
-    assert "child-output" in log.read_text()
-
-
-def test_claude_code_launch_fails_fast_when_claude_is_not_on_path(env):
-    home, cfg = env
-    brief = home / "brief.md"
-    brief.write_text("# x\n")
-    argv, extra = remediate.launch_command("claude-code", "n3", brief, home / "work", cfg)
-    proc = subprocess.run(argv, env={**os.environ, "PATH": "/usr/bin:/bin", **extra}, capture_output=True, text=True,
-                          timeout=10, stdin=subprocess.DEVNULL)
-    assert proc.returncode != 0 and "claude" in proc.stderr
+    assert remediate.launch_command(kind, "n1", Path("/b.md"), Path("/w"), cfg) == [
+        str(home / f"skills/rig-detached-{kind}/rig-detached-{kind}"), "n1", "/b.md", "/w"]
+    cfg["remediation"]["agent"] = kind
+    run = FakeRun()
+    inc_dir = home / "inc"
+    result, _ = remediate.maybe_spawn(_incident(), inc_dir, cfg, {}, NOW, run=run)
+    assert result["status"] == "spawned"
+    assert [c for c, _ in run.calls] == [[str(home / f"skills/rig-detached-{kind}/rig-detached-{kind}"),
+                                          result["name"], str(inc_dir / "remediation-brief.md"),
+                                          str(home / "work")]]
 
 
 # ── brief ─────────────────────────────────────────────────────────────────────────────────
