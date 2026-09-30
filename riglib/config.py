@@ -3771,7 +3771,7 @@ def _validate_tgctl_reaper(t: dict[str, Any]) -> None:
 
 #: metrics where a LOWER value is worse (warn must sit ABOVE critical) — mirrors
 #: riglib.sysmon_daemon.detect.LOWER_IS_WORSE.
-_SYSMON_LOWER_IS_WORSE = {"reclaimable_gb", "disk_free_gb"}
+_SYSMON_LOWER_IS_WORSE = {"reclaimable_gb", "free_gb", "disk_free_gb"}
 _SYSMON_BOOLS = {
     "alert": ("enabled", "resolved", "dry_run"),
     "heal": ("enabled", "notify_agent", "throttle", "kill_orphans", "kill_owned", "dry_run"),
@@ -3783,8 +3783,11 @@ _SYSMON_INTS = {
     "heal": {"grace_seconds": 0},
     "remediation": {"cooldown_minutes": 1},
     "gpu": {"slots": 1},
+    "reclaim": {"worktree_age_days": 1, "max_candidates": 1},
 }
 _SYSMON_STRS = {"sessions": ("tmux_session",), "gpu": ("slot_dir",)}
+#: lists of non-empty strings (an empty list turns that candidate source off)
+_SYSMON_STR_LISTS = {"reclaim": ("worktree_roots", "cache_dirs")}
 
 
 def _sysmon_fail(path: str, message: str) -> None:
@@ -3804,7 +3807,8 @@ def _validate_sysmon(t: dict[str, Any]) -> None:
     exists to prevent): unknown keys at every level, non-bool flags, integers out of range,
     thresholds that are not ``{warn, critical}`` numbers or whose order is inverted (warn must be
     reached BEFORE critical: ``warn <= critical``, or ``warn >= critical`` for the lower-is-worse
-    ``reclaimable_gb``/``disk_free_gb``), an unknown remediation agent or alert severity.
+    ``reclaimable_gb``/``free_gb``/``disk_free_gb``), an unknown remediation agent or alert severity,
+    and ``reclaim`` path lists that are not lists of non-empty strings.
     """
     if not isinstance(t, dict):
         _sysmon_fail("", "sysmon must be a mapping")
@@ -3820,7 +3824,7 @@ def _validate_sysmon(t: dict[str, Any]) -> None:
     for key in ("label", "config_dir", "python_bin"):
         if key in t and (not isinstance(t[key], str) or not t[key].strip()):
             _sysmon_fail(key, f"sysmon.{key} must be a non-empty string, got {t[key]!r}")
-    for section in ("thresholds", "alert", "heal", "remediation", "sessions", "gpu"):
+    for section in ("thresholds", "alert", "heal", "remediation", "sessions", "gpu", "reclaim"):
         if section in t and not isinstance(t[section], dict):
             _sysmon_fail(section, f"sysmon.{section} must be a mapping")
         if isinstance(t.get(section), dict):
@@ -3854,6 +3858,13 @@ def _validate_sysmon(t: dict[str, Any]) -> None:
             value = (t.get(section) or {}).get(key)
             if value is not None and (not isinstance(value, str) or not value.strip()):
                 _sysmon_fail(f"{section}.{key}", f"sysmon.{section}.{key} must be a non-empty string")
+    for section, keys in _SYSMON_STR_LISTS.items():
+        for key in keys:
+            value = (t.get(section) or {}).get(key)
+            if value is not None and (
+                not isinstance(value, list) or not all(isinstance(v, str) and v.strip() for v in value)
+            ):
+                _sysmon_fail(f"{section}.{key}", f"sysmon.{section}.{key} must be a list of non-empty strings")
     severity = (t.get("alert") or {}).get("min_severity")
     if severity is not None and severity not in ("warning", "critical"):
         _sysmon_fail("alert.min_severity", f"sysmon.alert.min_severity must be warning|critical, got {severity!r}")

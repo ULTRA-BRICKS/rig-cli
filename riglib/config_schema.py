@@ -1561,7 +1561,7 @@ _SYSMON_BLOCK = Block(
     },
     nested={
         "thresholds": Block(
-            doc="warn/critical lines per metric (reclaimable_gb and disk_free_gb: lower is worse)",
+            doc="warn/critical lines per metric (reclaimable_gb, free_gb and disk_free_gb: lower is worse)",
             nested={
                 name: _sysmon_threshold(doc)
                 for name, doc in (
@@ -1569,8 +1569,11 @@ _SYSMON_BLOCK = Block(
                     ("swap_pct", "swap used, percent"),
                     ("wired_pct", "wired memory, percent of RAM"),
                     ("reclaimable_gb", "free+inactive+speculative+purgeable GB"),
+                    ("free_gb", "free memory pages GB (vm_stat 'Pages free'; Linux MemFree)"),
                     ("compressor_pct", "compressor pages, percent of its limit"),
                     ("disk_free_gb", "free GB on the swap volume"),
+                    ("data_used_pct", "data volume used percent, df Capacity (a critical one lists "
+                                      "reclaimable candidates, never deletes)"),
                     ("procs_pct", "processes, percent of kern.maxproc"),
                     ("storm_same_name", "processes of one user with one executable name"),
                     ("proc_growth_per_min", "process-count growth per minute"),
@@ -1632,6 +1635,18 @@ _SYSMON_BLOCK = Block(
             leaves={
                 "slots": Leaf("integer", "slot count (default: env.vars.RIG_GPU_SLOTS, else 2)", minimum=1),
                 "slot_dir": Leaf("string", "lock dir (default: env.vars.RIG_GPU_SLOT_DIR, else the pool default)"),
+            },
+        ),
+        "reclaim": Block(
+            doc="what a critical data_used_pct alert lists as reclaimable (REPORT ONLY: sysmon never deletes)",
+            leaves={
+                "worktree_roots": Leaf("array", "dev roots whose <repo>/.worktrees/<name> checkouts are listed "
+                                       "when idle (default ~/xp, ~/work)", items_type="string"),
+                "worktree_age_days": Leaf("integer", "a worktree is idle after this many days without a change",
+                                          default=7, minimum=1),
+                "cache_dirs": Leaf("array", "cache dirs listed with their size (default: review-cli's job dirs)",
+                                   items_type="string"),
+                "max_candidates": Leaf("integer", "largest candidates listed", default=10, minimum=1),
             },
         ),
     },

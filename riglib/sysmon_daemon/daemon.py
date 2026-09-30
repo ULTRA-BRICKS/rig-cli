@@ -12,7 +12,9 @@ exercises exactly the production path:
 
 1. incident lifecycle — the first critical finding opens an incident and snapshots the live
    agent sessions into it; the incident closes after ``CLOSE_AFTER_S`` without a critical one;
-2. alerts — :func:`.alert.decide` (dedup + budget) then one ``tg`` message;
+2. alerts — :func:`.alert.decide` (dedup + budget) then one ``tg`` message; a critical data volume
+   adds the report-only reclaimable-candidates list (:mod:`.reclaim`), scanned at most once per
+   alert cooldown;
 3. heal — :func:`.heal.plan` / :func:`.heal.execute` / :func:`.heal.record` (notify → throttle →
    opt-in kills; throttles are restored when the pressure clears and when the monitor stops);
 4. remediation — :func:`.remediate.maybe_spawn` once per incident when ``auto_remediate``;
@@ -27,13 +29,14 @@ from __future__ import annotations
 
 import os
 import select
+import shutil
 import signal
 import subprocess
 import time
 from collections import deque
 from typing import Any, Callable, Deque, Dict, List, Optional, Sequence
 
-from . import __version__, alert, attrib, config, detect, events, heal, probe, remediate, sessions, store
+from . import __version__, alert, attrib, config, detect, events, heal, probe, reclaim, remediate, sessions, store
 from .model import SEVERITY_CRITICAL, SEVERITY_WARNING, Finding, Offender, Proc, to_jsonable
 
 #: an incident closes after this long without any critical finding.
@@ -59,6 +62,7 @@ class Monitor:
         run: Callable[..., Any] = subprocess.run,
         start_time_of: Callable[[int], Optional[float]] = probe.proc_start_time,
         heal_ops: Optional[heal.HealOps] = None,
+        which: Callable[[str], Optional[str]] = shutil.which,
     ) -> None:
         self.cfg = cfg
         self.state_dir = config.state_dir(cfg)
@@ -70,6 +74,7 @@ class Monitor:
         self.stream = stream
         self.start_time_of = start_time_of
         self.heal_ops = heal_ops
+        self.which = which
         self.lineage = attrib.Lineage(start_time_of)
         self.memory: Dict[str, Any] = store.read_json(self.state_dir / store.MEMORY, {}) or {}
         self.history: Deque[probe.Sample] = deque(maxlen=90)
@@ -174,8 +179,10 @@ class Monitor:
         self.sample = s
         ev = detect.event_findings(self.window.recent(now), self.cfg["thresholds"], now)
         # The ps census follows the severity: every tick while something is critical, every 30 s
-        # on a warning, else every census_interval_seconds.
-        worst = detect.worst(found + ev)
+        # on a warning, else every census_interval_seconds. A full disk (the data volume or the
+        # swap volume; on APFS both read one container's free space) is no process problem and
+        # can last for days: it never speeds the census up.
+        worst = detect.worst(f for f in found + ev if f.kind != "disk")
         gap = {SEVERITY_CRITICAL: 0.0, SEVERITY_WARNING: 30.0}.get(worst, float(self.cfg["census_interval_seconds"]))
         if self.procs is None or now - self.census_at >= gap:
             self.take_census(now)
@@ -209,7 +216,7 @@ class Monitor:
         if due:
             title, body = alert.render(
                 due, incident_id=self.incident["id"] if self.incident else None,
-                extra_lines=self._memory_line(),
+                extra_lines=self._memory_line() + self._reclaim_lines(due, now),
             )
             rec = alert.send(title, body, self.cfg, run=self.run_cmd)
             self._log("alerts", rec)
@@ -262,6 +269,22 @@ class Monitor:
             f"reclaimable {(s.reclaimable or 0) / gb:.1f} GB, swap {s.swap_used / gb:.1f}/{s.swap_total / gb:.1f} GB, "
             f"{s.proc_total} procs"
         ]
+
+    def _reclaim_lines(self, due: Sequence[Finding], now: float) -> List[str]:
+        """At a CRITICAL data volume: the reclaimable-candidates report for the alert, also kept
+        in the incident. One scan per alert cooldown at most — the report is reused until then,
+        never recomputed every tick. REPORT ONLY (:mod:`.reclaim` deletes nothing)."""
+        if not any(f.key == "data_volume" and f.severity == SEVERITY_CRITICAL for f in due):
+            return []
+        report = self.memory.get("reclaim")
+        cooldown = float(self.cfg["alert"].get("cooldown_minutes") or 0) * 60.0
+        if not isinstance(report, dict) or now - float(report.get("at") or 0) >= cooldown:
+            report = reclaim.scan(self.cfg, now, run=self.run_cmd, which=self.which)
+            self.memory["reclaim"] = report
+        if self.incident is not None:
+            self.incident["reclaimable"] = report
+            self._save_incident()
+        return reclaim.lines(report, self.sample.data_volume if self.sample else None)
 
     # ── incidents ─────────────────────────────────────────────────────────────────────────
     def _open_incident(self, now: float, kind: str, **extra: Any) -> None:

@@ -54,14 +54,30 @@ def format_sample(s: Dict[str, Any]) -> str:
         v = s.get(key)
         return "n/a" if v is None else f"{v / GIB:.1f} GB"
 
+    def mb(key: str) -> str:
+        v = s.get(key)
+        return "n/a" if v is None else f"{v / 1024 ** 2:.0f} MB"
+
+    def kb(key: str) -> str:
+        v = s.get(key)
+        return "n/a" if v is None else f"{v // 1024} KB"
+
     pressure = {1: "normal", 2: "WARN", 4: "CRITICAL"}.get(s.get("pressure_level"), "n/a")
+    free = mb("free")
+    if s.get("free_pages") is not None:
+        free += f" = {s['free_pages']} pages of {s.get('page_size')} bytes (vm_stat \"Pages free\")"
+    used_pct = s.get("data_used_pct")
     parts = [
         f"load {s['load1']:.2f} on {s['ncpu']} CPUs ({s['load_per_cpu']:.2f}/CPU)",
         f"wired {gb('wired')} of {gb('mem_total')} ({(s.get('wired_pct') or 0):.1f}%)",
         f"reclaimable {gb('reclaimable')}",
+        f"free {free}",
         f"swap {gb('swap_used')} of {gb('swap_total')} ({(s.get('swap_pct') or 0):.1f}%)",
         f"compressor {(s.get('compressor_pct') or 0):.1f}% of limit",
-        f"disk free {gb('disk_free')}",
+        f"disk free {gb('disk_free')} (swap volume)",
+        f"data volume {s.get('data_volume') or 'n/a'} "
+        f"{'n/a' if used_pct is None else f'{used_pct:.1f}%'} full: "
+        f"used {kb('data_used')}, available {kb('data_free')} (df -k Used/Available)",
         f"procs {s['proc_total']}/{s.get('proc_max') or '?'}",
         f"memory pressure {pressure}",
     ]
@@ -180,6 +196,13 @@ SCENARIOS = {
         Finding("crash", "crash", SEVERITY_CRITICAL,
                 "the machine went down without a clean shutdown (SIMULATED drill)", {}),
     ],
+    # a full data volume: the alert lists reclaimable candidates (report only, nothing deleted);
+    # the scan runs for real (read-only) against this machine's worktrees, caches and images
+    "disk": [
+        Finding("data_volume", "disk", SEVERITY_CRITICAL,
+                "data volume /System/Volumes/Data 96.0% full (19.4 GB free) (SIMULATED, 2026-09-30 df values)",
+                {"data_used_pct": 96.0, "volume": "/System/Volumes/Data", "data_free_gb": 19.4}),
+    ],
 }
 
 
@@ -198,6 +221,10 @@ def cmd_simulate(args: argparse.Namespace) -> int:
         print(f"simulated incident {incident['id']}: {', '.join(f['key'] for f in incident['findings'])}")
         print(f"  sessions captured: {len(incident.get('sessions') or [])}")
         print(f"  alerts (dry-run): {len(incident.get('alerts') or [])}; heal steps (dry-run): {len(incident.get('heal') or [])}")
+        rec = incident.get("reclaimable")
+        if rec:
+            print(f"  reclaimable candidates: {len(rec.get('candidates') or [])} listed, {rec.get('more', 0)} more, "
+                  f"{rec.get('unmeasured', 0)} unmeasured — {rec.get('note')}")
         print(f"  remediation: {rem.get('status', 'disabled')} {rem.get('name', '')}")
         print(f"  {store.incident_dir(config.state_dir(cfg), incident['id']) / store.INCIDENT_FILE}")
     return 0

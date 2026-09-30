@@ -1900,7 +1900,7 @@
         },
         "thresholds": {
           "type": "object",
-          "description": "warn/critical lines per metric (reclaimable_gb and disk_free_gb: lower is worse)",
+          "description": "warn/critical lines per metric (reclaimable_gb, free_gb and disk_free_gb: lower is worse)",
           "properties": {
             "load_per_cpu": {
               "type": "object",
@@ -1962,6 +1962,21 @@
               },
               "additionalProperties": false
             },
+            "free_gb": {
+              "type": "object",
+              "description": "free memory pages GB (vm_stat 'Pages free'; Linux MemFree)",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
             "compressor_pct": {
               "type": "object",
               "description": "compressor pages, percent of its limit",
@@ -1980,6 +1995,21 @@
             "disk_free_gb": {
               "type": "object",
               "description": "free GB on the swap volume",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "data_used_pct": {
+              "type": "object",
+              "description": "data volume used percent, df Capacity (a critical one lists reclaimable candidates, never deletes)",
               "properties": {
                 "warn": {
                   "type": "number",
@@ -2229,6 +2259,39 @@
             "slot_dir": {
               "type": "string",
               "description": "lock dir (default: env.vars.RIG_GPU_SLOT_DIR, else the pool default)"
+            }
+          },
+          "additionalProperties": false
+        },
+        "reclaim": {
+          "type": "object",
+          "description": "what a critical data_used_pct alert lists as reclaimable (REPORT ONLY: sysmon never deletes)",
+          "properties": {
+            "worktree_roots": {
+              "type": "array",
+              "description": "dev roots whose <repo>/.worktrees/<name> checkouts are listed when idle (default ~/xp, ~/work)",
+              "items": {
+                "type": "string"
+              }
+            },
+            "worktree_age_days": {
+              "type": "integer",
+              "description": "a worktree is idle after this many days without a change",
+              "default": 7,
+              "minimum": 1
+            },
+            "cache_dirs": {
+              "type": "array",
+              "description": "cache dirs listed with their size (default: review-cli's job dirs)",
+              "items": {
+                "type": "string"
+              }
+            },
+            "max_candidates": {
+              "type": "integer",
+              "description": "largest candidates listed",
+              "default": 10,
+              "minimum": 1
             }
           },
           "additionalProperties": false

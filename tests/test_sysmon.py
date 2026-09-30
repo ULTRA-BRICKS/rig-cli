@@ -72,12 +72,14 @@ def test_empty_and_full_blocks_are_accepted():
     validate({"version": 1, "sysmon": {}})
     validate({"version": 1, "sysmon": {
         "enabled": True, "auto_remediate": True, "events": False,
-        "thresholds": {"wired_pct": {"warn": 70, "critical": 80}, "disk_free_gb": {"warn": 10, "critical": 3}},
+        "thresholds": {"wired_pct": {"warn": 70, "critical": 80}, "disk_free_gb": {"warn": 10, "critical": 3},
+                       "free_gb": {"warn": 0.05, "critical": 0.02}, "data_used_pct": {"warn": 85, "critical": 92}},
         "alert": {"min_severity": "warning", "max_per_hour": 3},
         "heal": {"kill_owned": True, "grace_seconds": 0},
         "remediation": {"agent": "claude-code"},
         "sessions": {"restore_on_boot": True, "tmux_session": "work"},
         "gpu": {"slots": 3},
+        "reclaim": {"worktree_roots": ["~/xp"], "worktree_age_days": 14, "cache_dirs": [], "max_candidates": 5},
     }})
 
 
@@ -91,6 +93,15 @@ def test_empty_and_full_blocks_are_accepted():
     ({"heal": {"kill_orphans": "yes"}}, "kill_orphans"),
     ({"sample_interval_seconds": 0}, "sample_interval_seconds"),
     ({"gpu": {"slots": 0}}, "gpu.slots"),
+    ({"thresholds": {"free_gb": {"warn": 0.02, "critical": 0.05}}}, "sysmon.thresholds.free_gb: warn must be >= critical"),
+    ({"thresholds": {"data_used_pct": {"warn": 96, "critical": 95}}}, "sysmon.thresholds.data_used_pct: warn must be <= critical"),
+    ({"thresholds": {"data_used_pct": {"warn": 90, "critical": "95"}}}, "data_used_pct.critical must be a number"),
+    ({"reclaim": {"worktree_age_days": 0}}, "reclaim.worktree_age_days"),
+    ({"reclaim": {"max_candidates": True}}, "reclaim.max_candidates"),
+    ({"reclaim": {"worktree_roots": "~/xp"}}, "reclaim.worktree_roots"),
+    ({"reclaim": {"cache_dirs": ["~/ok", " "]}}, "reclaim.cache_dirs"),
+    ({"reclaim": {"delete": True}}, "delete"),
+    ({"reclaim": []}, "sysmon.reclaim must be a mapping"),
 ])
 def test_misconfiguration_fails_closed(block, fragment):
     with pytest.raises(ConfigError) as exc:
@@ -130,6 +141,16 @@ def test_partial_threshold_override_keeps_the_other_defaults(tmp_path):
     assert th["wired_pct"] == {"warn": 60, "critical": 70}
     assert th["swap_pct"]["critical"] == 95.0
     assert json.loads(plan.render_config())["state_dir"] == str(tmp_path / ".config/rig/sysmon/state")
+
+
+def test_free_and_data_volume_thresholds_and_reclaim_render_into_sysmon_json(tmp_path):
+    block = {"thresholds": {"data_used_pct": {"warn": 85, "critical": 92}},
+             "reclaim": {"worktree_roots": ["~/src"], "worktree_age_days": 3}}
+    rt = json.loads(sysmon.build_sysmon(home=tmp_path, block=block, gpu_env={}).render_config())
+    assert rt["thresholds"]["data_used_pct"] == {"warn": 85, "critical": 92}
+    assert rt["thresholds"]["free_gb"] == {"warn": 0.05, "critical": 0.025}  # the calibrated default
+    assert rt["reclaim"]["worktree_roots"] == ["~/src"] and rt["reclaim"]["worktree_age_days"] == 3
+    assert rt["reclaim"]["max_candidates"] == 10  # the untouched keys keep their defaults
 
 
 def test_plist_runs_the_installed_package_resident(tmp_path):
