@@ -217,6 +217,8 @@ def runtime_config(block: Dict[str, Any], *, config_dir: Path, gpu_env: Dict[str
         gpu["slot_dir"] = str(gpu_env["RIG_GPU_SLOT_DIR"])
     rt["gpu"] = gpu
     rt["state_dir"] = str(config_dir / STATE_DIR_NAME)
+    # the daemon's own launchd label: its restart rung must never kickstart the monitor itself
+    rt["label"] = str(block.get("label") or DEFAULT_LABEL)
     return rt
 
 

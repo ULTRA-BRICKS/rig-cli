@@ -91,6 +91,12 @@ def test_empty_and_full_blocks_are_accepted():
     ({"heal": {"kill_orphans": "yes"}}, "kill_orphans"),
     ({"sample_interval_seconds": 0}, "sample_interval_seconds"),
     ({"gpu": {"slots": 0}}, "gpu.slots"),
+    ({"heal": {"restart_labels": "ai.hyperide.*"}}, "heal.restart_labels"),
+    ({"heal": {"restart_labels": ["ai.hyperide.*", ""]}}, "heal.restart_labels"),
+    ({"heal": {"restart_cooldown_minutes": "30"}}, "heal.restart_cooldown_minutes"),
+    ({"heal": {"max_restarts_per_day": 0}}, "heal.max_restarts_per_day"),
+    ({"heal": {"restart_daemons": "on"}}, "heal.restart_daemons"),
+    ({"heal": {"restart_everything": True}}, "restart_everything"),
 ])
 def test_misconfiguration_fails_closed(block, fragment):
     with pytest.raises(ConfigError) as exc:
@@ -130,6 +136,21 @@ def test_partial_threshold_override_keeps_the_other_defaults(tmp_path):
     assert th["wired_pct"] == {"warn": 60, "critical": 70}
     assert th["swap_pct"]["critical"] == 95.0
     assert json.loads(plan.render_config())["state_dir"] == str(tmp_path / ".config/rig/sysmon/state")
+
+
+def test_restart_rung_keys_render_with_the_monitors_own_label(tmp_path):
+    block = {"label": "ai.example.sysmon",
+             "heal": {"restart_labels": ["ai.hyperide.tg-ctl"], "restart_cooldown_minutes": 10,
+                      "max_restarts_per_day": 2, "restart_daemons": False},
+             "thresholds": {"daemon_overrun_x": {"warn": 3, "critical": 5}}}
+    validate({"version": 1, "sysmon": block})
+    rt = json.loads(sysmon.build_sysmon(home=tmp_path, block=block, gpu_env={}).render_config())
+    assert rt["label"] == "ai.example.sysmon"
+    assert rt["heal"]["restart_labels"] == ["ai.hyperide.tg-ctl"] and rt["heal"]["restart_daemons"] is False
+    assert (rt["heal"]["restart_cooldown_minutes"], rt["heal"]["max_restarts_per_day"]) == (10, 2)
+    assert rt["thresholds"]["daemon_overrun_x"] == {"warn": 3, "critical": 5}
+    default = json.loads(sysmon.build_sysmon(home=tmp_path, block={}, gpu_env={}).render_config())
+    assert default["label"] == "ai.hyperide.sysmon" and default["heal"]["restart_daemons"] is True
 
 
 def test_plist_runs_the_installed_package_resident(tmp_path):

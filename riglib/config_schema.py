@@ -1577,6 +1577,8 @@ _SYSMON_BLOCK = Block(
                     ("display_delays_per_min", "WindowServer 'Timer delayed' lines per minute"),
                     ("display_max_delay_s", "longest WindowServer timer delay in the last minute"),
                     ("taskport_stuck_s", "age of a task_for_pid tool stuck behind SecurityAgent"),
+                    ("daemon_overrun_x", "a watched launchd interval job's current run, in multiples of its interval"),
+                    ("daemon_crashloop_runs", "unscheduled relaunches of a watched launchd job within 10 minutes"),
                 )
             },
         ),
@@ -1607,6 +1609,15 @@ _SYSMON_BLOCK = Block(
                 "grace_seconds": Leaf("integer", "critical must persist this long before a stop", default=120,
                                       minimum=0),
                 "dry_run": Leaf("boolean", "record steps without executing them", default=False),
+                "restart_daemons": Leaf("boolean", "restart a hung or crash-looping watched launchd job with "
+                                        "`launchctl kickstart -k` after the grace period", default=True),
+                "restart_labels": Leaf("array", "launchd label patterns (fnmatch) watched for hangs/crash loops "
+                                       "and restartable; never the monitor itself or an application.* GUI job",
+                                       items_type="string", default=["ai.hyperide.*", "com.hyperide.*"]),
+                "restart_cooldown_minutes": Leaf("integer", "at most one restart per label per this many minutes",
+                                                 default=30, minimum=1),
+                "max_restarts_per_day": Leaf("integer", "restarts per label per 24 h before sysmon stops and "
+                                             "alerts for a human", default=3, minimum=1),
             },
         ),
         "remediation": Block(

@@ -507,7 +507,8 @@ class FakeOps:
     def ops(self):
         return heal.HealOps(start_time=self.start_time, is_background=self.is_background,
                             background=self.background, foreground=self.foreground,
-                            signal=self.signal, sleep=self.sleep, notify_agent=self.notify)
+                            signal=self.signal, sleep=self.sleep, notify_agent=self.notify,
+                            restart=self.restart)
 
     def start_time(self, pid):
         return self.alive.get(pid)
@@ -534,6 +535,9 @@ class FakeOps:
     def notify(self, host, text):
         self.calls.append(("notify", host.pid))
         return "undelivered: nobody listening"
+
+    def restart(self, label):
+        self.calls.append(("restart", label))
 
 
 def _step(action, pid, start=1000.0, host=None):

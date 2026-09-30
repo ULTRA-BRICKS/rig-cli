@@ -2081,6 +2081,36 @@
                 }
               },
               "additionalProperties": false
+            },
+            "daemon_overrun_x": {
+              "type": "object",
+              "description": "a watched launchd interval job's current run, in multiples of its interval",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "daemon_crashloop_runs": {
+              "type": "object",
+              "description": "unscheduled relaunches of a watched launchd job within 10 minutes",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -2167,6 +2197,34 @@
               "type": "boolean",
               "description": "record steps without executing them",
               "default": false
+            },
+            "restart_daemons": {
+              "type": "boolean",
+              "description": "restart a hung or crash-looping watched launchd job with `launchctl kickstart -k` after the grace period",
+              "default": true
+            },
+            "restart_labels": {
+              "type": "array",
+              "description": "launchd label patterns (fnmatch) watched for hangs/crash loops and restartable; never the monitor itself or an application.* GUI job",
+              "default": [
+                "ai.hyperide.*",
+                "com.hyperide.*"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "restart_cooldown_minutes": {
+              "type": "integer",
+              "description": "at most one restart per label per this many minutes",
+              "default": 30,
+              "minimum": 1
+            },
+            "max_restarts_per_day": {
+              "type": "integer",
+              "description": "restarts per label per 24 h before sysmon stops and alerts for a human",
+              "default": 3,
+              "minimum": 1
             }
           },
           "additionalProperties": false

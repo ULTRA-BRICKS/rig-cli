@@ -493,7 +493,7 @@ def test_simulation_never_messages_telegram_or_signals(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(daemon.probe, "census", lambda **kw: [])
     monkeypatch.setattr(daemon.probe, "tmux_panes", lambda *a, **k: {})
-    monkeypatch.setattr(daemon.probe, "launchd_job_pids", lambda **k: set())
+    monkeypatch.setattr(daemon.probe, "launchd_jobs", lambda **k: {})
     monkeypatch.setattr(daemon.alert, "send", lambda *a, **k: calls.append(a[2]["alert"]["dry_run"]) or {"outcome": "dry_run"})
     inc = daemon.simulate(cfg, [_f("display_freeze")])
     assert inc["kind"] == "simulated" and calls == [True]
@@ -541,7 +541,8 @@ class _BandOps:
             start_time=lambda pid: self.census.starts.get(pid) if any(p.pid == pid for p in self.census.procs) else None,
             is_background=lambda pid: pid in self.bg, background=lambda pid: self.bg.add(pid),
             foreground=lambda pid: self.bg.discard(pid), signal=lambda pid, sig: self.signals.append((pid, sig)),
-            sleep=lambda s: None, notify_agent=lambda host, text: "undelivered: test")
+            sleep=lambda s: None, notify_agent=lambda host, text: "undelivered: test",
+            restart=lambda label: "restart: not in this test")
 
 
 def _heal_monitor(tmp_path, census, **heal_over):

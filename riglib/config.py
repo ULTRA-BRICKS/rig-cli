@@ -3774,13 +3774,13 @@ def _validate_tgctl_reaper(t: dict[str, Any]) -> None:
 _SYSMON_LOWER_IS_WORSE = {"reclaimable_gb", "disk_free_gb"}
 _SYSMON_BOOLS = {
     "alert": ("enabled", "resolved", "dry_run"),
-    "heal": ("enabled", "notify_agent", "throttle", "kill_orphans", "kill_owned", "dry_run"),
+    "heal": ("enabled", "notify_agent", "throttle", "kill_orphans", "kill_owned", "dry_run", "restart_daemons"),
     "remediation": ("dry_run",),
     "sessions": ("restore_on_boot",),
 }
 _SYSMON_INTS = {
     "alert": {"cooldown_minutes": 1, "max_per_hour": 1},
-    "heal": {"grace_seconds": 0},
+    "heal": {"grace_seconds": 0, "restart_cooldown_minutes": 1, "max_restarts_per_day": 1},
     "remediation": {"cooldown_minutes": 1},
     "gpu": {"slots": 1},
 }
@@ -3861,6 +3861,11 @@ def _validate_sysmon(t: dict[str, Any]) -> None:
     if agent is not None and agent not in ("omp", "claude-code", "codex", "opencode"):
         _sysmon_fail("remediation.agent",
                      f"sysmon.remediation.agent must be omp|claude-code|codex|opencode, got {agent!r}")
+    labels = (t.get("heal") or {}).get("restart_labels")
+    if labels is not None and (not isinstance(labels, list)
+                               or not all(isinstance(p, str) and p.strip() for p in labels)):
+        _sysmon_fail("heal.restart_labels",
+                     f"sysmon.heal.restart_labels must be a list of launchd label patterns, got {labels!r}")
 
 
 def _validate_task(t: dict[str, Any]) -> None:

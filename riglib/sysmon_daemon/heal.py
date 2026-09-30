@@ -16,7 +16,13 @@ or later kill somebody's live work. So the ladder climbs one rung per tick, gent
 3. **kill** a blamed process only after ``grace_seconds`` of continuous critical pressure, and
    only when opted in: ``kill_orphans`` for a PROVEN orphan (its agent host was seen alive and
    has died since, see ``attrib.Lineage``), ``kill_owned`` for an agent's own child. Both are
-   off by default.
+   off by default;
+4. **restart** a launchd daemon that is hung or crash-looping (rig-cli#643), after
+   ``grace_seconds`` of critical: ``launchctl kickstart -k gui/<uid>/<label>``. Only a label
+   launchd itself reported (``Finding.restart_label``; a process the monitor cannot attribute
+   to a job is never restarted), only one matching ``restart_labels``, never the monitor's own
+   label or an ``application.*`` GUI job, at most once per ``restart_cooldown_minutes`` and
+   ``max_restarts_per_day`` times a day — after that :func:`budget_findings` says a human is needed.
 
 Never touched, on any rung: an offender with ``Attribution.protected_reason`` (user-interactive,
 terminals, system processes, other users; see ``attrib``) and an offender whose start time is
@@ -33,6 +39,7 @@ reached it.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
 import shutil
@@ -69,6 +76,7 @@ NO_START_TIME = "start time unknown (PID reuse cannot be ruled out)"
 #: to the kernel's own comm length, and its command line is never included.
 MAX_COMM_CHARS = 16
 DELIVERED = ("done", "dry_run")
+DAY_S = 86400.0
 
 Runner = Callable[..., "subprocess.CompletedProcess[str]"]
 
@@ -81,21 +89,22 @@ class HealStep:
     ``dry_run`` ``None`` follows ``heal.dry_run``; a ``restore`` carries the mode its throttle
     ran in, so a real throttle is undone for real even after switching to dry-run."""
 
-    action: str  # "notify" | "throttle" | "restore" | "kill"
+    action: str  # "notify" | "throttle" | "restore" | "kill" | "restart"
     finding_key: str
     pid: int
     start_time: Optional[float]
     reason: str
     host: Optional[AgentHost] = None
     dry_run: Optional[bool] = None
+    label: Optional[str] = None  # the launchd job a ``restart`` acts on
 
 
 @dataclass
 class HealOps:
     """Every side effect ``execute`` may cause, injectable so tests never touch real processes.
 
-    ``background``/``foreground`` return ``None`` on success or a short error description;
-    ``is_background`` answers ``None`` when it cannot tell."""
+    ``background``/``foreground``/``restart`` return ``None`` on success or a short error
+    description; ``is_background`` answers ``None`` when it cannot tell."""
 
     start_time: Callable[[int], Optional[float]]
     is_background: Callable[[int], Optional[bool]]
@@ -104,6 +113,7 @@ class HealOps:
     signal: Callable[[int, int], None]
     sleep: Callable[[float], None]
     notify_agent: Callable[[AgentHost, str], str]
+    restart: Callable[[str], Optional[str]]
 
 
 # ── plan (pure) ───────────────────────────────────────────────────────────────────────────
@@ -123,11 +133,13 @@ def plan(
     h = cfg["heal"]
     dry_run = bool(h["dry_run"])
     throttled = _throttle_records(state)
+    restarts = _recent_restarts(state, now)
     if not h["enabled"]:
         due = {pid: t for pid, t in throttled.items() if not _parked(t)}
         return (_restores(due, "heal is disabled"),
                 {"dry_run": dry_run, "findings": {}, "throttled": {pid: t for pid, t in throttled.items()
-                                                                   if pid not in due}, "restoring": due})
+                                                                   if pid not in due}, "restoring": due,
+                 "restarts": restarts})
     # A dry-run "throttle" touched nothing: switching modes restarts every ladder.
     previous = (state.get("findings") or {}) if state.get("dry_run", dry_run) == dry_run else {}
     notifies: List[HealStep] = []
@@ -150,8 +162,92 @@ def plan(
     kept = {pid: (_unparked(t) if pid in held and same_start(held[pid], t["start_time"]) else t)
             for pid, t in throttled.items() if pid not in released}
     restores = _restores(released, "no finding blames it any more")
+    clocks = _plan_restarts(findings, state, cfg, now, restarts, actions, dry_run)
     return notifies + actions + restores, {"dry_run": dry_run, "findings": new, "throttled": kept,
-                                           "restoring": released}
+                                           "restoring": released, "restarts": restarts, "restart_clock": clocks}
+
+
+# ── the restart rung ──────────────────────────────────────────────────────────────────────
+def watched_label(label: str, cfg: Dict[str, Any]) -> bool:
+    """A launchd label the monitor watches for hangs and crash loops and may restart: it matches
+    ``heal.restart_labels``, is not the monitor's own job, and is no ``application.*`` GUI app
+    (restarting the terminal app would kill every session in it)."""
+    if label == cfg.get("label") or label.startswith("application."):
+        return False
+    return any(fnmatch.fnmatchcase(label, str(p)) for p in cfg["heal"].get("restart_labels") or ())
+
+
+def _recent_restarts(state: Dict[str, Any], now: float) -> Dict[str, List[Dict[str, Any]]]:
+    """``label → [{at, dry_run}]`` of the last 24 h (the budget window)."""
+    out = {}
+    for label, entries in (state.get("restarts") or {}).items():
+        kept = [e for e in entries if now - float(e.get("at") or 0) < DAY_S]
+        if kept:
+            out[label] = kept
+    return out
+
+
+def _restart_refusal(label: str, restarts: Dict[str, List[Dict[str, Any]]], cfg: Dict[str, Any], now: float,
+                     dry_run: bool) -> Optional[str]:
+    """Why ``label`` must not be restarted now, or ``None``. Dry-run and real restarts keep
+    separate books: switching modes must not inherit a budget nothing really spent."""
+    h = cfg["heal"]
+    if not watched_label(label, cfg):
+        return "not a restartable launchd label"
+    mine = [float(e["at"]) for e in restarts.get(label, []) if bool(e.get("dry_run")) == dry_run]
+    if len(mine) >= int(h["max_restarts_per_day"]):
+        return f"restart budget spent ({len(mine)} restarts in 24 h)"
+    if mine and now - max(mine) < float(h["restart_cooldown_minutes"]) * 60:
+        return "restarted recently (cooldown)"
+    return None
+
+
+def _plan_restarts(findings: Sequence[Finding], state: Dict[str, Any], cfg: Dict[str, Any], now: float,
+                   restarts: Dict[str, List[Dict[str, Any]]], actions: List[HealStep],
+                   dry_run: bool) -> Dict[str, float]:
+    """Append one ``restart`` step per label whose finding has been critical for
+    ``grace_seconds``; return the critical clocks (``finding key → since``) to keep."""
+    h = cfg["heal"]
+    old = state.get("restart_clock") or {}
+    clocks: Dict[str, float] = {}
+    planned: Set[str] = set()
+    for f in findings:
+        label = f.restart_label
+        if not label or f.severity != SEVERITY_CRITICAL:
+            continue
+        clocks[f.key] = since = float(old.get(f.key, now))
+        if (not h["restart_daemons"] or label in planned or now - since < float(h["grace_seconds"])
+                or _restart_refusal(label, restarts, cfg, now, dry_run) is not None):
+            continue
+        planned.add(label)
+        actions.append(HealStep("restart", f.key, int(f.metrics.get("pid") or 0), None,
+                                f"{f.severity} {f.kind}: {f.summary}", label=label))
+    return clocks
+
+
+def budget_findings(findings: Sequence[Finding], state: Dict[str, Any], cfg: Dict[str, Any],
+                    now: float) -> List[Finding]:
+    """A critical finding per restartable label that is still failing after spending its daily
+    restart budget: the monitor stops restarting it, and says a human is needed."""
+    h = cfg["heal"]
+    if not (h["enabled"] and h["restart_daemons"]):
+        return []
+    restarts = _recent_restarts(state, now)
+    dry_run = bool(h["dry_run"])
+    out: Dict[str, Finding] = {}
+    for f in findings:
+        label = f.restart_label
+        if not label or f.severity != SEVERITY_CRITICAL or label in out or not watched_label(label, cfg):
+            continue
+        n = sum(1 for e in restarts.get(label, []) if bool(e.get("dry_run")) == dry_run)
+        if n >= int(h["max_restarts_per_day"]):
+            out[label] = Finding(
+                key=f"restart_budget:{label}", kind="daemon", severity=SEVERITY_CRITICAL,
+                summary=(f"{label} is still failing after {n} restarts in 24 h (budget spent): sysmon stops "
+                         f"restarting it — a human is needed ({f.summary})"),
+                metrics={"label": label, "restarts_24h": n},
+            )
+    return list(out.values())
 
 
 def _parked(t: Dict[str, Any]) -> bool:
@@ -287,10 +383,12 @@ def record(state: Dict[str, Any], results: Sequence[Dict[str, Any]]) -> Dict[str
     (up to ``THROTTLE_ATTEMPTS``); a real kill drops its record; a failed restore goes back to
     ``throttled`` with its failure count — retried each tick up to ``RESTORE_ATTEMPTS``, then
     parked but never forgotten (see :func:`plan`); a delivered note marks its agent host
-    notified for that finding."""
+    notified for that finding; every restart that ran (done, failed or dry-run) counts for its
+    label's cooldown and daily budget — a kickstart that keeps failing must not run every tick."""
     throttled = dict(state.get("throttled") or {})
     restoring = dict(state.get("restoring") or {})
     findings = dict(state.get("findings") or {})
+    restarts = {label: list(entries) for label, entries in (state.get("restarts") or {}).items()}
     for r in results:
         pid, outcome = str(r["pid"]), r["outcome"]
         if r["action"] == "throttle" and outcome in DELIVERED:
@@ -308,7 +406,9 @@ def record(state: Dict[str, Any], results: Sequence[Dict[str, Any]]) -> Dict[str
         elif r["action"] == "notify" and outcome in DELIVERED and r["finding_key"] in findings:
             entry = findings[r["finding_key"]]
             findings[r["finding_key"]] = {**entry, "notified": sorted({*entry.get("notified", []), int(r["pid"])})}
-    return {**state, "findings": findings, "throttled": throttled, "restoring": restoring}
+        elif r["action"] == "restart" and outcome != "skipped" and r.get("label"):
+            restarts.setdefault(str(r["label"]), []).append({"at": r["at"], "dry_run": outcome == "dry_run"})
+    return {**state, "findings": findings, "throttled": throttled, "restoring": restoring, "restarts": restarts}
 
 
 def _throttle_failed(findings: Dict[str, Any], pid: str, start: Optional[float]) -> Dict[str, Any]:
@@ -395,6 +495,8 @@ def execute(
         results[i] = {"action": step.action, "pid": step.pid, "start_time": step.start_time,
                       "finding_key": step.finding_key, "outcome": outcome[0], "detail": outcome[1],
                       "at": time.time()}
+        if step.label is not None:
+            results[i]["label"] = step.label
         if on_result is not None:
             on_result(results[i])
 
@@ -408,6 +510,11 @@ def execute(
                 termed.append((i, step))
             else:
                 settle(i, outcome)
+        elif step.action == "restart":
+            # By label: launchd resolves the job and its current pid itself, so there is no pid
+            # to re-verify here — and the label came from launchd, never from a guess.
+            err = ops.restart(str(step.label))
+            settle(i, ("failed", err) if err else ("done", f"launchctl {_kickstart(str(step.label))}"))
         else:
             settle(i, _apply(step, ops))
     waited = 0.0
@@ -426,6 +533,10 @@ def execute(
     return [r for r in results if r is not None]
 
 
+def _kickstart(label: str) -> str:
+    return f"kickstart -k gui/{os.getuid()}/{label}"
+
+
 def _would(step: HealStep) -> str:
     if step.action == "notify":
         kind = step.host.kind if step.host else "agent"
@@ -434,6 +545,8 @@ def _would(step: HealStep) -> str:
         return f"would move pid {step.pid} to the background band"
     if step.action == "restore":
         return f"would take pid {step.pid} out of the background band"
+    if step.action == "restart":
+        return f"would run launchctl {_kickstart(str(step.label))}"
     return f"would SIGTERM pid {step.pid}, SIGKILL after {KILL_WAIT_S:g}s"
 
 
@@ -525,6 +638,15 @@ def _set_band(pid: int, background: bool, run: Runner) -> Optional[str]:
     return None if ok else out
 
 
+def _restart_job(label: str, run: Runner) -> Optional[str]:
+    """``launchctl kickstart -k``: launchd stops the running instance (SIGTERM, then SIGKILL after
+    the job's exit timeout) and starts a fresh one — the clean restart, never a signal of ours."""
+    if not probe.IS_DARWIN:
+        return "restart: launchd jobs exist on macOS only"
+    ok, out = _call(["launchctl"] + _kickstart(label).split(), run)
+    return None if ok else out
+
+
 def default_ops(cfg: Dict[str, Any], run: Runner = subprocess.run) -> HealOps:
     return HealOps(
         start_time=probe.proc_start_time,
@@ -535,6 +657,7 @@ def default_ops(cfg: Dict[str, Any], run: Runner = subprocess.run) -> HealOps:
         sleep=time.sleep,
         notify_agent=partial(notify_agent, tg_ctl_bin=str(cfg["heal"]["tg_ctl_bin"]),
                              tmux_bin=str(cfg["sessions"].get("tmux_bin") or "tmux"), run=run),
+        restart=partial(_restart_job, run=run),
     )
 
 

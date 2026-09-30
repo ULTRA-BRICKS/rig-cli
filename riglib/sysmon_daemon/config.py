@@ -28,6 +28,10 @@ DEFAULT_THRESHOLDS: Dict[str, Dict[str, float]] = {
     "display_delays_per_min": {"warn": 2, "critical": 5},
     "display_max_delay_s": {"warn": 1.5, "critical": 3.0},
     "taskport_stuck_s": {"warn": 20, "critical": 60},
+    # launchd daemons (rig-cli#643): a run this many times its StartInterval old is hung ...
+    "daemon_overrun_x": {"warn": 2, "critical": 3},
+    # ... and this many unscheduled relaunches within 10 minutes (last exit failed) is a crash loop.
+    "daemon_crashloop_runs": {"warn": 3, "critical": 6},
 }
 
 #: Executable basenames that load a large ggml/gguf/mlx model into GPU (wired) memory.
@@ -48,6 +52,7 @@ DEFAULT_GPU_PATTERNS = (
 
 DEFAULTS: Dict[str, Any] = {
     "version": 1,
+    "label": "ai.hyperide.sysmon",  # the monitor's own launchd label: never restarted by itself
     "state_dir": "~/.config/rig/sysmon/state",
     "sample_interval_seconds": 10,
     "census_interval_seconds": 60,
@@ -72,6 +77,12 @@ DEFAULTS: Dict[str, Any] = {
         "grace_seconds": 120,
         "dry_run": False,
         "tg_ctl_bin": "tg-ctl",
+        # the restart rung (rig-cli#643): `launchctl kickstart -k` of a hung or crash-looping job,
+        # only for a label matching these patterns (never the monitor itself or an application.* job)
+        "restart_daemons": True,
+        "restart_labels": ["ai.hyperide.*", "com.hyperide.*"],
+        "restart_cooldown_minutes": 30,
+        "max_restarts_per_day": 3,
     },
     "auto_remediate": False,
     "remediation": {

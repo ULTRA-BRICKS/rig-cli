@@ -27,11 +27,11 @@ import struct
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from .model import Proc
+from .model import LaunchdJob, Proc
 
 IS_DARWIN = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
@@ -569,19 +569,50 @@ def tmux_panes(
     return panes
 
 
-def launchd_job_pids(run: Runner = subprocess.run) -> Optional[set]:
-    """PIDs launchd runs as jobs in the caller's domain (macOS), ``None`` when unknown."""
+def parse_launchctl_list(text: str) -> Dict[str, LaunchdJob]:
+    """``label → LaunchdJob`` from ``launchctl list`` (``PID<TAB>Status<TAB>Label``, ``-`` = none)."""
+    jobs: Dict[str, LaunchdJob] = {}
+    for line in text.splitlines()[1:]:
+        parts = line.split("\t")
+        if len(parts) < 3 or not parts[2].strip():
+            continue
+        pid, status, label = (p.strip() for p in parts[:3])
+        jobs[label] = LaunchdJob(label=label, pid=int(pid) if pid.isdigit() else None,
+                                 status=int(status) if re.fullmatch(r"-?\d+", status) else None)
+    return jobs
+
+
+def parse_launchctl_print(job: LaunchdJob, text: str) -> LaunchdJob:
+    """``job`` with the ``launchctl print`` fields filled in. Only TOP-level keys count (one tab
+    deep): nested blocks such as event triggers repeat ``state`` for something else."""
+    fields: Dict[str, str] = {}
+    for line in text.splitlines():
+        m = re.match(r"^\t([a-z][a-z ]*?) = (.*)$", line)
+        if m and m.group(1) not in fields:
+            fields[m.group(1)] = m.group(2).strip()
+
+    def number(key: str) -> Optional[int]:
+        m = re.match(r"^-?\d+", fields.get(key, ""))
+        return int(m.group(0)) if m else None
+
+    pid = number("pid")
+    return replace(job, state=fields.get("state"), pid=pid if pid is not None else job.pid, runs=number("runs"),
+                   last_exit_code=number("last exit code"), run_interval_s=number("run interval"))
+
+
+def launchd_jobs(run: Runner = subprocess.run) -> Optional[Dict[str, LaunchdJob]]:
+    """Every job launchd runs in the caller's domain (macOS; empty elsewhere), ``None`` when unknown."""
     if not IS_DARWIN:
-        return set()
+        return {}
     out = _run(["launchctl", "list"], run, 5.0)
-    if out is None:
-        return None
-    pids = set()
-    for line in out.splitlines()[1:]:
-        head = line.split("\t", 1)[0].strip()
-        if head.isdigit():
-            pids.add(int(head))
-    return pids
+    return None if out is None else parse_launchctl_list(out)
+
+
+def launchd_job_detail(job: LaunchdJob, run: Runner = subprocess.run) -> LaunchdJob:
+    """``job`` with state, runs, last exit code and run interval from ``launchctl print``
+    (unchanged when that fails: the job was unloaded since ``list``)."""
+    out = _run(["launchctl", "print", f"gui/{os.getuid()}/{job.label}"], run, 5.0)
+    return job if out is None else parse_launchctl_print(job, out)
 
 
 def gpu_slots_held(slot_dir: Path, slots: int) -> Optional[int]:

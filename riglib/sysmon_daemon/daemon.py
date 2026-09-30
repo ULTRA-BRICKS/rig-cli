@@ -31,10 +31,10 @@ import signal
 import subprocess
 import time
 from collections import deque
-from typing import Any, Callable, Deque, Dict, List, Optional, Sequence
+from typing import Any, Callable, Deque, Dict, List, Optional, Sequence, Tuple
 
 from . import __version__, alert, attrib, config, detect, events, heal, probe, remediate, sessions, store
-from .model import SEVERITY_CRITICAL, SEVERITY_WARNING, Finding, Offender, Proc, to_jsonable
+from .model import SEVERITY_CRITICAL, SEVERITY_WARNING, Finding, LaunchdJob, Offender, Proc, to_jsonable
 
 #: an incident closes after this long without any critical finding.
 CLOSE_AFTER_S = 300.0
@@ -77,6 +77,10 @@ class Monitor:
         self.sample: Optional[probe.Sample] = None
         self.procs: Optional[List[Proc]] = None
         self.attributor: Optional[attrib.Attributor] = None
+        # watched launchd jobs (heal.restart_labels) and their run counts per census, for the
+        # hung / crash-loop detector (rig-cli#643)
+        self.jobs: Dict[str, LaunchdJob] = {}
+        self.job_runs: Dict[str, Deque[Tuple[float, int]]] = {}
         self.census_at = 0.0
         self.snapshot_at = 0.0
         self.findings: List[Finding] = []
@@ -93,16 +97,31 @@ class Monitor:
         if procs is None:
             return
         s = self.cfg["sessions"]
+        jobs = probe.launchd_jobs(run=self.run_cmd)
         self.procs = procs
         self.attributor = attrib.Attributor(
             procs,
             panes=probe.tmux_panes(str(s.get("tmux_bin") or "tmux"), run=self.run_cmd),
-            launchd_pids=probe.launchd_job_pids(run=self.run_cmd),
+            launchd_pids=None if jobs is None else {j.pid for j in jobs.values() if j.pid},
             sessions_root=config.expand(str(s["sessions_dir"])),
             starts={p.pid: self.start_time_of(p.pid) for p in procs},
             lineage=self.lineage,
         )
         self.lineage.observe(self.attributor)
+        self.watch_jobs(jobs or {}, now)
+
+    def watch_jobs(self, jobs: Dict[str, LaunchdJob], now: float) -> None:
+        """``launchctl print`` the watched jobs and remember their run counts (10 min + a margin)."""
+        self.jobs = {label: probe.launchd_job_detail(job, run=self.run_cmd)
+                     for label, job in sorted(jobs.items()) if heal.watched_label(label, self.cfg)}
+        for label, job in self.jobs.items():
+            if job.runs is not None:
+                seen = self.job_runs.setdefault(label, deque(maxlen=256))
+                seen.append((now, job.runs))
+                while seen and now - seen[0][0] > 2 * detect.CRASHLOOP_WINDOW_S:
+                    seen.popleft()
+        for label in set(self.job_runs) - set(self.jobs):
+            del self.job_runs[label]
 
     def _offender(self, proc: Proc) -> Offender:
         assert self.attributor is not None
@@ -150,6 +169,11 @@ class Monitor:
             offender=self._offender,
             tree_of=self.orphan_tree,
         )
+        by_pid = self.attributor.by_pid
+        found += detect.daemon_findings(
+            self.jobs, {label: list(seen) for label, seen in self.job_runs.items()},
+            lambda pid: by_pid[pid].etime_s if pid in by_pid else None, self.cfg["thresholds"], self.census_at,
+        )
         return found
 
     def with_context(self, findings: List[Finding]) -> List[Finding]:
@@ -196,6 +220,8 @@ class Monitor:
 
     # ── the one evaluation path ───────────────────────────────────────────────────────────
     def evaluate(self, findings: List[Finding], now: float, *, kind: str = "live") -> None:
+        # A daemon still failing after its daily restart budget needs a human: say so as its own finding.
+        findings = findings + heal.budget_findings(findings, self.memory.get("heal") or {}, self.cfg, now)
         self.findings = findings
         critical = [f for f in findings if f.severity == SEVERITY_CRITICAL]
         if critical and self.incident is None:

@@ -3231,7 +3231,9 @@ sysmon:
     reclaimable_gb: { warn: 2, critical: 1 }      # lower is worse
   alert: { min_severity: critical, cooldown_minutes: 30, max_per_hour: 6, resolved: true, dry_run: false }
   heal: { enabled: true, notify_agent: true, throttle: true, kill_orphans: false, kill_owned: false,
-          grace_seconds: 120, dry_run: false }        # every kill path is opt-in
+          grace_seconds: 120, dry_run: false,        # every kill path is opt-in
+          restart_daemons: true, restart_labels: ["ai.hyperide.*", "com.hyperide.*"],
+          restart_cooldown_minutes: 30, max_restarts_per_day: 3 }   # hung/crash-looping launchd jobs
   remediation: { agent: omp, cooldown_minutes: 60, dry_run: false }   # omp | claude-code | codex | opencode
   sessions: { restore_on_boot: false, tmux_session: main }
   gpu: { slots: 2, slot_dir: ~/.local/state/agent-tools/gpu-slots }   # default: env.vars.RIG_GPU_SLOTS / RIG_GPU_SLOT_DIR
@@ -3252,6 +3254,8 @@ sysmon:
 | `display_delays_per_min` | 2 | 5 | WindowServer `Timer delayed by N s` log lines |
 | `display_max_delay_s` | 1.5 | 3.0 | longest such delay in the last minute |
 | `taskport_stuck_s` | 20 | 60 | age of a `sample`/`footprint`/`lldb`/`htop`/`lsof`/… while SecurityAgent is up |
+| `daemon_overrun_x` | 2 | 3 | a watched launchd interval job's current run age / its `StartInterval` (`launchctl print` + census age) |
+| `daemon_crashloop_runs` | 3 | 6 | relaunches of a watched launchd job within 10 min beyond its schedule, last exit failed |
 
 `kern.memorystatus_vm_pressure_level` WARN/CRITICAL is also reported. More than `gpu.slots`
 GPU-model processes (whisper, llama.cpp, mlx) is always critical. `gpu.slots` is the size of the
@@ -3329,6 +3333,23 @@ The dedup state lives in `state/memory.json`, so a restart never re-sends.
 3. **Still critical after `grace_seconds`:** SIGTERM, then SIGKILL, only where opted in:
    `kill_orphans: true` for proven orphans, `kill_owned: true` for an agent's own offenders. Both
    default to `false`.
+4. **A hung or crash-looping launchd daemon, still critical after `grace_seconds`:** a clean
+   restart, `launchctl kickstart -k gui/<uid>/<label>` (launchd stops the running instance and
+   starts a fresh one). The daemon watches every job of its `gui/<uid>` domain whose label matches
+   `heal.restart_labels` (fnmatch; default `ai.hyperide.*`, `com.hyperide.*`) through `launchctl
+   print`: an interval job whose current run is `daemon_overrun_x` times its `StartInterval` old is
+   **hung** (launchd starts no new run while one is going — the 2026-09-29 tmux-autosave run hung
+   ~55 min), and a job relaunched `daemon_crashloop_runs` times within 10 minutes beyond its
+   schedule with a failing last exit is **crash-looping**. Guards:
+   - only a label launchd itself reported is ever restarted; a process the monitor cannot attribute
+     to a launchd job never gets this rung;
+   - never the monitor's own label (`sysmon.label`) and never an `application.*` GUI job, whatever
+     `restart_labels` says;
+   - at most once per label per `restart_cooldown_minutes` (default 30) and `max_restarts_per_day`
+     times per 24 h (default 3). A job still failing after its budget raises a critical
+     `restart_budget:<label>` finding (a human is needed) instead of another restart;
+   - `restart_daemons: false` keeps the detection and alerts but never restarts; `dry_run` records
+     "would run launchctl kickstart -k …" and keeps a separate cooldown/budget book.
 
 Before every throttle, restore, signal or typed note, the pid's start time is compared with the one
 the census recorded, so a reused pid is never hit; a pid whose start time is unknown is never
@@ -3336,7 +3357,7 @@ touched.
 
 **Never touched:** user-interactive processes (a foreground terminal job no agent started, an
 interactive shell), agent hosts, terminals/tmux/cmux, GUI apps, another user's processes, system
-binaries and launchd jobs.
+binaries and launchd jobs (a launchd job is only ever restarted through launchd, by rung 4).
 
 **Incidents.** The first critical finding opens `state/incidents/<id>/incident.json`. It holds the
 findings, the sample, the live omp sessions at that moment, and the alert/heal/remediation/restore

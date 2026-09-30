@@ -1,6 +1,6 @@
 """Detectors: pure functions from readings to :class:`~.model.Finding` verdicts.
 
-Three inputs, three detectors, one output shape:
+Four inputs, four detectors, one output shape:
 
 - :func:`sample_findings` — the in-process :class:`~.probe.Sample`: load per CPU, swap, WIRED
   share of RAM, reclaimable pages, compressor use against its page limit, free disk on the swap
@@ -15,6 +15,9 @@ Three inputs, three detectors, one output shape:
 - :func:`event_findings` — the unified-log event window: WindowServer ``Timer delayed by N s``
   (the display-freeze precursor that began 26 minutes before the WindowServer-watchdog panic),
   watchdogd check-in trouble, and authd taskport prompts.
+- :func:`daemon_findings` — the watched launchd jobs (``launchctl print``): an interval job whose
+  run hangs far past its interval, and a job launchd keeps relaunching after failed exits
+  (rig-cli#643). These findings name the label the heal ladder's ``restart`` rung acts on.
 
 Nothing here does I/O; the daemon feeds readings in and acts on the findings.
 """
@@ -23,7 +26,7 @@ from __future__ import annotations
 
 import os
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Optional, Sequence
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .model import (
     SEVERITY_CRITICAL,
@@ -31,6 +34,7 @@ from .model import (
     SEVERITY_RANK,
     SEVERITY_WARNING,
     Finding,
+    LaunchdJob,
     Offender,
     Proc,
 )
@@ -241,6 +245,67 @@ def census_findings(
 def top_rss(procs: Sequence[Proc], offender: OffenderFn, n: int = 5) -> List[Offender]:
     """The ``n`` largest resident processes (context for memory findings, never healed)."""
     return [offender(p) for p in sorted(procs, key=lambda p: p.rss_kb, reverse=True)[:n]]
+
+
+# ── launchd daemons ───────────────────────────────────────────────────────────────────────
+#: launchd restarts a crashing KeepAlive job every ~10 s; runs are counted over this window.
+CRASHLOOP_WINDOW_S = 600.0
+
+
+def daemon_findings(
+    jobs: Dict[str, LaunchdJob],
+    history: Dict[str, Sequence[Tuple[float, int]]],
+    etime_of: Callable[[int], Optional[float]],
+    thresholds: Dict[str, Dict[str, float]],
+    now: float,
+) -> List[Finding]:
+    """Watched launchd jobs that are HUNG or CRASH-LOOPING (rig-cli#643).
+
+    ``jobs`` carry the ``launchctl print`` fields; ``history`` is ``label → [(at, runs), …]`` as
+    seen by earlier censuses; ``etime_of(pid)`` is the census age of a process.
+
+    - hung: an interval job (``StartInterval``) whose current run is ``daemon_overrun_x`` times
+      its interval old — launchd starts no new run while one is still going, so a hung run stops
+      the job for good (the 2026-09-29 tmux-autosave run hung for ~55 min);
+    - crash loop: launchd started the job ``daemon_crashloop_runs`` more times within
+      :data:`CRASHLOOP_WINDOW_S` than its interval explains, and its last exit was a failure
+      (rig-cli#116: a crash-looping tg-ctl agent was relaunched 23,641 times unseen).
+
+    Each finding names the label, so the heal ladder's ``restart`` rung can restart exactly that job.
+    """
+    out: List[Finding] = []
+    for label, job in sorted(jobs.items()):
+        age = etime_of(job.pid) if job.pid and job.state == "running" else None
+        if age is not None and job.run_interval_s:
+            overrun = age / job.run_interval_s
+            sev = level("daemon_overrun_x", overrun, thresholds)
+            if sev != SEVERITY_OK:
+                out.append(Finding(
+                    key=f"daemon_hung:{label}", kind="daemon", severity=sev,
+                    summary=(f"launchd job {label} (pid {job.pid}) has been on one run for {age / 60:.0f} min, "
+                             f"{overrun:.1f}× its {job.run_interval_s}s interval — hung; launchd starts no new run "
+                             "until it ends"),
+                    metrics={"label": label, "pid": job.pid, "etime_s": age, "run_interval_s": job.run_interval_s,
+                             "daemon_overrun_x": round(overrun, 2)},
+                    restart_label=label,
+                ))
+        seen = [(at, runs) for at, runs in history.get(label) or () if now - at <= CRASHLOOP_WINDOW_S]
+        if job.runs is None or not seen or not job.last_exit_code:
+            continue
+        at, runs = min(seen)
+        scheduled = int((now - at) // job.run_interval_s) if job.run_interval_s else 0
+        extra = job.runs - runs - scheduled
+        sev = level("daemon_crashloop_runs", extra, thresholds)
+        if sev != SEVERITY_OK:
+            out.append(Finding(
+                key=f"daemon_crashloop:{label}", kind="daemon", severity=sev,
+                summary=(f"launchd job {label} was relaunched {extra} times in {(now - at) / 60:.0f} min and last "
+                         f"exited with code {job.last_exit_code} — crash loop"),
+                metrics={"label": label, "pid": job.pid, "runs": job.runs, "last_exit_code": job.last_exit_code,
+                         "daemon_crashloop_runs": extra},
+                restart_label=label,
+            ))
+    return out
 
 
 # ── log events ────────────────────────────────────────────────────────────────────────────

@@ -111,6 +111,23 @@ class Finding:
     metrics: Dict[str, Any] = field(default_factory=dict)
     offenders: Tuple[Offender, ...] = ()
     healable: bool = False  # offenders are candidates for throttle/kill
+    # The launchd label whose clean restart relieves this finding. Set only from what launchd
+    # itself reported (``launchctl list``/``print``), never guessed from a process name.
+    restart_label: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class LaunchdJob:
+    """One launchd job of the monitor's own ``gui/<uid>`` domain. ``pid``/``status`` come from
+    ``launchctl list`` (every job); the rest from ``launchctl print`` (watched jobs only)."""
+
+    label: str
+    pid: Optional[int]
+    status: Optional[int]  # last exit status (negative: killed by that signal)
+    state: Optional[str] = None  # "running" | "not running" | "spawn scheduled" | ...
+    runs: Optional[int] = None  # how many times launchd has started it since it was loaded
+    last_exit_code: Optional[int] = None
+    run_interval_s: Optional[int] = None  # StartInterval jobs only
 
 
 def to_jsonable(value: Any) -> Any:
@@ -158,4 +175,5 @@ def finding_from_dict(d: Dict[str, Any]) -> Finding:
         metrics=dict(d.get("metrics") or {}),
         offenders=tuple(offender_from_dict(o) for o in d.get("offenders") or ()),
         healable=bool(d.get("healable")),
+        restart_label=d.get("restart_label"),
     )
