@@ -246,3 +246,21 @@ def test_ci_has_lsof_so_the_omp_orphan_guard_tests_run():
         "test_tmux_e2e.py need it to read process cwds. Add lsof to the `apt-get install -y tmux` "
         "step before pytest in the unit job of .github/workflows/ci.yml."
     )
+
+
+def test_ci_has_abduco_so_the_omp_restore_positive_control_runs():
+    """In CI, abduco MUST be on PATH. The omp-restore positive control proves a restored pane
+    really relaunches omp through `rig omp run`, which execs abduco; it is `@_requires_abduco`
+    gated, so on a runner without abduco it would SKIP and the relaunch path would go unproven.
+    Ubuntu 24.04 has no abduco package, so both CI jobs build a pinned release
+    (scripts/install-abduco-ci.sh); this assertion names that step if it goes missing.
+
+    Gated to CI only, like the tmux assertion above.
+    """
+    if os.environ.get("CI", "").strip().lower() not in ("1", "true", "yes"):
+        pytest.skip("not in CI — abduco is required only on CI runners (set CI=true to enforce)")
+    assert shutil.which("abduco") is not None, (
+        "abduco is not installed on this CI runner — the omp-restore positive control in "
+        "test_tmux_e2e.py would skip. Run scripts/install-abduco-ci.sh before pytest in the "
+        "unit and tmux-e2e jobs of .github/workflows/ci.yml."
+    )

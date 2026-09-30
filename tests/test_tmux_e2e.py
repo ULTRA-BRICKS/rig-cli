@@ -55,6 +55,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 import socket
@@ -129,6 +130,15 @@ _requires_tmux = pytest.mark.skipif(
 # gate bucket to the tamper-proof classification in test_tmux_e2e_gating.py; lsof is NOT on every
 # Linux image (the Forgejo Ubuntu runner lacks it), so the unit CI job installs it next to tmux and
 # the gating test asserts it is on PATH in CI.
+# The omp-restore POSITIVE control goes one step further: it proves the restored pane really
+# relaunches omp, which `rig omp run` does by exec'ing abduco. abduco is a Homebrew formula but
+# is not packaged for Ubuntu 24.04, so a Linux dev machine usually lacks it — skip there (an
+# ADDITIONAL mark; the tmux gate stays for the classification). CI builds a pinned abduco
+# (scripts/install-abduco-ci.sh) and the gating test asserts it is on PATH in CI.
+_requires_abduco = pytest.mark.skipif(
+    shutil.which("abduco") is None,
+    reason="needs abduco installed — the restored pane relaunches omp via `rig omp run`, which execs abduco",
+)
 
 
 # ── a PATH tmux shim that pins every `tmux …` call to a private -L socket ────────────────────
@@ -187,6 +197,14 @@ def _teardown_tmux_server(real_tmux: str, label: str, env: dict[str, str] | None
         pass  # the unlink below must run regardless of how the kill went
     finally:
         _socket_path_for(label, env).unlink(missing_ok=True)
+
+
+def _pane_text(run, addr: str) -> str:
+    """The pane's visible text with tmux's soft wraps undone (``capture-pane -J``). Without
+    ``-J`` every wrapped row comes back right-trimmed, so a command that wraps right after a
+    space (``…/bin/rig ⏎omp run``) reads back as ``rigomp run`` and a substring check depends on
+    the tmp path's length — how the omp-restore positive control failed on CI (rig-cli#651)."""
+    return run(["tmux", "capture-pane", "-p", "-J", "-t", addr]).stdout
 
 
 @pytest.fixture
@@ -537,22 +555,22 @@ def test_cc_restore_relaunches_claude_resume_into_fresh_shell(tmux_env, monkeypa
     r = run(["bash", str(gen / "cc-restore.sh")])
     assert r.returncode == 0, f"cc-restore failed: {r.stderr}"
     time.sleep(0.5)
-    cap = run(["tmux", "capture-pane", "-t", addr, "-p"])
-    # tmux HARD-WRAPS the pane at the terminal width, so a long command is split across lines
-    # (`claud\ne`). Join the captured lines (drop the wrap newlines) before substring-matching.
-    joined = cap.stdout.replace("\n", "")
+    text = _pane_text(run, addr)
     # the resume command line was typed into the fresh shell pane.
-    assert "claude --resume" in joined, cap.stdout
-    assert sid in joined, cap.stdout
-    assert str(work).replace("\n", "") in joined, cap.stdout
+    assert "claude --resume" in text, text
+    assert sid in text, text
+    assert str(work) in text, text
 
 
 @_requires_tmux
+@_requires_abduco
 def test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live(tmux_env):
     """Positive control for the 2026-09-25 orphan guard below: with NO other omp process alive
     anywhere for the mapped cwd, omp-restore still relaunches normally — the new system-wide
     `lsof` check must never produce a false positive against the pane's OWN fresh shell (which
-    is not yet running omp at all) or an unrelated cwd."""
+    is not yet running omp at all) or an unrelated cwd. "Relaunches" is proven end to end: the
+    fake omp records the argv it was started with, so the typed `rig omp run` must really reach
+    omp through abduco with the exact saved session path."""
     home, socket, run = tmux_env
     plan = tmod.build_tmux(repo_home=home)
     gen = plan.generated_dir
@@ -562,26 +580,41 @@ def test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live(tmux_env):
 
     work = home / "proj"
     work.mkdir()
-    fakebin=home/"fakebin"; fakebin.mkdir()
-    (fakebin/"omp").write_text("#!/bin/sh\necho FAKE_OMP_ONLY\nsleep 1\n")
-    (fakebin/"omp").chmod(0o755)
-    run(["tmux", "new-session", "-d", "-s", "main", "-c", str(work), f"PATH={fakebin}:$PATH RIG_OMP_ABDUCO_DIR={home}/durable exec bash --norc -i"])
-    addr = run(["tmux", "list-panes", "-a", "-F",
-                "#{session_name}:#{window_index}.#{pane_index}"]).stdout.splitlines()[0]
+    fakebin = home / "fakebin"
+    fakebin.mkdir()
+    argv_log = home / "omp-argv.log"
+    # write-then-rename: the poll below keys on the file existing, so it must never see it empty.
+    log_q = shlex.quote(str(argv_log))
+    (fakebin / "omp").write_text(
+        f"#!/bin/sh\nprintf '%s\\n' \"$@\" > {log_q}.tmp && mv {log_q}.tmp {log_q}\n", encoding="utf-8"
+    )
+    (fakebin / "omp").chmod(0o755)
+    # abduco's socket is <dir>/abduco/<user>/<session>@<host>; under the pytest tmp dir that
+    # exceeds the unix-socket path limit (~104 bytes on macOS) and abduco fails with "File name
+    # too long" — keep its dir short.
+    durable = Path(tempfile.mkdtemp(prefix="rigab-", dir="/tmp"))
+    try:
+        run(["tmux", "new-session", "-d", "-s", "main", "-c", str(work),
+             f"PATH={fakebin}:$PATH RIG_OMP_ABDUCO_DIR={durable} exec bash --norc -i"])
+        addr = run(["tmux", "list-panes", "-a", "-F",
+                    "#{session_name}:#{window_index}.#{pane_index}"]).stdout.splitlines()[0]
 
-    sf = home / "fake-session.jsonl"
-    sf.write_text(json.dumps({"type":"session","id":"test-no-orphan","cwd":str(work)})+"\n", encoding="utf-8")
-    (gen / "omp-sessions.map").write_text(f"{addr}\t{work}\t{sf}\n", encoding="utf-8")
+        sf = home / "fake-session.jsonl"
+        sf.write_text(json.dumps({"type":"session","id":"test-no-orphan","cwd":str(work)})+"\n", encoding="utf-8")
+        (gen / "omp-sessions.map").write_text(f"{addr}\t{work}\t{sf}\n", encoding="utf-8")
 
-    r = run(["bash", str(gen / "omp-restore.sh")])
-    assert r.returncode == 0, f"omp-restore failed: {r.stderr}"
-    time.sleep(0.5)
-    cap = run(["tmux", "capture-pane", "-t", addr, "-p"])
-    joined = cap.stdout.replace("\n", "")
-    assert "rig omp run --session-id" in joined
-    assert "--resume" in joined, cap.stdout
-    assert str(sf) in joined or str(sf).replace("\n", "") in joined, cap.stdout
-    assert not (gen / "omp-restore-warnings.log").exists()
+        r = run(["bash", str(gen / "omp-restore.sh")])
+        assert r.returncode == 0, f"omp-restore failed: {r.stderr}"
+        deadline = time.time() + 15
+        while time.time() < deadline and not argv_log.exists():
+            time.sleep(0.2)
+        text = _pane_text(run, addr)
+        assert "rig omp run --session-id" in text, text
+        assert argv_log.exists(), f"omp was never launched in the restored pane:\n{text}"
+        assert argv_log.read_text(encoding="utf-8").splitlines() == ["--resume", str(sf)]
+        assert not (gen / "omp-restore-warnings.log").exists()
+    finally:
+        shutil.rmtree(durable, ignore_errors=True)
 
 
 @_requires_tmux
@@ -636,14 +669,13 @@ def test_omp_restore_skips_and_warns_when_omp_already_live_for_cwd(tmux_env):
         r = run(["bash", str(gen / "omp-restore.sh")])
         assert r.returncode == 0, f"omp-restore failed: {r.stderr}"
         time.sleep(0.5)
-        cap = run(["tmux", "capture-pane", "-t", addr, "-p"])
-        joined = cap.stdout.replace("\n", "")
+        text = _pane_text(run, addr)
         # it must NOT have launched a second, independent omp for that cwd.
-        assert "omp --resume" not in joined, cap.stdout
-        assert "omp --continue" not in joined, cap.stdout
+        assert "omp --resume" not in text, text
+        assert "omp --continue" not in text, text
         # it must have visibly warned in the pane instead — impossible to miss.
-        assert "unidentified_live_owner" in joined, cap.stdout
-        assert str(orphan.pid) in joined, cap.stdout
+        assert "unidentified_live_owner" in text, text
+        assert str(orphan.pid) in text, text
         # and left an audit trail on disk.
         warn_log = gen / "omp-restore-warnings.log"
         assert warn_log.exists()
@@ -715,12 +747,11 @@ def test_omp_restore_skips_and_warns_for_every_live_omp_cwd_with_multiple_orphan
         time.sleep(0.5)
 
         for addr, work, orphan in ((addr_a, work_a, orphan_a), (addr_b, work_b, orphan_b)):
-            cap = run(["tmux", "capture-pane", "-t", addr, "-p"])
-            joined = cap.stdout.replace("\n", "")
-            assert "omp --resume" not in joined, (addr, cap.stdout)
-            assert "omp --continue" not in joined, (addr, cap.stdout)
-            assert "unidentified_live_owner" in joined, (addr, cap.stdout)
-            assert str(orphan.pid) in joined, (addr, cap.stdout)
+            text = _pane_text(run, addr)
+            assert "omp --resume" not in text, (addr, text)
+            assert "omp --continue" not in text, (addr, text)
+            assert "unidentified_live_owner" in text, (addr, text)
+            assert str(orphan.pid) in text, (addr, text)
 
         log_text = (gen / "omp-restore-warnings.log").read_text()
         assert str(work_a) in log_text and str(orphan_a.pid) in log_text
