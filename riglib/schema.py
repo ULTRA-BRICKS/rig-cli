@@ -604,8 +604,9 @@ AREAS: tuple[Area, ...] = (
                  "repo rig.yaml."),
             _opt("sysmon.auto_remediate", KIND_BOOL, False,
                  "On a critical incident, launch a detached coding-agent session (sysmon.remediation."
-                 "agent: omp by default) with the full incident context to fix the root cause, report "
-                 "via `tg report` and resume interrupted sessions. Default OFF."),
+                 "agent: omp by default) with the full incident context for OPERATIONAL RECOVERY only: stop "
+                 "leaked processes, restart a hung daemon, resume interrupted sessions, record the root cause "
+                 "in one ticket and report via `tg report`; it never changes code. Default OFF."),
             _opt("sysmon.heal.enabled", KIND_BOOL, True,
                  "Run the heal ladder: notify the offending agent, throttle offenders on critical, stop "
                  "ORPHANED offender trees after the grace period. Never touches user-interactive processes."),

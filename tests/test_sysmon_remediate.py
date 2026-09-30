@@ -194,15 +194,16 @@ def test_brief_carries_the_evidence_the_restore_command_and_the_handoff(tmp_path
     assert "--dry-run" not in text
 
 
-def test_drill_brief_dry_runs_only_the_report_and_carries_the_planted_evidence(tmp_path):
-    """A drill must never message Telegram, but it restores its (throwaway) sessions for real and
-    points the agent at the cause it planted, so the end-to-end fix is exercised."""
+def test_drill_brief_dry_runs_the_report_and_drafts_the_ticket_into_the_handoff(tmp_path):
+    """A drill must never message Telegram or file a real ticket, but it restores its (throwaway)
+    sessions for real and points the agent at the cause it planted, so the recovery is exercised."""
     incident = _incident(kind="simulated", incident_id="20260929T120000-simulated")
     incident["evidence"] = ["/tmp/drill/run-models.sh launches every model at once"]
     text = remediate.build_brief(incident, tmp_path, config.load(None))
     assert "rig sysmon restore --incident 20260929T120000-simulated`" in text
     assert re.search(r"tg report [^\n]*--dry-run", text)
     assert "Drill evidence: /tmp/drill/run-models.sh" in text and "do NOT file tickets" in text
+    assert "write the ticket you would file into the handoff file" in text
 
 
 def test_post_crash_brief_names_the_crash(tmp_path):
@@ -211,3 +212,44 @@ def test_post_crash_brief_names_the_crash(tmp_path):
                          "panic_excerpt": "panic(cpu 3 caller 0xfffff): wired memory exhausted"}
     text = remediate.build_brief(incident, tmp_path, config.load(None))
     assert "/Library/Logs/x.panic" in text and "wired memory exhausted" in text
+
+
+# The owner's scope (rig-cli#642, decided 2026-09-29): remediation is operational recovery only.
+# The root cause in code is ticketed; the unattended agent never ships a code change itself.
+SHIPPING_WORDS = re.compile(r"\bPRs?\b|pull request|\bcommit|git push|\bmerge", re.IGNORECASE)
+
+
+def _brief(kind):
+    incident = _incident(kind=kind, incident_id=f"20260929T120000-{kind}")
+    if kind == "post-crash":
+        incident["crash"] = {"reason": "panic", "last_heartbeat": NOW - 30, "panic_file": "/Library/Logs/x.panic",
+                             "panic_excerpt": "panic: watchdog"}
+    if kind == "simulated":
+        incident["evidence"] = ["/tmp/drill/run-models.sh launches every model at once"]
+    # A fixed incident dir: a pytest tmp path would leak the test's own name into the text.
+    return remediate.build_brief(incident, Path(f"/sysmon/state/incidents/20260929T120000-{kind}"), config.load(None))
+
+
+@pytest.mark.parametrize("kind", ["live", "simulated", "post-crash"])
+def test_brief_never_asks_for_a_pull_request_or_a_commit(kind):
+    text = _brief(kind)
+    found = SHIPPING_WORDS.search(text)
+    assert found is None, f"the {kind} brief mentions {found.group(0)!r}: {text[max(0, found.start() - 120):found.end() + 60]!r}"
+
+
+@pytest.mark.parametrize("kind", ["live", "simulated", "post-crash"])
+def test_brief_mission_is_operational_recovery_then_one_ticket(kind):
+    text = _brief(kind)
+    mission = text.split("## Mission", 1)[1].split("## Hard rules", 1)[0]
+    for needle in (
+        "kill -TERM <pid>",                               # stop leaked processes, SIGTERM first
+        "launchctl kickstart -k gui/$(id -u)/<label>",    # restart a hung labelled daemon cleanly
+        f"rig sysmon restore --incident 20260929T120000-{kind}",
+        "task find",                                      # update an existing ticket before creating one
+        "task comment",
+        "task new",
+        "tg report",
+    ):
+        assert needle in mission, needle
+    assert "do not edit, fix or revert any source code" in mission
+    assert "Fix it where it lives" not in text and "fix it for real" not in text

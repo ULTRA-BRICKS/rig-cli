@@ -1,11 +1,13 @@
-"""Auto-remediation for the sysmon daemon (rig-cli#622): launch one agent to fix the root cause.
+"""Auto-remediation for the sysmon daemon (rig-cli#622): launch one agent to recover the machine.
 
 The heal ladder only relieves pressure; the thing that spawned 13 model loads or orphaned a
 tree of bash children is still there and will do it again. When ``sysmon.auto_remediate`` is
 on (default OFF: it starts an unattended agent with auto-approved tools), a critical or
 post-crash incident gets one detached agent with a brief built from the incident evidence and
-one mission: find the root cause, fix it in the owning repo, resume the interrupted sessions,
-report, and leave a handoff file next to ``incident.json``.
+one mission, OPERATIONAL RECOVERY ONLY (the owner's scope, rig-cli#642): stop leaked processes,
+restart a hung daemon cleanly, resume the interrupted sessions, record the root cause in one
+ticket (created or updated with the evidence), report, and leave a handoff file next to
+``incident.json``. The agent never changes code: the fix is decided by a human from the ticket.
 
 The agent starts through the same rig-detached-<kind> launcher every other detached subagent of
 that harness uses (one per kind: omp, claude-code, codex, opencode — see :func:`launch_command`),
@@ -213,8 +215,9 @@ def build_brief(incident: Dict[str, Any], incident_dir: Path, cfg: Dict[str, Any
     ]
     if simulated:
         lines += ["", "This is a SIMULATED incident (a drill). Its cause is planted on disk (see the drill evidence): "
-                      "find it and fix it for real in place (commit in its own git repo), resume the listed sessions "
-                      "for real, but do NOT file tickets or PRs in real trackers, and run `tg report` with `--dry-run`."]
+                      "find it, stop what it started and resume the listed sessions for real, but do NOT file tickets "
+                      "in real trackers: write the ticket you would file into the handoff file instead, and run "
+                      "`tg report` with `--dry-run`."]
     lines += [
         "",
         "## Evidence",
@@ -234,20 +237,30 @@ def build_brief(incident: Dict[str, Any], incident_dir: Path, cfg: Dict[str, Any
     lines += [
         "",
         "## Mission",
+        "Your job is operational recovery plus a written-up cause: recover the machine, record the root cause "
+        "in ONE ticket, report, stop. You do not edit, fix or revert any source code, config file or "
+        "dependency in any repo: a human decides the fix from your ticket.",
         "1. Find the ROOT cause from the evidence above: the incident record, `rig sysmon status`, "
         "`rig sysmon incidents`, `ps`, and the named transcripts (what made that agent start this work, "
-        "and why nothing serialized it). Killing processes is not a fix.",
-        "2. Fix it where it lives: file a ticket with `task new` in the owning repo and open a PR, or correct "
-        "the config that allowed it. A still-running orphan may be stopped with plain `kill <pid>` "
-        "(SIGTERM first); never attach a debugger to it.",
+        "and why nothing serialized it).",
+        "2. Recover the machine. Stop leaked processes (orphaned or runaway trees the findings name) with "
+        "`kill -TERM <pid>` first and `kill -KILL <pid>` only if one survives 10 s; never attach a debugger. "
+        "Restart a daemon that is hung or crash-looping cleanly and at most once: "
+        "`launchctl kickstart -k gui/$(id -u)/<label>` (Linux: `systemctl --user restart <unit>`), only for a "
+        "label `launchctl list` / `launchctl print gui/$(id -u)/<label>` shows stuck or failing.",
         f"3. Resume the interrupted agent sessions: `rig sysmon restore --incident {incident_id}` "
         "(it skips sessions that are live again). If `rig` itself is unavailable, the installed daemon "
         f"package does the same: `cd {config_dir} && python3 -m sysmon_daemon restore --config "
         f"{config_dir / 'sysmon.json'} --incident {incident_id}`.",
-        "4. Report: `tg report --title \"...\" --ticket <ticket-url> --impact \"...\" --verify-cmd \"...\" "
+        "4. Record the root cause in ONE ticket in the repo that owns it, then stop: `task find \"<keywords>\"` "
+        "first; when an open ticket already covers it, add this incident's evidence with `task comment`, "
+        "otherwise `task new` with the evidence (incident id, findings, the offending command lines, the "
+        "transcript that started the work) and acceptance criteria for the fix. do not edit, fix or revert any "
+        "source code: the ticket is the deliverable.",
+        "5. Report: `tg report --title \"...\" --ticket <ticket-url> --impact \"...\" --verify-cmd \"...\" "
         f"--verify-result \"...\"{dry}`.",
-        f"5. Before you exit, write the handoff file `{handoff}`: root cause, the fix (ticket/PR URLs), what you "
-        "stopped, the restore result, and whether the report was sent.",
+        f"6. Before you exit, write the handoff file `{handoff}`: root cause, the ticket URL (in a drill: the "
+        "ticket draft), what you stopped or restarted, the restore result, and whether the report was sent.",
         "",
         "## Hard rules",
         f"- Never run {FORBIDDEN_TOOLS}: on 2026-09-29 they hung behind a SecurityAgent task_for_pid dialog "

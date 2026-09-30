@@ -3347,13 +3347,18 @@ logs. The incident closes after 5 quiet minutes.
 launches a detached coding-agent session through the configured `remediation.agent`'s launcher from
 the rig-detached family, `~/.agents/skills/rig-detached-<kind>/rig-detached-<kind>` for every kind
 (omp, claude-code, codex, opencode); a missing or non-executable launcher is an `error` result in
-the incident, never a fallback launch.
-The brief tells the agent to:
+the incident, never a fallback launch. Remediation is **operational recovery only** (the owner's
+scope, rig-cli#642): the agent never edits, fixes or reverts code. The brief tells it to:
 
-1. find and fix the root cause in its owning repo (killing processes is not a fix);
-2. resume the interrupted sessions with `rig sysmon restore --incident <id>`;
-3. report through `tg report`;
-4. write the handoff file named in the brief.
+1. find the root cause from the incident evidence;
+2. recover the machine: stop leaked processes (SIGTERM first) and restart a hung or crash-looping
+   labelled daemon once with `launchctl kickstart -k gui/<uid>/<label>`;
+3. resume the interrupted sessions with `rig sysmon restore --incident <id>`;
+4. record the root cause in ONE ticket in the owning repo (`task find` first, then `task comment`
+   on an open ticket or `task new` with the evidence), and stop there;
+5. report through `tg report`;
+6. write the handoff file named in the brief (a drill writes its ticket draft there instead of
+   filing it).
 
 **Session restore.** Every `snapshot_interval_seconds` the daemon records the live interactive omp
 sessions in `state/sessions.json` (pid, start time, cwd, exact transcript, pane). At start it
