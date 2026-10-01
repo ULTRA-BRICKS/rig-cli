@@ -276,6 +276,26 @@ def _verify_git_config(action: Action) -> list[VerifyResult]:
     ]
 
 
+@register_verifier("harness_wrapper")
+def _verify_harness_wrapper(action: Action) -> list[VerifyResult]:
+    """The wrapper on disk is rig's current one, executable, and any configured real binary is
+    recorded — the one state ``rig status`` judges (:func:`riglib.wrapper_provision.resolve`)."""
+    import os
+
+    from . import wrapper_provision
+
+    state = wrapper_provision.resolve(action)
+    if state.wrapper == "relative":
+        return [VerifyResult("harness_wrappers", action.item, False, wrapper_provision.relative_detail(state))]
+    if state.wrapper != "current":
+        return [VerifyResult("harness_wrappers", action.item, False, f"{state.target} is {state.wrapper}")]
+    if not os.access(state.target, os.X_OK):
+        return [VerifyResult("harness_wrappers", action.item, False, f"{state.target} is not executable")]
+    if not state.real_bin_current:
+        return [VerifyResult("harness_wrappers", action.item, False, wrapper_provision.real_bin_detail(state))]
+    return [VerifyResult("harness_wrappers", action.item, True, f"{state.target} is the current wrapper")]
+
+
 @register_verifier("provision_fj")
 def _verify_fj(action: Action) -> list[VerifyResult]:
     """Nothing of the ``fj`` block is still pending — fj installed, the wrapper(s) byte-exact,

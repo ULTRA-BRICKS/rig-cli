@@ -618,6 +618,8 @@ def detect(
             _check_fj(action, report)
         elif action.kind == "provision_git_config":
             _check_git_config(action, report)
+        elif action.kind == "harness_wrapper":
+            _check_harness_wrapper(action, report)
         elif action.kind == "provision_ship_task_prefix":
             _check_ship_task_prefix(action, report)
         elif action.kind == "install_dev_reload_hook":
@@ -1708,6 +1710,39 @@ def _check_git_config(action: Action, report: DriftReport) -> None:
             continue
         direction = "missing" if st.state == "missing" else "modified"
         report.items.append(DriftItem(direction, "git", st.key, action.target, st.detail))
+
+
+def _check_harness_wrapper(action: Action, report: DriftReport) -> None:
+    """Flag one kind's PATH wrapper that is missing / stale / not rig's, and a real-binary record
+    that disagrees with ``harness_wrappers.real_bin``.
+
+    Reads the SAME :func:`riglib.wrapper_provision.resolve` state apply and verify use. The item is
+    the harness kind; the real-binary record is its own item (``<kind> real_bin``) so ``rig status``
+    names which half drifted. A real binary the config does not declare is never judged.
+    """
+    from . import wrapper_provision
+
+    state = wrapper_provision.resolve(action)
+    category, item = action.category, action.item
+    if state.wrapper == "relative":
+        report.items.append(DriftItem("modified", category, item, state.target, wrapper_provision.relative_detail(state)))
+        return
+    if state.wrapper == "missing":
+        report.items.append(DriftItem("missing", category, item, state.target, "wrapper not installed (`rig apply commit` writes it)"))
+    elif state.wrapper == "stale":
+        report.items.append(
+            DriftItem("modified", category, item, state.target,
+                      "wrapper differs from the one this rig writes (`rig apply commit` rewrites it)")
+        )
+    elif state.wrapper == "foreign":
+        report.items.append(
+            DriftItem("modified", category, item, state.target,
+                      f"{wrapper_provision.foreign_detail(state)}; `rig apply commit` will not overwrite it — move it aside first")
+        )
+    if not state.real_bin_current:
+        report.items.append(
+            DriftItem("modified", category, f"{item} real_bin", state.target, wrapper_provision.real_bin_detail(state))
+        )
 
 
 def _check_bunfig(action: Action, report: DriftReport) -> None:

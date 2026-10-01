@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build a pinned abduco from source into a job-local dir and put it on the CI job's PATH.
 #
-# Why from source: `rig omp run` execs abduco, and the omp-restore positive control in
+# Why from source: `rig harness run omp` execs abduco, and the omp-restore positive control in
 # tests/test_tmux_e2e.py proves a restored pane really relaunches omp through it. Ubuntu 24.04
 # (the Forgejo runner host) has no abduco package, so apt cannot provide it. Job-local, not
 # `make install` into /usr/local: jobs share the runner host, and the matrix jobs would race on

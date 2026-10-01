@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 import pytest
-from riglib import omp_launcher as ol, omp_inspect as oi, tmux_watchdog as wd
+from riglib import harness_launcher as hl, omp_launcher as ol, omp_inspect as oi, tmux_watchdog as wd
 from riglib.omp_recovery import OriginalSession, ServerIdentity
 
 
@@ -87,17 +87,7 @@ def test_failed_cwd_inspection_of_live_pid_is_not_discarded(monkeypatch):
 @pytest.mark.parametrize("sid", ["../escape", "/absolute", "--flag", "x\ny"])
 def test_durable_identifiers_cannot_escape_socket_namespace(sid):
     with pytest.raises(ValueError):
-        ol.build_attach_argv(sid)
-
-
-def test_wrapper_refuses_unmanaged_symlink_without_touching_vendor(tmp_path):
-    vendor = tmp_path / "vendor"
-    vendor.write_text("VENDOR")
-    target = tmp_path / "omp"
-    target.symlink_to(vendor)
-    with pytest.raises(ValueError):
-        ol.install_wrapper(target, str(vendor), tmp_path / "config")
-    assert vendor.read_text() == "VENDOR" and target.is_symlink()
+        hl.build_attach_argv(sid)
 
 
 def test_existing_path_is_not_proof_tmux_responds(tmp_path):
@@ -143,7 +133,7 @@ def test_restore_executor_uses_recorded_header_id_and_attaches_same_owner(
         session_id="exact",
     )
     assert result.action == "attach" and result.owner_pid == 31
-    assert "rig omp attach omp-live" in send.call_args.args[1]
+    assert "harness attach omp-live" in send.call_args.args[1]
 
 
 def test_unknown_owner_diagnostic_keeps_the_exact_blocking_pid():
@@ -158,3 +148,39 @@ def test_unknown_owner_diagnostic_keeps_the_exact_blocking_pid():
         pane_is_empty_shell=True,
     )
     assert result.action == "blocked" and result.owner_pid == 42
+
+
+def _pane_tree(client_args: str) -> list:
+    """A pane's shell with the abduco client as its child (what `rig harness run` execs into)."""
+    return [oi.PsRow(100, 1, "-zsh"), oi.PsRow(101, 100, client_args)]
+
+
+def test_pane_hosting_the_harness_supervisor_for_omp_is_recognised_as_omp():
+    import shlex
+
+    generated = shlex.join(hl.build_run_argv("omp-x"))
+    literal = "abduco -f -A omp-x /opt/py/bin/python3 /opt/rig/bin/rig harness host omp-x"
+    via_module = "abduco -f -A omp-x /opt/py/bin/python3 -m riglib harness host omp-x"
+    for command in (generated, literal, via_module):
+        match = oi.find_omp_descendant(100, _pane_tree(command))
+        assert match is not None and match.pid == 101, command
+        assert oi.pane_durable_session(match) == "omp-x"
+
+
+def test_pane_with_the_legacy_direct_abduco_omp_command_is_still_recognised():
+    match = oi.find_omp_descendant(100, _pane_tree("abduco -f -A omp-x /path/omp --resume f"))
+    assert match is not None and match.pid == 101
+    assert oi.pane_durable_session(match) == "omp-x"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "abduco -f -A claude-x /opt/py/bin/python3 /opt/rig/bin/rig harness host claude-x",
+        "abduco -f -A codex-x /opt/py/bin/python3 /opt/rig/bin/rig harness host codex-x",
+        "abduco -f -A omp-x /opt/py/bin/python3 /opt/rig/bin/rig harness host omp-x extra",
+        "abduco -f -A omp-x /opt/py/bin/python3 /tmp/not-rig harness host omp-x",
+    ],
+)
+def test_pane_hosting_another_harness_or_a_non_rig_host_is_not_omp(command):
+    assert oi.find_omp_descendant(100, _pane_tree(command)) is None

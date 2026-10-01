@@ -1085,6 +1085,9 @@ def build(
     # ── sysmon (rig-managed resource monitor + alerts + auto-heal + session restore, #622) ──
     _build_sysmon(config, plan)
 
+    # ── harness_wrappers (opt-in PATH wrappers that host an interactive harness launch) ──
+    _build_harness_wrappers(config, plan)
+
 # ── internal_dev (per-repo daemon auto-reload post-commit hook) ────────────────
     _build_internal_dev(config, plan)
 
@@ -3793,6 +3796,34 @@ def _build_sysmon(config: LoadedConfig, plan: InstallPlan) -> None:
             },
         )
     )
+
+
+def _build_harness_wrappers(config: LoadedConfig, plan: InstallPlan) -> None:
+    """Plan the opt-in per-harness PATH wrappers: ONE ``harness_wrapper`` action per kind.
+
+    Default **OFF**: only ``harness_wrappers.enabled: true`` emits anything. GLOBAL-only — the loader
+    already refused the block from any other layer. Pure: paths are expanded, never stat'ed (the
+    runner and drift read the disk). Kinds come out in canonical order whatever the config order, so
+    the plan is deterministic. rig never edits ``PATH``: the user puts ``dir`` before the real binaries.
+    """
+    from . import wrapper_provision
+
+    settings = wrapper_provision.settings_from_config(config.data.get("harness_wrappers"))
+    if not settings.enabled:
+        return
+    bindir = _expand_user_path(settings.dir)
+    for kind in settings.kinds:
+        real_bin = settings.real_bin.get(kind)
+        plan.actions.append(
+            Action(
+                kind="harness_wrapper",
+                category="harness_wrappers",
+                item=kind,
+                source=config.repo_root,  # no carrier; the wrapper text is generated
+                target=bindir / kind,
+                options={"kind": kind, "real_bin": str(_expand_user_path(real_bin)) if real_bin else None},
+            )
+        )
 
 
 def _build_internal_dev(config: LoadedConfig, plan: InstallPlan) -> None:

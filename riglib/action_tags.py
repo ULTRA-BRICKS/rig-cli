@@ -299,6 +299,14 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "Sets the declared keys with `git config --global` (identity, pull/branch defaults, …) — "
         "every git invocation on this machine, human or agent, reads them. Never unsets a key.",
     ),
+    "harness_wrapper": _tag(
+        "harness_wrapper", "creates_file", AUDIENCE_BOTH,
+        "Writes one executable wrapper script (omp/claude/codex/opencode) into harness_wrappers.dir "
+        "and records a non-default real binary in ~/.config/rig/harness-real-bin.json — once that "
+        "dir precedes the real binary on PATH (rig never edits PATH), an interactive launch is "
+        "hosted under the crash supervisor; every other invocation runs the real binary unchanged. "
+        "Never overwrites a file rig did not write.",
+    ),
     "provision_tools": _tag(
         "provision_tools", "installs_system_tool", AUDIENCE_HUMAN,
         "Runs a personal CLI tool's own install.sh (e.g. tg/review/dev) — installs a real binary "

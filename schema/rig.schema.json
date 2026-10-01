@@ -3038,6 +3038,54 @@
       },
       "additionalProperties": false
     },
+    "harness_wrappers": {
+      "type": "object",
+      "description": "opt-in wrapper scripts (`omp`, `claude`, `codex`, `opencode`) written by `rig apply commit` into `dir`, each running `rig harness exec <kind> -- \"$@\"`: an interactive launch is hosted in an abduco session under the crash supervisor and registered with tg-ctl; every other invocation execs the real binary untouched. rig never edits PATH — put `dir` BEFORE the real binaries. GLOBAL-only — rejected from a repo rig.yaml.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "write the wrappers (opt-in)",
+          "default": false
+        },
+        "dir": {
+          "type": "string",
+          "description": "directory the wrapper scripts land in (absolute, `~` or `$VAR`); put it before the real binaries on PATH",
+          "default": "~/.local/share/rig/bin"
+        },
+        "kinds": {
+          "type": "array",
+          "description": "harnesses to write a wrapper for (a non-empty subset)",
+          "default": [
+            "omp",
+            "claude",
+            "codex",
+            "opencode"
+          ],
+          "items": {
+            "type": "string",
+            "enum": [
+              "omp",
+              "claude",
+              "codex",
+              "opencode"
+            ]
+          }
+        },
+        "real_bin": {
+          "type": "object",
+          "description": "kind -> absolute path of the real binary, for one that is not the first match on PATH (e.g. the omp fork checkout); recorded in ~/.config/rig/harness-real-bin.json",
+          "default": {},
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "pattern": "^(omp|claude|codex|opencode)$"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "x-rig-global-only": true
+    },
     "scope": {
       "type": "string",
       "description": "removed legacy key (tolerated, ignored)",

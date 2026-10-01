@@ -33,12 +33,14 @@ from pathlib import Path
 from typing import Any
 
 from .gitconfig import GIT_CONFIG_KEY_JSON_PATTERN
+from .harness_kinds import KINDS as _WRAPPER_KINDS
 from .harness_skills import (
     HARNESS_INSTRUCTION_FILES,
     HARNESS_NATIVE_SKILLS,
     HARNESS_SKILL_DIR_KINDS,
 )
 from .project_tools import HAFT_WORKFLOW_MODES
+from .wrapper_provision import DEFAULT_DIR as _WRAPPER_DEFAULT_DIR
 
 # Every harness kind rig provisions skill/instruction discovery for, listed skills-dir kinds first
 # (claude-code, codex) then native-discovery (opencode, omp) then instruction-file kinds (pi,
@@ -1765,6 +1767,37 @@ _TRACKED_FILES_BLOCK = Block(
     },
 )
 
+_HARNESS_WRAPPERS_BLOCK = Block(
+    doc=(
+        "opt-in wrapper scripts (`omp`, `claude`, `codex`, `opencode`) written by `rig apply commit` into "
+        "`dir`, each running `rig harness exec <kind> -- \"$@\"`: an interactive launch is hosted in an abduco "
+        "session under the crash supervisor and registered with tg-ctl; every other invocation execs the "
+        "real binary untouched. rig never edits PATH — put `dir` BEFORE the real binaries. GLOBAL-only — "
+        "rejected from a repo rig.yaml."
+    ),
+    leaves={
+        "enabled": Leaf("boolean", "write the wrappers (opt-in)", default=False),
+        "dir": Leaf(
+            "string",
+            "directory the wrapper scripts land in (absolute, `~` or `$VAR`); put it before the real binaries on PATH",
+            default=_WRAPPER_DEFAULT_DIR,
+        ),
+        "kinds": Leaf(
+            "array", "harnesses to write a wrapper for (a non-empty subset)",
+            default=list(_WRAPPER_KINDS), items_type="string", items_enum=_WRAPPER_KINDS,
+        ),
+        "real_bin": Leaf(
+            "object",
+            "kind -> absolute path of the real binary, for one that is not the first match on PATH "
+            "(e.g. the omp fork checkout); recorded in ~/.config/rig/harness-real-bin.json",
+            default={},
+            additional_properties_type="string",
+            property_names_pattern="^(" + "|".join(_WRAPPER_KINDS) + ")$",
+        ),
+    },
+    schema_extra={"x-rig-global-only": True},
+)
+
 BLOCKS: dict[str, Block] = {
     "defaults": _DEFAULTS_BLOCK,
     "scripts": _SCRIPTS_BLOCK,
@@ -1800,6 +1833,7 @@ BLOCKS: dict[str, Block] = {
     "ecosystem_readme": _ECOSYSTEM_README_BLOCK,
     "task": _TASK_BLOCK,
     "tracked_files": _TRACKED_FILES_BLOCK,
+    "harness_wrappers": _HARNESS_WRAPPERS_BLOCK,
 }
 
 # Every valid TOP-LEVEL key (scalars + blocks). Mirrors config._VALID_TOP_KEYS; the sync test

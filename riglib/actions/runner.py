@@ -10035,6 +10035,43 @@ def _do_provision_git_config(action: Action, on_conflict: str) -> ActionResult:
     return ActionResult(action, "skipped", detail)
 
 
+def _do_harness_wrapper(action: Action, on_conflict: str) -> ActionResult:
+    """Install ONE per-harness PATH wrapper through ``harness_launcher.install_wrapper``.
+
+    Idempotent: a wrapper whose text is already current (and a real-binary record already matching
+    config) is ``skipped``; a missing one is ``created``; a rig-written one with different text, or
+    a real-binary record to update, is ``updated``. A file or symlink at the target that rig did
+    not write is an ``error`` and is left untouched — whatever ``on_conflict`` says, because it may
+    be the real binary itself and a backup copy would take the harness off PATH. A rig-written
+    wrapper is regenerated output, so ``on_conflict`` does not apply to it either. Judged by the
+    same :func:`riglib.wrapper_provision.resolve` state ``rig status`` and verify read.
+    """
+    from .. import harness_launcher, wrapper_provision
+
+    state = wrapper_provision.resolve(action)
+    if state.wrapper == "relative":
+        return ActionResult(action, "error", wrapper_provision.relative_detail(state))
+    if state.wrapper == "foreign":
+        return ActionResult(
+            action,
+            "error",
+            f"refusing to overwrite: {wrapper_provision.foreign_detail(state)}; move it aside and re-run "
+            "`rig apply commit`, or point harness_wrappers.dir elsewhere",
+        )
+    if state.real_bin_invalid:
+        return ActionResult(action, "error", state.real_bin_invalid)
+    try:
+        changed = harness_launcher.install_wrapper(state.kind, state.target, real_bin=state.real_bin)
+    except (ValueError, OSError) as exc:
+        return ActionResult(action, "error", f"{state.target}: {exc}")
+    if not changed:
+        return ActionResult(action, "skipped", f"already current: {state.target}")
+    notes = [f"wrote {state.target}"] if state.wrapper != "current" else []
+    if not state.real_bin_current:
+        notes.append(f"recorded real {state.kind} binary {state.wanted}")
+    return ActionResult(action, "created" if state.wrapper == "missing" else "updated", "; ".join(notes))
+
+
 def _do_install_dev_reload_hook(action: Action, on_conflict: str) -> ActionResult:
     """Install the per-repo post-commit daemon auto-reload hook (+ global composer trampoline).
 
@@ -10204,6 +10241,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_bunfig": _do_provision_bunfig,
     "provision_fj": _do_provision_fj,
     "provision_git_config": _do_provision_git_config,
+    "harness_wrapper": _do_harness_wrapper,
 
     "install_dev_reload_hook": _do_install_dev_reload_hook,
 }

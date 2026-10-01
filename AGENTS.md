@@ -143,6 +143,17 @@ bare `rig config-web` prints help, never launches.
   only. `rig profile` (`riglib/profile.py`) syncs `~/.config/rig/config.yaml` through a PRIVATE repo
   with a three-way compare (local / repo / last-sync snapshot) and never merges silently; tests use a
   local bare repo and a tmp `GIT_CONFIG_GLOBAL` — never a real remote or the real `~/.gitconfig`.
+- **Harness hosting is one launcher, `rig harness` (`riglib/harness_*.py`); per-harness knowledge
+  lives in ONE registry, `riglib/harness_kinds.py`.** Never add a second launcher/supervisor for
+  one harness. The supervisor (`harness_host.py`) runs INSIDE the abduco session and is the ONLY
+  place an exit is classified: abduco 0.6 prints `exit status 0` for a SIGKILLed child (proved on
+  2026-09-30, rc-0 root cause), so a status read outside the harness's parent is meaningless.
+  A harness command line travels in `RIG_HOST_SPEC`, never in abduco's or the host's argv (tg-ctl
+  identifies agents by argv). The harness env gets `RIG_SESSION=<name>` (membership) and NEVER a
+  positive coordinator marker; `RIG_AGENT_ID`/`RIG_DETACHED_AGENT`/`PI_SESSION_FILE`/`TG_AGENT` are
+  scrubbed. The tg-ctl record (`~/.config/tg-cli/hosts/<name>.json`) is written/deleted only by the
+  host. A new harness is one entry in `harness_kinds.py` (argv table, interactive rule, resume
+  builder) plus one locator in `harness_sessions.py` — never a special case in the loop.
 - **`rig.yaml` is committed by default.** It is the reproducible source of truth. Do not
   add an "is rig.yaml optional?" flag. Global config lives at `~/.config/rig/config.yaml`;
   per-repo `rig.yaml` overrides it; scope is by location, never a flag.

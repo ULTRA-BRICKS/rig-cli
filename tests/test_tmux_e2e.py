@@ -131,13 +131,13 @@ _requires_tmux = pytest.mark.skipif(
 # Linux image (the Forgejo Ubuntu runner lacks it), so the unit CI job installs it next to tmux and
 # the gating test asserts it is on PATH in CI.
 # The omp-restore POSITIVE control goes one step further: it proves the restored pane really
-# relaunches omp, which `rig omp run` does by exec'ing abduco. abduco is a Homebrew formula but
+# relaunches omp, which `rig harness run omp` does by exec'ing abduco. abduco is a Homebrew formula but
 # is not packaged for Ubuntu 24.04, so a Linux dev machine usually lacks it — skip there (an
 # ADDITIONAL mark; the tmux gate stays for the classification). CI builds a pinned abduco
 # (scripts/install-abduco-ci.sh) and the gating test asserts it is on PATH in CI.
 _requires_abduco = pytest.mark.skipif(
     shutil.which("abduco") is None,
-    reason="needs abduco installed — the restored pane relaunches omp via `rig omp run`, which execs abduco",
+    reason="needs abduco installed — the restored pane relaunches omp via `rig harness run omp`, which execs abduco",
 )
 
 
@@ -202,7 +202,7 @@ def _teardown_tmux_server(real_tmux: str, label: str, env: dict[str, str] | None
 def _pane_text(run, addr: str) -> str:
     """The pane's visible text with tmux's soft wraps undone (``capture-pane -J``). Without
     ``-J`` every wrapped row comes back right-trimmed, so a command that wraps right after a
-    space (``…/bin/rig ⏎omp run``) reads back as ``rigomp run`` and a substring check depends on
+    space (``…/bin/rig ⏎harness run``) reads back as ``righarness run`` and a substring check depends on
     the tmp path's length — how the omp-restore positive control failed on CI (rig-cli#651)."""
     return run(["tmux", "capture-pane", "-p", "-J", "-t", addr]).stdout
 
@@ -569,7 +569,7 @@ def test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live(tmux_env):
     anywhere for the mapped cwd, omp-restore still relaunches normally — the new system-wide
     `lsof` check must never produce a false positive against the pane's OWN fresh shell (which
     is not yet running omp at all) or an unrelated cwd. "Relaunches" is proven end to end: the
-    fake omp records the argv it was started with, so the typed `rig omp run` must really reach
+    fake omp records the argv it was started with, so the typed `rig harness run omp` must really reach
     omp through abduco with the exact saved session path."""
     home, socket, run = tmux_env
     plan = tmod.build_tmux(repo_home=home)
@@ -609,7 +609,7 @@ def test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live(tmux_env):
         while time.time() < deadline and not argv_log.exists():
             time.sleep(0.2)
         text = _pane_text(run, addr)
-        assert "rig omp run --session-id" in text, text
+        assert "rig harness run omp --host-id omp-recover-" in text, text
         assert argv_log.exists(), f"omp was never launched in the restored pane:\n{text}"
         assert argv_log.read_text(encoding="utf-8").splitlines() == ["--resume", str(sf)]
         assert not (gen / "omp-restore-warnings.log").exists()

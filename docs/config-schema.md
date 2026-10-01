@@ -4187,6 +4187,79 @@ For that reason, under `backend: forgejo` rig applies the same `owner/name`-or-`
 flat `task.repo` as to `task.forgejo.repo`.
 
 
+## `harness_wrappers`
+
+Makes a coding-agent harness start under `rig harness` without anyone typing `rig harness run`:
+`rig apply commit` writes one small shell script per harness (`omp`, `claude`, `codex`, `opencode`)
+into a directory of your choosing. Each script is just `rig harness exec <kind> -- "$@"`. An
+**interactive** launch on a terminal is then hosted in an `abduco` session under rig's crash
+supervisor (`rig harness host`) and registered with tg-ctl, so a crash relaunches the harness onto
+the same conversation and tg-ctl can type into it from outside tmux. Install `abduco` for that
+(`brew install abduco`).
+
+**Only interactive launches are hosted.** Everything else — `-p` / `--print`, `exec`, `mcp` and
+other subcommands, `--help`, a launch with no terminal — runs the real binary untouched, so
+scripts, hooks and the harnesses' own headless children see no difference.
+
+**Opt-in, GLOBAL config only.** Default `enabled: false`; an absent or empty block does nothing.
+The block writes executables onto your PATH and names the binary they exec, so a committed repo
+`rig.yaml` must choose neither: `config.load` rejects `harness_wrappers` from any non-global layer
+(a repo `rig.yaml` or a `--config` file), and `rig config set harness_wrappers.… --global` writes the
+global file.
+
+```yaml
+# ~/.config/rig/config.yaml
+harness_wrappers:
+  enabled: true
+  dir: ~/.local/share/rig/bin            # default shown; absolute, ~ or $VAR
+  kinds: [omp, claude, codex, opencode]  # default shown; any non-empty subset
+  real_bin:                              # only for a real binary that is NOT the first match on PATH
+    omp: ~/src/oh-my-pi/packages/coding-agent/dist/omp
+```
+
+| Key | Type | Default | Meaning |
+|-----|------|---------|---------|
+| `enabled` | bool | `false` | write the wrappers (opt-in) |
+| `dir` | str | `~/.local/share/rig/bin` | where the scripts land, one file per kind named after it (`<dir>/omp`). Absolute, `~…` or `$VAR…`; a relative path is rejected |
+| `kinds` | array of `omp` \| `claude` \| `codex` \| `opencode` | all four | harnesses to write a wrapper for; must not be empty (to install none, set `enabled: false`) |
+| `real_bin` | map kind → path | `{}` | absolute path (or `~…` / `$VAR…`) of the real binary for a kind whose real binary is not the first executable of that name on PATH — typically the omp fork checkout. A key must be one of the installed `kinds` |
+
+**PATH ordering is yours.** rig never edits `PATH`, a shell rc file or an existing binary. A wrapper
+only takes effect once `dir` comes BEFORE the directories holding the real binaries, for example
+`export PATH="$HOME/.local/share/rig/bin:$PATH"` in your shell profile. Until then the wrappers sit
+unused and nothing changes.
+
+**Where the real binary comes from.** The wrapper resolves it at run time: the path recorded for the
+kind in `~/.config/rig/harness-real-bin.json`, else the first executable of that name on PATH that is
+not itself a rig wrapper. `real_bin` is how you pin it when that first match is wrong — `rig apply
+commit` records each declared path there (the file must exist and be absolute, and must not be a rig
+wrapper). A kind without a `real_bin` entry leaves any path already recorded alone.
+
+**What `rig apply commit` does.** `plan.build` emits one `harness_wrapper` action per kind, in the
+fixed order `omp`, `claude`, `codex`, `opencode` whatever order `kinds` lists them in. Each action:
+
+- writes `<dir>/<kind>` atomically with mode `0755` when it is missing (`created`);
+- rewrites it when it is a rig-written wrapper with different text, for instance after the checkout
+  `rig` runs from moved (`updated`);
+- records a declared `real_bin` in `harness-real-bin.json` when that differs (`updated`);
+- does nothing when the text and the record already match (`unchanged`) — re-running is a no-op;
+- **refuses** to touch a file or symlink at that path that rig did not write (no rig marker): the
+  action fails with an error naming the path, the file is left byte-for-byte as it was, and the
+  other kinds still install. `defaults.on_conflict` does not change this — `backup` would move what
+  may be the real binary out of the way. Move the file aside, or point `dir` somewhere else.
+
+`rig apply info` and `--dry-run` only print the actions; they write nothing.
+
+**Drift.** `rig status` lists a `harness launcher wrappers` area (GLOBAL) and reports each declared
+kind: a wrapper that is **missing** (`wrapper not installed`), **stale** (a rig wrapper whose text
+differs), or **foreign** (a file or symlink rig did not write), and a **real binary** record that
+disagrees with `real_bin` (`<kind> real_bin`). All of them point at `rig apply commit`; a foreign
+file is the one case it will not fix by itself. A wrapper the config no longer declares is never
+judged, and never deleted.
+
+Idempotent: a second `rig apply commit` with the same config changes nothing.
+
+
 ## `tmux.recovery.enabled` — restore a lost server without cloning agents
 
 Default `false`. With independent macOS autosave enabled, recovery runs on its configured
@@ -4203,15 +4276,12 @@ OMP restoration now stores the exact header session ID and file for each pane, i
 Bun-launched OMP. An unknown live owner preserves the previous map and refuses a duplicate.
 No latest-file-by-cwd fallback is used: two agents can legitimately share one directory.
 
-For persistent interactive sessions, install `abduco`, then run `rig omp run -- /absolute/omp`
-or install the opt-in managed launcher using `rig omp install-wrapper --target NEW_PATH
---real-bin /absolute/vendor/omp`. An existing unmanaged file/symlink is never overwritten.
-The launcher records its vendor executable and passes noninteractive OMP CLI calls through.
-`rig omp list --json` lists durable terminal sessions; `rig omp attach ID` reconnects without
-starting an agent. The default socket namespace is `~/.local/state/rig/abduco` (private).
-`rig omp run --session-id ID --resume EXACT_FILE` restores a dead original only by explicit
-history identity. Existing unwrapped live processes need a one-time saved stop/resume to
-enter this durable lifecycle; a live legacy process is never adopted by duplicating it.
+Persistent interactive sessions are hosted by `rig harness run omp` (abduco + a crash supervisor,
+see [`rig harness`](#rig-harness--hosted-harness-sessions-for-omp-claude-codex-opencode)); the
+pane map and restore above relaunch a dead original with `rig harness run omp --host-id ID
+--resume EXACT_FILE`, only by explicit history identity. Existing unwrapped live processes
+need a one-time saved stop/resume to enter this durable lifecycle; a live legacy process is
+never adopted by duplicating it.
 
 `tg-ctl omp-live` is preferred for exact live identity; when absent, rig inspects the original
 process's own TTY breadcrumb/open transcript. If no inspector is available, recovery blocks
@@ -4224,3 +4294,84 @@ The opt-in reproducible real-process proof is `python3 scripts/verify-omp-recove
 It uses only a new private tmux socket, a no-tools OMP, and one short model acknowledgment;
 it verifies socket recreation, server death/recovery, exact map identity, and SAME original
 PID/instance/session after reattach. It does not stop or restart the default tmux server.
+
+
+## `rig harness` — hosted harness sessions for omp, Claude Code, Codex, opencode
+
+```sh
+rig harness run <omp|claude|codex|opencode> [--name LABEL] [--host-id NAME] [--detach] [--real-bin PATH] [harness args…]
+rig harness attach NAME          # reconnect a terminal to a hosted session
+rig harness list [--json]        # abduco sessions joined with their tg-ctl records
+rig harness install-wrapper <harness> --target PATH [--real-bin PATH]
+```
+
+`run` replaces the current process with `abduco -f -A NAME rig harness host NAME`, so a dead
+terminal never loses the agent; `--detach` creates the session without attaching and prints its
+name (scripts, smoke tests). `NAME` is `<harness>-<12 hex>` (never the cwd — one directory
+legitimately hosts several sessions) and stays the same across relaunches: it is the address
+tg-ctl delivers to. `--name` is a human label (tg shows it as the `[window]` bracket outside
+tmux); options must precede the harness's own arguments, and a bare `--` ends them (so Claude
+Code's own `--name` goes after it). The socket namespace is `~/.local/state/rig/abduco`
+(private, `RIG_OMP_ABDUCO_DIR` overrides it in tests).
+
+**Process tree.** `abduco server (pid 1's child) → rig harness host NAME → harness`. The
+supervisor runs INSIDE the abduco session, so the pty, the socket and any attached client
+survive a relaunch, and the harness's stdio IS the abduco pty (nothing is proxied). The harness
+command line travels in the `RIG_HOST_SPEC` environment variable of the session — never in
+argv: tg-ctl identifies agents by argv (`…/claude …`, `…/codex`), so an argv naming the harness
+would make the abduco server or the supervisor look like the agent.
+
+**Crash handling** (`riglib/harness_host.py`). Classification happens in the supervisor — the
+harness's parent — because abduco 0.6 prints `session terminated with exit status 0` for a child
+killed by SIGKILL or SIGTERM alike (`WEXITSTATUS` of a signal status). On 2026-09-30 an omp host
+grew to ~90 GiB, macOS memory-pressure jetsam SIGKILLed it, and the only trace was that "0".
+
+| Harness exit | Verdict |
+|---|---|
+| exit 0 (`/exit`, Ctrl-D) | requested — supervision ends, record deleted |
+| 129 / 130 / 143, SIGHUP / SIGINT / SIGTERM | requested stop — same |
+| SIGTERM/SIGHUP to the supervisor itself | forwarded to the harness, supervision ends |
+| any other non-zero status | crash — relaunch |
+| any other signal (SIGKILL, SIGSEGV, SIGABRT, …) | crash — relaunch |
+
+A crash relaunches the harness in the same session and terminal after a pause that doubles from
+1 s to 30 s while runs keep dying within 60 s. Once 5 restarts happened inside 10 minutes, the
+next crash ends supervision: the supervisor deletes the record and exits with the REAL status (`128 + signal`), so abduco's final
+message stops lying. Every decision is printed to the terminal and appended to
+`~/.local/state/rig/abduco/supervisor.log`. The relaunch only happens after the dead process was
+reaped, so there is never a second writer of the conversation.
+
+**Native resume.** The relaunch keeps the original configuration flags, drops the one-shot
+session choice and the initial prompt (already in the transcript), and adds:
+
+| Harness | Relaunch | Which conversation |
+|---|---|---|
+| omp | `--resume <jsonl>` | omp's terminal breadcrumb `<agent dir>/terminal-sessions/<tty>`, accepted only if written after the dead process started (follows `/new`, `/resume`); else the original command line |
+| Claude Code | `--resume <id>` (`--session-id <id>` if the transcript never reached disk) | `~/.claude/sessions/<pid>.json` sampled while it lives (follows `/clear`); else the id the wrapper assigned with `--session-id` at launch |
+| Codex | `resume <id>` | the only interactive rollout of this cwd under `~/.codex/sessions` touched since start (`session_meta.cwd`, not a subagent thread) |
+| opencode | `--session <id>` | the only top-level session of this cwd in `opencode.db` updated since start |
+
+Codex and opencode cannot tell two hosted sessions in the SAME directory apart, and guessing could
+attach a second writer to a live sibling's conversation, so with more than one candidate they answer
+unknown (rig-cli#664); omp and Claude Code are exact. With nothing known the previous command line is
+reused (a fresh conversation, never someone else's).
+
+**Registration with tg-ctl.** While supervising, the host keeps
+`${TG_CTL_CONFIG_DIR:-~/.config/tg-cli}/hosts/NAME.json` (mode 0600, written atomically,
+refreshed on every relaunch, deleted when supervision ends): `v`, `name`, `harness`, `label`,
+`cwd`, absolute `socket`, `serverPid` (the abduco server), `harnessPid`, `role: "coordinator"`,
+`startedAt`/`updatedAt`, plus `supervisorPid`, `restarts` and the resolved `session`. tg-ctl
+only reads it and ignores a record whose server is dead. The harness environment gets
+`RIG_SESSION=NAME` (membership, not role) and NO coordinator marker; `RIG_AGENT_ID`,
+`RIG_DETACHED_AGENT`, `PI_SESSION_FILE`, `TG_AGENT` (and the retired `RIG_OMP_SESSION`) are
+scrubbed, so a session started from inside a subagent's shell is not mistaken for a subagent.
+`RIG_SESSION` replaces `RIG_OMP_SESSION`: tg-cli must read it (its omp-live extension) before
+sessions hosted by this version are expected to keep their durable mapping.
+
+**Wrappers.** `rig harness install-wrapper omp --target ~/.local/share/rig/bin/omp` writes a
+small script that hosts interactive launches and execs the real binary untouched for everything
+else (`-p/--print`, `exec`, subcommands, `--help`, no tty). The real binary is the recorded one
+(`--real-bin`, kept in `~/.config/rig/harness-real-bin.json` — needed when it is not the first
+match on PATH, as with the omp fork checkout) or else the first non-wrapper on PATH. An unmanaged
+file or symlink at the target is never overwritten. Putting the directory before the real
+binaries on PATH is the caller's job; `rig apply` provisions the scripts from `harness_wrappers`.

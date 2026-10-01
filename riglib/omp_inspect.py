@@ -12,15 +12,14 @@ Durable-session identity: NOT read back via a live process's environment. Verifi
 machine that macOS ``ps`` no longer reliably exposes another process's environment even to its
 own owning user (``ps -wwE -p <pid>``/``ps -eo command=`` with env both come back empty for a
 real child with a marker env var set — a hardened-runtime/SIP restriction, not a flag mistake).
-Instead: ``rig omp run``/``attach`` always launch the real OMP process as a descendant of an
+Instead: ``rig harness run``/``attach`` always launch the real OMP process as a descendant of an
 ``abduco -A <durable-id> …``/``abduco -a <durable-id>`` process (verified: abduco forks a
 DETACHED server, reparented to pid 1, whose own argv is the identical ``abduco -A <name>
-<command...>`` line; the real command is that server's direct-or-indirect child). So a live OMP
-process's durable session is recovered by walking UP its ppid chain for an ancestor whose argv
-is an abduco invocation and reading the name out of THAT — no env access needed, and it also
-means ``rig omp run`` still sets ``RIG_OMP_SESSION`` in the child's own environment purely for
-the shared ``tg-ctl omp-live status`` contract (a first-party self-report), not for this
-module's own recovery of it.
+rig harness host <name>`` line; the harness is that server's child's child, below the crash
+supervisor). So a live OMP process's durable session is recovered by walking UP its ppid chain
+for an ancestor whose argv is an abduco invocation and reading the name out of THAT — no env
+access needed. The hosted session's ``RIG_SESSION`` env is a first-party self-report for
+``tg-ctl omp-live status`` only; this module never reads it back.
 
 Session IDs are OMP's real header IDs, never durable socket names. The bridge is
 preferred, but a successful empty bridge list cannot hide an uninstrumented live OMP.
@@ -37,11 +36,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from shutil import which
 
+from .harness_host import parse_host_command
 from .omp_recovery import OriginalSession, is_interactive_omp
-
-#: env var a durably-launched omp child carries — set for the shared tg-ctl contract only
-#: (see module docstring); this module never reads it back.
-DURABLE_ENV_VAR = "RIG_OMP_SESSION"
 
 _ABDUCO_CONNECT_FLAGS = {"-A", "-a", "-c", "-n"}
 # flags that consume a following argument, per `man abduco`.
@@ -127,11 +123,22 @@ def parse_abduco_argv(args: str) -> tuple[str, str] | None:
     return name, remainder
 
 
+def hosted_harness(remainder: str) -> str | None:
+    """The harness kind when ``remainder`` (what follows ``abduco -A <name>``) is a
+    ``rig harness host <name>`` command, else ``None``."""
+    try:
+        parsed = parse_host_command(shlex.split(remainder))
+    except ValueError:
+        return None
+    return parsed[1] if parsed else None
+
+
 def find_omp_descendant(root_pid: int, rows: list[PsRow]) -> PsRow | None:
     """BFS a pane's process tree for the first descendant (or the root itself) whose full
     command line is an interactive OMP launch, OR an ``abduco`` client wrapping one (a durably
-    launched pane's client argv literally IS ``abduco -A <id> omp …``/``abduco -a <id>`` after
-    ``rig omp run``/``attach`` exec'd into it). Mirrors the bash ``pane_has_omp`` tree-walk that
+    launched pane's client argv is ``abduco -A <id> rig harness host <id>`` — or, for a session
+    started before that launcher existed, ``abduco -A <id> omp …`` — after ``rig harness
+    run``/``attach`` exec'd into it). Mirrors the bash ``pane_has_omp`` tree-walk that
     ``render_omp_save`` renders, but exercised directly by unit tests here."""
     by_ppid: dict[int, list[PsRow]] = {}
     by_pid: dict[int, PsRow] = {}
@@ -152,7 +159,7 @@ def find_omp_descendant(root_pid: int, rows: list[PsRow]) -> PsRow | None:
             parsed = parse_abduco_argv(row.args)
             if parsed is not None:
                 _name, remainder = parsed
-                if not remainder or is_interactive_omp(remainder):
+                if not remainder or is_interactive_omp(remainder) or hosted_harness(remainder) == "omp":
                     return row
         for child in by_ppid.get(cur, ()):
             queue.append(child.pid)

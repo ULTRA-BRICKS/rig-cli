@@ -160,7 +160,7 @@ def plan_restore(
             return RestorePlan(
                 "attach",
                 "original_still_alive",
-                ("rig", "omp", "attach", durable),
+                ("rig", "harness", "attach", durable),
                 original.pid,
             )
         return RestorePlan(
@@ -185,14 +185,14 @@ def plan_restore(
         return RestorePlan(
             "attach",
             "durable_terminal_still_alive",
-            ("rig", "omp", "attach", saved.durable_session),
+            ("rig", "harness", "attach", saved.durable_session),
         )
     if not session_file_exists:
         return RestorePlan("blocked", "saved_session_missing")
     return RestorePlan(
         "resume",
         "original_not_running",
-        ("rig", "omp", "run", "--resume", saved.session_file),
+        ("rig", "harness", "run", "omp", "--resume", saved.session_file),
     )
 
 

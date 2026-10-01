@@ -26,6 +26,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 from urllib.parse import SplitResult, urlsplit
 
+from .harness_kinds import KINDS as _HARNESS_WRAPPER_KINDS
 from .harness_skills import KNOWN_HARNESS_KINDS as _KNOWN_HARNESS_KINDS
 from .logging import get_logger
 from .permissions import (
@@ -44,6 +45,7 @@ from .project_tools import (
     SVERKLO_KEYS,
 )
 from .shell_env import ENV_VAR_KEY_PATTERN as _ENV_VAR_KEY_PATTERN
+from .wrapper_provision import ABSOLUTE_PATH_STARTS as _WRAPPER_PATH_STARTS
 
 CONFIG_FILENAME = "rig.yaml"
 
@@ -60,6 +62,10 @@ _GLOBAL_LAYER_ONLY_BLOCKS: dict[str, str] = {
         "tracked_files runs the ship command and pushes branches with your credentials, and picks "
         "which files leave the machine — a committed repo rig.yaml (itself a harvested file) must "
         "not choose either"
+    ),
+    "harness_wrappers": (
+        "harness_wrappers writes executables into a directory you put on PATH and names the binary "
+        "they exec — a committed repo rig.yaml must choose neither"
     ),
 }
 
@@ -109,6 +115,7 @@ _VALID_TOP_KEYS = {
     "dev",
     "task",
     "tracked_files",
+    "harness_wrappers",
 }
 _VALID_CATEGORIES = {"skills", "agent_hooks", "git_hooks", "ci", "mcp"}
 _VALID_ON_CONFLICT = {"skip", "overwrite", "backup"}
@@ -1050,6 +1057,7 @@ def validate(data: dict[str, Any]) -> None:
     _validate_ecosystem_readme(data.get("ecosystem_readme", {}))
     _validate_task(data.get("task", {}))
     _validate_tracked_files(data.get("tracked_files", {}))
+    _validate_harness_wrappers(data.get("harness_wrappers", {}))
 
 
 def _validate_stack(data: dict[str, Any]) -> None:
@@ -2996,6 +3004,77 @@ def _validate_bun(s: dict[str, Any]) -> None:
         value = s.get(key)
         if value is not None and not isinstance(value, bool):
             raise ConfigError(f"bun.{key} must be a bool, got {value!r}", schema_path=f"bun.{key}")
+
+
+def _validate_harness_wrappers(block: Any) -> None:
+    """Validate the ``harness_wrappers`` block — the opt-in per-harness PATH wrappers
+    (:mod:`riglib.wrapper_provision`).
+
+    Default **OFF**: an absent/empty block is a no-op. GLOBAL layer only — ``config.load`` already
+    rejected the block from any other layer (:data:`_GLOBAL_LAYER_ONLY_BLOCKS`). Fail-closed on a
+    non-mapping block, an unknown key, a non-bool ``enabled``, a ``dir`` / ``real_bin`` path that is
+    not absolute (or ``~`` / ``$VAR``), an empty or unknown ``kinds`` entry, and a ``real_bin`` for a
+    kind that is not installed.
+    """
+    if not isinstance(block, dict):
+        raise ConfigError("harness_wrappers must be a mapping", schema_path="harness_wrappers")
+    if not block:
+        return
+    _reject_unknown_keys(block, "harness_wrappers")
+    known = ", ".join(_HARNESS_WRAPPER_KINDS)
+
+    def _check_path(where: str, value: Any) -> None:
+        if not isinstance(value, str) or not value.startswith(_WRAPPER_PATH_STARTS) or "\n" in value:
+            raise ConfigError(
+                f"{where} must be an absolute path (or start with ~ or $VAR), got {value!r}", schema_path=where
+            )
+
+    if "enabled" in block and not isinstance(block["enabled"], bool):
+        raise ConfigError(
+            f"harness_wrappers.enabled must be a bool, got {block['enabled']!r}", schema_path="harness_wrappers.enabled"
+        )
+    if "dir" in block:
+        _check_path("harness_wrappers.dir", block["dir"])
+
+    kinds = block.get("kinds")
+    if "kinds" in block:
+        if not isinstance(kinds, list) or not all(isinstance(k, str) for k in kinds):
+            raise ConfigError(
+                f"harness_wrappers.kinds must be a list of strings, got {kinds!r}", schema_path="harness_wrappers.kinds"
+            )
+        if not kinds:
+            raise ConfigError(
+                "harness_wrappers.kinds must list at least one kind (to install none, set "
+                "harness_wrappers.enabled: false)",
+                schema_path="harness_wrappers.kinds",
+            )
+        unknown = [k for k in kinds if k not in _HARNESS_WRAPPER_KINDS]
+        if unknown:
+            raise ConfigError(
+                f"harness_wrappers.kinds has unknown harness {unknown[0]!r}",
+                fix=f"use kinds from: {known}",
+                schema_path="harness_wrappers.kinds",
+            )
+
+    if "real_bin" in block:
+        real_bin = block["real_bin"]
+        if not isinstance(real_bin, dict):
+            raise ConfigError(
+                f"harness_wrappers.real_bin must be a mapping of kind -> absolute path, got {real_bin!r}",
+                schema_path="harness_wrappers.real_bin",
+            )
+        installed = _HARNESS_WRAPPER_KINDS if kinds is None else kinds
+        for kind, path in real_bin.items():
+            where = f"harness_wrappers.real_bin.{kind}"
+            if kind not in _HARNESS_WRAPPER_KINDS:
+                raise ConfigError(f"{where}: unknown harness {kind!r}", fix=f"use kinds from: {known}", schema_path=where)
+            if kind not in installed:
+                raise ConfigError(
+                    f"{where} is set but {kind!r} is not in harness_wrappers.kinds",
+                    fix=f"add {kind!r} to harness_wrappers.kinds or drop the real_bin entry",
+                    schema_path=where,
+                )
+            _check_path(where, path)
 
 
 def _validate_fj(f: dict[str, Any]) -> None:

@@ -1,19 +1,14 @@
-"""The durable OMP launcher — ``rig omp run/attach/list`` — plus the pane save/restore
-executors that ``riglib.tmux``'s rendered ``omp-save``/``omp-restore`` scripts shell out to.
+"""The omp tmux pane save/restore executors ``riglib.tmux``'s rendered ``omp-save``/``omp-restore``
+scripts shell out to (``rig omp save-panes|restore-panes``).
 
-``rig omp run``/``attach`` wrap the real interactive OMP CLI in a small, established
-process/session manager (``abduco``, not a new PTY implementation — see AGENTS.md). A durable
-session's identity is a random id rig generates (never the cwd — the same cwd legitimately
-hosts different sessions, see :mod:`riglib.omp_recovery`'s module docstring), recorded in
-``RIG_OMP_SESSION`` for the child (the shared contract with tg-cli's ``tg-ctl omp-live status``
-bridge) and recovered for OUR OWN inspection via abduco-argv ancestry (see
-:mod:`riglib.omp_inspect`'s module docstring — NOT via reading the child's environment back,
-which macOS restricts even for the owning user).
+Hosting a harness in abduco — run, attach, list, the crash supervisor, the PATH wrapper — is
+:mod:`riglib.harness_launcher` / :mod:`riglib.harness_host` (``rig harness``). A hosted session's
+identity is a random name rig generates (never the cwd: the same cwd legitimately hosts different
+sessions, see :mod:`riglib.omp_recovery`'s module docstring), recovered for OUR OWN inspection via
+abduco-argv ancestry (see :mod:`riglib.omp_inspect`'s module docstring) — NOT by reading the
+child's environment back, which macOS restricts even for the owning user.
 
-Every one-shot inspection subprocess this module runs uses ``stdin=subprocess.DEVNULL``. The
-two exec paths (``run``/``attach``) deliberately REPLACE the current process (``os.execvpe``)
-so the terminal/pty is handed straight to abduco — they are meant to be the last thing a pane
-runs, not spawn a child.
+Every one-shot inspection subprocess this module runs uses ``stdin=subprocess.DEVNULL``.
 """
 
 from __future__ import annotations
@@ -23,24 +18,14 @@ import shutil
 import shlex
 import subprocess
 import sys
-import uuid
 from pathlib import Path
-from typing import Callable, NoReturn
+from typing import Callable
 
 from . import omp_inspect
+from .harness_host import validate_name
 from .omp_recovery import RestorePlan, SavedPane, plan_restore
 
-DEFAULT_ABDUCO_BIN = "abduco"
 DEFAULT_TMUX_BIN = "tmux"
-
-
-def validate_durable_id(value: str) -> str:
-    import re
-
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,60}", value):
-        raise ValueError("invalid durable session identifier")
-    return value
-
 
 #: shells a pane must be idle in for a restore to touch it — never clobber a running program.
 _FRESH_SHELLS = {
@@ -57,131 +42,7 @@ _FRESH_SHELLS = {
 }
 
 
-def generate_durable_id() -> str:
-    return f"omp-{uuid.uuid4().hex[:12]}"
-
-
-# ── the abduco exec wrappers (`rig omp run` / `rig omp attach`) ──────────────────────────────
-def build_run_argv(
-    omp_argv: list[str], session_id: str, *, abduco_bin: str = DEFAULT_ABDUCO_BIN
-) -> list[str]:
-    """``abduco -f -A <session_id> <omp_argv...>`` — connect-or-create, so a duplicate `rig omp
-    run` with the SAME id (e.g. a restore racing a still-starting durable launch) reuses the
-    existing process instead of erroring. -f only replaces an already terminated worker;
-    an active session is still attached without launching another process."""
-    if not omp_argv:
-        raise ValueError(
-            "omp_argv must be non-empty (the real omp binary + its arguments)"
-        )
-    return [abduco_bin, "-f", "-A", validate_durable_id(session_id), *omp_argv]
-
-
-def build_attach_argv(
-    session_id: str, *, abduco_bin: str = DEFAULT_ABDUCO_BIN
-) -> list[str]:
-    return [abduco_bin, "-a", validate_durable_id(session_id)]
-
-
-def run_env(
-    session_id: str, *, base_env: dict[str, str] | None = None
-) -> dict[str, str]:
-    env = dict(base_env if base_env is not None else os.environ)
-    env["RIG_OMP_SESSION"] = validate_durable_id(session_id)
-    env["ABDUCO_SOCKET_DIR"] = str(omp_inspect.abduco_socket_dir())
-    return env
-
-
-def run_session(
-    omp_argv: list[str],
-    *,
-    session_id: str | None = None,
-    abduco_bin: str = DEFAULT_ABDUCO_BIN,
-    exec_fn: Callable[[str, list[str], dict[str, str]], NoReturn] = os.execvpe,
-) -> str:
-    """Launch ``omp_argv`` durably. Returns the session id used (for callers that print it
-    before the exec replaces the process) — ``exec_fn`` never returns on success; tests inject
-    a recording stand-in instead of actually replacing the test process."""
-    sid = session_id or generate_durable_id()
-    command = list(omp_argv)
-    if command and command[0] == "omp":
-        real = read_wrapper_real_bin(default_wrapper_config_path())
-        if real:
-            command[0] = real
-    if command and _is_managed_wrapper(shutil.which(command[0]) or command[0]):
-        raise RuntimeError(
-            "unresolved OMP executable is the durable wrapper; repair its real-bin configuration"
-        )
-    socket_root = omp_inspect.abduco_socket_dir()
-    socket_root.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if socket_root.is_symlink() or socket_root.stat().st_uid != os.getuid():
-        raise ValueError("unsafe durable socket directory")
-    socket_root.chmod(0o700)
-    argv = build_run_argv(command, sid, abduco_bin=abduco_bin)
-    env = run_env(sid)
-    exec_fn(argv[0], argv, env)
-    return sid
-
-
-def attach_session(
-    session_id: str,
-    *,
-    abduco_bin: str = DEFAULT_ABDUCO_BIN,
-    exec_fn: Callable[[str, list[str], dict[str, str]], NoReturn] = os.execvpe,
-) -> None:
-    argv = build_attach_argv(session_id, abduco_bin=abduco_bin)
-    env = run_env(session_id)
-    exec_fn(argv[0], argv, env)
-
-
-def list_sessions(
-    abduco_bin: str = DEFAULT_ABDUCO_BIN, timeout: float = 5.0
-) -> tuple[list[dict], bool]:
-    """``([{name, attached, terminated, created}], inspection_ok)`` — richer than
-    :func:`riglib.omp_inspect.list_abduco_sessions` (keeps the attached/terminated marker +
-    timestamp for ``rig omp list``'s human/JSON output)."""
-    try:
-        proc = subprocess.run(
-            [abduco_bin, "-l"],
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=omp_inspect.abduco_env(),
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return [], False
-    if proc.returncode != 0:
-        return [], False
-    return omp_inspect.parse_abduco_listing(proc.stdout), True
-
-
 # ── omp-save: cwd -> newest session file (ported from riglib.tmux's bash renderer) ──────────
-def resolve_agent_root(
-    env: dict[str, str] | None = None, home: Path | None = None
-) -> Path:
-    """Mirrors ``riglib.harness_skills.omp_agent_root()``'s override precedence, ported into
-    Python so ``rig omp save-panes`` needs no bash at all — see ``render_omp_save``'s
-    docstring for the exact contract (``PI_CODING_AGENT_DIR`` full override,
-    ``PI_CONFIG_DIR`` renames the ``.omp`` dirname)."""
-    env = env if env is not None else os.environ
-    home = home if home is not None else Path.home()
-
-    def _expand(value: str) -> Path:
-        if value.startswith("/"):
-            return Path(value)
-        if value == "~":
-            return home
-        if value.startswith("~/"):
-            return home / value[2:]
-        return home / value
-
-    if env.get("PI_CODING_AGENT_DIR"):
-        return _expand(env["PI_CODING_AGENT_DIR"])
-    if env.get("PI_CONFIG_DIR"):
-        return _expand(env["PI_CONFIG_DIR"]) / "agent"
-    return home / ".omp" / "agent"
-
-
 def encode_cwd(cwd: str, home: Path) -> str:
     """cwd relative to ``home``, every ``/`` -> ``-`` (dots preserved) — verified against a
     real on-disk omp session dir; NOT Claude Code's full-absolute-path/dot-folding encoding."""
@@ -481,7 +342,7 @@ def restore_one_pane(
     if plan.action == "attach":
         if not send_keys(
             addr,
-            f"cd {shell_quote(cwd)} && {rig_command} omp attach {shell_quote(plan.argv[-1])}",
+            f"cd {shell_quote(cwd)} && {rig_command} harness attach {shell_quote(plan.argv[-1])}",
             tmux_bin,
         ):
             return RestorePlan("blocked", "pane_delivery_failed")
@@ -492,8 +353,8 @@ def restore_one_pane(
             durable_session
             or "omp-recover-" + hashlib.sha256(session_id.encode()).hexdigest()[:20]
         )
-        validate_durable_id(durable)
-        command = f"cd {shell_quote(cwd)} && {rig_command} omp run --session-id {shell_quote(durable)} --resume {shell_quote(plan.argv[-1])}"
+        validate_name(durable)
+        command = f"cd {shell_quote(cwd)} && {rig_command} harness run omp --host-id {shell_quote(durable)} --resume {shell_quote(plan.argv[-1])}"
         if not send_keys(addr, command, tmux_bin):
             return RestorePlan("blocked", "pane_delivery_failed")
     elif plan.action == "blocked":
@@ -553,116 +414,3 @@ def restore_panes(
         if plan.action == "blocked":
             blocked += 1
     return blocked
-
-
-# ── the opt-in durable-wrapper install (coordinator activates it; rig only provides it) ──────
-_WRAPPER_SCRIPT = """#!/usr/bin/env bash
-# rig-managed: durable OMP wrapper — installed by `rig omp install-wrapper`.
-# Interactive launches are wrapped in an abduco durable session; every other invocation
-# (headless -p/--print, acp, models/config/... subcommands, --help/--version) passes straight
-# through to the real binary, unwrapped.
-exec rig omp exec -- "$@"
-"""
-
-
-def wrapper_script_text(config_path: Path | None = None) -> str:
-    if config_path is None:
-        return _WRAPPER_SCRIPT
-    return _WRAPPER_SCRIPT.replace(
-        "rig omp exec --",
-        "rig omp exec --config " + shell_quote(str(config_path)) + " --",
-    )
-
-
-def install_wrapper(target: Path, real_omp_bin: str, config_path: Path) -> None:
-    """Write the wrapper script to ``target`` and record ``real_omp_bin`` at ``config_path``
-    (read back by ``rig omp exec``). Never overwrites ``real_omp_bin`` itself — the vendor
-    binary/symlink stays exactly where it is; ``target`` must be a DIFFERENT path earlier in
-    PATH for the wrapper to actually take effect (the caller's job to arrange, per AGENTS.md:
-    rig prepares on-disk artifacts, it does not mutate the user's live PATH/shell)."""
-    import json, tempfile
-
-    real = Path(real_omp_bin)
-    if (
-        not real.is_absolute()
-        or not real.exists()
-        or target.absolute() == real.absolute()
-    ):
-        raise ValueError(
-            "real OMP must be an existing absolute path different from wrapper"
-        )
-    if target.is_symlink():
-        raise ValueError("refusing to overwrite an unmanaged OMP symlink")
-    if target.exists() and not _is_managed_wrapper(str(target)):
-        raise ValueError("refusing to overwrite an unmanaged OMP executable")
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    for destination, text, mode in [
-        (config_path, json.dumps({"real_bin": str(real.resolve())}) + "\n", 0o600),
-        (target, wrapper_script_text(config_path), 0o755),
-    ]:
-        fd, name = tempfile.mkstemp(
-            prefix=destination.name + ".tmp-", dir=destination.parent
-        )
-        try:
-            os.fchmod(fd, mode)
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(text)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(name, destination)
-        finally:
-            Path(name).unlink(missing_ok=True)
-
-
-def read_wrapper_real_bin(config_path: Path) -> str | None:
-    import json
-
-    if not config_path.exists():
-        return None
-    try:
-        data = json.loads(config_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    if not isinstance(data, dict):
-        return None
-    real_bin = data.get("real_bin")
-    return real_bin if isinstance(real_bin, str) and real_bin else None
-
-
-def default_wrapper_config_path() -> Path:
-    return Path.home() / ".config" / "rig" / "omp-wrapper.json"
-
-
-def _is_managed_wrapper(path: str) -> bool:
-    try:
-        with Path(path).open("rb") as handle:
-            return b"# rig-managed: durable OMP wrapper" in handle.read(4096)
-    except OSError:
-        return False
-
-
-def exec_or_wrap(
-    argv: list[str],
-    *,
-    config_path: Path | None = None,
-    exec_fn: Callable[[str, list[str], dict[str, str]], NoReturn] = os.execvpe,
-) -> None:
-    """``rig omp exec -- ARGS...``: the wrapper's actual body. Classifies ``argv`` with
-    :func:`riglib.omp_recovery.is_interactive_omp`; wraps interactive launches durably,
-    execs everything else straight through, unwrapped."""
-    from .omp_recovery import is_interactive_omp
-
-    config_path = config_path or default_wrapper_config_path()
-    real_bin = read_wrapper_real_bin(config_path)
-    if real_bin is None:
-        raise RuntimeError(
-            f"no real OMP binary recorded at {config_path} — run `rig omp install-wrapper` first"
-        )
-    if _is_managed_wrapper(real_bin):
-        raise RuntimeError("real OMP executable points back to the managed wrapper")
-    command = shlex.join([real_bin, *argv])
-    if not is_interactive_omp(command):
-        exec_fn(real_bin, [real_bin, *argv], dict(os.environ))
-        return
-    run_session([real_bin, *argv], exec_fn=exec_fn)

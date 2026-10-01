@@ -250,7 +250,7 @@ def test_ci_has_lsof_so_the_omp_orphan_guard_tests_run():
 
 def test_ci_has_abduco_so_the_omp_restore_positive_control_runs():
     """In CI, abduco MUST be on PATH. The omp-restore positive control proves a restored pane
-    really relaunches omp through `rig omp run`, which execs abduco; it is `@_requires_abduco`
+    really relaunches omp through `rig harness run omp`, which execs abduco; it is `@_requires_abduco`
     gated, so on a runner without abduco it would SKIP and the relaunch path would go unproven.
     Ubuntu 24.04 has no abduco package, so both CI jobs build a pinned release
     (scripts/install-abduco-ci.sh); this assertion names that step if it goes missing.

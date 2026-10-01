@@ -64,11 +64,12 @@ def check(args):
 
 args = [
     "rig",
-    "omp",
+    "harness",
     "run",
-    "--session-id",
+    "omp",
+    "--host-id",
     "omp-reconnect-proof",
-    "--",
+    "--real-bin",
     str(OMP),
     "--session-dir",
     str(sessions),

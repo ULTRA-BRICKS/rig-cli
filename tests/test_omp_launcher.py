@@ -1,96 +1,18 @@
-"""Unit + targeted integration tests for riglib.omp_launcher.
+"""Unit tests for riglib.omp_launcher — the tmux pane map and save/restore executors.
 
-The `os.execvpe`-replacing paths (run_session/attach_session/exec_or_wrap) are tested via
-dependency-injected `exec_fn` for pure argv/env assembly, and via a REAL short-lived
-abduco-in-a-subprocess integration test (never touching a shared/live abduco instance — every
-test here sets RIG_OMP_ABDUCO_DIR to an isolated tmp dir)."""
+Hosting a harness in abduco (run/attach/list, the crash supervisor, the PATH wrapper) is
+`riglib.harness_launcher` and is tested in tests/test_harness_launcher.py."""
 
 import json
-import os
-import subprocess
-import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
-from shutil import which
 
 from riglib import omp_launcher as ol
-from riglib.omp_recovery import OriginalSession
 
 
-class BuildArgvTests(unittest.TestCase):
-    def test_run_argv_is_connect_or_create(self):
-        argv = ol.build_run_argv(
-            ["omp", "--resume", "/x.jsonl"], "sid-1", abduco_bin="abduco"
-        )
-        self.assertEqual(
-            argv, ["abduco", "-f", "-A", "sid-1", "omp", "--resume", "/x.jsonl"]
-        )
-
-    def test_run_argv_rejects_empty_command(self):
-        with self.assertRaises(ValueError):
-            ol.build_run_argv([], "sid-1")
-
-    def test_attach_argv(self):
-        self.assertEqual(ol.build_attach_argv("sid-1"), ["abduco", "-a", "sid-1"])
-
-    def test_run_env_sets_durable_marker_and_socket_dir(self):
-        env = ol.run_env("sid-1", base_env={"PATH": "/bin"})
-        self.assertEqual(env["RIG_OMP_SESSION"], "sid-1")
-        self.assertIn("ABDUCO_SOCKET_DIR", env)
-        self.assertEqual(env["PATH"], "/bin")
-
-
-class RunSessionInjectedExecTests(unittest.TestCase):
-    def test_run_session_generates_id_and_calls_exec_fn(self):
-        calls = []
-
-        def fake_exec(path, argv, env):
-            calls.append((path, argv, env))
-
-        sid = ol.run_session(["omp"], exec_fn=fake_exec)
-        self.assertTrue(sid.startswith("omp-"))
-        self.assertEqual(len(calls), 1)
-        path, argv, env = calls[0]
-        self.assertEqual(path, "abduco")
-        self.assertEqual(argv, ["abduco", "-f", "-A", sid, "omp"])
-        self.assertEqual(env["RIG_OMP_SESSION"], sid)
-
-    def test_run_session_honors_explicit_session_id(self):
-        calls = []
-        ol.run_session(
-            ["omp"], session_id="fixed-id", exec_fn=lambda p, a, e: calls.append(a)
-        )
-        self.assertEqual(calls[0][3], "fixed-id")
-
-    def test_attach_session_calls_exec_fn(self):
-        calls = []
-        ol.attach_session("sid-1", exec_fn=lambda p, a, e: calls.append((p, a, e)))
-        p, a, e = calls[0]
-        self.assertEqual(a, ["abduco", "-a", "sid-1"])
-        self.assertEqual(e["RIG_OMP_SESSION"], "sid-1")
-
-
-class AgentRootAndEncodingTests(unittest.TestCase):
-    def test_default_agent_root(self):
-        home = Path("/home/u")
-        self.assertEqual(
-            ol.resolve_agent_root(env={}, home=home), home / ".omp" / "agent"
-        )
-
-    def test_pi_coding_agent_dir_full_override(self):
-        home = Path("/home/u")
-        root = ol.resolve_agent_root(
-            env={"PI_CODING_AGENT_DIR": "/custom/root"}, home=home
-        )
-        self.assertEqual(root, Path("/custom/root"))
-
-    def test_pi_config_dir_renames_dot_omp(self):
-        home = Path("/home/u")
-        root = ol.resolve_agent_root(env={"PI_CONFIG_DIR": "~/.myomp"}, home=home)
-        self.assertEqual(root, home / ".myomp" / "agent")
-
+class EncodingAndSessionFileTests(unittest.TestCase):
     def test_encode_cwd_relative_to_home_dots_preserved(self):
         home = Path("/Users/u")
         self.assertEqual(
@@ -199,7 +121,8 @@ class RestoreOnePaneDecisionTests(unittest.TestCase):
             self.assertEqual(plan.action, "resume")
             self.assertEqual(plan.reason, "original_not_running")
             self.assertEqual(len(sent), 1)
-            self.assertIn("rig omp run --session-id", sent[0])
+            self.assertIn("harness run omp --host-id omp-recover-", sent[0])
+            self.assertIn(f"--resume {session}", sent[0])
 
     def test_durable_restore_still_blocks_when_abduco_listing_is_unavailable(self):
         with tempfile.TemporaryDirectory() as d:
@@ -230,8 +153,8 @@ class RestoreOnePaneDecisionTests(unittest.TestCase):
             self.assertEqual(plan.reason, "inspection_unavailable")
             self.assertEqual(len(sent), 1)
             self.assertIn("inspection_unavailable", sent[0])
-            self.assertNotIn(" rig omp run ", sent[0])
-            self.assertNotIn(" rig omp attach ", sent[0])
+            self.assertNotIn(" harness run ", sent[0])
+            self.assertNotIn(" harness attach ", sent[0])
 
     def test_durable_terminal_attach_does_not_call_tmux_when_pane_unreachable(self):
         plan = ol.restore_one_pane(
@@ -249,176 +172,30 @@ class RestoreOnePaneDecisionTests(unittest.TestCase):
         self.assertEqual(plan.reason, "pane_unreachable")
 
 
-class WrapperInstallTests(unittest.TestCase):
-    def test_install_writes_wrapper_and_config_without_touching_real_bin(self):
+class DurableResumeCommandTests(unittest.TestCase):
+    def test_resume_reuses_the_saved_durable_name_as_the_host_id(self):
+        """A saved pane whose hosted session is gone relaunches under the SAME name, so the
+        tg-ctl delivery address and the next save/restore cycle stay stable."""
         with tempfile.TemporaryDirectory() as d:
-            d = Path(d)
-            real_bin = d / "real-omp"
-            real_bin.write_text("#!/bin/sh\necho real\n")
-            target = d / "bin" / "omp"
-            config = d / "cfg.json"
-            ol.install_wrapper(target, str(real_bin), config)
-            self.assertTrue(target.exists())
-            self.assertIn("rig omp exec", target.read_text())
-            self.assertEqual(ol.read_wrapper_real_bin(config), str(real_bin.resolve()))
-            # the vendor binary itself is untouched.
-            self.assertEqual(real_bin.read_text(), "#!/bin/sh\necho real\n")
-
-    def test_read_wrapper_real_bin_missing_config_is_none(self):
-        self.assertIsNone(ol.read_wrapper_real_bin(Path("/no/such/config.json")))
-
-    def test_exec_or_wrap_passes_through_headless_unwrapped(self):
-        with tempfile.TemporaryDirectory() as d:
-            config = Path(d) / "cfg.json"
-            config.write_text(json.dumps({"real_bin": "/real/omp"}))
-            calls = []
-            ol.exec_or_wrap(
-                ["-p", "hello"],
-                config_path=config,
-                exec_fn=lambda p, a, e: calls.append((p, a)),
-            )
-            self.assertEqual(calls, [("/real/omp", ["/real/omp", "-p", "hello"])])
-
-    def test_exec_or_wrap_wraps_interactive_launch_durably(self):
-        with tempfile.TemporaryDirectory() as d:
-            config = Path(d) / "cfg.json"
-            config.write_text(json.dumps({"real_bin": "/real/omp"}))
-            calls = []
-            ol.exec_or_wrap(
-                ["--resume", "/x.jsonl"],
-                config_path=config,
-                exec_fn=lambda p, a, e: calls.append((p, a, e)),
-            )
-            path, argv, env = calls[0]
-            self.assertEqual(path, "abduco")
-            self.assertEqual(argv[:3], ["abduco", "-f", "-A"])
-            self.assertIn("/real/omp", argv)
-            self.assertIn("RIG_OMP_SESSION", env)
-
-    def test_exec_or_wrap_raises_without_installed_config(self):
-        with self.assertRaises(RuntimeError):
-            ol.exec_or_wrap(
-                ["--resume", "/x.jsonl"], config_path=Path("/no/such/cfg.json")
-            )
-
-
-@unittest.skipUnless(which("abduco"), "abduco not installed")
-class AbducoIntegrationTests(unittest.TestCase):
-    """Real abduco, on an isolated private socket dir — never a shared/live instance. Proves
-    the brief's acceptance criterion: attaching to a durable session reuses the SAME
-    underlying fixture process, it is not relaunched."""
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        os.environ["RIG_OMP_ABDUCO_DIR"] = self.tmp.name
-        self.addCleanup(lambda: os.environ.pop("RIG_OMP_ABDUCO_DIR", None))
-        self._pids_to_kill: list[int] = []
-        self.addCleanup(self._cleanup_pids)
-
-    def _cleanup_pids(self):
-        for pid in self._pids_to_kill:
+            session = Path(d) / "session.jsonl"
+            session.write_text(json.dumps({"type": "session", "id": "sid-1", "cwd": "/cwd"}) + "\n")
+            old_empty, old_send, old_resolve = ol._pane_is_empty_shell, ol.send_keys, ol.resolve_rig_binary
+            sent = []
             try:
-                os.kill(pid, 9)
-            except OSError:
-                pass
-
-    def _wait_for_file(self, path: Path, timeout: float = 5.0) -> str:
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            if path.exists():
-                return path.read_text().strip()
-            time.sleep(0.1)
-        self.fail(f"{path} never appeared")
-
-    def test_attach_reuses_same_underlying_pid(self):
-        pidfile = Path(self.tmp.name) / "fixture.pid"
-        env = dict(os.environ)
-        launcher = subprocess.Popen(
-            [
-                sys.executable,
-                "-c",
-                "from riglib.omp_launcher import run_session; "
-                f"run_session(['bash','-c','echo $$ > {pidfile}; sleep 30'], session_id='it-attach-test')",
-            ],
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        self.addCleanup(lambda: (launcher.kill(), launcher.wait()))
-        pid1 = self._wait_for_file(pidfile)
-        self._pids_to_kill.append(int(pid1))
-
-        names, ok = ol.list_sessions()
-        self.assertTrue(ok)
-        self.assertIn("it-attach-test", {s["name"] for s in names})
-
-        attacher = subprocess.Popen(
-            [
-                sys.executable,
-                "-c",
-                "from riglib.omp_launcher import attach_session; attach_session('it-attach-test')",
-            ],
-            env=env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        try:
-            time.sleep(0.5)
-            pid2 = pidfile.read_text().strip()
+                ol._pane_is_empty_shell = lambda *a, **k: True
+                ol.send_keys = lambda addr, command, tmux_bin: sent.append(command) or True
+                ol.resolve_rig_binary = lambda requested=None: "/usr/local/bin/rig"
+                plan = ol.restore_one_pane(
+                    "addr", "/cwd", str(session), "omp-dur1",
+                    live=[], live_ok=True, durable_sockets=set(), durable_ok=True,
+                )
+            finally:
+                ol._pane_is_empty_shell, ol.send_keys, ol.resolve_rig_binary = old_empty, old_send, old_resolve
+            self.assertEqual(plan.action, "resume")
             self.assertEqual(
-                pid1, pid2, "attaching must not relaunch the fixture process"
+                sent,
+                [f"cd /cwd && /usr/local/bin/rig harness run omp --host-id omp-dur1 --resume {session}"],
             )
-        finally:
-            attacher.terminate()
-            attacher.wait()
-
-    def test_restore_one_pane_attaches_via_durable_socket(self):
-        """End-to-end for the recovery decision this ticket exists for: a saved pane whose
-        durable socket is still alive must ATTACH, never resume/relaunch — proven against a
-        real abduco session (no tmux needed for the decision itself; restore_one_pane's tmux
-        calls are exercised for the pane-unreachable path above, and the tmux e2e file covers
-        the full pane-in-tmux path)."""
-        pidfile = Path(self.tmp.name) / "fixture2.pid"
-        env = dict(os.environ)
-        launcher = subprocess.Popen(
-            [
-                sys.executable,
-                "-c",
-                "from riglib.omp_launcher import run_session; "
-                f"run_session(['bash','-c','echo $$ > {pidfile}; sleep 30'], session_id='it-restore-test')",
-            ],
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        self.addCleanup(lambda: (launcher.kill(), launcher.wait()))
-        pid1 = self._wait_for_file(pidfile)
-        self._pids_to_kill.append(int(pid1))
-        from riglib import omp_inspect as oi
-
-        durable_sockets, ok = oi.list_abduco_sessions()
-        self.assertTrue(ok)
-        saved = OriginalSession(
-            int(pid1), "instance-x", "/proj", "it-restore-test", "it-restore-test"
-        )
-        from riglib.omp_recovery import SavedPane, plan_restore
-
-        plan = plan_restore(
-            SavedPane(
-                "addr", "/proj", "it-restore-test", str(pidfile), "it-restore-test"
-            ),
-            [saved],
-            durable_sockets,
-            inspection_ok=True,
-            session_file_exists=True,
-            pane_is_empty_shell=True,
-        )
-        self.assertEqual(plan.action, "attach")
-        self.assertEqual(plan.argv, ("rig", "omp", "attach", "it-restore-test"))
 
 
 if __name__ == "__main__":

@@ -1036,7 +1036,7 @@ set -uo pipefail
         (`... || true` swallowed the failure). `rig omp restore-panes` fixes both: its
         system-wide live-process scan fails CLOSED (blocks rather than launches) when
         inspection is unavailable, and a durable abduco session found still alive is
-        reattached (`rig omp attach <id>`) instead of only warning.
+        reattached (`rig harness attach <id>`) instead of only warning.
         """
         map_file = self.omp_map_path
         rig_bin = self.rig_bin

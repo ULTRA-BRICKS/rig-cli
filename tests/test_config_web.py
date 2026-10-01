@@ -1067,7 +1067,7 @@ def test_build_model_global_only_omits_repo_layer_areas(tmp_path, monkeypatch):
     cats = {a.category for a in model.areas}
     # the writable-GLOBAL categories (schema._GLOBAL_ONLY_CATEGORIES) plus the areas carrying a
     # per-option GLOBAL override (the machine-wide known-lists, rig-cli#372) — nothing else
-    assert cats <= {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tgctl_reaper", "sysmon", "tmux", "mode", "skills", "agent_hooks", "mcp", "ci"}
+    assert cats <= {"gitignore", "spotlight", "bun", "tg_ctl", "tcc_watch", "tgctl_reaper", "sysmon", "harness_wrappers", "tmux", "mode", "skills", "agent_hooks", "mcp", "ci"}
     assert "harness" not in cats
     assert "ci" in cats  # only the two machine-owned ship policy fields
     # every field shown on the Global tab is GLOBAL-writable — a repo-layer option never leaks in

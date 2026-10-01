@@ -32,7 +32,7 @@ jobs:
       # build-essential: the abduco build below.
       - name: Install tmux (the @_requires_tmux unit tests must RUN, not skip)
         run: sudo apt-get update && sudo apt-get install -y tmux lsof build-essential
-      # abduco: the omp-restore positive control relaunches omp through `rig omp run`, which
+      # abduco: the omp-restore positive control relaunches omp through `rig harness run omp`, which
       # execs abduco; Ubuntu 24.04 has no abduco package, so build the pinned release.
       # `test_tmux_e2e_gating.py` asserts it is on PATH in CI, like tmux and lsof.
       - name: Install abduco (pinned, built from source)

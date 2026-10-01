@@ -32,6 +32,7 @@ _CATEGORY_LAYER = {
     "agent_hooks": GLOBAL,
     "mcp": GLOBAL,
     "harness": GLOBAL,
+    "harness_wrappers": GLOBAL,
     "permissions": GLOBAL,
     "mode": GLOBAL,
     "models": GLOBAL,

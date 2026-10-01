@@ -72,6 +72,7 @@ AREAS: tuple[Area, ...] = (
     # both emit category="harness" (plan.py: apply_harness + register_hook_bridge), so the label
     # names both rather than undersell it as auto-mode only.
     Area("harness", "harness auto-mode + hook bridge", GLOBAL, ("harness",)),
+    Area("harness_wrappers", "harness launcher wrappers (rig harness exec)", GLOBAL, ("harness_wrappers",)),
     Area("permissions", "harness permissions (allow / deny / ask)", GLOBAL, ("permissions",)),
     Area("mode", "agent operating mode", GLOBAL, ("mode",)),
     Area("tmux", "tmux config", GLOBAL, ("tmux",)),

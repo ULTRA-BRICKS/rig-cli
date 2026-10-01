@@ -33,7 +33,7 @@ def test_registry_covers_every_status_area():
     expected = {
         "stack",
         "skills", "agent_hooks", "git_hooks", "ci", "mcp", "harness", "permissions",
-        "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "bun", "tg_ctl",
+        "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "bun", "harness_wrappers", "tg_ctl",
         "tcc_watch", "tgctl_reaper", "sysmon", "linters", "project_tools", "ecosystem_readme", "task", "internal_dev",
     }
     assert cats == expected

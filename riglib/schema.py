@@ -38,9 +38,11 @@ from typing import Any
 # Dot-path syntax/traversal lives in config.py; schema adapts absent reads to KeyError_.
 from .config import ConfigError, canonical_dot_path, get_path as _config_get_path
 from .config import set_path as _config_set_path
+from .harness_kinds import KINDS as _WRAPPER_KINDS
 from .harness_skills import HARNESS_INSTRUCTION_FILES, HARNESS_NATIVE_SKILLS, HARNESS_SKILL_DIR_KINDS
 from .layers import GLOBAL, REPO, layer_for_category
 from .tmux import DEFAULT_PANE_TITLES_FORMAT
+from .wrapper_provision import DEFAULT_DIR as _WRAPPER_DEFAULT_DIR
 
 # The value kinds the wizard knows how to prompt for and coerce. Kept tiny on purpose.
 KIND_BOOL = "bool"
@@ -61,14 +63,15 @@ _HARNESS_KIND_CHOICES: tuple[str, ...] = tuple(
 # blocks the scaffold deliberately NEVER writes into a committed repo file — ``gitignore`` and
 # ``tg_ctl`` (documented global-only in config.py/state.py), ``tmux`` (machine tmux config), and
 # ``mode`` (machine-wide agent policy). ``git`` (``git config --global``), ``profile`` (the
-# config-sync repo) and ``tracked_files`` (it runs the ship command and pushes branches) go
+# config-sync repo), ``tracked_files`` (it runs the ship command and pushes branches) and
+# ``harness_wrappers`` (it writes executables onto PATH and names the binary they exec) go
 # further: ``config.load`` REJECTS them from any non-global layer
 # (``config._GLOBAL_LAYER_ONLY_BLOCKS``), so this routing is their write-side twin.
 # Routing a GLOBAL-only value into a committed repo rig.yaml is the footgun this map prevents.
 # A category absent here defaults to REPO (the conservative "it lives in the committed file").
 _GLOBAL_ONLY_CATEGORIES = {
     "gitignore", "spotlight", "bun", "git", "profile", "tg_ctl", "tcc_watch", "tgctl_reaper", "sysmon", "tmux", "mode",
-    "tracked_files",
+    "tracked_files", "harness_wrappers",
 }
 
 
@@ -548,6 +551,26 @@ AREAS: tuple[Area, ...] = (
                  "through a node_modules symlink). Only the global config turns it on; to opt ONE "
                  "repo out, hand-edit its rig.yaml (bun: {worktree_install: false}) — this setting "
                  "writes only the global value."),
+        ),
+    ),
+    Area(
+        "harness_wrappers", "harness launcher wrappers",
+        "Opt-in `omp`/`claude`/`codex`/`opencode` wrapper scripts that host an interactive launch in an "
+        "abduco session under the crash supervisor (`rig harness exec`).",
+        (
+            _opt("harness_wrappers.enabled", KIND_BOOL, False,
+                 "Write the wrapper scripts on `rig apply commit`. Opt-in (default OFF). GLOBAL-only — "
+                 "never written to a repo rig.yaml. Only INTERACTIVE launches are hosted; `-p`, `exec`, "
+                 "subcommands and `--help` exec the real binary untouched. rig never edits PATH: put "
+                 "harness_wrappers.dir BEFORE the real binaries yourself."),
+            _opt("harness_wrappers.dir", KIND_STR, _WRAPPER_DEFAULT_DIR,
+                 "Directory the wrapper scripts land in (absolute, `~` or `$VAR`). A file or symlink "
+                 "there that rig did not write is never overwritten — apply reports an error."),
+            _opt("harness_wrappers.kinds", KIND_LIST, list(_WRAPPER_KINDS),
+                 "Harnesses to write a wrapper for, comma-separated (a non-empty subset; default all four). "
+                 "A real binary that is not the first match on PATH (the omp fork checkout) is declared "
+                 "per kind under harness_wrappers.real_bin in the global config file.",
+                 items_enum=_WRAPPER_KINDS),
         ),
     ),
     Area(
