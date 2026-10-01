@@ -23,6 +23,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -2094,20 +2095,24 @@ def test_boot_script_is_idempotent_attach_or_create():
     assert "main" in body
 
 
+def _new_session_line(body: str) -> str:
+    """The boot script's real `tmux … new-session` invocation (not a comment, not the marker code)."""
+    return next(ln for ln in body.splitlines() if "new-session" in ln and not ln.startswith("#"))
+
+
 def test_boot_script_passes_f_for_custom_conf_path():
     """A non-default conf_path must reach the boot session via `-f`, else the session starts
     WITHOUT the managed config (continuum/resurrect never set → no restore)."""
     body = tmux.build_tmux(
         repo_home=Path("/home/u"), conf_path="~/.config/tmux/custom.conf"
     ).render_boot_script()
-    assert "-f" in body
-    assert "custom.conf" in body
+    assert " -f /home/u/.config/tmux/custom.conf " in _new_session_line(body)
 
 
 def test_boot_script_omits_f_for_default_conf_path():
     """The default ~/.tmux.conf is auto-loaded by tmux, so no `-f` is emitted."""
     body = tmux.build_tmux(repo_home=Path("/home/u")).render_boot_script()
-    assert " -f " not in body
+    assert " -f " not in _new_session_line(body)
 
 
 def test_boot_script_tmux_bin_falls_back_to_existing_path(monkeypatch):
@@ -2117,6 +2122,228 @@ def test_boot_script_tmux_bin_falls_back_to_existing_path(monkeypatch):
     monkeypatch.setattr(tmux.Path, "exists", lambda self: str(self) == "/usr/local/bin/tmux")
     body = tmux.build_tmux(repo_home=Path("/home/u")).render_boot_script()
     assert "/usr/local/bin/tmux" in body
+
+
+# ── boot marker: a slow boot-time conf load must not make continuum skip the restore (#674) ──
+# continuum starts the layout restore only when the server is younger than
+# `@continuum-restore-max-delay` (10 s) at the moment continuum.tmux runs. Under a post-reboot
+# load spike the boot-time conf load took ~16 s, so the restore was silently skipped and `main`
+# stayed a bare one-pane session. The boot script now holds a marker file while its `new-session`
+# loads the conf; the generated conf widens the window only while that marker is fresh.
+_BOOT_MARKER_NAME = tmux.BOOT_MARKER_NAME
+
+# A tmux stand-in that records every call and, at `new-session` time, whether the marker exists —
+# the one moment the generated conf's `if-shell` would look at it. $FAKE_*_HOOK lets a test act
+# while "tmux" is running (send the boot script a signal, or overwrite the marker).
+_FAKE_TMUX = r"""#!/usr/bin/env bash
+echo "$*" >> "$FAKE_TMUX_LOG"
+marker="$FAKE_TMUX_MARKER"
+state=absent; [ -e "$marker" ] && state="present:$(cat "$marker")"
+case " $* " in
+  *" has-session "*)
+    echo "marker-at-has-session=$state" >> "$FAKE_TMUX_LOG"
+    [ -e "$FAKE_TMUX_LOG.session" ] && exit 0   # a hook created the session
+    exit "${FAKE_HAS_SESSION_RC:-1}" ;;
+  *" new-session "*)
+    echo "marker-at-new-session=$state" >> "$FAKE_TMUX_LOG"
+    eval "${FAKE_NEW_SESSION_HOOK:-:}"
+    exit "${FAKE_NEW_SESSION_RC:-0}" ;;
+esac
+"""
+
+
+def _boot_rig(tmp_path, monkeypatch):
+    """(plan, script path, log path, env) with a fake baked tmux and every path under tmp_path."""
+    fake = tmp_path / "bin" / "tmux"
+    fake.parent.mkdir()
+    fake.write_text(_FAKE_TMUX, encoding="utf-8")
+    fake.chmod(0o755)
+    monkeypatch.setattr(tmux, "_resolve_tmux_bin", lambda: str(fake))
+    plan = tmux.build_tmux(repo_home=tmp_path / "home", generated_dir=tmp_path / "gen")
+    plan.generated_dir.mkdir()
+    script = plan.boot_script_path
+    script.write_text(plan.render_boot_script(), encoding="utf-8")
+    log = tmp_path / "tmux.log"
+    env = {
+        "PATH": os.environ["PATH"],
+        "HOME": str(tmp_path / "home"),
+        "FAKE_TMUX_LOG": str(log),
+        "FAKE_TMUX_MARKER": str(plan.generated_dir / _BOOT_MARKER_NAME),
+    }
+    return plan, script, log, env
+
+
+def _run_boot(script, env, **extra_env):
+    return subprocess.run(["bash", str(script)], env={**env, **extra_env}, capture_output=True, text=True, timeout=30)
+
+
+def test_boot_script_holds_a_fresh_marker_while_new_session_loads_the_conf(tmp_path, monkeypatch):
+    """The marker exists, stamped with this run's epoch + pid, exactly while `new-session -d` runs
+    (that is when the conf — and its `if-shell` on the marker — loads), and is gone afterwards.
+    The recovery-socket `-S` handling is untouched."""
+    plan, script, log, env = _boot_rig(tmp_path, monkeypatch)
+    before = int(time.time())
+    r = _run_boot(script, env, RIG_TMUX_RECOVERY_SOCKET="/tmp/rig-sock")
+    assert r.returncode == 0, r.stderr
+    lines = log.read_text().splitlines()
+    assert lines[:2] == ["-S /tmp/rig-sock has-session -t main", "marker-at-has-session=absent"]
+    assert lines[2] == "-S /tmp/rig-sock new-session -d -s main"
+    state = lines[3]
+    assert state.startswith("marker-at-new-session=present:"), lines
+    epoch, _pid = state.removeprefix("marker-at-new-session=present:").split()
+    assert before <= int(epoch) <= int(time.time())
+    assert not (plan.generated_dir / _BOOT_MARKER_NAME).exists()
+
+
+def test_boot_script_warm_login_leaves_another_boots_marker_alone(tmp_path, monkeypatch):
+    """`has-session` → exit 0 is the no-op path: it must not create a marker, and must not remove
+    one a concurrent real boot is holding."""
+    plan, script, log, env = _boot_rig(tmp_path, monkeypatch)
+    marker = plan.generated_dir / _BOOT_MARKER_NAME
+    marker.write_text("1700000000 424242\n", encoding="utf-8")
+    r = _run_boot(script, env, FAKE_HAS_SESSION_RC="0")
+    assert r.returncode == 0, r.stderr
+    assert log.read_text().splitlines() == [
+        "has-session -t main",
+        "marker-at-has-session=present:1700000000 424242",
+    ]
+    assert marker.read_text() == "1700000000 424242\n"
+
+
+@pytest.mark.parametrize(
+    ("label", "env_extra", "expected_rc"),
+    [
+        ("success", {}, 0),
+        ("new-session fails, no session appeared", {"FAKE_NEW_SESSION_RC": "7"}, 1),
+        ("SIGTERM", {"FAKE_NEW_SESSION_HOOK": 'kill -TERM "$PPID"; sleep 0.5'}, 143),
+        ("SIGINT", {"FAKE_NEW_SESSION_HOOK": 'kill -INT "$PPID"; sleep 0.5'}, 130),
+        ("SIGHUP", {"FAKE_NEW_SESSION_HOOK": 'kill -HUP "$PPID"; sleep 0.5'}, 129),
+    ],
+)
+def test_boot_script_removes_the_marker_on_every_exit_path(tmp_path, monkeypatch, label, env_extra, expected_rc):
+    plan, script, log, env = _boot_rig(tmp_path, monkeypatch)
+    r = _run_boot(script, env, **env_extra)
+    assert r.returncode == expected_rc, (label, r.stderr)
+    assert "marker-at-new-session=present:" in log.read_text(), "the marker must exist while new-session runs"
+    # no marker and no temp file left behind (the marker is written via a temp name + rename).
+    assert sorted(p.name for p in plan.generated_dir.iterdir()) == ["tmux-boot.sh"], label
+
+
+def test_boot_script_counts_a_session_created_by_the_restore_as_success(tmp_path, monkeypatch):
+    """With the widened window the restore can start while the conf is still loading and create
+    `main` before the boot client's queued `new-session` runs ("duplicate session: main"). The boot
+    still brought the server up with the session: exit 0 (a non-zero exit made the watchdog report
+    `boot_failed` for a healthy, restored server) — and the marker is still removed."""
+    plan, script, log, env = _boot_rig(tmp_path, monkeypatch)
+    r = _run_boot(script, env, FAKE_NEW_SESSION_RC="1", FAKE_NEW_SESSION_HOOK='touch "$FAKE_TMUX_LOG.session"')
+    assert r.returncode == 0, r.stderr
+    assert log.read_text().count("has-session -t main\n") == 2  # before, and the re-check after the failure
+    assert not (plan.generated_dir / _BOOT_MARKER_NAME).exists()
+
+
+def test_boot_script_never_removes_a_marker_a_newer_boot_now_owns(tmp_path, monkeypatch):
+    """Two boots racing (login agent + watchdog): the later one re-stamps the marker. The earlier
+    one finishing first must not delete the marker out from under the later one's conf load."""
+    plan, script, _log, env = _boot_rig(tmp_path, monkeypatch)
+    marker = plan.generated_dir / _BOOT_MARKER_NAME
+    hook = f'echo "1700000000 424242" > {marker}'
+    r = _run_boot(script, env, FAKE_NEW_SESSION_HOOK=hook)
+    assert r.returncode == 0, r.stderr
+    assert marker.read_text() == "1700000000 424242\n"
+
+
+def test_boot_script_still_boots_when_the_marker_cannot_be_written(tmp_path, monkeypatch):
+    """The marker only widens continuum's window; failing to write it must never stop tmux from
+    coming up (the pre-#674 behavior is the fallback)."""
+    plan, script, log, env = _boot_rig(tmp_path, monkeypatch)
+    detached = tmp_path / "tmux-boot.sh"
+    detached.write_text(script.read_text(), encoding="utf-8")
+    script.unlink()
+    plan.generated_dir.rmdir()  # the marker's directory is gone → writing the marker must fail
+    r = _run_boot(detached, env)
+    assert r.returncode == 0, r.stderr
+    assert r.stderr == ""
+    assert "marker-at-new-session=absent" in log.read_text()
+
+
+def test_conf_widens_the_continuum_restore_window_only_under_a_fresh_boot_marker():
+    """`if-shell` on the boot marker sets @continuum-restore-max-delay, and it sits BEFORE the
+    continuum init (which reads the option once, at init) — never as an unconditional `set`."""
+    p = _plan()
+    lines = p.render_rig_conf().splitlines()
+    guarded = [i for i, ln in enumerate(lines) if ln.startswith("if-shell") and "continuum-restore-max-delay" in ln]
+    assert len(guarded) == 1, lines
+    line = lines[guarded[0]]
+    assert _BOOT_MARKER_NAME in line and "set -g @continuum-restore-max-delay 600" in line
+    assert guarded[0] < next(i for i, ln in enumerate(lines) if ln.startswith("run-shell") and "continuum.tmux" in ln)
+    assert not any(ln.startswith("set -g @continuum-restore-max-delay") for ln in lines)
+
+
+def test_conf_resets_the_restore_window_right_after_continuum_init():
+    """The widened window must not outlive the boot: a later `tmux source-file` on a live server
+    that is still younger than 10 minutes would otherwise restore over live windows. tpm's own
+    re-run of continuum.tmux (next line after) must also see the default window."""
+    lines = _plan().render_rig_conf().splitlines()
+    init = next(i for i, ln in enumerate(lines) if ln.startswith("run-shell") and "continuum.tmux" in ln)
+    reset = next(i for i, ln in enumerate(lines) if ln == "set -gu @continuum-restore-max-delay")
+    tpm = next(i for i, ln in enumerate(lines) if "tpm/tpm" in ln and not ln.startswith("#"))
+    assert init < reset < tpm
+
+
+@pytest.mark.parametrize("over", [{"boot": {"enabled": False}}, {"continuum": {"restore": False}}])
+def test_conf_has_no_boot_window_without_a_boot_script_or_restore(over):
+    """No boot script → no marker ever exists; restore off → nothing to extend. Emit neither line."""
+    conf = _plan(**over).render_rig_conf()
+    assert "continuum-restore-max-delay" not in conf
+
+
+def test_boot_marker_freshness_test_tracks_the_marker_age(tmp_path, live_boot_script_pid):
+    """The shell test the conf's `if-shell` runs: true for a fresh marker of a live boot script,
+    false for one older than 10 minutes and for no marker at all — also under a generated_dir with
+    a space in it."""
+    p = tmux.build_tmux(repo_home=tmp_path / "home", generated_dir=tmp_path / "gen dir")
+    p.generated_dir.mkdir()
+
+    def fresh() -> bool:
+        return subprocess.run(["sh", "-c", p.boot_marker_fresh_test()]).returncode == 0
+
+    assert not fresh()  # no marker
+    p.boot_marker_path.write_text(f"1 {live_boot_script_pid}\n", encoding="utf-8")
+    assert fresh()
+    stale = time.time() - 11 * 60
+    os.utime(p.boot_marker_path, (stale, stale))
+    assert not fresh()
+    recent = time.time() - 8 * 60
+    os.utime(p.boot_marker_path, (recent, recent))
+    assert fresh()
+
+
+def test_boot_marker_whose_owner_is_not_a_live_boot_script_is_not_fresh(tmp_path):
+    """A boot script SIGKILLed before its exit trap leaks its marker; for the next 10 minutes that
+    recent file would authorize `tmux source-file` on a live server to restore over live windows.
+    The marker names the boot script's pid and the test requires that pid to be a LIVE process
+    running `tmux-boot.sh`: a dead owner — or a pid the OS handed to some unrelated process since —
+    makes the marker worthless at once, not after the age bound."""
+    p = tmux.build_tmux(repo_home=tmp_path / "home", generated_dir=tmp_path / "gen")
+    p.generated_dir.mkdir()
+    dead = subprocess.Popen(["true"])
+    dead.wait()
+    for owner in (dead.pid, os.getpid()):  # killed owner; pid reused by an unrelated live process
+        p.boot_marker_path.write_text(f"{int(time.time())} {owner}\n", encoding="utf-8")
+        assert subprocess.run(["sh", "-c", p.boot_marker_fresh_test()]).returncode != 0, owner
+
+
+def test_boot_script_signalled_between_marker_write_and_rename_leaves_no_temp_file(tmp_path, monkeypatch):
+    """The marker is written via a temp name; a signal landing after the write but before the
+    rename must not strand `<marker>.<pid>` in the generated dir."""
+    plan, script, _log, env = _boot_rig(tmp_path, monkeypatch)
+    body = script.read_text(encoding="utf-8").replace(
+        'mv -f "$BOOT_MARKER.$$" "$BOOT_MARKER"', 'kill -TERM "$$"; sleep 0.5; mv -f "$BOOT_MARKER.$$" "$BOOT_MARKER"'
+    )
+    script.write_text(body, encoding="utf-8")
+    r = _run_boot(script, env)
+    assert r.returncode == 143, r.stderr
+    assert sorted(p.name for p in plan.generated_dir.iterdir()) == ["tmux-boot.sh"]
 
 
 # ── anti-sprawl attach-or-create ─────────────────────────────────────────────────────────

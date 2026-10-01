@@ -308,6 +308,16 @@ BOOT_NAME = "tmux-boot.sh"
 # a black box — a half-working boot (server up but restore silently skipped) leaves no trace.
 BOOT_OUT_LOG_NAME = "tmux-boot.out.log"
 BOOT_ERR_LOG_NAME = "tmux-boot.err.log"
+# The boot marker (rig-cli#674). tmux-continuum starts the layout restore only when the server is
+# younger than `@continuum-restore-max-delay` (default 10 s) at the moment continuum.tmux runs
+# during the conf load. A post-reboot load spike stretched that load to ~16 s, so the restore was
+# silently skipped and `main` stayed a bare one-pane session. The boot script holds this marker
+# file while its `new-session -d` loads the conf; rig.tmux.conf widens the window ONLY while the
+# marker is fresh, so a later `tmux source-file` on a live server never restores over live windows.
+BOOT_MARKER_NAME = ".tmux-boot.marker"
+# The widened window, and the freshness bound on the marker (a marker leaked by a SIGKILLed boot
+# script stops widening anything after this long). Far above any plausible slow conf load.
+BOOT_RESTORE_WINDOW_MINUTES = 10
 
 # The independent autosave LaunchAgent (#138) — a periodic saver DECOUPLED from continuum's
 # status-right hook. It calls resurrect `save.sh` directly under a controlled PATH, so autosave
@@ -336,6 +346,17 @@ _LAUNCH_AGENT_PATH_TEMPLATE = "{tmux_dir}:/opt/homebrew/bin:/usr/local/bin:/usr/
 # backup (`.rig-bak-<UTC>`) on every migrating apply (see runner._timestamped_backup_path), so a
 # later apply after a hand-edit keeps its OWN restore point instead of skipping — no state lost.
 BACKUP_SUFFIX = ".rig-bak"
+
+
+def _tmux_dquote(text: str) -> str:
+    """``text`` as ONE tmux double-quoted argument that reaches the command verbatim.
+
+    Inside tmux double quotes ``\\`` and ``"`` are escapes, ``$`` starts an environment expansion,
+    and ``if-shell`` format-expands its command so ``#`` is special too (``##`` is a literal
+    ``#``). Escaping those four makes any path (a space, a quote, a ``$``) safe in the generated conf.
+    """
+    escaped = text.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("#", "##")
+    return f'"{escaped}"'
 
 
 @dataclass(frozen=True)
@@ -453,6 +474,25 @@ class TmuxPlan:
     def boot_script_path(self) -> Path:
         return self.generated_dir / BOOT_NAME
 
+    @property
+    def boot_marker_path(self) -> Path:
+        return self.generated_dir / BOOT_MARKER_NAME
+
+    def boot_marker_fresh_test(self) -> str:
+        """The ``sh`` test the conf's ``if-shell`` runs: true iff the boot marker exists, was
+        modified less than :data:`BOOT_RESTORE_WINDOW_MINUTES` ago (``find`` — one portable
+        spelling of an mtime test on both macOS and Linux) AND the pid in it (the boot script
+        that wrote it) is a LIVE process whose command line names :data:`BOOT_NAME`. That second
+        half makes a marker leaked by a SIGKILLed boot script (no trap can run) worthless at once —
+        and stays worthless when the OS hands the dead pid to an unrelated process — instead of
+        authorizing a restore over a live server for the whole age bound."""
+        marker = shlex.quote(str(self.boot_marker_path))
+        return (
+            f'[ -n "$(find {marker} -mmin -{BOOT_RESTORE_WINDOW_MINUTES} 2>/dev/null)" ]'
+            f' && p="$(cut -d" " -f2 {marker})"'
+            f' && ps -p "$p" -o command= 2>/dev/null | grep -qF {shlex.quote(BOOT_NAME)}'
+        )
+
     def managed_scripts(self) -> list[tuple[Path, str]]:
         """The (path, body) pairs apply writes and drift checks — ONE source so they can't
         diverge: cc-save + cc-restore always, omp-save/omp-restore + codex-save/codex-restore
@@ -560,8 +600,11 @@ class TmuxPlan:
              fires) appends onto whatever status-right already holds
           5. copy-mode clipboard bindings (default-on) — no ordering dependency on continuum;
              placed here purely for section-grouping consistency with pane-titles/Moshi above
+          5b. boot-window ``if-shell`` (rig-cli#674; only with ``boot.enabled`` + restore on) —
+             widens continuum's restore window while the boot script's marker is fresh
           6. resurrect ``run-shell`` init
-          7. continuum ``run-shell`` init  ← LAST, so nothing after it wipes its hook
+          7. continuum ``run-shell`` init  ← LAST, so nothing after it wipes its hook; the
+             widened window is reset (``set -gu``) right after it (5b's other half)
           8. tpm init (must be the very last line per tpm's own contract)
         """
         # *-restore owns the exact `<harness> --resume/resume <id>` (resurrect brings the shell
@@ -765,11 +808,36 @@ class TmuxPlan:
                     f'bind-key -T copy-mode y send-keys -X copy-pipe-and-cancel "{cmd}"',
                 ]
 
+        # rig-cli#674: widen continuum's restore window for a BOOT-started server only. continuum
+        # reads @continuum-restore-max-delay once per init run (rig's own init below, and again
+        # when tpm re-runs the plugin), so the widening is emitted BEFORE the init and reset right after it.
+        boot_window = self.boot_enabled and self.continuum_restore
+        if boot_window:
+            widened = f"set -g @continuum-restore-max-delay {BOOT_RESTORE_WINDOW_MINUTES * 60}"
+            out += [
+                "",
+                "# ── boot-window restore (rig-cli#674) — BEFORE continuum init ───────────────",
+                "# continuum starts the restore only when the server is younger than",
+                "# @continuum-restore-max-delay (10 s) at the moment its init runs; a slow",
+                "# boot-time conf load blows through that and the restore is silently skipped. The",
+                "# boot script holds a marker file while its `new-session` loads this conf, and ONLY",
+                "# a fresh marker widens the window — a plain `tmux source-file` on a live server",
+                "# (no marker) keeps the default, so it can never restore over live windows.",
+                f"if-shell {_tmux_dquote(self.boot_marker_fresh_test())} {_tmux_dquote(widened)}",
+            ]
         out += [
             "",
             "# ── plugin init (ORDER MATTERS: resurrect, then continuum LAST) ────────────",
             "run-shell ~/.tmux/plugins/tmux-resurrect/resurrect.tmux",
             "run-shell ~/.tmux/plugins/tmux-continuum/continuum.tmux",
+        ]
+        if boot_window:
+            out += [
+                "# the widened window is for the boot-time init ONLY: reset it so tpm's re-run of the",
+                "# plugin below, and any later `source-file` on this server, use the default window.",
+                "set -gu @continuum-restore-max-delay",
+            ]
+        out += [
             "",
             "# tpm init — must be the very last line (tpm's own contract).",
             "run '~/.tmux/plugins/tpm/tpm'",
@@ -1268,6 +1336,13 @@ fi
         continuum's ``run-shell`` init → (with ``@continuum-restore on``) the saved session is
         restored INTO the server. Idempotent: if the canonical session already exists (a warm
         login), it does nothing rather than spawn a duplicate (anti-sprawl at boot).
+
+        Slow boot (rig-cli#674): continuum restores only when the server is younger than 10 s
+        when its init runs, and a post-reboot load spike stretches the conf load past that. The
+        script holds a marker file (removed on every exit path) while ``new-session`` loads the
+        conf; ``rig.tmux.conf`` widens the window only while it is fresh. A restore started
+        during that long load may create the canonical session first, so a failed ``new-session``
+        counts as success when the session exists afterwards.
         """
         tmux_bin = self.tmux_bin  # baked at plan time — deterministic across apply/status renders.
         session = shlex.quote(self.anti_sprawl_session)
@@ -1278,6 +1353,7 @@ fi
         if self.conf_path != self.home / ".tmux.conf":
             f_arg = f" -f {shlex.quote(str(self.conf_path))}"
         tmux_q = shlex.quote(tmux_bin)
+        marker_q = shlex.quote(str(self.boot_marker_path))
         return f"""#!/usr/bin/env bash
 # rig-managed: tmux boot — GENERATED by rig from rig.yaml. Do not hand-edit.
 # The launchd agent runs THIS at login. It creates a detached session (which loads ~/.tmux.conf
@@ -1287,14 +1363,38 @@ fi
 set -euo pipefail
 TMUX_BIN={tmux_q}
 SESSION={session}
+BOOT_MARKER={marker_q}
 set --
 if [ -n "${{RIG_TMUX_RECOVERY_SOCKET:-}}" ]; then set -- -S "$RIG_TMUX_RECOVERY_SOCKET"; fi
 # already up (warm login) → do nothing (no duplicate session — anti-sprawl at boot).
 if "$TMUX_BIN" "$@" has-session -t "$SESSION" 2>/dev/null; then
   exit 0
 fi
-# create the detached session — this loads the conf and triggers continuum-restore.
-"$TMUX_BIN" "$@"{f_arg} new-session -d -s "$SESSION"
+# boot marker (rig-cli#674): the conf loaded by `new-session` below can take longer than
+# continuum's 10 s "just started" window under boot load, which silently skips the restore. While
+# this marker is fresh and its writer (this process) is still running, rig.tmux.conf widens that
+# window. It holds "<epoch> <pid>" and is removed on EVERY exit path — but only if it is still
+# this run's (a racing boot may have re-stamped it; the check-then-rm is not atomic, and the
+# worst a microsecond-wide race costs is one boot losing the widening). A SIGKILL cannot be
+# trapped: the conf's test requires the pid in the marker to be a live tmux-boot.sh, so a leaked
+# marker is harmless.
+release_boot_marker() {{
+  rm -f "$BOOT_MARKER.$$"
+  if [ -f "$BOOT_MARKER" ] && [ "$(cut -d' ' -f2 "$BOOT_MARKER")" = "$$" ]; then rm -f "$BOOT_MARKER"; fi
+}}
+trap release_boot_marker EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+# written via a temp name + rename (atomic). Best effort: the marker only widens the window, so
+# failing to write it must never stop tmux from coming up.
+{{ printf '%s %s\\n' "$(date +%s)" "$$" > "$BOOT_MARKER.$$" && mv -f "$BOOT_MARKER.$$" "$BOOT_MARKER"; }} 2>/dev/null || rm -f "$BOOT_MARKER.$$"
+# create the detached session — this loads the conf and triggers continuum-restore. With the
+# widened window the restore may start while the conf is still loading and create the canonical
+# session before this (queued) command runs: "duplicate session" is then success, not a failure.
+if ! "$TMUX_BIN" "$@"{f_arg} new-session -d -s "$SESSION"; then
+  "$TMUX_BIN" "$@" has-session -t "$SESSION" 2>/dev/null
+fi
 """
 
     # ── the boot launchd plist (macOS) ───────────────────────────────────────────────

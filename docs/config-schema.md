@@ -2240,6 +2240,26 @@ to write the on-disk artifacts but skip all live activation (CI / containers). A
 run skips the live activation automatically and surfaces it as a warning in the action detail
 (`HOME is overridden … (sandboxed run)`) — see the `models` dry-run note (rig-cli#116).
 
+**Boot marker — a slow boot must not skip the restore (rig-cli#674).** tmux-continuum starts its
+layout restore only when the tmux server is younger than `@continuum-restore-max-delay` (default
+10 s) at the moment its init runs during the conf load. After a reboot the load average can
+stretch that conf load past 10 s (≈16 s at load 140 on 2026-10-01), so the restore is silently
+skipped and `main` stays a bare one-pane session. So the boot script writes
+`<generated_dir>/.tmux-boot.marker` (`<epoch> <pid>`, via a temp name + rename) right before
+`new-session -d` and removes it on every exit path it controls (normal exit, error, `HUP`/`INT`/
+`TERM`; it removes only a marker whose pid is its own — a best-effort, non-atomic check: two boots
+racing within microseconds can at worst cost one of them the widened window). The
+generated `rig.tmux.conf` then carries, BEFORE the continuum init,
+`if-shell "<marker younger than 10 minutes AND its pid is a live tmux-boot.sh>" "set -g
+@continuum-restore-max-delay 600"` and, right AFTER it, `set -gu @continuum-restore-max-delay` —
+so only a boot-script-started server gets the 10-minute window; tpm's re-run of the plugin and
+any later `tmux source-file` on a live server use the default 10 s window and can never restore
+over live windows. A marker leaked by a SIGKILLed boot script (no trap can run) names a pid that
+is dead — or, if the OS reused it, no longer a `tmux-boot.sh` — so it stops counting at once,
+and its age bound is 10 minutes in any case. Both lines exist only when `boot.enabled`
+and `continuum.restore` are on. No config key: the window and marker name are constants in
+`riglib/tmux.py` (`BOOT_RESTORE_WINDOW_MINUTES`, `BOOT_MARKER_NAME`).
+
 **cc-restore — per-window Claude Code resume by exact session id.** rig installs two managed
 scripts and wires them via `@resurrect-hook-post-save-all` / `@resurrect-hook-post-restore-all`:
 

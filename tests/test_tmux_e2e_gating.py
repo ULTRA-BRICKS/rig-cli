@@ -67,6 +67,9 @@ _TMUX_ONLY_TEST_NAMES = frozenset({
     "test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live",
     "test_omp_restore_skips_and_warns_when_omp_already_live_for_cwd",
     "test_omp_restore_skips_and_warns_for_every_live_omp_cwd_with_multiple_orphans",
+    # rig-cli#674: loads the generated boot-window `if-shell` in a private `-L` server under a
+    # hostile generated_dir — no plugins cloned, no network.
+    "test_boot_window_if_shell_parses_and_follows_the_marker_for_a_hostile_generated_dir",
 })
 # Tests that git-clone the real plugins from GitHub → opt-in network gate (@_requires_tmux_e2e):
 _NETWORK_TEST_NAMES = frozenset({
@@ -75,6 +78,9 @@ _NETWORK_TEST_NAMES = frozenset({
     "test_cc_save_detects_the_versioned_binary_install",
     "test_cc_restore_relaunches_claude_resume_into_fresh_shell",
     "test_resurrect_writes_a_real_snapshot",
+    # rig-cli#674: the real plugins (continuum's own "just started" check) restore under a slow
+    # boot-time conf load; a live `source-file` restores nothing.
+    "test_slow_boot_conf_load_still_restores_the_saved_panes_and_a_live_source_file_does_not",
     # the launchd-minimal-PATH regression guard (#138): both apply real plugins (network) and run
     # the saver under `env -i` + the plist env. The negative control is additionally darwin-gated
     # in-body, but the network gate is what this pin tracks.

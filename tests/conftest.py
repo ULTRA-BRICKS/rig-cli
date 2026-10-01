@@ -525,3 +525,18 @@ def live_launchd_home(monkeypatch):
     from riglib.actions import runner
 
     monkeypatch.setattr(runner, "_home_is_sandboxed", lambda: False)
+
+
+@pytest.fixture
+def live_boot_script_pid():
+    """The pid of a LIVE process whose command line names ``tmux-boot.sh`` — what a running boot
+    script looks like to the conf's marker-freshness test (rig-cli#674). ``; :`` after the sleep
+    keeps bash from exec-replacing itself with ``sleep`` (which would drop the name)."""
+    import subprocess
+
+    proc = subprocess.Popen(["bash", "-c", "sleep 120; :", "tmux-boot.sh"])
+    try:
+        yield proc.pid
+    finally:
+        proc.kill()
+        proc.wait()

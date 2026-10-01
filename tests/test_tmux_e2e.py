@@ -313,7 +313,7 @@ def _action(home, **over):
                   source=home, target=home / ".tmux.conf", options=options)
 
 
-def _apply_with_real_plugins(home, monkeypatch):
+def _apply_with_real_plugins(home, monkeypatch, **action_over):
     """Run the full provision WITH real plugin clones + the resurrect dir, but keep launchctl
     stubbed (a test can't load a real launch agent without polluting the host). Returns the
     ActionResult. The boot script + cc scripts + config are all real on-disk artifacts."""
@@ -331,7 +331,7 @@ def _apply_with_real_plugins(home, monkeypatch):
     # drives boot + save EXPLICITLY through the private-socket shim instead, so the assertions run
     # against an isolated server. We still let the REAL _git_clone + resurrect-dir creation run.
     monkeypatch.setattr(runner, "_tmux_resurrect_save", lambda plan: 0)
-    res = runner._do_provision_tmux(_action(home), "backup")
+    res = runner._do_provision_tmux(_action(home, **action_over), "backup")
     return res, loads
 
 
@@ -781,6 +781,147 @@ def test_resurrect_writes_a_real_snapshot(tmux_env, monkeypatch):
     assert r.returncode == 0, f"resurrect save failed: {r.stderr}"
     snaps = list(resurrect_dir.glob("tmux_resurrect_*.txt"))
     assert snaps, f"no resurrect snapshot written in {resurrect_dir}"
+
+
+# ── rig-cli#674: a slow boot-time conf load must not make continuum skip the restore ──────────
+# tmux-continuum starts the layout restore only when the server is younger than
+# @continuum-restore-max-delay (10 s) at the moment continuum.tmux runs during the conf load. After
+# the 2026-10-01 reboot the load average hit ~140 and the boot script's conf load took ~16 s, so
+# the restore was silently skipped and `main` stayed a bare one-pane session. The generated boot
+# script holds a marker file during its `new-session`, and the generated conf widens the window
+# only while that marker is fresh.
+_SLOW_CONF_LOAD_SECONDS = 12  # comfortably past continuum's 10 s default window
+
+
+def _install_ps_shim(bindir: Path) -> None:
+    """A `ps` on PATH that hides every `tmux…` process. continuum's restore refuses to run when
+    it counts OTHER tmux processes of this uid (another server → assume no restore wanted); on a
+    developer machine that is the dev's own live tmux, which has nothing to do with this test."""
+    real = shutil.which("ps")
+    shim = bindir / "ps"
+    shim.write_text(f'#!/usr/bin/env bash\n{real} "$@" | {{ grep -v "^tmux" || true; }}\n', encoding="utf-8")
+    shim.chmod(0o755)
+
+
+def _write_resurrect_snapshot(home: Path) -> list[str]:
+    """A synthetic resurrect snapshot — session `main`, three windows, five panes — with `last`
+    pointing at it. Returns the window name of every pane, sorted (what a full restore yields)."""
+    layout = {"rig674-a": 2, "rig674-b": 1, "rig674-c": 2}
+    rows = [["window", "main", str(i), f":{name}", "0", ":", "tiled", "off"] for i, name in enumerate(layout, 1)]
+    for i, (name, panes) in enumerate(layout.items(), 1):
+        rows += [
+            ["pane", "main", str(i), "0", ":", str(p), f"{name}-{p}", f":{home}", "1", "bash", ":bash"]
+            for p in range(panes)
+        ]
+    rows.append(["state", "main", "main"])
+    resurrect_dir = home / ".tmux" / "resurrect"
+    resurrect_dir.mkdir(parents=True, exist_ok=True)
+    snapshot = resurrect_dir / "tmux_resurrect_20261001T120000.txt"
+    snapshot.write_text("".join("\t".join(r) + "\n" for r in rows), encoding="utf-8")
+    (resurrect_dir / "last").symlink_to(snapshot.name)
+    return sorted(name for name, panes in layout.items() for _ in range(panes))
+
+
+def _restored_pane_windows(run) -> list[str]:
+    out = run(["tmux", "list-panes", "-a", "-F", "#{window_name}"]).stdout
+    return sorted(name for name in out.split() if name.startswith("rig674-"))
+
+
+def _server_age_seconds(run) -> float:
+    return time.time() - int(run(["tmux", "display-message", "-p", "#{start_time}"]).stdout.strip())
+
+
+def _wait_until_no_server(run, timeout_s=10) -> None:
+    deadline = time.time() + timeout_s
+    while run(["tmux", "ls"]).returncode == 0 and time.time() < deadline:
+        time.sleep(0.2)
+
+
+@_requires_tmux_e2e
+def test_slow_boot_conf_load_still_restores_the_saved_panes_and_a_live_source_file_does_not(
+    tmux_env, monkeypatch, tmp_path
+):
+    """The boot-script path restores the saved panes even when the conf load outlasts continuum's
+    10 s window, while a plain `tmux source-file` on a server that is already live (older than
+    10 s, younger than the widened 10 min) restores nothing — the widened window must not outlive
+    the boot. Fails without the boot marker: the boot leaves a bare `main`."""
+    home, _socket, run = tmux_env
+    res, _loads = _apply_with_real_plugins(
+        home, monkeypatch,
+        cc_restore={"enabled": False}, omp_restore={"enabled": False}, codex_restore={"enabled": False},
+    )
+    assert res.status in ("created", "backed_up"), res.detail
+    _install_ps_shim(tmp_path / "bin")
+    expected = _write_resurrect_snapshot(home)
+    gen = home / ".config" / "rig" / "tmux"
+    boot_script = gen / "tmux-boot.sh"
+    tmux_conf = home / ".tmux.conf"
+    managed_conf = tmux_conf.read_text(encoding="utf-8")
+
+    # 1. the reboot shape: the conf load (tmux's own `~/.tmux.conf`, ahead of rig's import) is slow.
+    tmux_conf.write_text(f'run-shell "sleep {_SLOW_CONF_LOAD_SECONDS}"\n{managed_conf}', encoding="utf-8")
+    boot = run([str(boot_script)], timeout=120)
+    assert boot.returncode == 0, boot.stderr
+    assert _server_age_seconds(run) > 10, "the conf load finished inside continuum's window: proves nothing"
+    deadline = time.time() + 20
+    while _restored_pane_windows(run) != expected and time.time() < deadline:
+        time.sleep(0.5)
+    assert _restored_pane_windows(run) == expected, (
+        "slow boot did not restore the saved panes; server has: "
+        + run(["tmux", "list-windows", "-a", "-F", "#{session_name}:#{window_index}:#{window_name}"]).stdout
+    )
+    assert not (gen / tmod.BOOT_MARKER_NAME).exists(), "the boot script left its marker behind"
+
+    # 2. a live server (past 10 s) re-sourcing the plain conf must restore nothing: drop two
+    # restored windows, re-source, and they must stay gone.
+    for name in ("rig674-b", "rig674-c"):
+        assert run(["tmux", "kill-window", "-t", f"main:{name}"]).returncode == 0
+    tmux_conf.write_text(managed_conf, encoding="utf-8")
+    assert 10 < _server_age_seconds(run) < 600
+    assert run(["tmux", "source-file", str(tmux_conf)]).returncode == 0
+    time.sleep(5)  # continuum's restore (when it fires) sleeps 1 s, then rebuilds the missing windows
+    assert _restored_pane_windows(run) == ["rig674-a", "rig674-a"], "source-file on a live server restored windows"
+    assert run(["tmux", "show-options", "-gqv", "@continuum-restore-max-delay"]).stdout.strip() == ""
+
+
+@_requires_tmux
+def test_boot_window_if_shell_parses_and_follows_the_marker_for_a_hostile_generated_dir(
+    tmux_env, live_boot_script_pid
+):
+    """The generated `if-shell` survives a generated_dir with a space, quotes, `$` and `#{…}` in it
+    (tmux would otherwise expand or split them), and widens the window for a fresh marker of a
+    LIVE boot script only — not for a stale one, one whose boot script was SIGKILLed before it
+    could clean up (dead pid, or a pid since reused by an unrelated process), nor for none."""
+    home, _socket, run = tmux_env
+    gen = home / "gen dir 'q' \"dq\" $HOME #{x}"
+    gen.mkdir()
+    plan = tmod.build_tmux(repo_home=home, generated_dir=gen)
+    probe = home / "probe.conf"
+    probe.write_text(
+        next(ln for ln in plan.render_rig_conf().splitlines() if ln.startswith("if-shell")) + "\n", encoding="utf-8"
+    )
+
+    def window_after_boot_with_marker(minutes, owner_pid=live_boot_script_pid) -> str:
+        if minutes is None:
+            plan.boot_marker_path.unlink(missing_ok=True)
+        else:
+            plan.boot_marker_path.write_text(f"1 {owner_pid}\n", encoding="utf-8")
+            stamp = time.time() - minutes * 60
+            os.utime(plan.boot_marker_path, (stamp, stamp))
+        r = run(["tmux", "-f", str(probe), "new-session", "-d", "-s", "probe"])
+        assert r.returncode == 0, r.stderr
+        value = run(["tmux", "show-options", "-gqv", "@continuum-restore-max-delay"]).stdout.strip()
+        run(["tmux", "kill-server"])
+        _wait_until_no_server(run)
+        return value
+
+    dead = subprocess.Popen(["true"])
+    dead.wait()
+    assert window_after_boot_with_marker(None) == ""
+    assert window_after_boot_with_marker(0) == "600"
+    assert window_after_boot_with_marker(11) == ""
+    assert window_after_boot_with_marker(0, owner_pid=dead.pid) == ""
+    assert window_after_boot_with_marker(0, owner_pid=os.getpid()) == ""
 
 
 # ── THE launchd-minimal-PATH regression guard (the exact root cause of the month-long death) ──
