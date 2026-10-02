@@ -170,6 +170,7 @@ _LIVE_PROCESS_PATTERN = "claude|codex|opencode"
 STALE_CLASSIFICATIONS_ORDERED = ("merged", "closed", "prunable", "no-pr-stale")
 STALE_CLASSIFICATIONS = frozenset(STALE_CLASSIFICATIONS_ORDERED)
 _AUTO_REMOVABLE_ALWAYS = STALE_CLASSIFICATIONS - {"no-pr-stale"}
+PROTECTED_BRANCHES = frozenset({"main", "master", "develop", "trunk"})
 
 
 class WorktreeGcError(RuntimeError):
@@ -1223,12 +1224,63 @@ def _dir_size_bytes(path: Path) -> int:
     return total
 
 
-def _remove_worktree_and_branch(repo_root: Path, entry: GcEntry) -> None:
-    """Best-effort ``git worktree remove --force`` + ``git branch -D``, operating on the entry's
+def _origin_remote_exists(repo_root: Path) -> bool:
+    """True when ``repo_root`` has a configured ``origin`` remote."""
+    try:
+        res = subprocess.run(
+            ["git", "-C", str(repo_root), "remote", "get-url", "origin"],
+            capture_output=True,
+            timeout=_GIT_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return res.returncode == 0
+
+
+def _delete_branch_local_and_remote(repo_root: Path, branch: str) -> str | None:
+    """Best-effort ``git branch -D`` plus ``git push origin --delete``.
+
+    Returns a combined error string when any step fails, or ``None`` on full success.
+    Protected branches are never deleted. When ``origin`` is absent, only the local delete runs.
+    """
+    if branch in PROTECTED_BRANCHES:
+        return None
+
+    errors: list[str] = []
+    branch_cmd = ["git", "-C", str(repo_root), "branch", "-D", "--", branch]
+    try:
+        bres = subprocess.run(branch_cmd, capture_output=True, timeout=_GIT_TIMEOUT_S)
+        if bres.returncode != 0:
+            detail = _decode(bres.stderr).strip() or _decode(bres.stdout).strip()
+            errors.append(f"git branch -D failed: {detail or f'exit {bres.returncode}'}")
+    except (OSError, subprocess.SubprocessError) as exc:
+        errors.append(f"git branch -D failed: {exc}")
+
+    if _origin_remote_exists(repo_root):
+        push_cmd = ["git", "-C", str(repo_root), "push", "origin", "--delete", "--", branch]
+        try:
+            pres = subprocess.run(push_cmd, capture_output=True, timeout=_GIT_TIMEOUT_S)
+            if pres.returncode != 0:
+                detail = _decode(pres.stderr).strip() or _decode(pres.stdout).strip()
+                errors.append(
+                    f"git push origin --delete failed: {detail or f'exit {pres.returncode}'}"
+                )
+        except (OSError, subprocess.SubprocessError) as exc:
+            errors.append(f"git push origin --delete failed: {exc}")
+
+    if not errors:
+        return None
+    return "; ".join(errors)
+
+
+def _remove_worktree_and_branch(repo_root: Path, entry: GcEntry, *, delete_branch: bool = True) -> None:
+    """Best-effort ``git worktree remove --force`` + optional branch cleanup, operating on the entry's
     OWN registered path (not assumed to be under the standardized ``.worktrees/<name>`` location —
     gc must clean up every naming convention this ecosystem inherited, not just rig's own).
-    A branch-delete failure is recorded but does not undo ``removed=True``: the worktree really is
-    gone by that point, mirroring :func:`riglib.worktree.remove`'s own two-step contract.
+    When ``delete_branch`` is true (the default), also runs ``git branch -D`` and ``git push origin
+    --delete`` for the worktree's branch (never for :data:`PROTECTED_BRANCHES`). A branch-delete
+    failure is recorded but does not undo ``removed=True``: the worktree really is gone by that
+    point, mirroring :func:`riglib.worktree.remove`'s own two-step contract.
     """
     # `--` before the path for the SAME reason `branch -D` gets one below (review-caught, Sonnet
     # round 23, for consistency with that already-established defense): `entry.path` comes from
@@ -1247,27 +1299,21 @@ def _remove_worktree_and_branch(repo_root: Path, entry: GcEntry) -> None:
         return
 
     entry.removed = True
-    if not entry.branch:
+    if not delete_branch or not entry.branch:
         return
-    # `--` before the branch name as defensive hardening (review-flagged): `entry.branch` comes
-    # from git's OWN `worktree list` output, not from `_invalid_name_reason`-validated input the
-    # way `rig worktree create`'s branch names are, so it's worth not assuming its shape. Verified
-    # empirically that this specific concern (a branch literally named `-something`) can't actually
-    # arise in practice — `git check-ref-format --branch` itself rejects any branch name starting
-    # with `-` at creation time, so `entry.branch` can never carry one — but `--` costs nothing for
-    # every legal branch name and matches the same option-injection defense
-    # `riglib.worktree._invalid_ref_reason` already documents for `create`'s own inputs.
-    branch_cmd = ["git", "-C", str(repo_root), "branch", "-D", "--", entry.branch]
-    try:
-        bres = subprocess.run(branch_cmd, capture_output=True, timeout=_GIT_TIMEOUT_S)
-        if bres.returncode != 0:
-            detail = _decode(bres.stderr).strip() or _decode(bres.stdout).strip()
-            entry.remove_error = f"worktree removed, but git branch -D failed: {detail}"
-    except (OSError, subprocess.SubprocessError) as exc:
-        entry.remove_error = f"worktree removed, but git branch -D failed: {exc}"
+
+    branch_error = _delete_branch_local_and_remote(repo_root, entry.branch)
+    if branch_error is not None:
+        entry.remove_error = f"worktree removed, but {branch_error}"
 
 
-def _execute_removals(repo_root: Path, entries: list[GcEntry], liveness_check: LivenessCheck | None) -> None:
+def _execute_removals(
+    repo_root: Path,
+    entries: list[GcEntry],
+    liveness_check: LivenessCheck | None,
+    *,
+    delete_branch: bool = True,
+) -> None:
     """Attempt every planned removal; one entry's failure must not skip the rest.
 
     Re-checks liveness, dirtiness, AND unpushed-commit safety IMMEDIATELY before EACH removal —
@@ -1301,13 +1347,17 @@ def _execute_removals(repo_root: Path, entries: list[GcEntry], liveness_check: L
         if not entry.plan_removable:
             continue
         try:
-            _execute_one_removal(repo_root, entry, liveness_check)
+            _execute_one_removal(repo_root, entry, liveness_check, delete_branch=delete_branch)
         except Exception as exc:  # noqa: BLE001 - deliberately broad, see docstring below
             entry.remove_error = f"pre-removal recheck failed: {exc}"
 
 
 def _execute_one_removal(
-    repo_root: Path, entry: GcEntry, liveness_check: LivenessCheck | None
+    repo_root: Path,
+    entry: GcEntry,
+    liveness_check: LivenessCheck | None,
+    *,
+    delete_branch: bool = True,
 ) -> None:
     """One entry's slice of :func:`_execute_removals`'s loop body, split out so the CALLER can wrap
     it in a single ``try/except`` — review-caught gap: the liveness recheck's ``path.resolve()``
@@ -1328,7 +1378,7 @@ def _execute_one_removal(
     if skip_reason is not None:
         entry.skipped_reason = skip_reason
         return
-    _remove_worktree_and_branch(repo_root, entry)
+    _remove_worktree_and_branch(repo_root, entry, delete_branch=delete_branch)
 
 
 def _recheck_dirty_and_unpushed(repo_root: Path, entry: GcEntry) -> str | None:
@@ -1398,6 +1448,7 @@ def run_gc(
     older_than_days: int = DEFAULT_OLDER_THAN_DAYS,
     liveness_check: LivenessCheck | None = None,
     pr_lookup: PrLookup | None = None,
+    delete_branch: bool = True,
 ) -> GcReport:
     """Classify, size, and — only when ``yes`` is set and ``dry_run`` is not — actually remove.
 
@@ -1441,7 +1492,7 @@ def run_gc(
 
     effective_dry_run = dry_run or not yes
     if not effective_dry_run:
-        _execute_removals(primary, entries, liveness_check)
+        _execute_removals(primary, entries, liveness_check, delete_branch=delete_branch)
 
     return GcReport(repo_root=primary, entries=entries, dry_run=effective_dry_run, include_stale=include_stale)
 

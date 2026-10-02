@@ -658,6 +658,12 @@ def _add_worktree_gc_subparser(wsub: "argparse._SubParsersAction") -> None:
         help="also remove no-pr-stale worktrees when --yes is set (never removed on its own)",
     )
 
+    wg.add_argument(
+        "--no-delete-branch",
+        action="store_true",
+        help="remove worktrees only; keep local branches and origin remotes",
+    )
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
@@ -1211,6 +1217,7 @@ def _run_worktree_gc_for_repo(args: argparse.Namespace, repo_root: Path) -> int:
             yes=args.yes,
             include_stale=args.include_stale,
             older_than_days=args.older_than_days,
+            delete_branch=not args.no_delete_branch,
         )
     except worktree_gc.WorktreeGcError as exc:
         print(_err(f"error: {repo_root}: {exc}"))

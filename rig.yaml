@@ -135,3 +135,10 @@ harness:
 #   anti_sprawl: { enabled: true, session: main }   # attach-or-create one canonical session
 #   boot: { enabled: true }         # launchd agent brings tmux up after a macOS reboot (load -w on apply)
 #   login_shell: { enabled: true }  # restored panes are login shells (~/.zprofile/PATH sourced)
+
+task:
+  backend: forgejo
+  forgejo:
+    url: https://git.hyperide.ai
+    repo: ultrabricks/rig-cli
+    attachment_mode: native

@@ -1534,6 +1534,111 @@ def test_branch_delete_failure_is_reported_not_hidden_behind_removed(tmp_path, m
     assert "action: removed\n" not in rendered  # must not render a bare, error-hiding "removed"
 
 
+# ── branch deletion (local + origin) on gc ─────────────────────────────────────────
+def _remote_has_branch(remote: Path, branch: str) -> bool:
+    import subprocess
+    res = subprocess.run(
+        ["git", "-C", str(remote), "show-ref", "--verify", f"refs/heads/{branch}"],
+        capture_output=True,
+    )
+    return res.returncode == 0
+
+
+def test_gc_deletes_local_and_remote_branch_on_default(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    wt = _make_worktree(repo, "agent-1")
+    remote = _add_remote_and_push(repo, wt, "agent-1")
+
+    report = worktree_gc.run_gc(
+        repo,
+        dry_run=False,
+        yes=True,
+        liveness_check=_no_live,
+        pr_lookup=_fake_pr_lookup({"agent-1": worktree_gc.PrInfo(number=1, state="MERGED")}),
+    )
+
+    entry = report.entries[0]
+    assert entry.removed is True
+    assert entry.remove_error is None
+    assert not wt.exists()
+    assert subprocess.run(["git", "-C", str(repo), "show-ref", "refs/heads/agent-1"], capture_output=True).returncode != 0
+    assert not _remote_has_branch(remote, "agent-1")
+
+
+def test_gc_no_delete_branch_keeps_local_and_remote_branch(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    wt = _make_worktree(repo, "agent-1")
+    remote = _add_remote_and_push(repo, wt, "agent-1")
+
+    report = worktree_gc.run_gc(
+        repo,
+        dry_run=False,
+        yes=True,
+        delete_branch=False,
+        liveness_check=_no_live,
+        pr_lookup=_fake_pr_lookup({"agent-1": worktree_gc.PrInfo(number=1, state="MERGED")}),
+    )
+
+    entry = report.entries[0]
+    assert entry.removed is True
+    assert entry.remove_error is None
+    assert not wt.exists()
+    assert subprocess.run(["git", "-C", str(repo), "show-ref", "refs/heads/agent-1"], capture_output=True).returncode == 0
+    assert _remote_has_branch(remote, "agent-1")
+
+
+def test_gc_never_deletes_protected_branch(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    wt = _make_worktree(repo, "develop", branch="develop")
+    remote = _add_remote_and_push(repo, wt, "develop")
+
+    report = worktree_gc.run_gc(
+        repo,
+        dry_run=False,
+        yes=True,
+        liveness_check=_no_live,
+        pr_lookup=_fake_pr_lookup({"develop": worktree_gc.PrInfo(number=1, state="MERGED")}),
+    )
+
+    entry = report.entries[0]
+    assert entry.removed is True
+    assert entry.remove_error is None
+    assert not wt.exists()
+    assert subprocess.run(["git", "-C", str(repo), "show-ref", "refs/heads/develop"], capture_output=True).returncode == 0
+    assert _remote_has_branch(remote, "develop")
+
+
+def test_gc_remote_branch_delete_failure_recorded_in_remove_error(tmp_path, monkeypatch):
+    repo = _git_repo(tmp_path / "repo")
+    wt = _make_worktree(repo, "agent-1")
+    _add_remote_and_push(repo, wt, "agent-1")
+
+    real_run = subprocess.run
+    push_delete_cmd = ["git", "-C", str(repo), "push", "origin", "--delete", "--", "agent-1"]
+
+    def fake_run(cmd, *args, **kwargs):
+        if cmd == push_delete_cmd:
+            return subprocess.CompletedProcess(cmd, 1, stdout=b"", stderr=b"simulated remote failure\n")
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    report = worktree_gc.run_gc(
+        repo,
+        dry_run=False,
+        yes=True,
+        liveness_check=_no_live,
+        pr_lookup=_fake_pr_lookup({"agent-1": worktree_gc.PrInfo(number=1, state="MERGED")}),
+    )
+
+    entry = report.entries[0]
+    assert entry.removed is True
+    assert entry.remove_error is not None
+    assert "push origin --delete failed" in entry.remove_error
+    assert not wt.exists()
+    assert subprocess.run(["git", "-C", str(repo), "show-ref", "refs/heads/agent-1"], capture_output=True).returncode != 0
+
+
 # ── --older-than-days must be positive ───────────────────────────────────────────────
 def test_cli_worktree_gc_rejects_non_positive_older_than_days(tmp_path, capsys):
     repo = _git_repo(tmp_path / "repo")
