@@ -984,15 +984,29 @@ done < "$MAP_FILE"
         """omp-save: record each omp pane's cwd -> newest omp session FILE for that cwd.
 
         Mirrors render_cc_save's process-tree walk (a pane's `omp` process is a DESCENDANT of
-        the pane's shell, not the shell itself — same reasoning as claude's DEFECT 2 fix). omp
-        installs as a single compiled binary (no Claude-style versioned-binary symlink quirk —
-        `which omp` resolves straight to a Mach-O/ELF executable, verified on this machine), so
-        the executable match is a plain basename/path-suffix check on argv[0]: `omp` or
+        the pane's shell, not the shell itself — same reasoning as claude's DEFECT 2 fix). A
+        PRODUCTION omp install is a single compiled binary (no Claude-style versioned-binary
+        symlink quirk — `which omp` resolves straight to a Mach-O/ELF executable), so the
+        primary executable match is a plain basename/path-suffix check on argv[0]: `omp` or
         `*/omp`. KNOWN COLLISION (accepted, documented): `oh-my-posh`'s CLI is ALSO named
         `omp` — but it renders one prompt line and exits within milliseconds, so it is
         vanishingly unlikely to still be running when this periodic resurrect save hook
         snapshots the process table; a long-lived omp harness session is not confused with it
         in practice.
+
+        A SOURCE/DEV checkout of omp is NOT a compiled binary: `~/.bun/bin/omp` is a shell
+        launcher that `exec`s `bun --preload <repo>/coding-agent/scripts/omp.ts
+        <repo>/coding-agent/…/cli.ts …` (see that launcher script's own comment — it only
+        preserves `omp` as argv[0], via `exec -a omp`, under `HERDR_ENV=1`; every other
+        interactive invocation execs plain `bun`). There argv[0] is `bun`/`*/bun` and the OS
+        never records an `omp` token at all, so the basename-only check MISSED every dev-
+        checkout pane — the CONFIRMED 2026-09-24 defect: `omp-sessions.map` stayed empty across
+        every autosave on this dev machine, so no pane ever resumed after the tmux-server crash
+        that evening. Fixed the same way cc's own wrapper/versioned-launch cases are handled
+        above: when argv[0] is `bun`/`*/bun`, also check the REST of that process's args for the
+        dev launcher's own preload-shim path (`.../coding-agent/scripts/omp.ts`) — a name unique
+        to the omp monorepo, so an unrelated `bun run <script>` in some other project never
+        false-positives.
 
         Session store: omp keys `~/.omp/agent/sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl` (a
         SIBLING `<cwd-slug>/<ISO-ts>_<uuid>/` dir holds nested Task/eval-child transcripts, so
@@ -1018,6 +1032,8 @@ done < "$MAP_FILE"
 # Records, for every tmux pane whose process TREE contains an `omp` process, a map line:
 #   <session>:<window>.<pane><TAB><cwd><TAB><newest-session-file>
 # so omp-restore can relaunch `omp --resume <path>` in the right window after a reboot.
+# Detects BOTH a compiled `omp`/`*/omp` binary AND a source/dev checkout's `bun --preload
+# …/coding-agent/scripts/omp.ts …` launch (argv[0] is `bun` there — see pane_has_omp below).
 # Session store: $AGENT_ROOT/sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl, where <cwd-slug> is the
 # cwd RELATIVE TO $HOME with every '/' -> '-' (dots preserved) — verified against a real
 # on-disk session dir, NOT Claude Code's full-absolute-path/dot-folding convention.
@@ -1092,6 +1108,17 @@ pane_has_omp() {{
         exe=${{rest%% *}}
         case "$exe" in
           omp|*/omp) return 0 ;;
+          # dev/source checkout: `~/.bun/bin/omp` execs `bun --preload
+          # <repo>/coding-agent/scripts/omp.ts <repo>/coding-agent/…/cli.ts …` — argv[0] is
+          # `bun`, not `omp` (only HERDR_ENV=1 preserves argv[0] as `omp`, see that launcher's
+          # own comment). Match the dev launcher's own preload-shim path, unique to the omp
+          # monorepo, in the REST of this process's args — never a generic `bun run <script>`
+          # in some unrelated project.
+          bun|*/bun)
+            case "$rest" in
+              */coding-agent/scripts/omp.ts*) return 0 ;;
+            esac
+            ;;
         esac
       fi
       if [ "$ppid" = "$cur" ]; then

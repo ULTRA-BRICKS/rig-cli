@@ -2192,8 +2192,14 @@ turning a harness off simply removes its command from the chain, it never clobbe
 
 - **`omp-save.sh` / `omp-restore.sh`** — same process-tree-walk detection as cc-save (omp's own
   binary is a direct/descendant child of the pane's shell), matching argv[0] `omp` or `*/omp`
-  (omp installs as a single compiled binary, so — unlike claude — there is no versioned-symlink
-  quirk to also match). omp keys `~/.omp/agent/sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl`, where
+  for a PRODUCTION install (a single compiled binary — no Claude-style versioned-symlink quirk
+  to also match). A SOURCE/DEV checkout's launcher (`~/.bun/bin/omp`) instead `exec`s plain
+  `bun --preload …/coding-agent/scripts/omp.ts …`, so argv[0] there is `bun`, not `omp` — MISSED
+  by a basename-only check (the confirmed 2026-09-24 incident: `omp-sessions.map` stayed empty
+  on a dev machine, so no pane ever resumed after a tmux-server crash). Also matched: argv[0]
+  `bun`/`*/bun` whose remaining args contain the dev launcher's own preload-shim path
+  (`…/coding-agent/scripts/omp.ts`), a name unique to the omp monorepo. omp keys
+  `~/.omp/agent/sessions/<cwd-slug>/<ISO-ts>_<uuid>.jsonl`, where
   `<cwd-slug>` is the cwd **relative to `$HOME`** with every `/` replaced by `-` (dots preserved)
   — a **different** encoding from Claude Code's full-absolute-path, dot-folding
   `~/.claude/projects/<enc>` convention. `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` are honored if

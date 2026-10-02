@@ -1398,6 +1398,74 @@ def test_omp_save_matches_omp_basename_only():
     assert "omp|*/omp" in body
 
 
+def _run_pane_has_omp(snapshot: str, root: str) -> int:
+    """Extract the REAL `pane_has_omp` BFS from the generated omp-save script and run it against
+    a SYNTHETIC ps snapshot — HERMETIC (no tmux/network/real processes), mirroring
+    `_run_pane_has_claude` above. The snapshot lines are `<pid> <ppid> <args>` (args = the full
+    command line, as the production `ps -eo pid=,ppid=,args=` emits).
+    Returns the function's exit code (0 = an omp process was found under `root`)."""
+    import shlex
+    import subprocess
+    import textwrap
+
+    body = _plan().render_omp_save()
+    start = body.index("pane_has_omp() {")
+    end = body.index("\n}\n", start) + len("\n}\n")
+    fn = body[start:end]
+    script = textwrap.dedent(f"""\
+        set -euo pipefail
+        PS_SNAPSHOT={shlex.quote(snapshot)}
+        {fn}
+        if pane_has_omp {shlex.quote(root)}; then exit 0; else exit 1; fi
+    """)
+    return subprocess.run(["bash", "-c", script], capture_output=True, text=True).returncode
+
+
+def test_pane_has_omp_finds_compiled_binary_direct_child():
+    """The common case: a production install's `omp` binary is a direct child of the shell."""
+    snap = "100 1 zsh\n200 100 /Users/u/.bun/bin/omp --resume\n"
+    assert _run_pane_has_omp(snap, "100") == 0
+
+
+def test_pane_has_omp_matches_bun_dev_launcher():
+    """THE 2026-09-24 INCIDENT: a source/dev checkout's `~/.bun/bin/omp` execs plain `bun` (argv[0]
+    becomes `bun`, not `omp`), so the old basename-only check missed every dev-checkout pane and
+    `omp-sessions.map` stayed empty — no pane ever resumed after that evening's tmux-server crash.
+    This is the EXACT command line captured via `ps` on the affected machine."""
+    snap = (
+        "100 1 /bin/zsh\n"
+        "200 100 bun --preload /Users/u/xp/oh-my-pi/packages/coding-agent/scripts/omp.ts "
+        "/Users/u/xp/oh-my-pi/packages/coding-agent/scripts/../src/cli.ts --resume "
+        "/Users/u/.omp/agent/sessions/-xp-foo/2026-09-24T12-00-00_abc.jsonl\n"
+    )
+    assert _run_pane_has_omp(snap, "100") == 0
+
+
+def test_pane_has_omp_matches_bun_dev_launcher_deep_descendant():
+    """The dev-launcher `bun` process two levels below the pane shell is still found by the BFS
+    (shell -> some wrapper -> bun)."""
+    snap = (
+        "100 1 zsh\n"
+        "200 100 node wrapper.js\n"
+        "300 200 bun --preload /repo/packages/coding-agent/scripts/omp.ts /repo/packages/coding-agent/src/cli.ts\n"
+    )
+    assert _run_pane_has_omp(snap, "100") == 0
+
+
+def test_pane_has_omp_ignores_unrelated_bun_script():
+    """A `bun` process in an UNRELATED project (no omp preload-shim path in its args) must NOT
+    match — otherwise every `bun run dev`/`bun test` pane on the machine would false-positive as
+    an omp session."""
+    snap = "100 1 zsh\n200 100 bun run dev\n300 100 bun test.ts\n"
+    assert _run_pane_has_omp(snap, "100") != 0
+
+
+def test_pane_has_omp_no_match_when_absent():
+    """No omp/bun-dev-launcher process anywhere in the tree → not detected."""
+    snap = "100 1 zsh\n200 100 vim notes.md\n300 100 sleep 5\n"
+    assert _run_pane_has_omp(snap, "100") != 0
+
+
 def test_omp_save_records_full_session_path_not_bare_id():
     """`omp --resume` accepts an id prefix OR a path; the map stores the resolved session
     FILE'S FULL PATH to sidestep any ambiguity over what counts as the bare 'id'."""
