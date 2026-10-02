@@ -673,7 +673,17 @@ enabled), `rig apply` registers the matching dispatcher from `agent-tools/lib`:
 
 - `kind: claude-code` writes `cc_hook_bridge` into `settings.json`: `PreToolUse` matchers
   `Bash`, `Edit|Write|MultiEdit|NotebookEdit`, `Agent|Task`, `Skill`, `Monitor`, and
-  `EnterWorktree`; `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`; and `Stop`.
+  `EnterWorktree`; `PostToolUse` matcher `Edit|Write|MultiEdit|NotebookEdit`; and `Stop`. For
+  `EnterWorktree` specifically, the bridge translates an `agents-hooks/v1` **"grant"** verdict
+  (a hook affirmatively pre-approving one specific call, distinct from a plain silent allow)
+  into CC's own `permissionDecision: "allow"`, suppressing CC's separate interactive
+  permission-classifier prompt for that call — the piece that closes rig-cli#418 (an
+  `EnterWorktree` call into the canonical, rig-sanctioned `.worktrees/` location used to prompt
+  even with the matcher above installed, because a hook reaching PreToolUse at all is a
+  DIFFERENT gate from CC's own pre-prompt classifier). The actual path-scoped grant decision is
+  an agent-tools agent-hook (`enterworktree-canonical-path-grant`, `pre-worktree-enter`), not
+  something this bridge decides on its own — rig only registers the matcher and runs whatever
+  descriptors are installed, exactly like every other point.
 - `kind: codex` writes `codex_hook_bridge` into `~/.codex/config.toml` (or
   `$RIG_CODEX_HOME/config.toml`, or `settings_path`) as a managed `[hooks]` TOML block:
   `PreToolUse` matchers `Bash` and `apply_patch`, `PostToolUse` matcher `apply_patch`, and

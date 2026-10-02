@@ -2095,7 +2095,14 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
     agent-tools ``pre-agent`` point), ``Skill`` for a skill invocation (the agent-tools
     ``pre-skill`` point), ``Monitor`` for a background event-stream watch (the agent-tools
     ``pre-monitor`` point), and ``EnterWorktree`` for switching into a worktree (the agent-tools
-    ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created).
+    ``pre-worktree-enter`` point — blocks entering a worktree a DIFFERENT agent created via
+    ``enterworktree-foreign-guard``, and separately GRANTS — pre-approves, suppressing CC's own
+    interactive permission prompt — a call whose target resolves under the repo's sanctioned
+    ``.worktrees/`` location via ``enterworktree-canonical-path-grant``, rig-cli#418: the
+    ``EnterWorktree`` matcher here only gets a hook AS FAR AS PreToolUse; CC's separate,
+    EARLIER permission classifier decides whether to prompt before that, and a plain hook
+    "allow" does not suppress it — only an explicit agents-hooks/v1 "grant" verdict, which the
+    bridge translates into CC's ``permissionDecision: "allow"``, does).
     Codex uses the hook matchers exposed by its TOML contract here: ``Bash`` and
     ``apply_patch`` (no ``pre-agent``/``pre-skill``/``pre-monitor``/``pre-worktree-enter``
     mapping yet — same gap, tracked upstream in agent-tools; Codex has no Monitor-equivalent
