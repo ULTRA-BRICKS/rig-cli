@@ -3209,3 +3209,86 @@ Set the boolean with `rig config set ci.items.ship.require_external_review false
 --global --no-apply` after configuring the owner list in the machine file. No
 broad `rig apply` is needed for runtime consumption, and no per-PR Telegram
 permission request is required once the explicit machine policy is valid.
+
+---
+
+## `task` — Workspace task routing (UB-23)
+
+Additions on top of the existing `task` block above (`backend`/`team`/`project`/`repo`/
+`attachment_mode`, nested `github:`/`linear:`, `code_prefix`):
+
+- **`backend: tasks`** — a third tracker backend value (alongside `github-issues` and
+  `linear`): the native Tasks-app (HTTPS REST).
+- **`task.tasks` block** — coordinates for the `tasks` backend, used when
+  `backend: tasks`:
+  - `task.tasks.url` — the Tasks-app base URL, e.g. `https://tasks-ultrabricks.vercel.app`.
+  - `task.tasks.team` — the Tasks-app team/workspace key, e.g. `UB`, `HYP`.
+  - `task.tasks.attachment_mode` — `native` (upload through the Tasks-app API) or `link`
+    (register an already-hosted URL as-is), mirroring `linear.attachment_mode`.
+
+All three are also registered as wizard options (`riglib/schema.py`'s `task` Area,
+alongside the existing `task.code_prefix` entry) with `rig setup`/`rig config set`.
+
+```yaml
+task:
+  backend: tasks
+  tasks:
+    url: https://tasks-ultrabricks.vercel.app
+    team: UB
+    attachment_mode: native
+```
+
+### Ancestor `task`-block inheritance
+
+A folder default (e.g. `~/xp/rig.yaml`, `~/work/rig.yaml`) can declare a `task:` block
+that every repo nested underneath inherits, so routing config doesn't need repeating per
+repo:
+
+```yaml
+# ~/xp/rig.yaml — a folder default for every repo under ~/xp
+task:
+  backend: tasks
+  tasks:
+    url: https://tasks-ultrabricks.vercel.app
+    team: UB
+```
+
+```yaml
+# ~/xp/some-project/rig.yaml — inherits the backend/url/team above automatically;
+# only overrides what differs for this one repo
+task:
+  team: HYP
+```
+
+Precedence: `global (~/.config/rig/config.yaml) < ancestor task blocks (outermost
+first, nearest ancestor last) < repo rig.yaml`, merged per-KEY (not whole-block
+replacement) — an ancestor overriding `team` while leaving `backend` unset still lets a
+global `backend` value survive. Only the `task` key is ever read from an ancestor's
+`rig.yaml`; no other section (harness, permissions, hooks, CI, mode) leaks from an
+ancestor into a descendant repo. `code_prefix` is repo-unique ship metadata, not
+routing — it is stripped from every ancestor's contribution before merging and is never
+itself inherited.
+
+Ancestor resolution excludes the repo itself. Inside `$HOME`, the walk goes up to and
+including `$HOME` and never above it (the intended `~/xp`/`~/work` folder-default
+shape). Outside `$HOME`, the walk covers every ancestor directory except the filesystem
+root. A worktree under `<repo>/.worktrees/<name>` has the primary repo as one of its
+ancestors, so it inherits the primary repo's `task` block the same way any other
+descendant does. Each ancestor's `task` block is independently validated (the same
+`_validate_task` used for the global/repo layers), so a malformed ancestor config fails
+closed, naming that ancestor's file. Disable the whole mechanism with
+`riglib.config.load(..., include_ancestors=False)`.
+
+**`include_repo=False` stays GLOBAL-only.** A caller that excludes the repo scope
+(`load(..., include_repo=False)` — e.g. a global-config-only read) never sees ancestor
+task routing leak in either: ancestors are repo-scoped folder defaults, not global
+config, so the ancestor overlay is gated by `include_repo` in addition to
+`include_ancestors`. The global layer itself still loads normally in this mode.
+
+**Provenance (`LoadedConfig.layers`).** Every ancestor file that actually contributed to
+the merged `task` block (i.e. whose contribution was non-empty after stripping
+`code_prefix`) is listed in `LoadedConfig.layers` as `ancestor:<path>`, positioned
+between the `global:<path>` and `repo:<path>` entries — matching the `global <
+ancestors < repo` cascade order, outermost ancestor first. An ancestor consulted but
+contributing nothing (no `rig.yaml`, no `task:` key, or a `task:` block that only set
+`code_prefix`) is not listed.

@@ -2052,7 +2052,7 @@
     },
     "task": {
       "type": "object",
-      "description": "task-cli ticket-tracker routing for THIS repo (CTO decision #4136.4: hyperide -> Linear/HYP, every other repo -> GitHub Issues by default). task-cli reads this block directly (tasklib/config.py's rig_task_overlay) with LOWER precedence than a repo's own native task.yaml, so a repo that already keeps one is unaffected. Flat shorthands (team/project/repo/attachment_mode) and the nested github:/linear: sections may be used together in the same block; task-cli itself rejects a genuine collision between the two forms (e.g. both `team: X` and `linear: {team: Y}` set to different values) — this schema only checks the KEY SET, not that kind of cross-field conflict. `code_prefix` is a SEPARATE, unrelated concern folded into the same top-level `task:` block (rig-cli#217): a repo-unique task-code prefix consumed by ship.sh's review-quorum gate, reconciled by `rig apply` into `.ship-config` — see the leaf's own doc below.",
+      "description": "task-cli ticket-tracker routing for THIS repo (CTO decision #4136.4: hyperide -> Linear/HYP, every other repo -> GitHub Issues by default). task-cli reads this block directly (tasklib/config.py's rig_task_overlay) with LOWER precedence than a repo's own native task.yaml, so a repo that already keeps one is unaffected. Flat shorthands (team/project/repo/attachment_mode) and the nested github:/linear: sections may be used together in the same block; task-cli itself rejects a genuine collision between the two forms (e.g. both `team: X` and `linear: {team: Y}` set to different values) — this schema only checks the KEY SET, not that kind of cross-field conflict. `code_prefix` is a SEPARATE, unrelated concern folded into the same top-level `task:` block (rig-cli#217): a repo-unique task-code prefix consumed by ship.sh's review-quorum gate, reconciled by `rig apply` into `.ship-config` — see the leaf's own doc below. UB-23: `backend: tasks` selects the native Tasks-app backend (HTTPS REST), configured via the nested `tasks:` block (`url`/`team`/`attachment_mode`), mirroring `github:`/`linear:` below.",
       "properties": {
         "code_prefix": {
           "type": "string",
@@ -2070,6 +2070,7 @@
           "enum": [
             "github-issues",
             "linear",
+            "tasks",
             null
           ]
         },
@@ -2178,6 +2179,42 @@
                 "null"
               ],
               "description": "same as the flat `attachment_mode` shorthand above, nested form",
+              "enum": [
+                "link",
+                "native",
+                null
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "tasks": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Tasks-app (native HTTPS REST) coordinates (used when backend: tasks).",
+          "properties": {
+            "url": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "the Tasks-app base URL, e.g. https://tasks-ultrabricks.vercel.app"
+            },
+            "team": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "the Tasks-app team/workspace key (e.g. UB, HYP)"
+            },
+            "attachment_mode": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "how a screenshot/file gets attached to a Tasks-app ticket: 'native' uploads it through the Tasks-app API, 'link' registers an already-hosted URL as-is",
               "enum": [
                 "link",
                 "native",

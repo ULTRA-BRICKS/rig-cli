@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from riglib import config_schema
+from riglib import config_schema, schema
 from riglib.config import ConfigError, validate
 
 
@@ -41,6 +41,49 @@ def test_task_block_with_nested_sections_is_valid():
             },
         }
     )
+
+
+def test_task_block_tasks_backend_happy_path_is_valid():
+    # UB-23: the native Tasks-app backend (HTTPS REST), same enum-value shape as the
+    # github-issues happy path above.
+    validate({"version": 1, "task": {"backend": "tasks", "tasks": {"url": "https://x", "team": "UB"}}})
+
+
+def test_task_block_tasks_nested_section_happy_path_is_valid():
+    validate(
+        {
+            "version": 1,
+            "task": {
+                "backend": "tasks",
+                "tasks": {
+                    "url": "https://tasks-ultrabricks.vercel.app",
+                    "team": "UB",
+                    "attachment_mode": "native",
+                },
+            },
+        }
+    )
+
+
+def test_task_tasks_must_be_a_mapping():
+    with pytest.raises(ConfigError):
+        validate({"version": 1, "task": {"tasks": "UB"}})
+
+
+def test_task_tasks_unknown_key_rejected():
+    with pytest.raises(ConfigError):
+        validate({"version": 1, "task": {"tasks": {"nope": 1}}})
+
+
+@pytest.mark.parametrize("key", ["url", "team"])
+def test_task_tasks_string_keys_reject_non_string(key):
+    with pytest.raises(ConfigError):
+        validate({"version": 1, "task": {"tasks": {key: 123}}})
+
+
+def test_task_tasks_attachment_mode_invalid_enum_rejected():
+    with pytest.raises(ConfigError):
+        validate({"version": 1, "task": {"tasks": {"attachment_mode": "carrier-pigeon"}}})
 
 
 def test_task_block_empty_or_absent_is_valid():
@@ -107,7 +150,7 @@ def test_task_github_repo_null_is_tolerated_same_as_the_flat_form():
     validate({"version": 1, "task": {"github": {"repo": None}}})
 
 
-@pytest.mark.parametrize("key", ["github", "linear"])
+@pytest.mark.parametrize("key", ["github", "linear", "tasks"])
 def test_task_nested_section_null_is_tolerated_like_absent(key):
     # review finding (2nd round): a bare `github:`/`linear:` header with nothing under it (a
     # common YAML placeholder) parses to null — must be tolerated the SAME way the sibling
@@ -117,7 +160,7 @@ def test_task_nested_section_null_is_tolerated_like_absent(key):
     validate({"version": 1, "task": {key: None}})
 
 
-@pytest.mark.parametrize("key", ["github", "linear"])
+@pytest.mark.parametrize("key", ["github", "linear", "tasks"])
 def test_task_nested_section_false_is_still_rejected(key):
     # review finding: the null->{} normalization must be null-SPECIFIC, not "any falsy value" —
     # `github: false` (or `linear: false`) is a genuinely malformed value and must still raise,
@@ -214,6 +257,8 @@ def test_task_enum_fields_reject_unhashable_values_without_crashing(bad_value):
         validate({"version": 1, "task": {"attachment_mode": bad_value}})
     with pytest.raises(ConfigError):
         validate({"version": 1, "task": {"linear": {"attachment_mode": bad_value}}})
+    with pytest.raises(ConfigError):
+        validate({"version": 1, "task": {"tasks": {"attachment_mode": bad_value}}})
 
 
 # ── schema registry ─────────────────────────────────────────────────────────────────────
@@ -246,6 +291,7 @@ def test_task_block_child_keys_include_flat_and_nested_forms():
         "session",
         "github",
         "linear",
+        "tasks",
     }
 
 
@@ -275,6 +321,10 @@ ALL_TASK_NULLABLE_LEAVES: list[tuple[tuple[str, ...], str]] = [
     (("linear", "team"), "string"),
     (("linear", "project"), "string"),
     (("linear", "attachment_mode"), "string"),
+    (("tasks",), "object"),
+    (("tasks", "url"), "string"),
+    (("tasks", "team"), "string"),
+    (("tasks", "attachment_mode"), "string"),
 ]
 ALL_TASK_NULLABLE_PATHS: list[tuple[str, ...]] = [path for path, _ in ALL_TASK_NULLABLE_LEAVES]
 
@@ -311,7 +361,11 @@ def test_task_schema_leaf_type_is_exactly_primary_and_null(path, primary_type):
 # enum would still reject `null` even with the type union in place. Non-skippable (review
 # finding): the jsonschema-gated file test below also exercises this, but only when jsonschema is
 # installed — this assertion must hold regardless.
-@pytest.mark.parametrize("path", [("backend",), ("attachment_mode",), ("linear", "attachment_mode")], ids=".".join)
+@pytest.mark.parametrize(
+    "path",
+    [("backend",), ("attachment_mode",), ("linear", "attachment_mode"), ("tasks", "attachment_mode")],
+    ids=".".join,
+)
 def test_task_schema_enum_leaf_includes_null_in_enum_list(path):
     node = _schema_node_for_task_path(config_schema.json_schema(), path)
     assert None in node["enum"], f"task.{'.'.join(path)} schema enum must include null, got {node['enum']!r}"
@@ -354,3 +408,41 @@ def test_task_published_schema_file_still_rejects_top_level_null():
     v = jsonschema.Draft7Validator(schema)
     errors = list(v.iter_errors({"version": 1, "task": None}))
     assert errors, "published schema must still reject task: null"
+
+
+# ── wizard option registry (riglib.schema, UB-23) ───────────────────────────────────────
+#
+# `rig setup`'s option registry (riglib/schema.py) exposes the SAME task-cli routing keys
+# the validator above accepts, following the existing `task.code_prefix` registration
+# pattern (one `_opt(...)` entry per key, in the "task" Area) — not a second/parallel
+# registry.
+
+
+def test_task_backend_is_a_registered_wizard_option():
+    opt = schema.option_for_key("task.backend")
+    assert opt is not None
+    assert opt.kind == schema.KIND_ENUM
+    assert set(opt.choices) == {"github-issues", "linear", "tasks"}
+
+
+@pytest.mark.parametrize("key", ["task.tasks.url", "task.tasks.team"])
+def test_task_tasks_coordinate_options_are_registered_as_strings(key):
+    opt = schema.option_for_key(key)
+    assert opt is not None
+    assert opt.kind == schema.KIND_STR
+
+
+def test_task_tasks_attachment_mode_is_a_registered_wizard_option():
+    opt = schema.option_for_key("task.tasks.attachment_mode")
+    assert opt is not None
+    assert opt.kind == schema.KIND_ENUM
+    assert set(opt.choices) == {"native", "link"}
+
+
+def test_task_wizard_options_live_in_the_existing_task_area_not_a_new_one():
+    # `task.code_prefix` is already registered under the "task" Area — the new options must
+    # join it there rather than spawn a second/parallel task-options surface.
+    area = schema.area_for_category("task")
+    assert area is not None
+    keys = {o.key for o in area.options}
+    assert {"task.code_prefix", "task.backend", "task.tasks.url", "task.tasks.team", "task.tasks.attachment_mode"} <= keys
