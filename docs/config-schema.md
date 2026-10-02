@@ -2661,6 +2661,7 @@ tg_ctl:
   enabled: true                       # provision the tg-ctl LaunchAgent (default true; false = off)
   boot: true                          # write + load the boot agent (default true)
   codex_usage_hook: true              # fold tg-ctl's Codex Stop hook into rig's codex hook bridge (default true)
+  codex_question_hook: true           # route Codex PermissionRequest to Telegram via tg-ctl ask (default true)
   # everything below is auto-discovered per-machine — override only if non-standard:
   label: ai.hyperide.tg-ctl           # launchd Label / plist filename stem (advanced)
   bun_path: ~/.bun/bin/bun            # the bun binary (default: `which bun` → ~/.bun fallback)
@@ -2673,6 +2674,7 @@ tg_ctl:
 | `enabled` | bool | `true` | `false` = **don't touch tg-ctl at all** — rig emits no action, so it neither provisions NOR cleans up NOR reports drift (a hands-off opt-out). Use `boot: false` instead to keep rig tracking a leftover plist. |
 | `boot` | bool | `true` | `false` = provisioned-but-no-boot: rig writes/loads nothing, but a leftover plist (or the stale predecessor) IS still surfaced as drift so you see the orphan |
 | `codex_usage_hook` | bool | `true` | whenever a codex hook bridge is being provisioned (`harness.kind: codex`, OR `codex` listed in `harness.kinds` alongside a different primary kind) and `harness.hook_bridge` is enabled, fold tg-ctl's Codex `Stop` usage-telemetry hook (`tg-ctl codex-usage-hook`) into rig's own codex hook bridge `Stop` array in `~/.codex/config.toml`, instead of tg-ctl writing its own `~/.codex/hooks.json` — avoids Codex's "loading hooks from both ..." dual-source warning (tg-cli#308). `false` = leave tg-ctl to manage its own `hooks.json` independently. No effect on a claude-code/opencode bridge (each harness kind's bridge is independent), and independent of `boot` — the fold-in runs whether or not the tg-ctl daemon itself is set to auto-start (it only needs the `tg-ctl` script + bun to be present and runnable on disk, not the daemon running). Folds in nothing (fail-closed, no error) if the resolved `tg_ctl_path` or `bun_path` does not exist/isn't executable yet. |
+| `codex_question_hook` | bool | `true` | when a Codex hook bridge is provisioned, add a managed `PermissionRequest` hook running `bun <tg-ctl> ask --agent codex`. The waiting Codex hook process carries its native session identity, so approve/reject questions reach Telegram and the decision returns over the hook socket even outside tmux. `false` leaves this Telegram decision bridge unprovisioned. Missing Bun/tg-ctl fails closed by omitting the hook. |
 | `label` | str | `ai.hyperide.tg-ctl` | launchd Label / plist filename stem (one identity for install/drift/remove) |
 | `bun_path` | str | discovered | the bun binary; default `which bun`, else `~/.bun/bin/bun` |
 | `tg_ctl_path` | str | `~/.files/bin/tg-ctl` | the tg-ctl Bun script launchd runs (`bun <path> run`); also the binary invoked for the folded-in `codex_usage_hook` command |

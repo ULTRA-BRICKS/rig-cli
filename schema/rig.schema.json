@@ -1642,6 +1642,14 @@
           "description": "fold tg-ctl's Codex Stop usage-telemetry hook into rig's own codex hook bridge in ~/.codex/config.toml instead of tg-ctl writing its own ~/.codex/hooks.json (tg-cli#308)",
           "default": true
         },
+        "codex_question_hook": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "fold Codex PermissionRequest into rig's managed hook block as tg-ctl ask --agent codex so decisions reach Telegram without manual hook setup",
+          "default": true
+        },
         "label": {
           "type": "string",
           "description": "launchd Label / plist filename stem",

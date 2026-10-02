@@ -2232,6 +2232,9 @@ def _build_hook_bridge_for_kind(
         extra_stop_hooks = _codex_extra_stop_hooks(config)
         if extra_stop_hooks:
             options["extra_stop_hooks"] = extra_stop_hooks
+        extra_permission_hooks = _codex_extra_permission_hooks(config)
+        if extra_permission_hooks:
+            options["extra_permission_hooks"] = extra_permission_hooks
     # the claude-code JSON bridge fans out to every claude-rotate config dir (rig-cli#368);
     # every other format/kind resolves to its single primary file
     primary = _expand(str(settings_path), config.repo_root)
@@ -2251,6 +2254,15 @@ def _build_hook_bridge_for_kind(
                 options=dict(options),
             )
         )
+
+
+def _codex_extra_permission_hooks(config: LoadedConfig) -> list[str]:
+    """tg-ctl's Codex PermissionRequest bridge, folded into rig's managed config."""
+    from .tg_ctl import codex_question_hook_command
+
+    t = config.data.get("tg_ctl") or {}
+    cmd = codex_question_hook_command(t, home=Path.home())
+    return [cmd] if cmd else []
 
 
 def _codex_extra_stop_hooks(config: LoadedConfig) -> list[str]:

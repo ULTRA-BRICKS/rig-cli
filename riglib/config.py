@@ -2992,6 +2992,7 @@ _TG_CTL_KEYS = {
     "enabled",
     "boot",
     "codex_usage_hook",
+    "codex_question_hook",
     "label",
     "bun_path",
     "tg_ctl_path",
@@ -3015,7 +3016,7 @@ def _validate_tg_ctl(t: dict[str, Any]) -> None:
     if not t:
         return
     _reject_unknown_keys(t, "tg_ctl")
-    for boolkey in ("enabled", "boot", "codex_usage_hook"):
+    for boolkey in ("enabled", "boot", "codex_usage_hook", "codex_question_hook"):
         value = t.get(boolkey)
         if value is not None and not isinstance(value, bool):
             raise ConfigError(

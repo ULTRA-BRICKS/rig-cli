@@ -1333,6 +1333,12 @@ _TG_CTL_BLOCK = Block(
             "(tg-cli#308)",
             default=True,
         ),
+        "codex_question_hook": Leaf(
+            ("boolean", "null"),
+            "fold Codex PermissionRequest into rig's managed hook block as "
+            "tg-ctl ask --agent codex so decisions reach Telegram without manual hook setup",
+            default=True,
+        ),
         "label": Leaf("string", "launchd Label / plist filename stem", default="ai.hyperide.tg-ctl"),
         "bun_path": Leaf("string", "the bun binary"),
         "tg_ctl_path": Leaf("string", "the tg-ctl Bun script", default="~/.files/bin/tg-ctl"),

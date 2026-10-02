@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shlex
 
 import pytest
 
@@ -905,6 +906,51 @@ def test_plan_claude_primary_additional_codex_bridge_gets_tg_ctl_fold_in(
     claude_bridge = next(a for a in bridges if a.options["kind"] == "claude-code")
     assert codex_bridge.options.get("extra_stop_hooks")
     assert "extra_stop_hooks" not in claude_bridge.options
+
+
+def test_plan_codex_bridge_gets_rig_managed_tg_permission_request_hook(
+    fake_agent_tools, tmp_path, monkeypatch
+):
+    from riglib.actions.runner import hook_bridge_entries
+
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    script = home / ".files" / "bin" / "tg-ctl"
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/usr/bin/env bun\n", encoding="utf-8")
+    bun = home / "bun-bin" / "bun"
+    bun.parent.mkdir(parents=True)
+    bun.write_text("#!/bin/sh\n", encoding="utf-8")
+    bun.chmod(0o755)
+
+    cat = Catalog.scan(str(fake_agent_tools))
+    cfg = _cfg(
+        {
+            "harness": {"kind": "codex", "hook_bridge": {"enabled": True}},
+            "agent_hooks": {"all": True},
+            "tg_ctl": {"bun_path": str(bun)},
+        },
+        tmp_path,
+    )
+    plan = build(cfg, cat, project_type="unknown")
+    bridge = next(
+        a
+        for a in plan.actions
+        if a.kind == "register_hook_bridge" and a.options["kind"] == "codex"
+    )
+
+    permission_hooks = bridge.options.get("extra_permission_hooks")
+    assert permission_hooks and len(permission_hooks) == 1
+    assert shlex.split(permission_hooks[0]) == [
+        str(bun),
+        str(script),
+        "ask",
+        "--agent",
+        "codex",
+    ]
+    assert hook_bridge_entries(bridge)["PermissionRequest"] == [
+        ("*", permission_hooks[0])
+    ]
 
 
 def test_plan_custom_hook_target_registers_configured_bridges_with_override(

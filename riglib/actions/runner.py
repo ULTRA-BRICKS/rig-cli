@@ -3315,7 +3315,7 @@ def _do_provision_instruction_policy(action: Action, on_conflict: str) -> Action
 _BRIDGE_MARKER = "cc_hook_bridge"
 _CODEX_BRIDGE_BEGIN = "# >>> rig managed: codex hook bridge"
 _CODEX_BRIDGE_END = "# <<< rig managed: codex hook bridge"
-_CODEX_HOOK_EVENTS = ("PreToolUse", "PostToolUse", "Stop")
+_CODEX_HOOK_EVENTS = ("PreToolUse", "PostToolUse", "PermissionRequest", "Stop")
 _OPENCODE_PLUGIN_NAME = OPENCODE_HOOK_BRIDGE_PLUGIN_NAME
 _LEGACY_OPENCODE_PLUGIN_NAME = "agent-tools-hook-bridge.js"
 _OMP_EXTENSION_NAME = OMP_HOOK_BRIDGE_EXTENSION_NAME
@@ -3401,8 +3401,9 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
 
     if kind == "codex":
         extra_stop_hooks = action.options.get("extra_stop_hooks") or []
+        extra_permission_hooks = action.options.get("extra_permission_hooks") or []
         stop_entries = [("", cmd("Stop"))] + [("", extra) for extra in extra_stop_hooks]
-        return {
+        entries = {
             "PreToolUse": [
                 ("Bash", cmd("PreToolUse")),
                 ("apply_patch", cmd("PreToolUse")),
@@ -3412,6 +3413,9 @@ def hook_bridge_entries(action: Action) -> dict[str, list[tuple[str, str]]]:
             ],
             "Stop": stop_entries,
         }
+        if extra_permission_hooks:
+            entries["PermissionRequest"] = [("*", extra) for extra in extra_permission_hooks]
+        return entries
 
     return {
         "PreToolUse": [

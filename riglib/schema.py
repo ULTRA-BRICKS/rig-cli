@@ -549,6 +549,11 @@ AREAS: tuple[Area, ...] = (
                  "(tg-cli#308). Only applies to a codex hook bridge (harness.kind: codex, or codex "
                  "listed in harness.kinds). Off = leave tg-ctl to manage its own hooks.json "
                  "independently."),
+            _opt("tg_ctl.codex_question_hook", KIND_BOOL, True,
+                 "Fold Codex PermissionRequest into the rig-managed hook block as "
+                 "`tg-ctl ask --agent codex`. This makes Codex decisions reach Telegram in tmux "
+                 "and plain/headless sessions without a manual ~/.codex hook. Off = do not provision "
+                 "the Telegram decision hook."),
         ),
     ),
     Area(

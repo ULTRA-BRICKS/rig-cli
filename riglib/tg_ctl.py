@@ -213,6 +213,29 @@ def build_tg_ctl(
     )
 
 
+def codex_question_hook_command(t: dict[str, Any], *, home: Path) -> str | None:
+    """The rig-managed Codex PermissionRequest hook that forwards decisions to tg-ctl.
+
+    The command uses the same resolved Bun + tg-ctl script as the LaunchAgent, so the
+    managed Codex config cannot drift onto a different tg-ctl installation. Missing
+    runtime pieces fail closed by omitting the hook instead of provisioning a command
+    that fails on every permission request.
+    """
+    if t.get("enabled") is False or t.get("codex_question_hook") is False:
+        return None
+    overrides: dict[str, str] = {}
+    if t.get("tg_ctl_path"):
+        overrides["tg_ctl_path"] = str(t["tg_ctl_path"])
+    plan = build_tg_ctl(home=home, bun_path=t.get("bun_path"), **overrides)
+    bun_runnable = plan.bun_path.is_file() and os.access(plan.bun_path, os.X_OK)
+    if not plan.tg_ctl_path.is_file() or not bun_runnable:
+        return None
+    return (
+        f"{shlex.quote(str(plan.bun_path))} {shlex.quote(str(plan.tg_ctl_path))} "
+        "ask --agent codex"
+    )
+
+
 def codex_usage_hook_command(t: dict[str, Any], *, home: Path) -> str | None:
     """The Codex ``Stop`` hook command for tg-ctl's usage-telemetry, or ``None`` to fold in nothing.
 

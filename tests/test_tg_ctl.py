@@ -80,6 +80,7 @@ def test_tg_ctl_full_block_accepted():
                 "enabled": True,
                 "boot": True,
                 "codex_usage_hook": True,
+                "codex_question_hook": True,
                 "label": "ai.hyperide.tg-ctl",
                 "bun_path": "/Users/u/.bun/bin/bun",
                 "tg_ctl_path": "~/.files/bin/tg-ctl",
@@ -112,6 +113,15 @@ def test_tg_ctl_codex_usage_hook_must_be_bool():
 def test_tg_ctl_codex_usage_hook_null_is_accepted():
     """`codex_usage_hook: null` is valid and is NOT treated as opted out (default-on)."""
     validate({"version": 1, "tg_ctl": {"codex_usage_hook": None}})
+
+
+def test_tg_ctl_codex_question_hook_must_be_bool():
+    with pytest.raises(ConfigError):
+        validate({"version": 1, "tg_ctl": {"codex_question_hook": "yes"}})
+
+
+def test_tg_ctl_codex_question_hook_null_is_accepted():
+    validate({"version": 1, "tg_ctl": {"codex_question_hook": None}})
 
 
 @pytest.mark.parametrize("key", ["label", "bun_path", "tg_ctl_path", "config_dir"])
@@ -264,6 +274,19 @@ def _home_with_tg_ctl_script(tmp_path: Path, *, with_bun: bool = True) -> tuple[
         # the fold-in's fail-closed check requires the execute bit, not just existence.
         _plant_file(bun, "#!/bin/sh\n").chmod(0o755)
     return home, script, bun
+
+
+def test_codex_question_hook_command_runs_via_bun_and_targets_codex_permission_asks(tmp_path):
+    home, script, bun = _home_with_tg_ctl_script(tmp_path)
+    cmd = tg_ctl.codex_question_hook_command({"bun_path": str(bun)}, home=home)
+    assert shlex.split(cmd) == [str(bun), str(script), "ask", "--agent", "codex"]
+
+
+def test_codex_question_hook_command_can_be_disabled_explicitly(tmp_path):
+    home, _, bun = _home_with_tg_ctl_script(tmp_path)
+    assert tg_ctl.codex_question_hook_command(
+        {"codex_question_hook": False, "bun_path": str(bun)}, home=home
+    ) is None
 
 
 def test_codex_usage_hook_command_runs_via_bun_not_the_script_directly(tmp_path):
