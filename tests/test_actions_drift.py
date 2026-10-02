@@ -1808,13 +1808,39 @@ def test_self_merge_writes_ship_rules_to_permissions_allow(fake_agent_tools, tmp
     run_plan(plan)
 
     allow = json.loads(_user_settings().read_text(encoding="utf-8"))["permissions"]["allow"]
-    for rule in ("Bash(gh ship:*)", "Bash(*/pr-ship.sh:*)", "Bash(*/ship.sh:*)"):
+    for rule in ("Bash(gh ship:*)", "Bash(fj ship:*)"):
         assert rule in allow, f"{rule} not written to permissions.allow"
+    # raw ship scripts are never allowed (the old `*/ship.sh:*` form mixed `*` with `:*` and never matched)
+    assert not [r for r in allow if "ship.sh" in r]
 
     # idempotent: re-apply adds nothing more
     run_plan(plan)
     allow2 = json.loads(_user_settings().read_text(encoding="utf-8"))["permissions"]["allow"]
     assert allow2.count("Bash(gh ship:*)") == 1
+
+
+def test_self_merge_strips_legacy_ship_script_allow_rules(fake_agent_tools, tmp_path):
+    # migration: settings written by older rig carry the never-matching `*/ship.sh:*` allows; apply
+    # removes them (keeping the user's own entries) and drift is clean afterwards.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _user_settings().parent.mkdir(parents=True, exist_ok=True)
+    _user_settings().write_text(
+        json.dumps({"permissions": {"allow": [
+            "Bash(docker:*)", "Bash(gh ship:*)", "Bash(*/pr-ship.sh:*)", "Bash(*/ship.sh:*)",
+        ]}}),
+        encoding="utf-8",
+    )
+    cat = Catalog.scan(str(fake_agent_tools))
+    plan = build(_auto_harness_cfg(repo, fake_agent_tools), cat, project_type="unknown")
+    run_plan(plan)
+
+    perms = json.loads(_user_settings().read_text(encoding="utf-8"))["permissions"]
+    assert perms["allow"].count("Bash(docker:*)") == 1
+    assert "Bash(fj ship:*)" in perms["allow"]
+    assert not [r for r in perms["allow"] if "ship.sh" in r]
+    assert "Bash(./*ship.sh *)" in perms["deny"]
+    assert not [x for x in detect(plan).items if x.category == "harness"], "drift after migration apply"
 
 
 def test_self_merge_preserves_permissions_allow_and_keeps_gh_pr_merge_deny(fake_agent_tools, tmp_path):

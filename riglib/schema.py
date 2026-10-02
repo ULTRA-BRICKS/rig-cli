@@ -343,8 +343,8 @@ AREAS: tuple[Area, ...] = (
                  "opencode permission.*, omp tools.approvalMode); pi/commandcode have no such setting."),
             _opt("harness.self_merge", KIND_BOOL, True,
                  "Let the agent self-merge a PR it authored in the session's starting repo via "
-                 "`gh ship`. Adds the ship allow rules (`Bash(gh ship:*)`, `Bash(*/pr-ship.sh:*)`, "
-                 "`Bash(*/ship.sh:*)`) to `permissions.allow` so the auto-mode Bash gate stops vetoing "
+                 "`gh ship`. Adds the ship allow rules (`Bash(gh ship:*)`, `Bash(fj ship:*)`) "
+                 "to `permissions.allow` so the auto-mode Bash gate stops vetoing "
                  "`gh ship`, PLUS a `$defaults`-preserving carve-out to the classifier's `autoMode.allow` "
                  "clearing the Merge-Without-Review + Self-Approval soft blocks for the agent's OWN PRs. "
                  "Auto-mode only. SAFE — the `Bash(gh pr merge:*)` deny, the anti-exfil hard rule, "

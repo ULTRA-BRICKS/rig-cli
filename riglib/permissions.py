@@ -717,6 +717,17 @@ def instruction_policy_supported(kind: str) -> bool:
 CLAUDE_CODE_DENY_RULES: tuple[str, ...] = (
     # raw PR merges are banned machine-wide — merges go through `gh ship` (the gated delegator)
     "Bash(gh pr merge:*)",
+    # the raw ship scripts are internal to `gh ship` / `fj ship`; agents never run them directly.
+    # Anchored at the command start (path prefix or bash/sh wrapper) so that READING the script
+    # (`rg x ci/ship/ship.sh`) is not denied. `*ship.sh` also covers `pr-ship.sh`.
+    "Bash(ship.sh *)",
+    "Bash(./*ship.sh *)",
+    "Bash(/*ship.sh *)",
+    "Bash(~/*ship.sh *)",
+    "Bash(.claude/*ship.sh *)",
+    "Bash(ci/*ship.sh *)",
+    "Bash(bash *ship.sh *)",
+    "Bash(sh *ship.sh *)",
     # force pushes: flag-first, mid-position AND end-anchored forms; `--force-with-lease` (the
     # safe force) is deliberately NOT matched — the word boundary after `--force` / `-f` excludes
     # it. The end-anchored forms (`… * --force`) are listed EXPLICITLY even though the docs say a

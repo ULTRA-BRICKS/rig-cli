@@ -478,7 +478,7 @@ _HARNESS_BLOCK = Block(
         ),
         "self_merge": Leaf(
             "boolean",
-            "true → add the ship allow rules (Bash(gh ship:*), Bash(*/pr-ship.sh:*), Bash(*/ship.sh:*)) "
+            "true → add the ship allow rules (Bash(gh ship:*), Bash(fj ship:*)) "
             "to permissions.allow so the auto-mode Bash gate stops vetoing gh ship, PLUS the "
             "natural-language carve-out to autoMode.allow (clears the Merge-Without-Review + "
             "Self-Approval soft blocks for the agent's OWN PRs); auto-mode only; the Bash(gh pr merge:*) "

@@ -918,6 +918,13 @@ _PERMISSIONS_SECTION = "permissions"
 _PERMISSIONS_ALLOW_KEY = "allow"
 SELF_MERGE_PERMISSIONS_ALLOW: tuple[str, ...] = (
     "Bash(gh ship:*)",
+    "Bash(fj ship:*)",
+)
+# Older rig versions also allowed the raw ship scripts. Those patterns mixed a leading ``*`` with the
+# trailing ``:*`` prefix syntax, so Claude Code never matched them (it warns on load) — and direct
+# script runs are now DENIED (``permissions.CLAUDE_CODE_DENY_RULES``). Apply strips them; drift reports
+# them as unmanaged extras until then.
+LEGACY_SHIP_ALLOW_RULES: tuple[str, ...] = (
     "Bash(*/pr-ship.sh:*)",
     "Bash(*/ship.sh:*)",
 )
@@ -937,7 +944,9 @@ def self_merge_permissions_present(data: dict) -> bool:
     lst = block.get(_PERMISSIONS_ALLOW_KEY)
     if not isinstance(lst, list):
         return False
-    return all(rule in lst for rule in SELF_MERGE_PERMISSIONS_ALLOW)
+    return all(rule in lst for rule in SELF_MERGE_PERMISSIONS_ALLOW) and not any(
+        rule in lst for rule in LEGACY_SHIP_ALLOW_RULES
+    )
 
 
 def self_merge_permissions_addable(data: dict) -> bool:
@@ -960,11 +969,13 @@ def self_merge_permissions_addable(data: dict) -> bool:
         return True  # apply seeds the list
     if not isinstance(lst, list):
         return False  # malformed allow — surfaced by provision_permissions' fail-closed shape check
-    return any(rule not in lst for rule in SELF_MERGE_PERMISSIONS_ALLOW)
+    return any(rule not in lst for rule in SELF_MERGE_PERMISSIONS_ALLOW) or any(
+        rule in lst for rule in LEGACY_SHIP_ALLOW_RULES
+    )
 
 
 def _ensure_self_merge_permissions(data: dict) -> bool:
-    """Additively ensure ``permissions.allow`` carries the ship rules. Returns True if it changed.
+    """Ensure ``permissions.allow`` carries the ship rules and none of the legacy ones. Returns True if it changed.
 
     SELF-TARGETS the ``permissions`` section directly (creating it if absent) rather than the harness
     action's mode section — the ship rules always live under ``permissions.allow``, and
@@ -988,10 +999,11 @@ def _ensure_self_merge_permissions(data: dict) -> bool:
     if lst is not None and not isinstance(lst, list):
         return False  # malformed — leave it for provision_permissions to fail-close on
     lst = lst if isinstance(lst, list) else []
-    added = [rule for rule in SELF_MERGE_PERMISSIONS_ALLOW if rule not in lst]
-    if not added:
+    kept = [rule for rule in lst if rule not in LEGACY_SHIP_ALLOW_RULES]
+    added = [rule for rule in SELF_MERGE_PERMISSIONS_ALLOW if rule not in kept]
+    if not added and len(kept) == len(lst):
         return False
-    perms[_PERMISSIONS_ALLOW_KEY] = [*lst, *added]
+    perms[_PERMISSIONS_ALLOW_KEY] = [*kept, *added]
     return True
 
 
