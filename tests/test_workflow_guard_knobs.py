@@ -14,6 +14,7 @@ Run from the repo root::
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 import pytest
 
@@ -222,8 +223,10 @@ def test_orchestrator_only_gh_delegation_documented_consistently():
         assert "warn" in lower, f"{doc_name} must describe the warn-first-then-block behavior"
         # 2026-09-18-specific: neither phrase existed under the old "ALL gh, no exceptions but
         # gh ship" wording, so a partial revert on any ONE surface fails here even though the
-        # weaker checks above still pass.
-        assert "unchained" in lower and "gh ship" in text, (
+        # weaker checks above still pass. Require ADJACENCY (not just co-presence anywhere in the
+        # file) so a surface stating the opposite ("subagents run unchained; gh ship is delegated
+        # like every other gh") can't satisfy this by accident.
+        assert re.search(r"unchained[`\s]*gh ship", lower), (
             f"{doc_name} must document the unchained `gh ship <PR#>` exception"
         )
         assert "read-only allowlist" in lower, (

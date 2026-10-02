@@ -99,8 +99,8 @@ def _assert_gh_delegation(text: str) -> None:
     # contiguous phrase (not a bare "gh ship" substring) so this can't accidentally latch onto the
     # unrelated "After a successful `gh ship`..." sentence later in the same block.
     assert "an unchained `gh ship <N>`" in collapsed
-    for shape in ("`gh issue` list/view", "`gh pr` list/view/checks/diff", "`gh run`",
-                  "`gh repo view`", "GET-only `gh api`", "-f/-F/--input"):
+    for shape in ("`gh issue` list/view", "`gh pr` list/view/checks/diff",
+                  "`gh run` list/view/watch", "`gh repo view`", "GET-only `gh api`", "-f/-F/--input"):
         assert shape in collapsed, shape
     assert "tg --tag report" in text
     assert "quote the user's original words" in text
@@ -307,6 +307,10 @@ def test_unbalanced_markers_error_leaves_file_untouched(tmp_path):
 
 
 def test_block_is_at_most_12_lines(tmp_path):
+    """The managed blocks stay glanceable in a session-start read: 12 lines is the budget an
+    editor adding a new sentence must wrap/trim into, not an accidental threshold — raise it
+    deliberately (and re-flow to the file's ~90-col convention) rather than special-casing one
+    long line to sneak under it."""
     (tmp_path / "AGENTS.md").write_text(USER_BODY, encoding="utf-8")
     results = _apply_blocks(tmp_path)
     assert all(r.status != "error" for r in results), [r.detail for r in results]
@@ -315,3 +319,21 @@ def test_block_is_at_most_12_lines(tmp_path):
     auto = _managed_block(text, AUTO_BEGIN, AUTO_END)
     assert len(orch.splitlines()) <= 12
     assert len(auto.splitlines()) <= 12
+
+
+def test_repo_agents_md_orchestrator_block_matches_current_function():
+    """This repo dogfoods its own splice: the ORCHESTRATOR block actually committed in THIS
+    repo's AGENTS.md must be byte-identical to what `orchestrator_block_text()` generates RIGHT
+    NOW. Catches exactly the mistake made while landing the 2026-09-18 gh-allowlist relaxation:
+    editing the function's wording without re-running `rig apply commit --only agents_md` to
+    re-splice the committed file — every OTHER surface's tests are hermetic (tmp_path fixtures),
+    so nothing else in this suite would have caught a forgotten re-splice."""
+    from riglib.actions.runner import orchestrator_block_text
+
+    repo_root = Path(__file__).resolve().parent.parent
+    committed = (repo_root / "AGENTS.md").read_text(encoding="utf-8")
+    committed_block = _managed_block(committed, ORCH_BEGIN, ORCH_END)
+    assert committed_block == orchestrator_block_text(), (
+        "AGENTS.md's committed orchestrator block is stale — run "
+        "`rig apply commit --only agents_md` to re-splice it"
+    )
