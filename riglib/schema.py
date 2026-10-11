@@ -313,6 +313,11 @@ AREAS: tuple[Area, ...] = (
                  "Exact GitHub owner logins covered by the machine external-review opt-out. "
                  "No wildcards; an empty list grants no opt-out. Consumed by the canonical gh ship.",
                  layer_override=GLOBAL),
+            _opt("ci.items.ship.external_review_evidence_owners", KIND_LIST, [],
+                 "Exact GitHub owner logins whose PRs with zero GitHub-side reviews pass the external-review "
+                 "gate on evidence: green CI, review quorum met, acceptance proven, no unresolved threads or "
+                 "unaddressed comments — otherwise the hatch. No wildcards. Consumed by the canonical gh ship.",
+                 layer_override=GLOBAL),
             _opt("ci.known", KIND_LIST, [],
                  "Workflow file stems this repo owns that collide with a catalog slot name (a "
                  "home-grown tests.yml) — `rig status` reports them as known, not as drift. A workflow "

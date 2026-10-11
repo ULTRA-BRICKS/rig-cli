@@ -1868,6 +1868,12 @@ def json_schema() -> dict[str, Any]:
                     "items": {"type": "string", "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"},
                     "description": "Exact owner logins covered by a false require_external_review; no wildcards.",
                 },
+                "external_review_evidence_owners": {
+                    "type": "array", "default": [], "x-rig-global-only": True,
+                    "items": {"type": "string", "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"},
+                    "description": "Exact owner logins whose zero-review PRs pass the external-review gate on "
+                    "evidence (green CI, review quorum, proven acceptance, no open threads/comments); no wildcards.",
+                },
             },
         },
     }

@@ -1117,6 +1117,7 @@ def test_build_model_global_only_shows_the_global_known_lists(tmp_path, monkeypa
         assert area.layer == GLOBAL  # the section badge matches the fields it shows here
     assert {f.key for f in by_cat["ci"].fields} == {
         "ci.items.ship.require_external_review", "ci.items.ship.external_review_owners",
+        "ci.items.ship.external_review_evidence_owners",
     }  # ci.enabled / ci.known remain repo-only
     assert "harness" not in by_cat
 

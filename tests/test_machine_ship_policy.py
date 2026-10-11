@@ -70,3 +70,48 @@ def test_legacy_boolean_ship_toggle_remains_accepted():
     config.validate({'ci': {'items': {'ship': False}}})
     node = config_schema.json_schema()['properties']['ci']['properties']['items']['properties']['ship']
     assert 'boolean' in node['type']
+
+
+@pytest.mark.parametrize('owners', [[], ['o-maan'], ['o-maan', 'alex-mextner']])
+def test_evidence_owner_list_is_valid(owners):
+    config.validate({'ci': {'items': {'ship': {'external_review_evidence_owners': owners}}}})
+
+
+@pytest.mark.parametrize('owners', ['o-maan', ['*'], ['o-maan/psyfroggybot'], [3], None])
+def test_invalid_evidence_owner_scope_rejected(owners):
+    with pytest.raises(config.ConfigError, match='external_review_evidence_owners'):
+        config.validate({'ci': {'items': {'ship': {'external_review_evidence_owners': owners}}}})
+
+
+def test_evidence_owners_option_is_a_machine_list():
+    option = schema.option_for_key('ci.items.ship.external_review_evidence_owners')
+    assert option is not None
+    assert option.layer == GLOBAL
+    assert option.kind == schema.KIND_LIST
+    node = config_schema.json_schema()['properties']['ci']['properties']['items']['properties']['ship']
+    assert node['properties']['external_review_evidence_owners']['type'] == 'array'
+
+
+def test_repo_layer_evidence_policy_is_rejected(tmp_path, monkeypatch):
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'no-global'))
+    (tmp_path / 'rig.yaml').write_text(json.dumps({'ci': {'items': {'ship': {'external_review_evidence_owners': ['o-maan']}}}}))
+    with pytest.raises(config.ConfigError, match='global-only'):
+        config.load(tmp_path)
+
+
+def test_config_set_writes_evidence_owners_as_a_list(tmp_path, monkeypatch, fake_agent_tools):
+    # `rig config set ... o-maan` must not write a bare string: ship's reader voids the whole
+    # machine policy file on a non-list, silently re-enabling every other owner's opt-out.
+    from riglib.cli import main
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'xdg'))
+    path = config.global_config_path()
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(document()))
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    (repo / 'rig.yaml').write_text(f'version: 1\nagent_tools_source: {fake_agent_tools}\n')
+    key = 'ci.items.ship.external_review_evidence_owners'
+    assert main(['config', 'set', key, 'o-maan, alex-mextner', '--global', '--no-apply', '-C', str(repo)]) == 0
+    ship = config.load(repo).data['ci']['items']['ship']
+    assert ship['external_review_evidence_owners'] == ['o-maan', 'alex-mextner']
+    assert ship['external_review_owners'] == ['alex-mextner']  # the existing opt-out is untouched

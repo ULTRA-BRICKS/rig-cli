@@ -49,6 +49,12 @@ from .wrapper_provision import ABSOLUTE_PATH_STARTS as _WRAPPER_PATH_STARTS
 
 CONFIG_FILENAME = "rig.yaml"
 
+# The machine-only `ci.items.ship` external-review policy (consumed by agent-tools' gh ship): one
+# list for the global-only load guard and the validator, so a new key cannot reach only one.
+_SHIP_POLICY_OWNER_KEYS = ("external_review_owners", "external_review_evidence_owners")
+_SHIP_POLICY_KEYS = ("require_external_review", *_SHIP_POLICY_OWNER_KEYS)
+_GITHUB_OWNER_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?")
+
 # Blocks that may ONLY come from the GLOBAL layer (~/.config/rig/config.yaml). Unlike the
 # write-routing-only global blocks (bun/spotlight/…, `schema._GLOBAL_ONLY_CATEGORIES`), these are
 # REJECTED at load time from any other layer: `git.config` can set code-executing keys
@@ -889,9 +895,7 @@ def load(
             ci_items = data.get("ci", {})
             for part in ("items", "ship"):
                 ci_items = ci_items.get(part, {}) if isinstance(ci_items, dict) else {}
-            if isinstance(ci_items, dict) and any(
-                key in ci_items for key in ("require_external_review", "external_review_owners")
-            ):
+            if isinstance(ci_items, dict) and any(key in ci_items for key in _SHIP_POLICY_KEYS):
                 raise ConfigError(
                     "ci.items.ship external-review policy is global-only",
                     why="An unreviewed repository must not define its own machine-level merge authority",
@@ -1143,16 +1147,16 @@ def _validate_ci(ci: dict[str, Any]) -> None:
                 "ci.items.ship.require_external_review must be a bool",
                 schema_path="ci.items.ship.require_external_review",
             )
-        if "external_review_owners" in ship:
-            owners = ship["external_review_owners"]
-            import re
-            owner_pattern = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?"
+        for key in _SHIP_POLICY_OWNER_KEYS:
+            if key not in ship:
+                continue
+            owners = ship[key]
             if not isinstance(owners, list) or not all(
-                isinstance(owner, str) and re.fullmatch(owner_pattern, owner) for owner in owners
+                isinstance(owner, str) and _GITHUB_OWNER_RE.fullmatch(owner) for owner in owners
             ):
                 raise ConfigError(
-                    "ci.items.ship.external_review_owners must be a list of exact GitHub owner names",
-                    schema_path="ci.items.ship.external_review_owners",
+                    f"ci.items.ship.{key} must be a list of exact GitHub owner names",
+                    schema_path=f"ci.items.ship.{key}",
                 )
     for name, spec in items.items():
         if not isinstance(spec, dict):

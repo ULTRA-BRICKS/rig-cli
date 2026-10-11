@@ -4011,6 +4011,27 @@ Set the boolean with `rig config set ci.items.ship.require_external_review false
 broad `rig apply` is needed for runtime consumption, and no per-PR Telegram
 permission request is required once the explicit machine policy is valid.
 
+A softer, conditional variant (agent-tools#879) lists owners whose PRs with zero
+GitHub-side reviews pass the gate on ship's own evidence instead of a review:
+
+```yaml
+ci:
+  items:
+    ship:
+      external_review_evidence_owners:
+        - o-maan
+```
+
+For a listed owner ship defers the external-review decision until after its
+acceptance gate and passes only when CI is green (or the hatch-gated `--skip-ci`
+path), the review quorum was met, the acceptance gate proved every criterion,
+and there are no unresolved review threads or unaddressed PR comments; any miss
+falls back to the usual Telegram hatch. An owner also opted out by
+`require_external_review: false` stays fully opted out. Same machine-only,
+exact-owner rules as `external_review_owners`. Set it with
+`rig config set ci.items.ship.external_review_evidence_owners o-maan --global
+--no-apply`.
+
 ---
 
 ## `task` — Workspace task routing (UB-23)
