@@ -164,6 +164,18 @@ def test_restart_rung_keys_render_with_the_monitors_own_label(tmp_path):
     assert default["label"] == "ai.hyperide.sysmon" and default["heal"]["restart_daemons"] is True
 
 
+def test_alert_senders_validate_and_render_into_sysmon_json(tmp_path):
+    block = {"alert": {"tg_ctl_bin": "/opt/tg-ctl", "tg_bin": "/opt/tg"}}
+    validate({"version": 1, "sysmon": block})
+    rt = json.loads(sysmon.build_sysmon(home=tmp_path, block=block, gpu_env={}).render_config())
+    assert (rt["alert"]["tg_ctl_bin"], rt["alert"]["tg_bin"]) == ("/opt/tg-ctl", "/opt/tg")
+    default = json.loads(sysmon.build_sysmon(home=tmp_path, block={}, gpu_env={}).render_config())
+    assert (default["alert"]["tg_ctl_bin"], default["alert"]["tg_bin"]) == ("tg-ctl", "tg")
+    for bad in ({"tg_ctl_bin": []}, {"tg_bin": 7}, {"tg_ctl_bin": " "}):
+        with pytest.raises(ConfigError):
+            validate({"version": 1, "sysmon": {"alert": bad}})
+
+
 def test_free_and_data_volume_thresholds_and_reclaim_render_into_sysmon_json(tmp_path):
     block = {"thresholds": {"data_used_pct": {"warn": 85, "critical": 92}},
              "reclaim": {"worktree_roots": ["~/src"], "worktree_age_days": 3}}

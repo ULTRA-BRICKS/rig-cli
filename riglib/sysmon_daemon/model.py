@@ -14,6 +14,8 @@ from typing import Any, Dict, Optional, Tuple
 SEVERITY_OK = "ok"
 SEVERITY_WARNING = "warning"
 SEVERITY_CRITICAL = "critical"
+#: An alert that is not a finding: a resolved notice (tg-ctl alert severity, never ranked).
+SEVERITY_INFO = "info"
 SEVERITY_RANK = {SEVERITY_OK: 0, SEVERITY_WARNING: 1, SEVERITY_CRITICAL: 2}
 
 #: Agent harness kinds the monitor attributes processes to (and can launch for remediation).

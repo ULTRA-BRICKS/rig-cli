@@ -18,6 +18,7 @@ import argparse
 import json
 import sys
 import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 from . import alert, config, daemon, detect, probe, sessions, store
@@ -169,8 +170,9 @@ def cmd_test_alert(args: argparse.Namespace) -> int:
     cfg = _cfg(args.config)
     if args.dry_run:
         cfg["alert"]["dry_run"] = True
-    title, body = alert.render(_test_findings(), incident_id=None, test=True)
-    rec = alert.send(title, body, cfg)
+    findings = _test_findings()
+    title, body = alert.render(findings, incident_id=None, test=True)
+    rec = alert.send(title, body, cfg, severity=alert.worst_severity(findings), key=f"test-{uuid.uuid4().hex[:12]}")
     print(json.dumps(rec, indent=1, default=str))
     return 0 if rec.get("outcome") in ("sent", "dry_run") else 1
 

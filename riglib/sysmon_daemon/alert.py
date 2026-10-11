@@ -15,20 +15,27 @@ pure function over persisted state:
   flapping findings must never become a storm of Telegram messages);
 - a key that was alerted and then clears produces one "resolved" line (batched too).
 
-Delivery is ``tg --tag problem`` (resolved: ``--tag report``) with an HTML body; the dedup
+Delivery is ``tg-ctl alert send --source sysmon`` (tg-cli#636) with an HTML body: tg-ctl posts
+the message to Telegram — resolved notices with ``--tag report``, alerts with ``--tag
+problem`` — naming in a footer every omp session that subscribed to alerts, and delivers the
+alert with its Telegram message id into those sessions. An older tg-ctl without that
+subcommand, or none on PATH, falls back to the same ``tg`` argv as before. The dedup
 state lives in ``memory.json`` so a daemon restart never re-sends what already went out.
 """
 
 from __future__ import annotations
 
+import errno
+import hashlib
 import html
+import re
 import socket
 import subprocess
 import time
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .config import DEFAULTS
-from .model import SEVERITY_RANK, Finding, Offender
+from .model import SEVERITY_CRITICAL, SEVERITY_INFO, SEVERITY_RANK, SEVERITY_WARNING, Finding, Offender
 
 HOUR = 3600.0
 RESOLVE_AFTER_S = 300.0
@@ -121,7 +128,7 @@ def render(
 ) -> Tuple[str, str]:
     """``(title, html_body)`` for a batch of findings."""
     host = host or socket.gethostname().split(".")[0]
-    worst = max((f.severity for f in findings), key=lambda s: SEVERITY_RANK[s], default="warning")
+    worst = worst_severity(findings)
     prefix = "TEST — " if test else ""
     title = f"{prefix}sysmon {worst.upper()} on {host}: " + "; ".join(f.key for f in findings)[:120]
     lines: List[str] = []
@@ -152,25 +159,105 @@ def render_resolved(keys: Sequence[str], host: Optional[str] = None) -> Tuple[st
 Runner = Callable[..., "subprocess.CompletedProcess[str]"]
 
 
+#: ``tg-ctl alert`` severities: the model's warning/critical plus ``info`` for a resolved notice.
+SEVERITIES = (SEVERITY_INFO, SEVERITY_WARNING, SEVERITY_CRITICAL)
+_OK_LINE = re.compile(r"^OK tg#(\d+)", re.M)
+KEY_MAX = 120
+
+
+def worst_severity(findings: Sequence[Finding]) -> str:
+    return max((f.severity for f in findings), key=lambda s: SEVERITY_RANK[s], default=SEVERITY_WARNING)
+
+
+def batch_key(keys: Sequence[str], prefix: str = "") -> str:
+    """The tg-ctl throttle key of a batch: ``prefix`` + its finding keys, order-independent. A
+    long list keeps a readable head plus a digest of the whole, so two batches never collide
+    by sharing a prefix (bounded at :data:`KEY_MAX`)."""
+    full = prefix + ";".join(sorted(keys))
+    if len(full) <= KEY_MAX:
+        return full
+    digest = hashlib.sha1(full.encode("utf-8")).hexdigest()[:12]
+    return f"{full[:KEY_MAX - 13]}-{digest}"
+
+
+def tg_ctl_argv(tg_ctl: str, title: str, body: str, severity: str, key: str) -> List[str]:
+    return [tg_ctl, "alert", "send", "--source", "sysmon", "--severity", severity, "--key", key,
+            "--title", title, "--html", "--text", body]
+
+
+def tg_argv(tg: str, title: str, body: str, severity: str) -> List[str]:
+    tag = "report" if severity == SEVERITY_INFO else "problem"
+    return [tg, "--tag", tag, "--subagent", "sysmon", "--title", title, "--format", "html", body]
+
+
+def flag_value(argv: Sequence[str], flag: str) -> Optional[str]:
+    """The value after ``flag`` in an argv (tests and log readers; no magic indexes)."""
+    for i, a in enumerate(argv[:-1]):
+        if a == flag:
+            return argv[i + 1]
+    return None
+
+
+def unsupported_alert_subcommand(proc: "subprocess.CompletedProcess[str]") -> bool:
+    """A tg-ctl from before tg-cli#636 rejects ``alert`` with its usage text on stderr and
+    exit 1 — the ONLY shape that may fall back to ``tg``. Every other failure (a crash, a
+    signal, a timeout, a new tg-ctl reporting a failed post) may already have posted. The
+    recognized shape is pinned by ``OLD_TG_CTL_USAGE`` in tests/test_sysmon_daemon.py."""
+    err = (proc.stderr or "").lstrip()
+    return (proc.returncode == 1 and err[:6].lower() == "usage:"
+            and "tg-ctl " in err and "tg-ctl alert" not in err)
+
+
 def send(
-    title: str, body: str, cfg: Dict[str, Any], *, tag: str = "problem", run: Runner = subprocess.run
+    title: str, body: str, cfg: Dict[str, Any], *, severity: str, key: str, run: Runner = subprocess.run,
 ) -> Dict[str, Any]:
-    """Deliver through ``tg``. ``alert.dry_run`` records the message without sending it."""
+    """Deliver through ``tg-ctl alert send`` (Telegram + subscribed agent sessions), else —
+    only for a tg-ctl that does not know the subcommand, or none installed — through ``tg``.
+    ``alert.dry_run`` records the message without sending it. ``severity`` (one of
+    :data:`SEVERITIES`; ``info`` posts as a report, the rest as a problem) and ``key``
+    identify the alert to tg-ctl's throttle."""
+    if severity not in SEVERITIES:
+        raise ValueError(f"severity must be one of {SEVERITIES}, not {severity!r}")
     a = cfg["alert"]
-    argv = [str(a.get("tg_bin") or "tg"), "--tag", tag, "--subagent", "sysmon",
-            "--title", title, "--format", "html", body]
-    record: Dict[str, Any] = {"at": time.time(), "title": title, "tag": tag}
+    ctl_argv = tg_ctl_argv(str(a.get("tg_ctl_bin") or DEFAULTS["alert"]["tg_ctl_bin"]), title, body, severity, key)
+    fallback_argv = tg_argv(str(a.get("tg_bin") or DEFAULTS["alert"]["tg_bin"]), title, body, severity)
+    record: Dict[str, Any] = {"at": time.time(), "title": title, "tag": flag_value(fallback_argv, "--tag"),
+                              "severity": severity, "key": key, "via": "tg-ctl alert", "message_id": None}
     if a.get("dry_run"):
-        record.update(outcome="dry_run", argv=argv)
+        record.update(outcome="dry_run", argv=ctl_argv, fallback_argv=fallback_argv)
         return record
-    try:
-        proc = run(argv, capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
-    except (OSError, subprocess.SubprocessError) as exc:
-        record.update(outcome="error", detail=str(exc)[:300])
+    proc, detail = _run(ctl_argv, run)
+    if proc is None or unsupported_alert_subcommand(proc):
+        record.update(via="tg", fallback_reason="tg-ctl not installed" if proc is None else "tg-ctl without `alert`")
+        proc, detail = _run(fallback_argv, run)
+    if proc is None:
+        record.update(outcome="error", detail=detail)
         return record
+    out = proc.stdout or ""
+    m = _OK_LINE.search(out)
     record.update(
         outcome="sent" if proc.returncode == 0 else "error",
-        detail=(proc.stdout or proc.stderr or "").strip()[-300:],
+        detail=(out or proc.stderr or "").strip()[-300:],
         returncode=proc.returncode,
+        message_id=int(m.group(1)) if m else None,
     )
     return record
+
+
+#: errno values proving the binary never ran — ``exec`` itself refused it (not on PATH, not
+#: executable, a directory, not a program); anything else may have run and posted.
+_NEVER_RAN = frozenset({errno.ENOENT, errno.EACCES, errno.ENOTDIR, errno.ENOEXEC})
+
+
+def _run(argv: Sequence[str], run: Runner) -> Tuple[Optional["subprocess.CompletedProcess[str]"], str]:
+    """``(proc, detail)``: ``proc`` is ``None`` only when the binary provably never started
+    (:data:`_NEVER_RAN`); a timeout or any other failure is a non-zero completed process
+    (it may have posted)."""
+    try:
+        return run(list(argv), capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL), ""
+    except OSError as exc:
+        if isinstance(exc, FileNotFoundError) or exc.errno in _NEVER_RAN:
+            return None, f"{argv[0]}: cannot run ({exc})"[:300]
+        return subprocess.CompletedProcess(list(argv), 1, "", str(exc)[:300]), ""
+    except subprocess.SubprocessError as exc:
+        return subprocess.CompletedProcess(list(argv), 1, "", str(exc)[:300]), ""

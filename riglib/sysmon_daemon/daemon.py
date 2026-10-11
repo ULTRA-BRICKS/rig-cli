@@ -261,11 +261,13 @@ class Monitor:
                 due, incident_id=self.incident["id"] if self.incident else None,
                 extra_lines=self._memory_line() + self._reclaim_lines(due, now),
             )
-            rec = alert.send(title, body, self.cfg, run=self.run_cmd)
+            rec = alert.send(title, body, self.cfg, severity=alert.worst_severity(due),
+                             key=alert.batch_key([f.key for f in due]), run=self.run_cmd)
             self._log("alerts", rec)
         if resolved:
             title, body = alert.render_resolved(resolved)
-            self._log("alerts", alert.send(title, body, self.cfg, tag="report", run=self.run_cmd))
+            self._log("alerts", alert.send(title, body, self.cfg, severity=alert.SEVERITY_INFO,
+                                           key=alert.batch_key(resolved, prefix="resolved:"), run=self.run_cmd))
 
         steps, self.memory["heal"] = heal.plan(findings, self.memory.get("heal") or {}, self.cfg, now)
         if steps:
@@ -411,7 +413,7 @@ class Monitor:
             extra.append(str(crash["panic_excerpt"])[:300])
         if self.cfg["alert"].get("enabled", True):
             title, body = alert.render([finding], incident_id=self.incident["id"], extra_lines=extra)
-            self._log("alerts", alert.send(title, body, self.cfg, run=self.run_cmd))
+            self._log("alerts", alert.send(title, body, self.cfg, severity=finding.severity, key=finding.key, run=self.run_cmd))
         result, self.memory["remediation"] = remediate.maybe_spawn(
             self.incident, store.incident_dir(self.state_dir, self.incident["id"]), self.cfg,
             self.memory.get("remediation") or {}, now, run=self.run_cmd,

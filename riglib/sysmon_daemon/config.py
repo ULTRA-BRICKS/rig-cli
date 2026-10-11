@@ -80,6 +80,7 @@ DEFAULTS: Dict[str, Any] = {
     "alert": {
         "enabled": True,
         "tg_bin": "tg",
+        "tg_ctl_bin": "tg-ctl",  # the alert sender (tg-cli#636), `tg` the fallback for an older tg-ctl
         "cooldown_minutes": 30,
         "disk_cooldown_minutes": 360,
         "max_per_hour": 6,

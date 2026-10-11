@@ -1603,6 +1603,8 @@ _SYSMON_BLOCK = Block(
                 "max_per_hour": Leaf("integer", "messages per rolling hour", default=6, minimum=1),
                 "resolved": Leaf("boolean", "send one line when an alerted finding clears", default=True),
                 "dry_run": Leaf("boolean", "record alerts without sending", default=False),
+                "tg_ctl_bin": Leaf("string", "the alert sender: `tg-ctl alert send` (tg-cli#636)", default="tg-ctl"),
+                "tg_bin": Leaf("string", "the `tg` fallback sender for a tg-ctl without `alert`", default="tg"),
             },
         ),
         "heal": Block(

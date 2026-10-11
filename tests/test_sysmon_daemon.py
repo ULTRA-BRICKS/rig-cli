@@ -5,8 +5,10 @@ Heal/remediation and session restore have their own files (test_sysmon_heal/_ses
 
 from __future__ import annotations
 
+import errno
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -474,8 +476,146 @@ def test_render_names_the_owning_agent_and_test_label():
 
 def test_send_dry_run_never_calls_tg():
     cfg = _cfg(dry_run=True)
-    rec = alert.send("t", "b", cfg, run=lambda *a, **k: pytest.fail("tg must not run"))
-    assert rec["outcome"] == "dry_run" and rec["argv"][:3] == ["tg", "--tag", "problem"]
+    rec = alert.send("t", "b", cfg, severity=SEVERITY_CRITICAL, key="k", run=lambda *a, **k: pytest.fail("tg must not run"))
+    assert rec["outcome"] == "dry_run" and rec["via"] == "tg-ctl alert" and rec["message_id"] is None
+    assert rec["argv"][:3] == ["tg-ctl", "alert", "send"] and rec["fallback_argv"][:3] == ["tg", "--tag", "problem"]
+
+
+def _completed(argv, code, out="", err=""):
+    return subprocess.CompletedProcess(list(argv), code, out, err)
+
+
+OLD_TG_CTL_USAGE = "Usage:\n  tg-ctl start [--pane %N]\n  tg-ctl run             # foreground\n  tg-ctl omp-live send <pid> …\n"
+
+
+def test_send_goes_through_tg_ctl_alert_with_severity_key_and_html_body():
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(argv)
+        return _completed(argv, 0, "OK tg#4210 sessions=1 (Supervisor (pid 7))\n")
+
+    rec = alert.send("sysmon CRITICAL on mac: load", "<b>CRITICAL</b> load 38", _cfg(), severity=SEVERITY_CRITICAL,
+                     key="load;swap", run=run)
+    assert calls == [[
+        "tg-ctl", "alert", "send", "--source", "sysmon", "--severity", "critical", "--key", "load;swap",
+        "--title", "sysmon CRITICAL on mac: load", "--html", "--text", "<b>CRITICAL</b> load 38",
+    ]]
+    assert alert.flag_value(calls[0], "--severity") == "critical" and alert.flag_value(calls[0], "--key") == "load;swap"
+    assert calls[0][-2:] == ["--text", "<b>CRITICAL</b> load 38"] and "--html" in calls[0]
+    assert rec["outcome"] == "sent" and rec["via"] == "tg-ctl alert" and rec["message_id"] == 4210
+    assert rec["severity"] == "critical" and rec["key"] == "load;swap" and "fallback_reason" not in rec
+
+
+def test_send_falls_back_to_tg_only_for_an_older_or_missing_tg_ctl():
+    for first, reason in ((_completed(["tg-ctl"], 1, "", OLD_TG_CTL_USAGE), "tg-ctl without `alert`"), (None, "tg-ctl not installed")):
+        calls = []
+
+        def run(argv, first=first, **kw):
+            calls.append(argv)
+            if argv[0] == "tg-ctl":
+                if first is None:
+                    raise FileNotFoundError(argv[0])
+                return first
+            return _completed(argv, 0, "OK tg#9\n")
+
+        rec = alert.send("t", "b", _cfg(), severity=alert.SEVERITY_INFO, key="resolved:x", run=run)
+        assert [c[0] for c in calls] == ["tg-ctl", "tg"]
+        assert calls[1] == ["tg", "--tag", "report", "--subagent", "sysmon", "--title", "t", "--format", "html", "b"]
+        assert rec["outcome"] == "sent" and rec["via"] == "tg" and rec["message_id"] == 9 and rec["fallback_reason"] == reason
+
+
+@pytest.mark.parametrize("failure", [
+    _completed(["tg-ctl"], 1, "FAILED tg#? sessions=0\n", "tg-ctl alert: Telegram post failed (tg exit 1): no creds\n"),
+    _completed(["tg-ctl"], -9, "", ""),  # killed after it may have posted
+    _completed(["tg-ctl"], 1, "", "Usage:\n  tg-ctl run\n  tg-ctl alert send …\n"),  # a NEW tg-ctl's usage (bad argv)
+    subprocess.TimeoutExpired(["tg-ctl"], 60),
+    OSError("broken pipe"),
+])
+def test_any_other_tg_ctl_failure_is_an_error_and_never_a_second_post(failure):
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(argv)
+        if isinstance(failure, Exception):
+            raise failure
+        return failure
+
+    rec = alert.send("t", "b", _cfg(), severity=SEVERITY_WARNING, key="k", run=run)
+    assert [c[0] for c in calls] == ["tg-ctl"]
+    assert rec["outcome"] == "error" and rec["via"] == "tg-ctl alert" and rec["message_id"] is None
+
+
+def test_send_rejects_an_unknown_severity_before_running_anything():
+    with pytest.raises(ValueError):
+        alert.send("t", "b", _cfg(), severity="notice", key="k", run=lambda *a, **k: pytest.fail("must not run"))
+
+
+def test_alert_tg_ctl_bin_and_tg_bin_name_the_senders():
+    rec = alert.send("t", "b", _cfg(dry_run=True, tg_ctl_bin="/opt/tg-ctl", tg_bin="/opt/tg"), severity=SEVERITY_WARNING, key="k")
+    assert rec["argv"][0] == "/opt/tg-ctl" and rec["fallback_argv"][0] == "/opt/tg"
+    rec = alert.send("t", "b", _cfg(dry_run=True, tg_ctl_bin=""), severity=SEVERITY_WARNING, key="k")
+    assert rec["argv"][0] == "tg-ctl"
+
+
+def test_both_senders_missing_is_one_error_record():
+    def run(argv, **kw):
+        raise FileNotFoundError(argv[0])
+
+    rec = alert.send("t", "b", _cfg(), severity=SEVERITY_WARNING, key="k", run=run)
+    assert rec["outcome"] == "error" and rec["via"] == "tg" and rec["fallback_reason"] == "tg-ctl not installed"
+    assert rec["detail"].startswith("tg: cannot run") and rec["message_id"] is None
+
+
+@pytest.mark.parametrize("exc", [
+    PermissionError(errno.EACCES, "Permission denied"),
+    NotADirectoryError(errno.ENOTDIR, "Not a directory"),
+    OSError(errno.ENOEXEC, "Exec format error"),
+])
+def test_an_exec_time_refusal_proves_tg_ctl_never_ran_and_falls_back_to_tg(exc):
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(argv)
+        if argv[0] == "tg-ctl":
+            raise exc
+        return _completed(argv, 0, "OK tg#3\n")
+
+    rec = alert.send("t", "b", _cfg(), severity=SEVERITY_WARNING, key="k", run=run)
+    assert [c[0] for c in calls] == ["tg-ctl", "tg"]
+    assert rec["outcome"] == "sent" and rec["via"] == "tg" and rec["fallback_reason"] == "tg-ctl not installed"
+
+
+def test_unsupported_alert_subcommand_accepts_a_lowercase_usage_head():
+    assert alert.unsupported_alert_subcommand(_completed(["tg-ctl"], 1, "", OLD_TG_CTL_USAGE.replace("Usage:", "usage:", 1)))
+    assert not alert.unsupported_alert_subcommand(_completed(["tg-ctl"], 1, "", "usage: tg-ctl run\n  tg-ctl alert send\n"))
+    assert not alert.unsupported_alert_subcommand(_completed(["tg-ctl"], 2, "", OLD_TG_CTL_USAGE))
+
+
+def test_a_sent_alert_without_an_ok_line_keeps_outcome_sent_and_no_message_id():
+    rec = alert.send("t", "b", _cfg(), severity=SEVERITY_WARNING, key="k", run=lambda argv, **k: _completed(argv, 0, "sent, no id\n"))
+    assert rec["outcome"] == "sent" and rec["message_id"] is None and rec["detail"] == "sent, no id"
+
+
+def test_worst_severity_and_batch_key():
+    assert alert.worst_severity([_f("a", SEVERITY_WARNING), _f("b")]) == SEVERITY_CRITICAL
+    assert alert.worst_severity([]) == SEVERITY_WARNING
+    assert alert.batch_key(["b", "a"]) == alert.batch_key(["a", "b"]) == "a;b"
+    assert alert.batch_key(["a"], prefix="resolved:") == "resolved:a"
+    long_a, long_b = alert.batch_key(["k" * 200, "x"]), alert.batch_key(["k" * 200, "y"])
+    assert len(long_a) == len(long_b) == alert.KEY_MAX and long_a != long_b and long_a.startswith("k" * 100)
+
+
+def test_resolved_notice_goes_out_as_an_info_alert_keyed_by_the_cleared_findings(tmp_path):
+    hot, calm = _sample(wired=int(23 * GIB)), _sample()
+    mon, run = _monitor(tmp_path, [hot, calm, calm])
+    mon.tick(1000.0)
+    mon.tick(1010.0)
+    mon.tick(1010.0 + alert.RESOLVE_AFTER_S + 1)
+    sends = _tg_sends(run)
+    assert [alert.flag_value(a, "--severity") for a in sends] == [SEVERITY_CRITICAL, alert.SEVERITY_INFO]
+    assert alert.flag_value(sends[0], "--key") == "wired" and alert.flag_value(sends[1], "--key") == "resolved:wired"
+    assert alert.flag_value(sends[1], "--title").startswith("sysmon resolved on ")
 
 
 # ── the monitor's evaluation path ─────────────────────────────────────────────────────────
@@ -503,7 +643,7 @@ def _monitor(tmp_path, samples, **cfg_over):
 
 
 def _tg_sends(run):
-    return [c for c in run.calls if c and c[0] == "tg"]
+    return [c for c in run.calls if c and (c[0] == "tg" or c[1:3] == ["alert", "send"])]
 
 
 def test_critical_opens_one_incident_alerts_once_and_closes_after_quiet(tmp_path):
@@ -826,7 +966,7 @@ def test_critical_data_volume_alert_lists_reclaimable_candidates_by_size_and_del
         ("container-images", "container"), ("worktree", paths["old_big"]),
         ("review-cache", paths["cache"]), ("worktree", paths["old_small"]),
     ]  # the fresh worktree and the one whose git index moved today are in use, never listed
-    [tg] = host.ran("tg")
+    [tg] = host.ran("tg-ctl")
     body = tg[-1]
     order = [body.index(s) for s in ("3.4 GB", f"2.9 GB worktree {paths['old_big']}",
                                      f"68 MB review-cli job cache {paths['cache']}", "20 MB worktree")]
@@ -840,8 +980,8 @@ def test_critical_data_volume_alert_lists_reclaimable_candidates_by_size_and_del
 
 
 def _pages(host):
-    """The problem alerts sent (``tg --tag problem``), not the resolved lines."""
-    return [a for a in host.ran("tg") if a[1:3] == ["--tag", "problem"]]
+    """The problem alerts sent (``tg-ctl alert send … --severity warning|critical``), not the resolved lines."""
+    return [a for a in host.ran("tg-ctl") if a[1:3] == ["alert", "send"] and alert.flag_value(a, "--severity") != alert.SEVERITY_INFO]
 
 
 def test_a_full_disk_pages_once_per_six_hours_per_level_always_with_the_candidates(tmp_path):
@@ -868,7 +1008,7 @@ def test_a_full_disk_pages_once_per_six_hours_per_level_always_with_the_candidat
     for now, _, pages in ticks:
         mon.tick(now)
         assert len(_pages(host)) == pages, now - T0
-    assert len(host.ran("tg")) == 4  # the three pages and the one resolved line
+    assert len(host.ran("tg-ctl")) == 4  # the three pages and the one resolved line
     for page in _pages(host):
         body = page[-1]
         assert f"worktree {paths['old_big']}" in body and "review-cli job cache" in body
@@ -957,3 +1097,16 @@ def test_a_full_disk_does_not_force_a_census_every_tick(tmp_path):
         mon.tick(T0 + 10 * i)
     assert {f.key for f in mon.findings if f.severity == SEVERITY_CRITICAL} == {"data_volume", "disk"}
     assert census.calls == 1 and mon.incident is not None
+
+
+def test_test_alert_keys_every_invocation_uniquely_so_the_throttle_never_swallows_a_repeat(tmp_path, capsys, monkeypatch):
+    from riglib.sysmon_daemon import cli
+
+    monkeypatch.setattr(cli.time, "time_ns", lambda: 7)  # a frozen clock must not collide keys
+    keys = []
+    for _ in range(2):
+        assert cli.main(["test-alert", "--dry-run", "--config", str(tmp_path / "absent.json")]) == 0
+        rec = json.loads(capsys.readouterr().out)
+        assert rec["outcome"] == "dry_run" and rec["key"].startswith("test-")
+        keys.append(rec["key"])
+    assert keys[0] != keys[1]

@@ -2235,6 +2235,16 @@
               "type": "boolean",
               "description": "record alerts without sending",
               "default": false
+            },
+            "tg_ctl_bin": {
+              "type": "string",
+              "description": "the alert sender: `tg-ctl alert send` (tg-cli#636)",
+              "default": "tg-ctl"
+            },
+            "tg_bin": {
+              "type": "string",
+              "description": "the `tg` fallback sender for a tg-ctl without `alert`",
+              "default": "tg"
             }
           },
           "additionalProperties": false

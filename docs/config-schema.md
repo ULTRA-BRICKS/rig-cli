@@ -3251,7 +3251,7 @@ sysmon:
     reclaimable_gb: { warn: 2, critical: 1 }      # lower is worse
     data_used_pct: { warn: 90, critical: 95 }     # every disk alert lists reclaimable candidates
   alert: { min_severity: critical, cooldown_minutes: 30, disk_cooldown_minutes: 360, max_per_hour: 6,
-           resolved: true, dry_run: false }
+           resolved: true, dry_run: false }             # tg_bin / tg_ctl_bin: the senders (default PATH)
   heal: { enabled: true, notify_agent: true, throttle: true, kill_orphans: false, kill_owned: false,
           grace_seconds: 120, dry_run: false,        # every kill path is opt-in
           restart_daemons: true, restart_labels: ["ai.hyperide.*", "com.hyperide.*"],
@@ -3361,8 +3361,14 @@ daemon, a `nohup`'d job of a live agent or rig's ship-loop, is not an orphan. Th
 in the daemon's memory only, so a tree whose host died before the daemon (re)started is never an
 orphan: it is throttled and alerted on, never killed.
 
-**Alerts.** Alerts go through `tg --tag problem --subagent sysmon` with an HTML body that lists the
-finding, its numbers and who owns the offenders. They are deduplicated per finding key:
+**Alerts.** Alerts go through `tg-ctl alert send --source sysmon --severity <worst> --key <finding
+keys>` (tg-cli#636) with an HTML body that lists the finding, its numbers and who owns the
+offenders: tg-ctl posts it to Telegram (`--tag problem`; a resolved notice `--tag report`) with a
+footer naming every omp session that subscribed to alerts (`tg-ctl alert subscribe`), and delivers
+it with its Telegram message id into those sessions so the agent can follow up on the message. An
+older tg-ctl without that subcommand, or none on PATH, gets the previous `tg --tag problem
+--subagent sysmon` send; the `alerts` log record carries `via` and `message_id`. They are
+deduplicated per finding key:
 
 - a key alerts when it first reaches `min_severity`, when it escalates, and otherwise at most once
   per cooldown;

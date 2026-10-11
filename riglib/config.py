@@ -3864,7 +3864,7 @@ _SYSMON_INTS = {
     "gpu": {"slots": 1},
     "reclaim": {"worktree_age_days": 1, "max_candidates": 1},
 }
-_SYSMON_STRS = {"sessions": ("tmux_session",), "gpu": ("slot_dir",)}
+_SYSMON_STRS = {"alert": ("tg_ctl_bin", "tg_bin"), "sessions": ("tmux_session",), "gpu": ("slot_dir",)}
 #: lists of non-empty strings (an empty list turns that candidate source off)
 _SYSMON_STR_LISTS = {"reclaim": ("worktree_roots", "cache_dirs")}
 
