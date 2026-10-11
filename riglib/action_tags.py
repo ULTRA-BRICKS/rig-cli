@@ -292,7 +292,8 @@ ACTION_TAGS: dict[str, ActionTag] = {
     "provision_fj": _tag(
         "provision_fj", "installs_system_tool", AUDIENCE_HUMAN,
         "Installs fj when missing, lists the Forgejo host in fj's client_ids for one-click OAuth login, "
-        "sets FJ_FALLBACK_HOST (Windows user env) and Git Credential Manager OAuth settings.",
+        "sets FJ_FALLBACK_HOST (Windows user env) and makes git over HTTPS use fj's login "
+        "(rig's git-credential-fj helper in the global git config).",
     ),
     "provision_git_config": _tag(
         "provision_git_config", "edits_file", AUDIENCE_BOTH,

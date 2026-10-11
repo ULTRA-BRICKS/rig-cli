@@ -76,9 +76,9 @@ _GLOBAL_LAYER_ONLY_BLOCKS: dict[str, str] = {
 }
 
 # `fj` is repo-writable, but only its `host` (the forge this repo's logins use). Every other key is
-# machine-wide: `client_id`/`git_client_id` pick the OAuth app that fj and git hand their tokens to
-# for EVERY listed host, and `enabled`/`install`/`version`/`bin_dir`/`git_credentials` change the
-# machine's fj install and global git config — a committed repo rig.yaml must set none of them.
+# machine-wide: `client_id` picks the OAuth app fj hands its tokens to for EVERY listed host, and
+# `enabled`/`install`/`version`/`bin_dir`/`git_credentials` change the machine's fj install and
+# global git config — a committed repo rig.yaml must set none of them.
 _REPO_LAYER_FJ_KEYS = frozenset({"host"})
 
 _VALID_TOP_KEYS = {
@@ -3096,6 +3096,14 @@ def _validate_fj(f: dict[str, Any]) -> None:
         raise ConfigError("fj must be a mapping", schema_path="fj")
     if not f:
         return
+    if "git_client_id" in f:
+        raise ConfigError(
+            "fj.git_client_id was removed",
+            why="git no longer logs in through Git Credential Manager: it uses fj's own login via "
+            "rig's git-credential-fj helper, so there is no second OAuth app to pick",
+            fix=f"delete fj.git_client_id from {global_config_path()}",
+            schema_path="fj.git_client_id",
+        )
     _reject_unknown_keys(f, "fj")
     for key in ("enabled", "install", "git_credentials"):
         v = f.get(key)
@@ -3115,7 +3123,7 @@ def _validate_fj(f: dict[str, Any]) -> None:
             f"(known: {', '.join(sorted(fj.FJ_RELEASE_SHA256))})",
             schema_path="fj.version",
         )
-    for key in ("client_id", "git_client_id", "bin_dir"):
+    for key in ("client_id", "bin_dir"):
         v = f.get(key)
         if v is not None and (not isinstance(v, str) or not v.strip() or "\n" in v):
             raise ConfigError(f"fj.{key} must be a non-empty single-line string", schema_path=f"fj.{key}")

@@ -299,7 +299,7 @@ def _verify_harness_wrapper(action: Action) -> list[VerifyResult]:
 @register_verifier("provision_fj")
 def _verify_fj(action: Action) -> list[VerifyResult]:
     """Nothing of the ``fj`` block is still pending — fj installed, the wrapper(s) byte-exact,
-    ``client_ids``, ``FJ_FALLBACK_HOST`` (Windows) and git's OAuth settings: the one comparison
+    ``client_ids``, ``FJ_FALLBACK_HOST`` (Windows) and git's credential helper: the one comparison
     ``rig status`` uses (:func:`riglib.fj.pending_changes`)."""
     from . import fj
 

@@ -1623,7 +1623,7 @@
     },
     "fj": {
       "type": "object",
-      "description": "Forgejo access (GLOBAL, per machine): install `fj` behind a thin wrapper that adds `fj ship` (the same ship gate as `gh ship`), one-click browser login for fj and git through Forgejo's built-in OAuth apps, and `FJ_FALLBACK_HOST` so `fj` never needs `--host`. A PRESENT block opts in; a repo rig.yaml may set `host` to log in to a different instance.",
+      "description": "Forgejo access (GLOBAL, per machine): install `fj` behind a thin wrapper that adds `fj ship` (the same ship gate as `gh ship`), one-click browser login through Forgejo's built-in OAuth app that git over HTTPS shares (rig's git credential helper hands git fj's token), and `FJ_FALLBACK_HOST` so `fj` never needs `--host`. A PRESENT block opts in; a repo rig.yaml may set `host` to log in to a different instance.",
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -1650,16 +1650,12 @@
         },
         "git_credentials": {
           "type": "boolean",
-          "description": "configure Git Credential Manager OAuth for https://<host>",
+          "description": "git over HTTPS to the GLOBAL host uses fj's login: rig's `git-credential-fj` helper in bin_dir, set as credential.https://<host>.helper; false leaves git's credential config to you",
           "default": true
         },
         "client_id": {
           "type": "string",
           "description": "OAuth client ID fj logs in with (default: Forgejo's built-in `tea` app)"
-        },
-        "git_client_id": {
-          "type": "string",
-          "description": "OAuth client ID GCM logs in with (default: Forgejo's built-in GCM app)"
         }
       },
       "additionalProperties": false

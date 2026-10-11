@@ -3469,7 +3469,8 @@ def _build_fj(config: LoadedConfig, plan: InstallPlan) -> None:
 
     One ``provision_fj`` action: install fj when missing, list every login host in fj's
     ``client_ids`` (Forgejo's built-in public OAuth app), set ``FJ_FALLBACK_HOST`` on Windows (on
-    macOS/Linux ``_build_env`` exports it) and write Git Credential Manager's OAuth settings. See
+    macOS/Linux ``_build_env`` exports it) and point git's credential helper for the global host at
+    fj's login (rig's ``git-credential-fj``). See
     :mod:`riglib.fj`.
     """
     from . import fj

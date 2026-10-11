@@ -1066,8 +1066,9 @@ _SPOTLIGHT_BLOCK = Block(
 _FJ_BLOCK = Block(
     doc=(
         "Forgejo access (GLOBAL, per machine): install `fj` behind a thin wrapper that adds `fj ship` "
-        "(the same ship gate as `gh ship`), one-click browser login for fj and git through Forgejo's "
-        "built-in OAuth apps, and `FJ_FALLBACK_HOST` so `fj` never needs `--host`. "
+        "(the same ship gate as `gh ship`), one-click browser login through Forgejo's built-in OAuth "
+        "app that git over HTTPS shares (rig's git credential helper hands git fj's token), and "
+        "`FJ_FALLBACK_HOST` so `fj` never needs `--host`. "
         "A PRESENT block opts in; a repo rig.yaml may set `host` to log in to a different instance."
     ),
     leaves={
@@ -1076,9 +1077,8 @@ _FJ_BLOCK = Block(
         "install": Leaf("boolean", "manage the `fj` command: the real fj (brew on macOS, pinned release binary in rig's store elsewhere) + the `fj ship` wrapper in bin_dir; false leaves fj entirely to you", default=True),
         "version": Leaf("string", "fj release to install where rig downloads it", default="0.6.0"),
         "bin_dir": Leaf("string", "where the `fj` wrapper goes (must be on PATH, ahead of any other fj)", default="~/.local/bin"),
-        "git_credentials": Leaf("boolean", "configure Git Credential Manager OAuth for https://<host>", default=True),
+        "git_credentials": Leaf("boolean", "git over HTTPS to the GLOBAL host uses fj's login: rig's `git-credential-fj` helper in bin_dir, set as credential.https://<host>.helper; false leaves git's credential config to you", default=True),
         "client_id": Leaf("string", "OAuth client ID fj logs in with (default: Forgejo's built-in `tea` app)"),
-        "git_client_id": Leaf("string", "OAuth client ID GCM logs in with (default: Forgejo's built-in GCM app)"),
     },
 )
 

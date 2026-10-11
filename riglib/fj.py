@@ -1,4 +1,4 @@
-"""Forgejo access — install ``fj``, one-click OAuth login for fj AND git, a default host.
+"""Forgejo access — install ``fj``, one-click OAuth login shared by fj AND git, a default host.
 
 What this is
 ------------
@@ -22,9 +22,10 @@ fixes all of it, per machine:
   the ``tea`` app's client ID for the host in fj's ``client_ids`` file, so a plain
   ``fj auth login`` opens the browser, you press *Authorize*, done — no admin, no app to register.
   fj stores the OAuth token and refreshes it itself;
-- **one-click login for git** — the same trick for Git Credential Manager (the credential helper
-  Git for Windows ships): rig writes GCM's generic-OAuth settings for ``https://<host>``, so the
-  first ``git push`` opens the browser once and GCM keeps the token;
+- **the same login for git** — rig writes its own git credential helper ``<bin_dir>/git-credential-fj``
+  and points ``credential.https://<host>.helper`` at it (after an empty value, so no other helper —
+  store, cache, GCM — can answer first with a stale password). On ``git push``/``fetch`` it has fj
+  refresh the OAuth token and hands it to git, so one ``fj auth login`` serves fj and git;
 - **no more ``--host``** — ``FJ_FALLBACK_HOST=https://<host>`` for every shell (via the ``env``
   area on macOS/Linux, a user environment variable on Windows).
 
@@ -44,14 +45,16 @@ Where the real fj lives, per OS
   a shell writes to ``fj`` while only ``fj.exe`` exists — one more reason to keep them apart.)
 
 This module is stdlib-only. The planning helpers are pure; the few effectful helpers (download +
-install fj, write the wrappers, read/write the Windows user environment) are called only by the
-runner (``actions/runner.py`` ``_do_provision_fj``).
+install fj, write the wrappers and the git credential helper, ``git config --global``, read/write
+the Windows user environment) are called only by the runner (``actions/runner.py``
+``_do_provision_fj``).
 """
 
 from __future__ import annotations
 
 import hashlib
 import io
+import json
 import os
 import platform
 import re
@@ -96,11 +99,10 @@ FJ_BINARY_SHA256: dict[str, dict[str, str]] = {
 # rig treats a marked file as its own (rewrites a stale one) — an unmarked file is never clobbered.
 WRAPPER_MARKER = "rig-managed fj wrapper"
 
-# Forgejo's built-in public OAuth2 applications (same IDs on every instance that keeps the default
-# ``[oauth2] DEFAULT_APPLICATIONS``). Their redirect URI is loopback-any-port, which fits both fj's
-# fixed ``http://127.0.0.1:26218/`` and GCM's random port.
+# Forgejo's built-in public OAuth2 ``tea`` application (same ID on every instance that keeps the
+# default ``[oauth2] DEFAULT_APPLICATIONS``). Its redirect URI is loopback-any-port, which fits fj's
+# fixed ``http://127.0.0.1:26218/``.
 FORGEJO_TEA_CLIENT_ID = "d57cb8c4-630c-4168-8324-ec79935e18d4"
-FORGEJO_GCM_CLIENT_ID = "e90ee53c-94e2-48ac-9358-a874fb9e0662"
 
 FALLBACK_HOST_VAR = "FJ_FALLBACK_HOST"
 # Safe inside a client_ids line: fj 0.6.0 drops everything after `#` before splitting host and ID
@@ -158,7 +160,6 @@ def fj_options_from_config(block: dict[str, Any], *, fallback_host: str | None =
         "bin_dir": str(block.get("bin_dir", DEFAULT_BIN_DIR)),
         "git_credentials": bool(block.get("git_credentials", True)),
         "client_id": str(block.get("client_id", FORGEJO_TEA_CLIENT_ID)),
-        "git_client_id": str(block.get("git_client_id", FORGEJO_GCM_CLIENT_ID)),
     }
 
 
@@ -373,13 +374,17 @@ def fj_wrapper_files(options: dict[str, Any], system: str | None = None) -> list
     return files
 
 
-def is_rig_wrapper(path: str | Path) -> bool:
-    """True when ``path`` is one of rig's fj wrappers (the marker sits in its first lines)."""
+def _has_marker(path: str | Path, marker: str) -> bool:
     try:
         with open(path, "rb") as fh:
-            return WRAPPER_MARKER.encode() in fh.read(512)
+            return marker.encode() in fh.read(512)
     except OSError:
         return False
+
+
+def is_rig_wrapper(path: str | Path) -> bool:
+    """True when ``path`` is one of rig's fj wrappers (the marker sits in its first lines)."""
+    return _has_marker(path, WRAPPER_MARKER)
 
 
 def pinned_binary(path: Path) -> tuple[str, str] | None:
@@ -399,15 +404,16 @@ def pinned_binary(path: Path) -> tuple[str, str] | None:
     return None
 
 
-def classify_bin_file(path: Path, desired: bytes) -> str:
-    """What sits at a wrapper path: ``missing`` / ``ok`` / ``stale`` (an older rig wrapper) /
-    ``rig-binary`` (a real fj rig installed there itself) / ``foreign`` (anything else — rig leaves
-    it alone: a symlink, a directory, the user's own fj or script)."""
+def classify_bin_file(path: Path, desired: bytes, marker: str = WRAPPER_MARKER) -> str:
+    """What sits at a rig-owned ``bin_dir`` path (an fj wrapper, or the git credential helper with
+    its own ``marker``): ``missing`` / ``ok`` / ``stale`` (an older rig file) / ``rig-binary`` (a
+    real fj rig installed there itself) / ``foreign`` (anything else — rig leaves it alone: a
+    symlink, a directory, the user's own fj or script)."""
     if not os.path.lexists(path):
         return "missing"
     if path.is_symlink() or not path.is_file():
         return "foreign"
-    if is_rig_wrapper(path):
+    if _has_marker(path, marker):
         try:
             return "ok" if path.read_bytes() == desired else "stale"
         except OSError:
@@ -499,6 +505,41 @@ def client_ids_path(system: str | None = None) -> Path:
     return Path(xdg) / "forgejo-cli" / "client_ids"
 
 
+def keys_json_path(system: str | None = None) -> Path:
+    """Where fj (>= 0.6.0) keeps its logins: ``keys.json``, per host an ``Application`` token (``fj
+    auth add-token``) or an ``OAuth`` token + refresh token + expiry (``fj auth login``).
+
+    Mirrors ``KeyInfo::load`` in forgejo-cli's ``src/keys.rs`` — ``ProjectDirs("", "forgejo-cli",
+    "forgejo-cli")``'s data dir: ``${XDG_DATA_HOME:-~/.local/share}/forgejo-cli`` on Linux,
+    ``~/Library/Application Support/forgejo-cli.forgejo-cli`` on macOS,
+    ``%APPDATA%\\forgejo-cli\\forgejo-cli\\data`` on Windows (the native fj.exe, also when rig runs
+    on Cygwin Python).
+    """
+    system = (system or platform.system()).lower()
+    home = Path(os.path.expanduser("~"))
+    if fj_platform(system) == "windows":
+        appdata = _windows_env_dir("APPDATA") or _windows_profile() / "AppData" / "Roaming"
+        return appdata / "forgejo-cli" / "forgejo-cli" / "data" / "keys.json"
+    if system == "darwin":
+        return home / "Library" / "Application Support" / "forgejo-cli.forgejo-cli" / "keys.json"
+    data = os.environ.get("XDG_DATA_HOME") or str(home / ".local" / "share")
+    return Path(data) / "forgejo-cli" / "keys.json"
+
+
+def fj_login_type(host: str, system: str | None = None) -> str | None:
+    """How fj is logged in to ``host`` — ``OAuth`` (``fj auth login``), ``Application`` (a pasted
+    token) — or ``None`` when it is not. Reads ``keys.json``; the token itself never leaves it."""
+    try:
+        data = json.loads(keys_json_path(system).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    hosts = data.get("hosts") if isinstance(data, dict) else None
+    entry = hosts.get(host) if isinstance(hosts, dict) else None
+    if not isinstance(entry, dict) or not isinstance(entry.get("token"), str) or not entry["token"]:
+        return None
+    return str(entry.get("type"))
+
+
 def desired_client_ids_text(
     existing: str, hosts: list[str], client_id: str, *, keep: frozenset[str] | set[str] = frozenset()
 ) -> str:
@@ -522,69 +563,182 @@ def desired_client_ids_text(
     return "\n".join(out) + "\n"
 
 
-def git_credential_settings(host: str, client_id: str) -> dict[str, str]:
-    """GCM generic-OAuth settings for ``https://<host>`` (Forgejo's built-in GCM app)."""
-    section = f"credential.https://{host}"
-    return {
-        f"{section}.oauthClientId": client_id,
-        f"{section}.oauthRedirectUri": "http://127.0.0.1",
-        f"{section}.oauthAuthorizeEndpoint": "/login/oauth/authorize",
-        f"{section}.oauthTokenEndpoint": "/login/oauth/access_token",
+# ── git: fj's login for git over HTTPS ──────────────────────────────────────────────────────
+
+GIT_HELPER_NAME = "git-credential-fj"
+# First-lines marker of rig's git credential helper (``<bin_dir>/git-credential-fj``): a marked
+# file is rig's (a stale one is rewritten), an unmarked one is never clobbered.
+GIT_HELPER_MARKER = "rig-managed git credential helper"
+GITCONFIG = Path("~/.gitconfig")
+
+# POSIX sh, so every git runs it the same way: Linux/macOS git, Cygwin git, and Git for Windows
+# (which runs an extensionless `#!/bin/sh` script through its own sh). keys.json is read with awk —
+# present in all of them — relying on the fixed line layout serde_json's pretty printer gives the
+# file (fj writes it only with `to_vec_pretty`). `@KEYS@` is the keys.json path, shell-quoted.
+_GIT_HELPER_SH = """\
+#!/bin/sh
+# @MARKER@ (fj). `rig apply` rewrites this file: change rig's `fj:` config, not it.
+# git runs it for https://<fj host> (credential.https://<host>.helper). `get` answers with the token
+# `fj auth login` stored, refreshed through fj first; `store`/`erase` do nothing (fj owns the token).
+if [ "${1-}" != get ]; then cat >/dev/null; exit 0; fi
+protocol= host=
+while IFS= read -r line; do
+  [ -n "$line" ] || break
+  case $line in
+    protocol=*) protocol=${line#protocol=} ;;
+    host=*) host=${line#host=} ;;
+  esac
+done
+# Never hand a token to plain http, and only look up a plain host[:port].
+[ "$protocol" = https ] || exit 0
+host=$(printf '%s' "$host" | tr 'A-Z' 'a-z')
+case $host in ''|*[!a-z0-9.:-]*) exit 0 ;; esac
+keys=@KEYS@
+# One string field of keys.json's hosts.<host> entry. A value with a JSON escape (a backslash) is
+# never printed half-decoded: awk exits 3 instead (fj's tokens are hex / base64url, so it doesn't).
+field() {
+  [ -f "$keys" ] || return 0
+  awk -v h="$host" -v k="$1" '
+    $0 == "  \\"hosts\\": {" { inh = 1; next }
+    inh && /^  [^ ]/ { exit }
+    inh && $0 == "    \\"" h "\\": {" { ine = 1; next }
+    ine && /^    [^ ]/ { exit }
+    ine && index($0, "      \\"" k "\\": \\"") == 1 {
+      v = substr($0, length(k) + 12); sub(/",?$/, "", v)
+      if (index(v, "\\\\")) exit 3
+      print v; exit
     }
+  ' "$keys"
+}
+if [ "$(field type)" = OAuth ]; then
+  # fj refreshes an expired OAuth token (and saves it) before any API call; whoami is the cheapest.
+  # Run from / so fj takes --host, not the remotes of the repo git runs in.
+  d=${0%/*}; f=fj
+  if [ "$d" != "$0" ] && [ -x "$d/fj" ]; then f=$d/fj; fi
+  if ! (cd / && "$f" --host "$host" whoami) </dev/null >/dev/null 2>&1; then
+    echo "git-credential-fj: fj could not refresh its login for $host; if git is refused, run: fj --host $host auth login" >&2
+  fi
+fi
+if ! token=$(field token); then
+  echo "git-credential-fj: can't read fj's token for $host from $keys (escaped characters); run: fj --host $host auth login" >&2
+  exit 0
+fi
+if [ -z "$token" ]; then
+  echo "git-credential-fj: fj is not logged in to $host; run: fj --host $host auth login" >&2
+  exit 0
+fi
+# Forgejo takes the token as the password whatever the user name is (services/auth/basic.go).
+printf 'username=fj\\npassword=%s\\n' "$token"
+"""
+
+# What rig wrote for Git Credential Manager before its own helper replaced it. Apply removes each
+# key only while it still holds exactly rig's value.
+_LEGACY_GCM_SETTINGS = {
+    # Forgejo's built-in public GCM OAuth app: a public client ID, not a secret.
+    "oauthClientId": "e90ee53c-94e2-48ac-9358-a874fb9e0662",  # gitleaks:allow
+    "oauthRedirectUri": "http://127.0.0.1",
+    "oauthAuthorizeEndpoint": "/login/oauth/authorize",
+    "oauthTokenEndpoint": "/login/oauth/access_token",
+}
 
 
-_GCM_HELPER_NAMES = frozenset({"manager", "manager-core"})  # after dropping "git-credential-"
+def _shell_path(path: Path) -> str:
+    """``path`` the way the helper's sh opens it. On Windows that sh is Cygwin's or Git for
+    Windows' (MSYS), which disagree on ``/cygdrive/c`` vs ``/c`` — both open the mixed ``C:/…``."""
+    if os.name == "nt":
+        return path.as_posix()
+    if sys.platform.startswith(("cygwin", "msys")):
+        try:
+            out = subprocess.run(
+                ["cygpath", "-m", str(path)], capture_output=True, text=True, timeout=15, check=True
+            ).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            return str(path)
+        return out or str(path)
+    return str(path)
 
 
-def is_gcm_helper(value: str) -> bool:
-    """True when one ``credential.helper`` value runs Git Credential Manager.
+def git_helper_path(options: dict[str, Any]) -> Path:
+    return Path(os.path.expanduser(options["bin_dir"])) / GIT_HELPER_NAME
 
-    Parsed the way git runs it — through the shell — so quotes and backslash-escaped spaces
-    (``/mnt/c/Program\\ Files/Git/mingw64/bin/git-credential-manager.exe``, the WSL setup) are one
-    word; then the program's basename, case-folded, without ``.exe`` and ``git-credential-``:
-    ``manager`` / ``manager-core`` / ``git-credential-manager[-core][.exe]`` by name or path.
-    """
-    text = value.strip().removeprefix("!").strip()
-    if not text:
-        return False
+
+def git_helper_sh(keys_path: str) -> str:
+    """rig's git credential helper, reading fj's logins from ``keys_path``."""
+    return _GIT_HELPER_SH.replace("@MARKER@", GIT_HELPER_MARKER).replace("@KEYS@", shlex.quote(keys_path))
+
+
+def git_helper_bytes(system: str | None = None) -> bytes:
+    return git_helper_sh(_shell_path(keys_json_path(system))).encode("utf-8")
+
+
+def git_helper_value(options: dict[str, Any], system: str | None = None) -> str:
+    """The ``credential.https://<host>.helper`` value that runs rig's helper.
+
+    macOS/Linux: its absolute path (a relative ``bin_dir`` made absolute — git takes a relative value
+    for a helper NAME), so git finds it without ``bin_dir`` on PATH (cron, launchd, an IDE's git).
+    Windows: ``fj`` — git's short name for ``git-credential-fj`` on PATH — because Cygwin git and Git
+    for Windows don't agree on what an absolute path looks like."""
+    if fj_platform(system) == "windows":
+        return "fj"
+    return shlex.quote(os.path.abspath(git_helper_path(options)))
+
+
+def git_credential_key(host: str) -> str:
+    return f"credential.https://{host}.helper"
+
+
+def _git_global(*args: str) -> subprocess.CompletedProcess[str] | None:
     try:
-        words = shlex.split(text, posix=True)
-    except ValueError:  # unbalanced quotes — take the first whitespace word
-        words = text.split()
-    if not words:
-        return False
-    name = re.split(r"[\\/]", words[0])[-1].lower()
-    name = name.removesuffix(".exe").removeprefix("git-credential-")
-    return name in _GCM_HELPER_NAMES
-
-
-def git_uses_gcm() -> bool:
-    """True when git's effective credential helper list includes Git Credential Manager.
-
-    An empty ``credential.helper`` value resets the list (git's rule), so only helpers after the
-    last empty one count."""
-    try:
-        out = subprocess.run(
-            ["git", "config", "--get-all", "credential.helper"],
-            capture_output=True, text=True, timeout=15,
-        ).stdout
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    helpers: list[str] = []
-    for line in out.splitlines():
-        if line.strip():
-            helpers.append(line)
-        else:
-            helpers.clear()
-    return any(is_gcm_helper(h) for h in helpers)
-
-
-def git_config_get(key: str) -> str | None:
-    try:
-        res = subprocess.run(["git", "config", "--global", "--get", key], capture_output=True, text=True, timeout=15)
-    except (OSError, subprocess.TimeoutExpired):
+        return subprocess.run(["git", "config", "--global", *args], capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
         return None
-    return res.stdout.strip() if res.returncode == 0 else None
+
+
+def git_global_values(key: str) -> list[str] | None:
+    """Every value of ``key`` in git's global config, in file order (``[]`` when unset); ``None``
+    when git can't be run."""
+    res = _git_global("--null", "--get-all", key)
+    if res is None or res.returncode not in (0, 1):
+        return None
+    return res.stdout.split("\0")[:-1] if res.returncode == 0 else []
+
+
+def _helper_entries_current(values: list[str], want: str) -> bool:
+    """git asks rig's helper first: the key's values END with an empty one (git drops every helper
+    collected before it — system, global ``credential.helper``, GCM, store) and then rig's."""
+    return values[-2:] == ["", want] and values.count(want) == 1
+
+
+def _foreign_helpers(values: list[str], want: str) -> list[str]:
+    return [v for v in values if v and v != want]
+
+
+def _foreign_helper_detail(key: str, value: str) -> str:
+    return (f"`{key} = {value}` is not rig's — rig's empty reset after it makes git skip it; remove it: "
+            f"git config --global --fixed-value --unset-all {shlex.quote(key)} {shlex.quote(value)}")
+
+
+def _legacy_gcm_keys(host: str) -> list[tuple[str, str]]:
+    keys = [(f"credential.https://{host}.{name}", value) for name, value in _LEGACY_GCM_SETTINGS.items()]
+    return [(key, value) for key, value in keys if git_global_values(key) == [value]]
+
+
+def login_notes(options: dict[str, Any], system: str | None = None) -> list[tuple[str, str]]:
+    """What the user still has to do to log in, as ``(host, note)`` (never drift — only they can):
+    no fj login for the global host yet, or a pasted token (``fj auth add-token``) instead of the
+    browser login. ``fj auth login`` overwrites the host's entry in place (forgejo-cli
+    ``src/auth.rs``)."""
+    notes: list[tuple[str, str]] = []
+    shared = "; git over HTTPS uses the same login" if options["git_credentials"] else ""
+    for host in trusted_hosts(options):
+        kind = fj_login_type(host, system)
+        login = f"fj --host {host} auth login"
+        if kind is None:
+            notes.append((host, f"fj is not logged in to {host} — run `{login}` (browser → Authorize){shared}"))
+        elif kind != "OAuth":
+            notes.append((host, f"fj's login for {host} is a pasted {kind} token, not the browser login — "
+                                f"`{login}` replaces it (browser → Authorize)"))
+    return notes
 
 
 # ── what is out of date (shared by apply and status) ────────────────────────────────────────
@@ -592,6 +746,9 @@ def git_config_get(key: str) -> str | None:
 # pending_changes items that belong to the `fj` COMMAND (real binary + wrappers + PATH), reconciled
 # together by `_apply_fj_command`.
 COMMAND_ITEMS = frozenset({"fj", "fj-wrapper", "fj.cmd", "fj.exe", "fj-path"})
+# pending_changes items of git's use of fj's login, reconciled together by `_apply_git_credentials`
+# (the per-host item is `git-credential:<host>`).
+GIT_ITEMS = frozenset({GIT_HELPER_NAME, "git-credential"})
 
 
 def _command_changes(options: dict[str, Any], system: str | None) -> list[tuple[str, str, Path, str]]:
@@ -642,6 +799,43 @@ def _command_changes(options: dict[str, Any], system: str | None) -> list[tuple[
     return todo
 
 
+def _git_credential_changes(options: dict[str, Any], system: str | None) -> list[tuple[str, str, Path, str]]:
+    """git over HTTPS to the global host uses fj's login: rig's helper in ``bin_dir`` is current,
+    ``credential.https://<host>.helper`` ends with an empty reset + the helper, no helper rig does
+    not own sits in that key, and no Git Credential Manager setting an older rig wrote is left."""
+    todo: list[tuple[str, str, Path, str]] = []
+    path = git_helper_path(options)
+    state = classify_bin_file(path, git_helper_bytes(system), GIT_HELPER_MARKER)
+    if state == "missing":
+        todo.append(("missing", GIT_HELPER_NAME, path, "git can't use fj's login yet (apply writes rig's git credential helper)"))
+    elif state == "stale":
+        todo.append(("modified", GIT_HELPER_NAME, path, "rig's git credential helper is out of date (apply rewrites it)"))
+    elif state != "ok":
+        todo.append(("modified", GIT_HELPER_NAME, path,
+                     f"{path} is not rig's — rig leaves it; move it away so rig's git credential helper can go there"))
+    want = git_helper_value(options, system)
+    for host in trusted_hosts(options):
+        item = f"git-credential:{host}"
+        key = git_credential_key(host)
+        values = git_global_values(key)
+        if values is None:
+            todo.append(("missing", item, GITCONFIG,
+                         f"`git config --global` can't be read (git not on PATH, or the global config "
+                         f"does not parse) — rig sets {key} with it"))
+            continue
+        if not _helper_entries_current(values, want):
+            todo.append(("modified" if want in values else "missing", item, GITCONFIG,
+                         f"git does not use fj's login for https://{host} yet (apply ends {key} with an "
+                         f"empty reset + {want})"))
+        for value in _foreign_helpers(values, want):
+            todo.append(("modified", item, GITCONFIG, _foreign_helper_detail(key, value)))
+        if _legacy_gcm_keys(host):
+            todo.append(("modified", item, GITCONFIG,
+                         f"Git Credential Manager OAuth settings an older rig wrote for https://{host} are "
+                         "still in the global git config (apply removes them)"))
+    return todo
+
+
 def pending_changes(
     options: dict[str, Any], *, windows: bool | None = None, system: str | None = None
 ) -> list[tuple[str, str, Path, str]]:
@@ -671,14 +865,8 @@ def pending_changes(
             todo.append(("missing" if have is None else "modified", FALLBACK_HOST_VAR,
                          Path("HKCU/Environment"), f"{FALLBACK_HOST_VAR}={have or '<unset>'} (want {want})"))
 
-    if options["git_credentials"] and git_uses_gcm():
-        for host in trusted_hosts(options):
-            for key, value in git_credential_settings(host, options["git_client_id"]).items():
-                have = git_config_get(key)
-                if have != value:
-                    todo.append(("missing" if have is None else "modified", f"git-credential:{host}",
-                                 Path("~/.gitconfig"), f"git config --global {key} is not {value}"))
-                    break
+    if options["git_credentials"] and trusted_hosts(options):
+        todo.extend(_git_credential_changes(options, system))
     return todo
 
 
@@ -716,23 +904,10 @@ def apply_changes(
             done.append(f"{FALLBACK_HOST_VAR}={url} (new shells)")
         except FjError as exc:
             errors.append(str(exc))
-    if "git-credential" in items:
-        for host in trusted_hosts(options):
-            wrote = False
-            for key, value in git_credential_settings(host, options["git_client_id"]).items():
-                if git_config_get(key) == value:
-                    continue
-                try:
-                    res = subprocess.run(["git", "config", "--global", key, value], capture_output=True, text=True, timeout=15)
-                except (OSError, subprocess.SubprocessError) as exc:
-                    errors.append(f"git config --global {key} failed: {exc}")
-                    continue
-                if res.returncode != 0:
-                    errors.append(f"git config --global {key} failed: {res.stderr.strip()}")
-                else:
-                    wrote = True
-            if wrote:
-                done.append(f"git login via browser (GCM OAuth) for https://{host}")
+    if items & GIT_ITEMS:
+        git_done, git_errors = _apply_git_credentials(options, system)
+        done.extend(git_done)
+        errors.extend(git_errors)
     return done, errors
 
 
@@ -821,6 +996,66 @@ def _apply_fj_command(options: dict[str, Any], system: str | None = None) -> tup
         errors.append(f"fj: `fj` resolves to {shadow}, not rig's wrapper — put {bin_dir} before "
                       f"{shadow.parent} on PATH")
     return done, errors
+
+
+def _apply_git_credentials(options: dict[str, Any], system: str | None = None) -> tuple[list[str], list[str]]:
+    """Point git at fj's login for the global host, re-checking each step on disk:
+
+    1. write / refresh rig's helper in ``bin_dir`` — never over a file that is not rig's (and then
+       git is not pointed at it either);
+    2. make ``credential.https://<host>.helper`` end with an empty value + rig's helper: rig's own
+       values (the helper, empty resets) are dropped and appended again; any other value is kept
+       where it is and reported — the empty reset after it is what makes git skip it;
+    3. remove the Git Credential Manager OAuth settings an older rig wrote (only rig's exact values).
+    """
+    done: list[str] = []
+    errors: list[str] = []
+    path = git_helper_path(options)
+    desired = git_helper_bytes(system)
+    state = classify_bin_file(path, desired, GIT_HELPER_MARKER)
+    if state in ("missing", "stale"):
+        try:
+            _write_atomic(path, desired)
+        except OSError as exc:
+            return done, [f"fj: could not write {path}: {exc}"]
+        done.append(f"{'wrote' if state == 'missing' else 'refreshed'} rig's git credential helper {path}")
+    elif state != "ok":
+        return done, [f"fj: {path} is not rig's — move it away so rig can put its git credential helper there"]
+
+    want = git_helper_value(options, system)
+    for host in trusted_hosts(options):
+        key = git_credential_key(host)
+        values = git_global_values(key)
+        if values is None:
+            errors.append(f"fj: `git config --global` can't be read (git not on PATH, or the global "
+                          f"config does not parse) — could not set {key}")
+            continue
+        if not _helper_entries_current(values, want):
+            steps = [("--fixed-value", "--unset-all", key, v) for v in dict.fromkeys([want, ""]) if v in values]
+            steps += [("--add", key, ""), ("--add", key, want)]
+            failed = _run_git_steps(steps)
+            if failed:
+                errors.append(failed)
+            else:
+                done.append(f"git over https://{host} uses fj's login (rig's helper ends {key})")
+        errors.extend(f"fj: {_foreign_helper_detail(key, value)}" for value in _foreign_helpers(values, want))
+        legacy = _legacy_gcm_keys(host)
+        failed = _run_git_steps([("--fixed-value", "--unset", k, v) for k, v in legacy])
+        if failed:
+            errors.append(failed)
+        elif legacy:
+            done.append(f"removed the Git Credential Manager OAuth settings an older rig wrote for https://{host}")
+    return done, errors
+
+
+def _run_git_steps(steps: list[tuple[str, ...]]) -> str | None:
+    """Run ``git config --global <step>`` in order; the first failure as an error line, else ``None``."""
+    for step in steps:
+        res = _git_global(*step)
+        if res is None or res.returncode != 0:
+            why = "git is not on PATH" if res is None else res.stderr.strip()
+            return f"fj: git config --global {' '.join(shlex.quote(a) for a in step)} failed: {why}"
+    return None
 
 
 def _write_atomic(path: Path, data: bytes) -> None:

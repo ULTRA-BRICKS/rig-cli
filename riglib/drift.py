@@ -1689,11 +1689,14 @@ def _check_global_excludes(action: Action, report: DriftReport) -> None:
 
 
 def _check_fj(action: Action, report: DriftReport) -> None:
-    """Flag missing Forgejo access via the SAME :func:`fj.pending_changes` apply acts on."""
+    """Flag missing Forgejo access via the SAME :func:`fj.pending_changes` apply acts on; what only
+    the user can do (log in, swap a pasted token for the browser login) is a note, never drift."""
     from . import fj
 
     for direction, item, target, detail in fj.pending_changes(action.options):
         report.items.append(DriftItem(direction, "fj", item, target, detail))
+    for host, note in fj.login_notes(action.options):
+        report.notes.append(DriftNote("fj", host, note))
 
 
 def _check_git_config(action: Action, report: DriftReport) -> None:

@@ -23,7 +23,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -158,18 +157,11 @@ def _forgejo_host_key(origin: str) -> str:
 
 
 def _fj_key_files() -> list[Path]:
-    """Candidate fj 0.6 keys.json locations, native platform first."""
-    home = Path(os.environ.get("HOME") or os.path.expanduser("~"))
-    data_home = Path(os.environ.get("XDG_DATA_HOME") or home / ".local" / "share")
-    mac = home / "Library" / "Application Support" / "forgejo-cli.forgejo-cli" / "keys.json"
-    xdg = data_home / "forgejo-cli" / "keys.json"
-    appdata = os.environ.get("APPDATA")
-    windows = [Path(appdata) / "forgejo-cli" / "forgejo-cli" / "data" / "keys.json"] if appdata else []
-    if sys.platform == "win32":
-        return [*windows, mac, xdg]
-    if sys.platform == "darwin":
-        return [mac, xdg, *windows]
-    return [xdg, mac, *windows]
+    """Candidate fj 0.6 keys.json locations, native platform first (:func:`riglib.fj.keys_json_path`)."""
+    from . import fj
+
+    native = fj.keys_json_path()
+    return list(dict.fromkeys([native, *(fj.keys_json_path(s) for s in ("Linux", "Darwin", "Windows"))]))
 
 
 def _fj_store_authorization(origin: str) -> str | None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import os
 import shutil
 import subprocess
@@ -25,12 +26,15 @@ GIT = shutil.which("git")
 TOOLS_PATH = os.pathsep.join(dict.fromkeys(os.path.dirname(p) for p in (SH, GIT) if p))
 needs_sh = pytest.mark.skipif(SH is None or GIT is None, reason="needs a POSIX sh and git")
 windows_only = pytest.mark.skipif(os.name != "nt", reason="cmd.exe / fj.cmd")
+# The git-helper tests run the sh helper and real git against absolute POSIX paths.
+posix_git = pytest.mark.skipif(os.name == "nt" or SH is None or GIT is None, reason="needs POSIX sh + git")
 
 
 @pytest.fixture
 def sandbox(tmp_path, monkeypatch):
-    """Every path fj touches points into tmp: home, APPDATA, XDG, git's global config — and PATH is
-    an empty dir, so no fj of the machine running the suite is ever seen (or run)."""
+    """Every path fj touches points into tmp: home, APPDATA, XDG, git's global config (no system
+    config) — and PATH holds only git (a lone symlink to it where the OS allows), so no fj of the
+    machine running the suite is ever seen (or run), while rig's `git config --global` is real."""
     home = tmp_path / "home"
     home.mkdir()
     for var in ("HOME", "USERPROFILE"):
@@ -39,12 +43,28 @@ def sandbox(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(home / ".local" / "share"))
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(home / ".gitconfig"))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     empty = tmp_path / "empty-path"
     empty.mkdir()
-    monkeypatch.setenv("PATH", str(empty))
+    monkeypatch.setenv("PATH", os.pathsep.join([str(empty), _git_dir(tmp_path)]))
     monkeypatch.delenv("AGENT_TOOLS_ROOT", raising=False)
     monkeypatch.setattr(fj.shutil, "which", lambda name: None)
     return home
+
+
+def _git_dir(tmp_path: Path) -> str:
+    """A PATH dir with git and nothing else (else git's own dir, e.g. Git for Windows' `cmd`)."""
+    if GIT is None:
+        return str(tmp_path / "no-git")
+    only = tmp_path / "git-only"
+    only.mkdir(exist_ok=True)
+    link = only / os.path.basename(GIT)
+    try:
+        if not link.exists():
+            link.symlink_to(GIT)
+    except OSError:
+        return os.path.dirname(GIT)
+    return str(only)
 
 
 def _opts(**over):
@@ -87,6 +107,7 @@ def test_config_accepts_an_fj_block():
         ({"host": "git.hyperide.ai", "version": "9.9.9"}, "fj.version"),
         ({"host": "git.hyperide.ai", "install": "yes"}, "fj.install"),
         ({"host": "git.hyperide.ai", "typo": 1}, "fj.typo"),
+        ({"host": "git.hyperide.ai", "git_client_id": "gcm-app"}, "fj.git_client_id"),  # GCM path is gone
     ],
 )
 def test_config_rejects_bad_fj_blocks(block, path):
@@ -107,7 +128,6 @@ def test_options_keep_the_machine_default_host_when_a_repo_overrides():
     assert opts["hosts"] == ["other.example", "git.hyperide.ai"]
     assert opts["fallback_host"] == "git.hyperide.ai"
     assert opts["client_id"] == fj.FORGEJO_TEA_CLIENT_ID
-    assert opts["git_client_id"] == fj.FORGEJO_GCM_CLIENT_ID
 
 
 def test_implied_env_vars_posix_only():
@@ -446,25 +466,6 @@ def test_fj_cmd_passes_through_to_fj_exe_and_ships_through_sh(sandbox, tmp_path)
 # ── install layout per OS: migrate, write the wrapper, report what rig can't fix ─────────────
 
 
-def _stub_git(monkeypatch, *, gcm: bool):
-    store: dict[str, str] = {}
-    monkeypatch.setattr(fj, "git_uses_gcm", lambda: gcm)
-    monkeypatch.setattr(fj, "git_config_get", lambda key: store.get(key))
-
-    def fake_run(cmd, **kw):
-        assert cmd[:3] == ["git", "config", "--global"], cmd
-        store[cmd[3]] = cmd[4]
-
-        class R:
-            returncode = 0
-            stderr = ""
-
-        return R()
-
-    monkeypatch.setattr(fj.subprocess, "run", fake_run)
-    return store
-
-
 def _fake_install(calls: list):
     def install(version, *, system=None, fetch=None):
         calls.append(version)
@@ -489,18 +490,26 @@ def _bin(home: Path) -> Path:
 
 
 def _on_path(monkeypatch, *dirs: Path):
-    monkeypatch.setenv("PATH", os.pathsep.join(str(d) for d in dirs))
+    """PATH = ``dirs`` + the sandbox's git-only dir (rig's `git config --global` must still run)."""
+    git_dir = _git_dir(Path(os.environ["HOME"]).parent)
+    monkeypatch.setenv("PATH", os.pathsep.join([*(str(d) for d in dirs), git_dir]))
 
 
+def _helper_values(host: str = "git.example.com") -> list[str]:
+    res = subprocess.run([GIT, "config", "--global", "--null", "--get-all", fj.git_credential_key(host)],
+                         capture_output=True, text=True)
+    return res.stdout.split("\0")[:-1]
+
+
+@needs_sh
 def test_linux_pending_then_apply_then_current(sandbox, monkeypatch):
-    store = _stub_git(monkeypatch, gcm=True)
     calls: list = []
     monkeypatch.setattr(fj, "install_fj", _fake_install(calls))
     _on_path(monkeypatch, _bin(sandbox))
     opts = _opts()
 
     todo = fj.pending_changes(opts, windows=False, system="Linux")
-    assert _items(todo) == {"fj", "fj-wrapper", "client_ids", "git-credential:git.example.com"}
+    assert _items(todo) == {"fj", "fj-wrapper", "client_ids", "git-credential-fj", "git-credential:git.example.com"}
 
     done, errors = fj.apply_changes(opts, todo, system="Linux")
     assert errors == [] and calls == ["0.6.0"]
@@ -510,12 +519,13 @@ def test_linux_pending_then_apply_then_current(sandbox, monkeypatch):
     assert fj.client_ids_path("Linux").read_text(encoding="utf-8") == (
         f"git.example.com {fj.FORGEJO_TEA_CLIENT_ID}  {fj.CLIENT_IDS_MARKER}\n"
     )
-    assert store == fj.git_credential_settings("git.example.com", fj.FORGEJO_GCM_CLIENT_ID)
+    helper = _bin(sandbox) / "git-credential-fj"
+    assert helper.read_bytes() == fj.git_helper_bytes("Linux") and os.access(helper, os.X_OK)
+    assert _helper_values() == ["", str(helper)]
     assert fj.pending_changes(opts, windows=False, system="Linux") == []
 
 
 def test_linux_moves_the_fj_rig_installed_into_bin_dir(sandbox, monkeypatch):
-    _stub_git(monkeypatch, gcm=False)
     monkeypatch.setattr(fj, "install_fj", _no_install)
     old = b"\x7fELF the fj rig used to install into bin_dir"
     monkeypatch.setitem(fj.FJ_BINARY_SHA256, "0.6.0", {"forgejo-cli-x86_64-linux.tar.gz": _sha(old)})
@@ -536,7 +546,6 @@ def test_linux_moves_the_fj_rig_installed_into_bin_dir(sandbox, monkeypatch):
 
 
 def test_a_foreign_fj_in_bin_dir_is_never_touched(sandbox, monkeypatch):
-    _stub_git(monkeypatch, gcm=False)
     monkeypatch.setattr(fj, "install_fj", _fake_install([]))
     (_bin(sandbox)).mkdir(parents=True)
     mine = b"#!/bin/sh\necho my own fj\n"
@@ -554,7 +563,6 @@ def test_a_foreign_fj_in_bin_dir_is_never_touched(sandbox, monkeypatch):
 
 
 def test_a_stale_wrapper_is_rewritten_and_old_versions_leave_the_store(sandbox, monkeypatch):
-    _stub_git(monkeypatch, gcm=False)
     calls: list = []
     monkeypatch.setattr(fj, "install_fj", _fake_install(calls))
     _on_path(monkeypatch, _bin(sandbox))
@@ -576,7 +584,6 @@ def test_a_stale_wrapper_is_rewritten_and_old_versions_leave_the_store(sandbox, 
 
 
 def test_windows_moves_fj_exe_out_of_bin_dir_and_writes_both_wrappers(sandbox, monkeypatch):
-    _stub_git(monkeypatch, gcm=False)
     monkeypatch.setattr(fj, "install_fj", _no_install)
     old = b"MZ the fj.exe rig used to install into bin_dir"
     monkeypatch.setitem(fj.FJ_BINARY_SHA256, "0.6.0", {"forgejo-cli-x86_64-windows.zip": _sha(old)})
@@ -590,14 +597,14 @@ def test_windows_moves_fj_exe_out_of_bin_dir_and_writes_both_wrappers(sandbox, m
     assert {"fj", "fj-wrapper", "fj.cmd", "fj.exe"} <= _items(todo)
     done, errors = fj.apply_changes(opts, todo, system="Windows")
     assert errors == [], errors
-    assert sorted(p.name for p in _bin(sandbox).iterdir()) == ["fj", "fj.cmd"]
+    assert sorted(p.name for p in _bin(sandbox).iterdir()) == ["fj", "fj.cmd", "git-credential-fj"]
+    assert _helper_values() == ["", "fj"]  # git's short name: git-credential-fj on PATH
     assert fj.fj_store_binary("0.6.0", "Windows").read_bytes() == old
     assert (_bin(sandbox) / "fj.cmd").read_bytes() == fj.fj_wrapper_cmd("0.6.0").encode("ascii")
     assert fj.pending_changes(opts, windows=False, system="Windows") == []
 
 
 def test_windows_foreign_fj_exe_beside_the_wrapper_is_reported_not_moved(sandbox, monkeypatch):
-    _stub_git(monkeypatch, gcm=False)
     monkeypatch.setattr(fj, "install_fj", _fake_install([]))
     monkeypatch.setattr(fj.platform, "machine", lambda: "AMD64")
     _bin(sandbox).mkdir(parents=True)
@@ -612,14 +619,13 @@ def test_windows_foreign_fj_exe_beside_the_wrapper_is_reported_not_moved(sandbox
 
 
 def test_macos_keeps_homebrews_fj_and_only_adds_the_wrapper(sandbox, monkeypatch, tmp_path):
-    _stub_git(monkeypatch, gcm=False)
     monkeypatch.setattr(fj, "install_fj", _no_install)
     brew = _fake_fj(tmp_path / "homebrew" / "bin" / "fj", label="BREW")
     _on_path(monkeypatch, _bin(sandbox), brew.parent)
     opts = _opts()
 
     todo = fj.pending_changes(opts, windows=False, system="Darwin")
-    assert _items(todo) == {"fj-wrapper", "client_ids"}
+    assert _items(todo) == {"fj-wrapper", "client_ids", "git-credential-fj", "git-credential:git.example.com"}
     done, errors = fj.apply_changes(opts, todo, system="Darwin")
     assert errors == []
     assert fj.find_real_fj(system="Darwin") == str(brew), "rig's own calls skip the wrapper"
@@ -627,7 +633,6 @@ def test_macos_keeps_homebrews_fj_and_only_adds_the_wrapper(sandbox, monkeypatch
 
 
 def test_macos_without_fj_runs_brew(sandbox, monkeypatch):
-    _stub_git(monkeypatch, gcm=False)
     calls: list = []
     monkeypatch.setattr(fj, "install_fj", lambda v, *, system=None, fetch=None: calls.append(system) or "brew")
     _on_path(monkeypatch, _bin(sandbox))
@@ -639,7 +644,6 @@ def test_macos_without_fj_runs_brew(sandbox, monkeypatch):
 
 
 def test_an_fj_earlier_on_path_than_the_wrapper_is_drift(sandbox, monkeypatch, tmp_path):
-    _stub_git(monkeypatch, gcm=False)
     monkeypatch.setattr(fj, "install_fj", _no_install)
     brew = _fake_fj(tmp_path / "homebrew" / "bin" / "fj", label="BREW")
     _on_path(monkeypatch, brew.parent, _bin(sandbox))
@@ -670,8 +674,7 @@ def test_windows_path_shadow_counts_cmd_and_exe_names(sandbox, monkeypatch, tmp_
 
 
 def test_install_false_leaves_the_fj_command_alone(sandbox, monkeypatch):
-    _stub_git(monkeypatch, gcm=False)
-    items = _items(fj.pending_changes(_opts(install=False), windows=False, system="Linux"))
+    items = _items(fj.pending_changes(_opts(install=False, git_credentials=False), windows=False, system="Linux"))
     assert items == {"client_ids"}
 
 
@@ -688,7 +691,6 @@ def test_find_real_fj_prefers_rigs_copy_and_never_returns_a_wrapper(sandbox, mon
 
 
 def test_windows_sets_the_user_env_var(sandbox, monkeypatch):
-    _stub_git(monkeypatch, gcm=False)
     env: dict[str, str] = {}
     monkeypatch.setattr(fj, "read_windows_user_env", lambda name: env.get(name))
     monkeypatch.setattr(fj, "set_windows_user_env", lambda name, value: env.__setitem__(name, value))
@@ -700,7 +702,6 @@ def test_windows_sets_the_user_env_var(sandbox, monkeypatch):
 
 
 def test_failed_install_does_not_block_the_other_steps(sandbox, monkeypatch):
-    _stub_git(monkeypatch, gcm=False)
     _on_path(monkeypatch, _bin(sandbox))
 
     def boom(v, *, system=None, fetch=None):
@@ -711,52 +712,6 @@ def test_failed_install_does_not_block_the_other_steps(sandbox, monkeypatch):
     assert errors == ["fj: no network"]
     assert fj.client_ids_path("Linux").is_file()
     assert fj.is_rig_wrapper(_bin(sandbox) / "fj")
-
-
-# ── git credential helper detection ────────────────────────────────────────────────────────
-
-
-@pytest.mark.parametrize(
-    "helper,gcm",
-    [
-        ("manager", True),
-        ("manager-core", True),
-        ("git-credential-manager", True),
-        ('"C:/Program Files/Git/mingw64/bin/git-credential-manager.exe"', True),
-        (r'"C:\Program Files\Git\mingw64\bin\git-credential-manager.exe"', True),
-        (r"/mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe", True),  # WSL
-        ("/usr/local/share/gcm-core/git-credential-manager-core", True),
-        ("C:/Git/mingw64/bin/Git-Credential-Manager.EXE", True),
-        ("git-credential-manager.exe --no-ui", True),
-        ("store", False),
-        ("osxkeychain", False),
-        ("cache --timeout=3600", False),
-        ("/usr/lib/git-core/git-credential-libsecret", False),
-        ("!f() { echo password=x; }; f", False),
-        ("", False),
-    ],
-)
-def test_is_gcm_helper(helper, gcm):
-    assert fj.is_gcm_helper(helper) is gcm
-
-
-def test_git_uses_gcm_honours_the_empty_value_reset(monkeypatch):
-    outputs = {"text": ""}
-
-    class R:
-        @property
-        def stdout(self):
-            return outputs["text"]
-
-    monkeypatch.setattr(fj.subprocess, "run", lambda *a, **kw: R())
-    outputs["text"] = "manager\n"
-    assert fj.git_uses_gcm()
-    outputs["text"] = "store\n/mnt/c/Program\\ Files/Git/mingw64/bin/git-credential-manager.exe\n"
-    assert fj.git_uses_gcm()
-    outputs["text"] = "manager\n\nstore\n"  # an empty value clears the list before it
-    assert not fj.git_uses_gcm()
-    outputs["text"] = ""
-    assert not fj.git_uses_gcm()
 
 
 # ── plan / runner / drift wiring ────────────────────────────────────────────────────────────
@@ -808,7 +763,6 @@ def test_runner_dry_run_and_drift_share_the_comparison(sandbox, tmp_path, monkey
     from riglib.drift import DriftReport, _check_fj
     from riglib.plan import InstallPlan, _build_fj
 
-    _stub_git(monkeypatch, gcm=False)
     # the Windows user env already carries the host, so only client_ids is out of date on any OS
     monkeypatch.setattr(fj, "read_windows_user_env", lambda name: "https://git.example.com")
     plan = InstallPlan(actions=[])
@@ -835,7 +789,6 @@ def test_status_and_apply_agree_on_the_fj_command(sandbox, tmp_path, monkeypatch
     from riglib.drift import DriftReport, _check_fj
     from riglib.plan import InstallPlan, _build_fj
 
-    _stub_git(monkeypatch, gcm=False)
     monkeypatch.setattr(fj.platform, "system", lambda: "Linux")
     monkeypatch.setattr(fj, "read_windows_user_env", lambda name: "https://git.example.com")
     monkeypatch.setattr(fj, "install_fj", _fake_install([]))
@@ -901,7 +854,7 @@ def _repo_with(tmp_path, text):
     return repo
 
 
-@pytest.mark.parametrize("key", ["client_id: evil-app", "git_client_id: evil-gcm", "enabled: false",
+@pytest.mark.parametrize("key", ["client_id: evil-app", "enabled: false",
                                  "install: false", "bin_dir: /tmp/evil", "version: 0.6.0",
                                  "git_credentials: false"])
 def test_repo_layer_may_not_set_machine_wide_fj_keys(sandbox, tmp_path, key):
@@ -942,9 +895,8 @@ def test_a_repo_host_never_becomes_the_machine_default(sandbox, tmp_path, monkey
 
 def test_a_repo_host_never_gets_machine_wide_git_credentials(sandbox, monkeypatch):
     """A cloned repo's rig.yaml says `fj: {host: github.com}`: fj may log in there, but rig must not
-    point git's GLOBAL credential settings for github.com (or any host a repo picks) at Forgejo's
-    OAuth app — only the global layer's host gets them."""
-    store = _stub_git(monkeypatch, gcm=True)
+    point git's GLOBAL credential helper for github.com (or any host a repo picks) at fj's login —
+    only the global layer's host gets it."""
     opts = fj.fj_options_from_config({"host": "github.com", "install": False}, fallback_host="git.hyperide.ai")
     todo = fj.pending_changes(opts, windows=False, system="Linux")
     assert "git-credential:github.com" not in _items(todo)
@@ -952,20 +904,293 @@ def test_a_repo_host_never_gets_machine_wide_git_credentials(sandbox, monkeypatc
 
     done, errors = fj.apply_changes(opts, todo, system="Linux")
     assert errors == []
-    assert not [key for key in store if "github.com" in key]
-    assert store["credential.https://git.hyperide.ai.oauthClientId"] == fj.FORGEJO_GCM_CLIENT_ID
+    assert _helper_values("github.com") == []
+    assert _helper_values("git.hyperide.ai") == ["", str(_bin(sandbox) / "git-credential-fj")]
 
-    # no global host at all: nothing machine-wide for the repo's host
+    # no global host at all: nothing machine-wide for the repo's host, not even the helper file
     opts = fj.fj_options_from_config({"host": "github.com", "install": False})
-    assert not [i for i in _items(fj.pending_changes(opts, windows=False, system="Linux")) if i.startswith("git-credential")]
+    assert not [i for i in _items(fj.pending_changes(opts, windows=False, system="Linux")) if "git-credential" in i]
 
 
-def test_git_credential_drift_says_modified_for_a_changed_value(sandbox, monkeypatch):
-    store = _stub_git(monkeypatch, gcm=True)
-    store["credential.https://git.example.com.oauthClientId"] = "someone-else"
-    todo = fj.pending_changes(_opts(install=False), windows=False, system="Linux")
-    [row] = [t for t in todo if t[1] == "git-credential:git.example.com"]
-    assert row[0] == "modified"
+# ── git over HTTPS uses fj's login: rig's git credential helper ────────────────────────────────
+
+
+def _keys_json(hosts: dict) -> None:
+    """keys.json the way fj writes it: serde_json's pretty printer (= json.dumps(indent=2)); OAuth's
+    ``expires_at`` is the `time` crate's tuple form, spread over lines."""
+    path = fj.keys_json_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = {"hosts": hosts, "aliases": {"git.example.com:2222": "git.example.com"}, "default_ssh": []}
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _oauth(token: str) -> dict:
+    return {"type": "OAuth", "token": token, "refresh_token": "refresh-" + token,
+            "expires_at": [2026, 284, 10, 0, 0, 0, 0, 0, 0]}
+
+
+def _refreshing_fj(bin_dir: Path, new_token: str) -> Path:
+    """A stand-in fj next to the helper: logs its argv, then "refreshes" — rewrites keys.json."""
+    keys = fj.keys_json_path()
+    data = json.dumps({"hosts": {"git.example.com": _oauth(new_token)}}, indent=2)
+    path = bin_dir / "fj"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"#!/bin/sh\necho \"$*\" >> '{bin_dir / 'fj.log'}'\ncat > '{keys}' <<'EOF'\n{data}\nEOF\n",
+                    encoding="utf-8")
+    path.chmod(0o755)
+    return path
+
+
+def _pending(opts):
+    """This machine's layout (the helper bakes in the native keys.json path the tests write)."""
+    return fj.pending_changes(opts, windows=False)
+
+
+def _install_helper(home: Path) -> Path:
+    opts = _opts(install=False)
+    done, errors = fj.apply_changes(opts, _pending(opts))
+    assert errors == [], errors
+    return _bin(home) / "git-credential-fj"
+
+
+def _ask(helper: Path, home: Path, request: str, op: str = "get"):
+    env = _env(home, GIT_CONFIG_GLOBAL=str(home / ".gitconfig"), GIT_CONFIG_NOSYSTEM="1")
+    return subprocess.run([SH, str(helper), op], input=request, env=env, capture_output=True, text=True, timeout=30)
+
+
+def test_git_helper_is_marked_and_reads_fjs_own_keys_file(sandbox):
+    text = fj.git_helper_sh("/data dir/forgejo-cli/keys.json")
+    assert fj.GIT_HELPER_MARKER in text.splitlines()[1]
+    assert "keys='/data dir/forgejo-cli/keys.json'" in text
+    assert "\r" not in text
+    assert fj.git_helper_bytes("Linux") == fj.git_helper_sh(str(fj.keys_json_path("Linux"))).encode()
+
+
+def test_keys_json_path_per_os(sandbox):
+    assert fj.keys_json_path("Linux") == sandbox / ".local" / "share" / "forgejo-cli" / "keys.json"
+    assert fj.keys_json_path("Darwin") == (
+        sandbox / "Library" / "Application Support" / "forgejo-cli.forgejo-cli" / "keys.json")
+    assert fj.keys_json_path("Windows").parts[-4:] == ("forgejo-cli", "forgejo-cli", "data", "keys.json")
+
+
+def test_git_helper_value_is_absolute_on_posix_and_gits_short_name_on_windows(sandbox):
+    assert fj.git_helper_value(_opts(), "Linux") == str(_bin(sandbox) / "git-credential-fj")
+    assert fj.git_helper_value(_opts(bin_dir="/opt/my bin"), "Darwin") == "'/opt/my bin/git-credential-fj'"
+    assert fj.git_helper_value(_opts(), "Windows") == "fj"
+
+
+def test_a_relative_bin_dir_still_gives_git_an_absolute_helper_path(sandbox, monkeypatch, tmp_path):
+    """git reads a relative helper value as a helper NAME (`git credential-bin/...`)."""
+    monkeypatch.chdir(tmp_path)
+    assert fj.git_helper_value(_opts(bin_dir="bin"), "Linux") == str(tmp_path / "bin" / "git-credential-fj")
+
+
+@posix_git
+def test_helper_refreshes_through_fj_then_answers_with_the_fresh_token(sandbox):
+    helper = _install_helper(sandbox)
+    _keys_json({"git.example.com": _oauth("stale-token"), "other.example": {"type": "Application", "token": "other"}})
+    _refreshing_fj(_bin(sandbox), "fresh-token")
+    res = _ask(helper, sandbox, "protocol=https\nhost=Git.Example.com\npath=org/repo.git\n\n")
+    assert (res.returncode, res.stdout, res.stderr) == (0, "username=fj\npassword=fresh-token\n", "")
+    assert (_bin(sandbox) / "fj.log").read_text() == "--host git.example.com whoami\n"
+
+
+@posix_git
+def test_helper_hands_out_a_pasted_token_without_calling_fj(sandbox):
+    helper = _install_helper(sandbox)
+    _keys_json({"git.example.com": {"type": "Application", "token": "pasted"}})
+    _refreshing_fj(_bin(sandbox), "never")
+    res = _ask(helper, sandbox, "protocol=https\nhost=git.example.com\n\n")
+    assert res.stdout == "username=fj\npassword=pasted\n"
+    assert not (_bin(sandbox) / "fj.log").exists()
+
+
+@posix_git
+def test_helper_never_hands_out_a_half_decoded_json_escaped_token(sandbox):
+    helper = _install_helper(sandbox)
+    _keys_json({"git.example.com": {"type": "Application", "token": 'quote-"-token'}})
+    res = _ask(helper, sandbox, "protocol=https\nhost=git.example.com\n\n")
+    assert (res.returncode, res.stdout) == (0, "")
+    assert "escaped characters" in res.stderr and "quote" not in res.stderr
+
+
+@posix_git
+def test_helper_without_a_login_says_how_to_log_in_and_stays_silent_on_stdout(sandbox):
+    helper = _install_helper(sandbox)
+    res = _ask(helper, sandbox, "protocol=https\nhost=git.example.com\n\n")
+    assert (res.returncode, res.stdout) == (0, "")
+    assert "run: fj --host git.example.com auth login" in res.stderr
+
+
+@posix_git
+@pytest.mark.parametrize("request_text", [
+    "protocol=https\nhost=evil.example\n\n",  # a host fj has no login for
+    "protocol=http\nhost=git.example.com\n\n",  # never over plain http
+    "protocol=https\nhost=git.example.com\"; x\n\n",  # not a host name
+    "protocol=https\n\n",
+])
+def test_helper_never_hands_a_token_to_another_host_or_plain_http(sandbox, request_text):
+    helper = _install_helper(sandbox)
+    _keys_json({"git.example.com": {"type": "Application", "token": "secret-token"}})
+    res = _ask(helper, sandbox, request_text)
+    assert res.returncode == 0 and "secret-token" not in res.stdout + res.stderr and "password" not in res.stdout
+
+
+@posix_git
+@pytest.mark.parametrize("op", ["store", "erase"])
+def test_helper_store_and_erase_are_no_ops(sandbox, op):
+    helper = _install_helper(sandbox)
+    _keys_json({"git.example.com": {"type": "Application", "token": "keep"}})
+    res = _ask(helper, sandbox, "protocol=https\nhost=git.example.com\nusername=fj\npassword=keep\n\n", op)
+    assert (res.returncode, res.stdout) == (0, "")
+    assert "keep" in fj.keys_json_path().read_text()
+
+
+def _git_fill(home: Path, host: str = "git.example.com"):
+    env = _env(home, GIT_CONFIG_GLOBAL=str(home / ".gitconfig"), GIT_CONFIG_NOSYSTEM="1",
+               GIT_TERMINAL_PROMPT="0", GIT_ASKPASS="", SSH_ASKPASS="")
+    return subprocess.run([GIT, "credential", "fill"], input=f"protocol=https\nhost={host}\n\n", env=env,
+                          cwd=home, capture_output=True, text=True, timeout=30)
+
+
+@posix_git
+def test_git_asks_rigs_helper_before_any_other_helper_with_stale_creds(sandbox):
+    """A global `credential.helper = store` (written BEFORE rig's section) holding a stale password
+    for the host, and one more generic helper AFTER it: real `git credential fill` still returns
+    fj's token — the empty value rig writes first drops every helper git collected before it."""
+    gitconfig = sandbox / ".gitconfig"
+    gitconfig.write_text("[credential]\n\thelper = store\n", encoding="utf-8")
+    (sandbox / ".git-credentials").write_text("https://someone:stale@git.example.com\n", encoding="utf-8")
+    _install_helper(sandbox)
+    with gitconfig.open("a", encoding="utf-8") as fh:
+        fh.write("[credential]\n\thelper = \"!f() { echo password=later; }; f\"\n")
+    _keys_json({"git.example.com": {"type": "Application", "token": "fj-token"}})
+    res = _git_fill(sandbox)
+    assert res.returncode == 0, res.stderr
+    assert "password=fj-token\n" in res.stdout and "username=fj\n" in res.stdout
+
+
+@posix_git
+def test_a_foreign_helper_for_the_host_is_kept_reported_and_overridden(sandbox):
+    key = fj.git_credential_key("git.example.com")
+    subprocess.run([GIT, "config", "--global", key, "!f() { echo username=u; echo password=WRONG; }; f"], check=True)
+    opts = _opts(install=False)
+    todo = _pending(opts)
+    foreign = [d for _, item, _, d in todo if item == "git-credential:git.example.com" and "is not rig's" in d]
+    assert len(foreign) == 1 and "--unset-all" in foreign[0]
+
+    done, errors = fj.apply_changes(opts, todo)
+    assert len(errors) == 1 and "is not rig's" in errors[0]
+    helper = str(_bin(sandbox) / "git-credential-fj")
+    assert _helper_values() == ["!f() { echo username=u; echo password=WRONG; }; f", "", helper]
+    _keys_json({"git.example.com": {"type": "Application", "token": "fj-token"}})
+    assert "password=fj-token\n" in _git_fill(sandbox).stdout
+    # rig's part is current; only the foreign value is left to report
+    assert [d for *_, d in _pending(opts)] == foreign
+
+
+@posix_git
+def test_rigs_entries_move_back_to_the_end_and_apply_is_idempotent(sandbox):
+    helper = str(_bin(sandbox) / "git-credential-fj")
+    key = fj.git_credential_key("git.example.com")
+    _install_helper(sandbox)
+    for value in ("", "cache"):  # someone appended after rig's entries
+        subprocess.run([GIT, "config", "--global", "--add", key, value], check=True)
+    opts = _opts(install=False)
+    todo = _pending(opts)
+    assert ("modified", "git-credential:git.example.com") in {(d, i) for d, i, _, _ in todo}
+
+    fj.apply_changes(opts, todo)
+    assert _helper_values() == ["cache", "", helper]
+    before = (sandbox / ".gitconfig").read_bytes()
+    assert [i for _, i, _, d in _pending(opts) if "is not rig's" not in d] == []
+    assert fj.apply_changes(opts, []) == ([], [])
+    assert (sandbox / ".gitconfig").read_bytes() == before
+
+
+@posix_git
+def test_apply_removes_the_gcm_settings_an_older_rig_wrote(sandbox):
+    section = "credential.https://git.example.com"
+    old = {f"{section}.{name}": value for name, value in fj._LEGACY_GCM_SETTINGS.items()}
+    old[f"{section}.oauthClientId"] = "a-client-id-the-user-chose"  # not rig's value: kept
+    for key, value in old.items():
+        subprocess.run([GIT, "config", "--global", key, value], check=True)
+    opts = _opts(install=False)
+    todo = _pending(opts)
+    assert any("Git Credential Manager" in d for *_, d in todo)
+
+    done, errors = fj.apply_changes(opts, todo)
+    assert errors == [] and any("Git Credential Manager" in d for d in done)
+    left = subprocess.run([GIT, "config", "--global", "--get-regexp", r"^credential\..*\.oauth"],
+                          capture_output=True, text=True).stdout
+    assert left == f"{section}.oauthclientid a-client-id-the-user-chose\n"
+    assert _pending(opts) == []
+
+
+@posix_git
+def test_a_foreign_git_credential_fj_file_is_never_overwritten_nor_wired(sandbox):
+    path = _bin(sandbox) / "git-credential-fj"
+    path.parent.mkdir(parents=True)
+    path.write_text("#!/bin/sh\necho mine\n", encoding="utf-8")
+    opts = _opts(install=False)
+    todo = _pending(opts)
+    assert ("modified", "git-credential-fj") in {(d, i) for d, i, _, _ in todo}
+    done, errors = fj.apply_changes(opts, todo)
+    assert errors and "not rig's" in errors[0]
+    assert path.read_text() == "#!/bin/sh\necho mine\n"
+    assert _helper_values() == []
+
+
+def test_git_credentials_false_leaves_git_alone(sandbox):
+    todo = fj.pending_changes(_opts(install=False, git_credentials=False), windows=False, system="Linux")
+    assert not [i for i in _items(todo) if "git-credential" in i]
+
+
+@pytest.mark.parametrize("hosts,note", [
+    ({"git.example.com": _oauth("t")}, None),
+    ({"git.example.com": {"type": "Application", "token": "t"}}, "is a pasted Application token"),
+    ({"other.example": _oauth("t")}, "fj is not logged in to git.example.com"),
+])
+def test_login_notes_name_the_one_command(sandbox, hosts, note):
+    _keys_json(hosts)
+    notes = fj.login_notes(_opts())
+    if note is None:
+        assert notes == []
+    else:
+        [(host, line)] = notes
+        assert host == "git.example.com"
+        assert note in line and "`fj --host git.example.com auth login`" in line
+
+
+def test_the_not_logged_in_note_mentions_git_only_when_rig_wires_git(sandbox):
+    [(_, wired)] = fj.login_notes(_opts())
+    [(_, unwired)] = fj.login_notes(_opts(git_credentials=False))
+    assert "git over HTTPS uses the same login" in wired
+    assert "git" not in unwired.replace("git.example.com", "")
+
+
+def test_status_shows_login_notes_without_counting_them_as_drift(sandbox, monkeypatch):
+    """In a repo that names its own forge, the note is still about (and labelled with) the GLOBAL
+    host — the only one git is pointed at — not the action's first host."""
+    from riglib.drift import DriftReport, _check_fj
+    from riglib.plan import Action
+
+    _keys_json({"git.example.com": {"type": "Application", "token": "t"}})
+    monkeypatch.setattr(fj, "pending_changes", lambda options: [])
+    opts = fj.fj_options_from_config({"host": "forge.example"}, fallback_host="git.example.com")
+    action = Action(kind="provision_fj", category="fj", item="forge.example",
+                    source=Path("."), target=Path("client_ids"), options=opts)
+    report = DriftReport()
+    _check_fj(action, report)
+    assert report.in_sync
+    [note] = report.notes
+    assert (note.category, note.item) == ("fj", "git.example.com") and "auth login" in note.detail
+
+
+def test_a_removed_git_client_id_says_how_to_fix_the_config():
+    with pytest.raises(ConfigError, match="git_client_id was removed") as exc:
+        validate({"version": 1, "fj": {"host": "git.hyperide.ai", "git_client_id": "gcm-app"}})
+    assert "delete fj.git_client_id" in str(exc.value.fix)
 
 
 def test_without_a_global_host_rig_sets_no_fallback_host(sandbox, tmp_path, monkeypatch):
@@ -977,7 +1202,6 @@ def test_without_a_global_host_rig_sets_no_fallback_host(sandbox, tmp_path, monk
     _build_fj(loaded, plan)
     [action] = plan.actions
     assert action.options["fallback_host"] is None and action.options["hosts"] == ["forge.example"]
-    _stub_git(monkeypatch, gcm=False)
     monkeypatch.setattr(fj, "read_windows_user_env", lambda name: None)
     assert "FJ_FALLBACK_HOST" not in _items(fj.pending_changes(action.options, windows=True))
 

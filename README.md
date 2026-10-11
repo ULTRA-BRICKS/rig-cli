@@ -106,15 +106,17 @@ config once — `rig config set --global fj.host git.hyperide.ai --commit`, or k
 - **turns `fj auth login` into a browser login** — every Forgejo instance ships built-in public OAuth
   apps; rig lists one for the host in fj's `client_ids`, so there is no token to mint and no app for
   an admin to register. fj refreshes the token itself;
-- **does the same for git** — with Git Credential Manager (bundled with Git for Windows) rig adds its
-  OAuth settings for `https://<host>`: the first `git push` opens the browser once;
+- **uses that login for git too** — rig writes its own git credential helper
+  (`~/.local/bin/git-credential-fj`) and makes it the first helper git asks for `https://<host>`:
+  on `git push`/`fetch` it has fj refresh the token and hands it to git — no second login, no token
+  to paste, and no global credential helper (store, GCM) answering first with a stale password;
 - **drops `--host`** — `FJ_FALLBACK_HOST=https://<host>` in every shell (the `env` area on
   macOS/Linux, a user environment variable on Windows). Inside a clone fj still follows its remote.
 
 Then, once per machine:
 
 ```bash
-fj auth login      # browser opens → Authorize
+fj auth login      # browser opens → Authorize — fj AND git over HTTPS are logged in
 ```
 
 A repo whose `rig.yaml` names another instance (`fj: { host: … }`) gets that host set up too when

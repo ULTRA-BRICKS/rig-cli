@@ -2836,9 +2836,8 @@ fj:
   # install: true              # the fj command: real fj (brew / pinned binary) + the `fj ship` wrapper
   # version: "0.6.0"
   # bin_dir: ~/.local/bin      # where the fj wrapper goes (must be on PATH, before any other fj)
-  # git_credentials: true      # Git Credential Manager OAuth for https://<host>
+  # git_credentials: true      # git over HTTPS to <host> uses fj's login (rig's git-credential-fj)
   # client_id: …               # default: Forgejo's built-in `tea` OAuth app
-  # git_client_id: …           # default: Forgejo's built-in Git Credential Manager OAuth app
 ```
 
 | Key | Type | Default | Meaning |
@@ -2848,9 +2847,8 @@ fj:
 | `install` | bool | `true` | manage the `fj` command: the real fj + the wrapper that adds `fj ship`; `false` leaves fj entirely to you (no wrapper, no `fj ship`) |
 | `version` | str | `0.6.0` | release rig downloads (only versions with a pinned sha256) |
 | `bin_dir` | str | `~/.local/bin` | where the `fj` wrapper goes — must be on PATH, ahead of any other `fj` |
-| `git_credentials` | bool | `true` | write GCM generic-OAuth settings for `https://<host>` (the global host only) |
+| `git_credentials` | bool | `true` | git over HTTPS to the global host uses fj's login: rig's helper `<bin_dir>/git-credential-fj` as `credential.https://<host>.helper` (below); `false` leaves git's credential config to you — rig neither writes nor removes anything there |
 | `client_id` | str | Forgejo `tea` app | OAuth client `fj auth login` uses |
-| `git_client_id` | str | Forgejo GCM app | OAuth client GCM uses |
 
 `rig apply` (one `provision_fj` action): sets up the `fj` command (below); lists each host in fj's
 `client_ids` file (`~/.config/forgejo-cli/client_ids`; `%APPDATA%\Cyborus\forgejo-cli\config\client_ids`
@@ -2858,10 +2856,42 @@ on Windows) with the client ID of Forgejo's **built-in public OAuth app** — ev
 (`[oauth2] DEFAULT_APPLICATIONS`), so no admin registers anything; sets `FJ_FALLBACK_HOST=https://<host>`
 (through the `env` area on macOS/Linux — a hand-set `env.vars.FJ_FALLBACK_HOST` wins, and
 `env: {enabled: false}` turns the export off there, so set it in your shell profile yourself —, as a
-user environment variable via `setx` on Windows); and, when git's credential helper is Git Credential
-Manager, writes its `credential.https://<host>.oauth*` settings. Lines rig does not own in
-`client_ids` are kept. `rig status` reports the same steps as drift. `RIG_FJ_DRY_RUN=1` makes apply
-report instead of act.
+user environment variable via `setx` on Windows); and makes git use fj's login (below). Lines rig
+does not own in `client_ids` are kept. `rig status` reports the same steps as drift. `RIG_FJ_DRY_RUN=1`
+makes apply report instead of act.
+
+**git uses fj's login — one `fj auth login` for both.** rig writes its own git credential helper,
+`<bin_dir>/git-credential-fj` (POSIX `sh`, marked `rig-managed git credential helper`; it carries the
+path of fj's `keys.json` — `${XDG_DATA_HOME:-~/.local/share}/forgejo-cli/keys.json` on Linux,
+`~/Library/Application Support/forgejo-cli.forgejo-cli/keys.json` on macOS,
+`%APPDATA%\forgejo-cli\forgejo-cli\data\keys.json` on Windows — and nothing else machine-specific).
+On `git push`/`fetch` to `https://<host>` git asks it; for an OAuth login it first runs
+`fj --host <host> whoami` (fj refreshes an expired token and saves it before any API call), then
+prints `username=fj` + `password=<token>` (Forgejo takes the token as the password whatever the user
+name). A pasted token (`fj auth add-token`) is handed over as is; no login at all → no answer (git
+falls through to its usual error) and `run: fj --host <host> auth login` on stderr; never anything
+for plain `http` or another host. `store`/`erase` do nothing — fj owns the token. In the global git
+config rig makes `credential.https://<host>.helper` **end with an empty value and then the helper**:
+git drops every helper it collected before an empty value, so a global/system `credential.helper`
+(`store`, `cache`, GCM — Git for Windows sets `manager` system-wide) can never answer first with a
+stale password. The value is the helper's absolute path on macOS/Linux (works without `bin_dir` on a
+daemon's PATH) and `fj` — git's short name for `git-credential-fj` on PATH — on Windows, where
+Cygwin git and Git for Windows disagree on absolute path forms. Only the GLOBAL host gets it. rig
+keeps no record of earlier hosts: after changing the global `fj.host`, the old host's entries stay
+(harmless — the helper hands a host only fj's token for that same host); drop them with
+`git config --global --unset-all credential.https://<old host>.helper`.
+
+rig owns only its own values in that key (the helper, empty resets) and re-appends them at the end
+when anything follows them. **A helper rig did not write** (e.g. a hand-made `helper = forgejo`) is
+**kept** — the empty reset after it already makes git skip it — and reported as drift with the
+exact `git config --global --fixed-value --unset-all …` to remove it; apply fails that step until
+you do. A file at `<bin_dir>/git-credential-fj` that is not rig's is never overwritten, and git is
+then not pointed at it. The Git Credential Manager settings older rigs wrote
+(`credential.https://<host>.oauthClientId` / `oauthRedirectUri` / `oauthAuthorizeEndpoint` /
+`oauthTokenEndpoint`) are removed by apply while they still hold rig's exact values. Their config
+key `fj.git_client_id` is gone too: a config still setting it fails to load and says to delete it.
+Needs git **2.30 or newer**: rig removes only its own values with `git config --fixed-value`, which
+older git rejects (apply then fails that step with git's own error).
 
 **`fj ship` — the same command as `gh ship`.** fj has no alias mechanism, so `fj` on PATH is a thin
 rig wrapper, `<bin_dir>/fj` (POSIX `sh`, a constant per fj version — no machine path in it).
@@ -2901,19 +2931,24 @@ reported (`fj-wrapper` / `fj.exe`) and apply fails that step until you move it (
 **Drift** (`rig status`, the same comparison apply acts on): `fj` (real binary missing),
 `fj-wrapper` / `fj.cmd` (missing, stale, a foreign file in the way), `fj.exe` (a `fj.exe` left in
 `bin_dir` on Windows), `fj-path` (an `fj` in a PATH dir **before** `bin_dir` — typically Homebrew's
-on macOS; apply reports it, only your shell profile can fix it). A PATH without `bin_dir` and without
-any other fj (a daemon's minimal PATH) is not reported.
+on macOS; apply reports it, only your shell profile can fix it), `git-credential-fj` (the helper
+missing, stale or a foreign file in the way), `git-credential:<host>` (rig's helper entries missing
+or not last, a helper rig did not write, leftover GCM settings). A PATH without `bin_dir` and
+without any other fj (a daemon's minimal PATH) is not reported. Not drift, but shown next to the
+area (and appended to apply's line): fj is not logged in to the global host yet, or its login there
+is a pasted token — `fj --host <host> auth login` (it replaces the host's entry in place).
 
-Logging in is then the stock commands: `fj auth login` (browser → *Authorize*) and, for git, the first
-`git push` (GCM opens the browser once). A repo `rig.yaml` with its own `fj.host` adds that host to
-fj's `client_ids` on `rig apply` inside the repo (a line you wrote for it yourself is kept); git's
-GCM settings in `~/.gitconfig` are written for the GLOBAL host only, so a cloned repo naming
-`github.com` or a company server cannot repoint git's login for it. `FJ_FALLBACK_HOST` keeps
-pointing at the GLOBAL host (and is not set at all without one). `fj.host` is the only key a repo (or `--config`) layer may set: every other `fj`
-key changes the machine's fj install or the OAuth app fj and git log in with, so the loader rejects
-it outside `~/.config/rig/config.yaml` — a cloned repo cannot redirect your logins. fj refreshes its
-OAuth token itself; Forgejo drops a refresh token unused for `[oauth2] REFRESH_TOKEN_EXPIRATION_TIME`
-(default 730 h) — a machine idle that long runs `fj auth login` again. Headless: `fj auth add-token`.
+Logging in is then one command: `fj auth login` (browser → *Authorize*) — fj and git both use it. A
+repo `rig.yaml` with its own `fj.host` adds that host to fj's `client_ids` on `rig apply` inside the
+repo (a line you wrote for it yourself is kept); git's credential helper in `~/.gitconfig` is set for
+the GLOBAL host only, so a cloned repo naming `github.com` or a company server cannot repoint git's
+login for it. `FJ_FALLBACK_HOST` keeps pointing at the GLOBAL host (and is not set at all without
+one). `fj.host` is the only key a repo (or `--config`) layer may set: every other `fj` key changes
+the machine's fj install, the OAuth app fj logs in with, or the global git config, so the loader
+rejects it outside `~/.config/rig/config.yaml` — a cloned repo cannot redirect your logins. fj
+refreshes its OAuth token itself (and the git helper has it do so); Forgejo drops a refresh token
+unused for `[oauth2] REFRESH_TOKEN_EXPIRATION_TIME` (default 730 h) — a machine idle that long runs
+`fj auth login` again. Headless: `fj auth add-token` (git then uses that token too).
 
 ---
 
