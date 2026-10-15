@@ -3281,11 +3281,13 @@ sysmon:
   census_interval_seconds: 60      # ps census cadence (also run at once on any warn)
   snapshot_interval_seconds: 300   # live omp-session snapshot cadence
   events: true                     # macOS unified-log event stream
+  hysteresis_pct: 5                # a raised finding clears only this % of its warn line past it
   thresholds:                      # any subset; the rest keep their defaults
     wired_pct: { warn: 75, critical: 85 }
     reclaimable_gb: { warn: 2, critical: 1 }      # lower is worse
     data_used_pct: { warn: 90, critical: 95 }     # every disk alert lists reclaimable candidates
-  alert: { min_severity: critical, cooldown_minutes: 30, disk_cooldown_minutes: 360, max_per_hour: 6,
+  alert: { min_severity: critical, cooldown_minutes: 30, disk_cooldown_minutes: 360, swap_cooldown_minutes: 120,
+           max_per_hour: 6,
            resolved: true, dry_run: false,              # tg_bin / tg_ctl_bin: the senders (default PATH)
            route: telegram }                            # telegram | agents (the live omp sessions)
   heal: { enabled: true, notify_agent: true, throttle: true, kill_orphans: false, kill_owned: false,
@@ -3303,7 +3305,9 @@ sysmon:
 | Threshold | warn | critical | Measured from |
 |---|---|---|---|
 | `load_per_cpu` | 1.25 | 2.0 | `getloadavg()` / CPUs |
-| `swap_pct` | 80 | 95 | `vm.swapusage` (macOS grows swap in 1 GB files while disk allows — pair with `disk_free_gb`) |
+| `swap_pct` | 80 | 95 | `vm.swapusage` / Linux `SwapTotal − SwapFree` (macOS grows swap in 1 GB files while disk allows — pair with `disk_free_gb`); a finding only under memory pressure, see below |
+| `swap_gate_psi_full_avg60` | 5 | 20 | Linux PSI `/proc/pressure/memory` `full avg60`: percent of the last minute every non-idle task stalled on memory (macOS: the memorystatus level instead) |
+| `swap_gate_available_pct` (lower is worse) | 20 | 10 | `MemAvailable` (macOS: reclaimable) as a percent of RAM |
 | `wired_pct` | 75 | 85 | `host_statistics64` wired pages / `hw.memsize` |
 | `reclaimable_gb` (lower is worse) | 2 | 1 | free + inactive + speculative + purgeable pages |
 | `free_gb` (lower is worse) | 0.05 | 0.025 | free pages, vm_stat's "Pages free" (`free_count` − speculative; Linux `MemFree`) |
@@ -3327,6 +3331,32 @@ GPU-model processes (whisper, llama.cpp, mlx) is always critical. `gpu.slots` is
 agent-tools#817 GPU-model slot pool; when rig's `env` block exports `RIG_GPU_SLOTS` /
 `RIG_GPU_SLOT_DIR`, the monitor follows them. Watchdogd WindowServer check-in trouble is always
 critical.
+
+**A full swap is an incident only under memory pressure** (rig-cli#685). The kernel leaves the
+cold pages of a long-gone process in swap while RAM is free: on home on 2026-10-11 swap sat at
+90 % with 24 GB available and PSI 0, and on 2026-10-15 20:19–20:27 at 100 % with MemAvailable
+60–64 % and PSI ~0, and each time sysmon kept paging with nothing to act on. So `swap_pct` alone
+raises nothing: the swap finding's severity is the LOWER of `swap_pct`'s level and the pressure
+level, the worse of the two gates — PSI memory `full avg60` against `swap_gate_psi_full_avg60`
+(Linux; on macOS `kern.memorystatus_vm_pressure_level` WARN/CRITICAL stands in) and available
+memory against `swap_gate_available_pct`. A full swap under a 5 % stall or with under 20 % of RAM
+available is a warning; under a 20 % stall or with under 10 % available it is critical. Without
+PSI (an old kernel, a container) the available-memory gate decides alone; with no pressure signal
+at all `swap_pct` decides as before. The alert names the readings (`under memory pressure: PSI
+full avg60 7.5%, available memory 3.0 GB (8%)`).
+
+**A swapoff in progress is no incident either.** Mid-swapoff the kernel reports SwapTotal = what is
+left on the device and SwapFree 0, so swap reads 100 % full while it empties (home, 2026-10-15
+21:28: memguard's hourly `swap-drain` posted "swap 9.0 GB of 9.0 GB used (100%)" with 37.6 GB
+reclaimable). There is no swap finding while SwapTotal is below its size in the recent samples
+(the last 15 minutes), or while `/run/memguard/swap-drain.json` describes a live drain — `state:
+draining`, its `pid` alive, `updated` at most 30 s ago (the rig-cli#693 contract; a stale or
+dead-pid file is ignored, so a crashed drain never hides swap).
+
+**Hysteresis** (rig-cli#699). A finding raised from the previous reading clears only once its
+value is `hysteresis_pct` (default 5) percent of its warn line past that line — swap warn 80
+clears under 76, available memory warn 20 clears over 21 — so a value hugging a line cannot flap
+the finding on and off. `0` turns it off.
 
 **Free pages** have their own line because the reclaimable sum hides the moment the kernel loses
 the race. The defaults are calibrated on a 24 GB Mac with 16 KB pages: the pageout daemon keeps
@@ -3407,7 +3437,10 @@ older tg-ctl without that subcommand, or none on PATH, gets the previous `tg --t
 deduplicated per finding key:
 
 - a key alerts when it first reaches `min_severity`, when it escalates, and otherwise at most once
-  per cooldown;
+  per `cooldown_minutes` (a swap finding: once per `swap_cooldown_minutes`, default 2 hours). The
+  last send per key and level survives the key clearing, so a finding that clears and comes back
+  inside its window is not new — on 2026-10-15 a swap value hugging its line re-paged every 5–20
+  minutes as "new" (rig-cli#699);
 - a disk finding (`data_volume`, `disk`) alerts at most once per `disk_cooldown_minutes` (default
   6 hours) per key and severity level: a full disk stays full until someone cleans up, so it must
   not page every cooldown. The window survives the finding clearing and coming back, so a volume
@@ -3415,7 +3448,8 @@ deduplicated per finding key:
   down, still alerts (with the default `min_severity: critical`, one page per 6 hours);
 - one message per tick carries every due finding;
 - at most `max_per_hour` messages go out per hour;
-- one "resolved" line is sent after a key stays clear for 5 minutes.
+- one "resolved" line is sent after a key stays clear for 5 minutes — except with `route: agents`
+  (below).
 
 The dedup state lives in `state/memory.json`, so a restart never re-sends.
 
@@ -3426,10 +3460,15 @@ mem-sentinel makes with `omp-steer all` (a busy session is steered, an idle one 
 The note is the alert without its HTML, prefixed `[sysmon]`, plus one instruction line for a
 problem alert: every session stops or shrinks its listed processes, the rest hold off on new heavy
 work while the pressure lasts and check it with `rig sysmon sample` (never by waiting for a resolved
-note, which may be held or dropped). A problem alert that NO session took (none live, or every send failed) still posts
-to Telegram as before, so a dangerous state never goes silent; a resolved notice nobody took is
-dropped. The `alerts` log record carries `via: agents`, `delivered` (pids), `failed`, and
-`undelivered` when it fell back. `rig sysmon test-alert` follows the same route.
+note, which may be held or dropped). Only a **critical** alert that NO session took (none live, or
+every send failed) still posts to Telegram, so a dangerous state never goes silent; a warning
+nobody took is dropped (the owner's rule: Telegram only when no agent can handle it). **No resolved
+note is broadcast** (rig-cli#699): it asks nothing of anyone, so sending it would only start a turn
+in every live session — with a value flapping on a line that was every 5–20 minutes, in ~9
+sessions at once. The `alerts` log record carries `via: agents`, `delivered` (pids), `failed`, and
+`undelivered` (why no session took it — for an empty `omp-live status` also which running omp pids
+the tg-ctl omp-live registry still holds endpoints of) whether it was dropped or fell back. `rig
+sysmon test-alert` follows the same route.
 
 **Heal ladder (safe by default).**
 

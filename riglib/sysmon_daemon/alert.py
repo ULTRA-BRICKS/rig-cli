@@ -4,7 +4,10 @@ The monitor must be loud about a dangerous state and quiet otherwise, so :func:`
 pure function over persisted state:
 
 - a finding key alerts when it first reaches ``min_severity`` (default ``critical``), again
-  when its severity ESCALATES, and otherwise at most once per ``cooldown_minutes``;
+  when its severity ESCALATES, and otherwise at most once per ``cooldown_minutes`` (a SWAP
+  finding: ``swap_cooldown_minutes``, default 2 h). The last send per key and level survives the
+  key clearing, so a finding that clears and comes back inside its window is not new
+  (rig-cli#699: swap hugging its line re-paged every 5-20 min as "new");
 - a DISK finding (kind ``disk``: a full data or swap volume stays full for days, until someone
   cleans up) alerts at most once per ``disk_cooldown_minutes`` (default 6 h) per key AND severity
   level. That memory survives the key clearing, so a volume hovering at its threshold cannot
@@ -13,7 +16,10 @@ pure function over persisted state:
 - every due finding of one tick goes into ONE message, and at most ``max_per_hour`` messages
   leave per rolling hour (an escalation to critical is still held to that budget: a storm of
   flapping findings must never become a storm of Telegram messages);
-- a key that was alerted and then clears produces one "resolved" line (batched too).
+- a key that was alerted and then clears produces one "resolved" line (batched too) — never with
+  ``route: agents``: the note asks nothing of anyone, and broadcasting it starts a turn in every
+  live session (rig-cli#699); the problem note already tells agents to check
+  ``rig sysmon sample`` themselves instead of waiting for one.
 
 Delivery is ``tg-ctl alert send --source sysmon`` (tg-cli#636) with an HTML body: tg-ctl posts
 the message to Telegram — resolved notices with ``--tag report``, alerts with ``--tag
@@ -21,8 +27,9 @@ problem`` — naming in a footer every omp session that subscribed to alerts, an
 alert with its Telegram message id into those sessions. An older tg-ctl without that
 subcommand, or none on PATH, falls back to the same ``tg`` argv as before. With ``alert.route:
 agents`` (rig-cli#696) the alert skips Telegram: a plain-text note goes into every live omp
-session through ``tg-ctl omp-live`` (mem-sentinel's broadcast path), and only a problem alert
-that no session took still posts to Telegram. The dedup state lives in ``memory.json`` so a
+session through ``tg-ctl omp-live`` (mem-sentinel's broadcast path), and only a CRITICAL alert
+that no session took still posts to Telegram (a warning nobody took is dropped, its reason
+recorded: Telegram only when no agent can handle it). The dedup state lives in ``memory.json`` so a
 daemon restart never re-sends what already went out.
 """
 
@@ -32,6 +39,7 @@ import errno
 import hashlib
 import html
 import json
+import os
 import re
 import socket
 import subprocess
@@ -42,10 +50,12 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .config import DEFAULTS
 from .model import SEVERITY_CRITICAL, SEVERITY_INFO, SEVERITY_RANK, SEVERITY_WARNING, Finding, Offender
+from .probe import pid_alive
 
 HOUR = 3600.0
 RESOLVE_AFTER_S = 300.0
 DISK_KIND = "disk"
+SWAP_KIND = "swap"
 #: the title prefix of a ``rig sysmon test-alert`` smoke test
 TEST_PREFIX = "TEST — "
 
@@ -60,14 +70,19 @@ def decide(
     # Missing or 0 falls back to the default: a zero window would forget every disk page and
     # re-page each tick (the validator already rejects values under 1).
     disk_cooldown = float(a.get("disk_cooldown_minutes") or DEFAULTS["alert"]["disk_cooldown_minutes"]) * 60.0
+    swap_cooldown = float(a.get("swap_cooldown_minutes") or DEFAULTS["alert"]["swap_cooldown_minutes"]) * 60.0
     keys: Dict[str, Dict[str, Any]] = {k: dict(v) for k, v in (state.get("keys") or {}).items()}
     sent = [t for t in state.get("sent") or [] if now - float(t) < HOUR]
     # key -> {severity: last sent}; entries older than the window are forgotten.
-    disk_sent: Dict[str, Dict[str, float]] = {}
-    for k, levels in (state.get("disk_sent") or {}).items():
-        fresh = {sev: float(t) for sev, t in levels.items() if now - float(t) < disk_cooldown}
-        if fresh:
-            disk_sent[k] = fresh
+    disk_sent = _fresh_levels(state.get("disk_sent"), now, disk_cooldown)
+    # The same for every other key. It outlives the key clearing (keys[] does not), so a finding
+    # that clears and comes back inside its window is no new alert (rig-cli#699). keys[] holds the
+    # last send of every alerted key as well, which seeds a memory.json saved before level_sent.
+    saved = {k: dict(v) for k, v in (state.get("level_sent") or {}).items()}
+    for k, entry in keys.items():
+        if k not in disk_sent and entry.get("severity") in SEVERITY_RANK and entry.get("last_sent") is not None:
+            saved.setdefault(k, {}).setdefault(entry["severity"], float(entry["last_sent"]))
+    level_sent = _fresh_levels(saved, now, max(cooldown, swap_cooldown))
 
     due: List[Finding] = []
     present = set()
@@ -79,9 +94,10 @@ def decide(
             if f.severity not in disk_sent.get(f.key, {}):
                 due.append(f)
             continue
-        prev = keys.get(f.key)
-        escalated = prev is not None and SEVERITY_RANK[f.severity] > SEVERITY_RANK.get(prev.get("severity"), 0)
-        if prev is None or escalated or now - float(prev.get("last_sent") or 0) >= cooldown:
+        # the last send at this level or above: an escalation finds none and alerts at once
+        last = max((t for sev, t in level_sent.get(f.key, {}).items()
+                    if SEVERITY_RANK[sev] >= SEVERITY_RANK[f.severity]), default=None)
+        if last is None or now - last >= (swap_cooldown if f.kind == SWAP_KIND else cooldown):
             due.append(f)
 
     # Hysteresis: a key must stay clear for RESOLVE_AFTER_S before it counts as resolved, so a
@@ -94,7 +110,9 @@ def decide(
         entry.setdefault("clear_since", now)
         if now - float(entry["clear_since"]) >= RESOLVE_AFTER_S:
             gone.append(k)
-    resolved = gone if a.get("resolved", True) else []
+    # A resolved note asks nothing of anyone; with route agents it would only start a turn in
+    # every live session (rig-cli#699).
+    resolved = gone if a.get("resolved", True) and a.get("route") != "agents" else []
     for k in gone:
         del keys[k]
 
@@ -109,10 +127,31 @@ def decide(
     for f in due:
         # A disk key is deduped by disk_sent above; its keys[] entry only feeds the resolve loop.
         keys[f.key] = {"severity": f.severity, "last_sent": now}
-        if f.kind == DISK_KIND:
-            disk_sent.setdefault(f.key, {})[f.severity] = now
+        (disk_sent if f.kind == DISK_KIND else level_sent).setdefault(f.key, {})[f.severity] = now
     sent.extend([now] * ((1 if due else 0) + (1 if resolved else 0)))
-    return due, resolved, {"keys": keys, "sent": sent, "disk_sent": disk_sent}
+    return due, resolved, {"keys": keys, "sent": sent, "disk_sent": disk_sent, "level_sent": level_sent}
+
+
+def refund(state: Dict[str, Any], at: float) -> Dict[str, Any]:
+    """``state`` with the hourly-budget slot :func:`decide` counted at ``at`` given back: that
+    message reached nobody (a warning no agent session took is dropped), so it must not hold back
+    a later critical's Telegram fallback. Its dedup stays — no re-send every tick."""
+    sent = list(state.get("sent") or [])
+    if at in sent:
+        sent.remove(at)
+    return {**state, "sent": sent}
+
+
+def _fresh_levels(
+    saved: Optional[Dict[str, Dict[str, float]]], now: float, window: float,
+) -> Dict[str, Dict[str, float]]:
+    """``key -> {severity: last sent}`` without the sends older than ``window``."""
+    out: Dict[str, Dict[str, float]] = {}
+    for k, levels in (saved or {}).items():
+        fresh = {sev: float(t) for sev, t in levels.items() if now - float(t) < window}
+        if fresh:
+            out[k] = fresh
+    return out
 
 
 def _who(o: Offender) -> str:
@@ -247,9 +286,10 @@ def send(
 
     - ``telegram``: ``tg-ctl alert send`` (Telegram + subscribed agent sessions), else — only for
       a tg-ctl that does not know the subcommand, or none installed — ``tg``;
-    - ``agents``: the note goes into every live omp session (:func:`_to_agents`). A problem alert
+    - ``agents``: the note goes into every live omp session (:func:`_to_agents`). A CRITICAL alert
       that no session took falls back to the ``telegram`` route — a dangerous state must never
-      go silent; a resolved notice nobody took is dropped."""
+      go silent; a warning or resolved notice nobody took is dropped (the owner's rule:
+      Telegram only when no agent can handle it). Either way ``undelivered`` says why."""
     if severity not in SEVERITIES:
         raise ValueError(f"severity must be one of {SEVERITIES}, not {severity!r}")
     a = cfg["alert"]
@@ -271,7 +311,7 @@ def send(
             return record
         # its own key: the Telegram leg may still record a tg-ctl → tg ``fallback_reason``
         record.update(undelivered=f"no live agent session took it: {why or '; '.join(failed)}"[:300])
-        if severity == SEVERITY_INFO:
+        if severity != SEVERITY_CRITICAL:
             record.update(outcome="undelivered")
             return record
     return _to_telegram(title, body, a, severity, key, run, record)
@@ -283,6 +323,25 @@ def send(
 #: send is a tg-ctl process, and the alert usually fires while memory is already short.
 AGENT_SEND_TIMEOUT_S = 20
 AGENT_SEND_WORKERS = 8
+
+
+#: tg-ctl's omp-live registry: ``<pid>-<instanceId>.json`` per endpoint an omp session published
+_REGISTRY_ENTRY = re.compile(r"^(\d+)-[0-9a-f]{32}\.json$")
+
+
+def _registry_note() -> str:
+    """Why an empty ``omp-live status`` may be wrong, for the alert record: which still-running
+    omp pids the registry holds endpoints of (tg-ctl drops one whose status probe fails with
+    anything but a timeout). On 2026-10-15 21:28 it listed nobody while 3 omp sessions ran."""
+    root = os.path.join(os.environ.get("TG_CTL_CONFIG_DIR") or os.path.expanduser("~/.config/tg-cli"), "omp-live")
+    try:
+        names = os.listdir(root)
+    except OSError as exc:
+        return f" (registry {root} unreadable: {exc.strerror})"
+    live = sorted(p for p in {int(m.group(1)) for m in map(_REGISTRY_ENTRY.match, names) if m} if pid_alive(p))
+    if not live:
+        return f" (registry {root} holds no endpoint of a running omp)"
+    return f" (registry {root} holds endpoints of running omp pids {live}: tg-ctl's probe dropped them)"
 
 
 def _to_agents(text: str, tg_ctl: str, run: Runner) -> Tuple[List[int], List[str], str]:
@@ -300,7 +359,7 @@ def _to_agents(text: str, tg_ctl: str, run: Runner) -> Tuple[List[int], List[str
     # a malformed listing must never raise out of the sampling loop: skip what is not a session
     hosts = [h for h in listed if isinstance(h, dict) and _is_pid(h.get("pid"))] if isinstance(listed, list) else []
     if not hosts:
-        return [], [], "omp-live status lists no session"
+        return [], [], "omp-live status lists no session" + _registry_note()
 
     def one(h: Dict[str, Any]) -> Tuple[int, Optional[str]]:
         pid = int(h["pid"])

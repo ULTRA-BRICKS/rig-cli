@@ -13,11 +13,20 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-#: ``{metric: {"warn": x, "critical": y}}``. For ``reclaimable_gb``/``free_gb``/``disk_free_gb``
-#: LOWER is worse; for every other metric HIGHER is worse (see ``detect.LOWER_IS_WORSE``).
+#: ``{metric: {"warn": x, "critical": y}}``. For ``reclaimable_gb``/``free_gb``/``disk_free_gb``/
+#: ``swap_gate_available_pct`` LOWER is worse; for every other metric HIGHER is worse (see
+#: ``detect.LOWER_IS_WORSE``).
 DEFAULT_THRESHOLDS: Dict[str, Dict[str, float]] = {
     "load_per_cpu": {"warn": 1.25, "critical": 2.0},
     "swap_pct": {"warn": 80.0, "critical": 95.0},
+    # A full swap is an incident only under memory pressure (rig-cli#685): cold pages of a process
+    # long gone stay swapped out while RAM is free (home, 2026-10-15 20:19: swap 100%, MemAvailable
+    # 62%, PSI ~0). The swap finding's severity is the LOWER of swap_pct's and the worse of these
+    # two gates: PSI memory "full" avg60 (Linux; the memorystatus level on macOS) — the share of the
+    # last minute every non-idle task stalled on memory — and MemAvailable/reclaimable as a percent
+    # of RAM (lower is worse). Without any pressure signal swap_pct decides alone.
+    "swap_gate_psi_full_avg60": {"warn": 5.0, "critical": 20.0},
+    "swap_gate_available_pct": {"warn": 20.0, "critical": 10.0},
     "wired_pct": {"warn": 75.0, "critical": 85.0},
     "reclaimable_gb": {"warn": 2.0, "critical": 1.0},
     # Free pages (vm_stat "Pages free"), calibrated on the 24 GB / 16 KB-page Mac (2026-09-30).
@@ -75,6 +84,9 @@ DEFAULTS: Dict[str, Any] = {
     "sample_interval_seconds": 10,
     "census_interval_seconds": 60,
     "snapshot_interval_seconds": 300,
+    # a raised finding clears only once its value is this percent of its warn line past it (swap
+    # warn 80 clears under 76), so a value hugging a line cannot flap it (rig-cli#699); 0 = off
+    "hysteresis_pct": 5.0,
     "thresholds": DEFAULT_THRESHOLDS,
     "events": {"enabled": True},
     "alert": {
@@ -83,11 +95,13 @@ DEFAULTS: Dict[str, Any] = {
         "tg_ctl_bin": "tg-ctl",  # the alert sender (tg-cli#636), `tg` the fallback for an older tg-ctl
         "cooldown_minutes": 30,
         "disk_cooldown_minutes": 360,
+        # an unchanged swap incident (same level) re-alerts once per this window (rig-cli#685)
+        "swap_cooldown_minutes": 120,
         "max_per_hour": 6,
         "resolved": True,
         "min_severity": "critical",
         # telegram: tg-ctl alert send (the human chat); agents: every live omp session, Telegram
-        # only when no session took a problem alert (rig-cli#696)
+        # only when no session took a critical alert (rig-cli#696; a warning nobody took is dropped)
         "route": "telegram",
         "dry_run": False,
     },

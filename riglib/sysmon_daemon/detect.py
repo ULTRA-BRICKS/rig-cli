@@ -2,7 +2,8 @@
 
 Four inputs, five detectors, one output shape:
 
-- :func:`sample_findings` — the in-process :class:`~.probe.Sample`: load per CPU, swap, WIRED
+- :func:`sample_findings` — the in-process :class:`~.probe.Sample`: load per CPU, swap (only under
+  memory pressure: PSI, memorystatus or little available RAM — rig-cli#685), WIRED
   share of RAM, reclaimable pages, free pages, compressor use against its page limit, free disk
   on the swap volume, how full the data volume is, process-table use and process-count growth,
   and the kernel's own memorystatus level. Wired memory and reclaimable pages are here because
@@ -30,7 +31,7 @@ from __future__ import annotations
 
 import os
 from collections import Counter, defaultdict
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import AbstractSet, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .model import (
     SEVERITY_CRITICAL,
@@ -45,7 +46,10 @@ from .model import (
 from .probe import GIB, Sample
 
 #: Metrics where a LOWER value is worse.
-LOWER_IS_WORSE = frozenset({"reclaimable_gb", "free_gb", "disk_free_gb"})
+LOWER_IS_WORSE = frozenset({"reclaimable_gb", "free_gb", "disk_free_gb", "swap_gate_available_pct"})
+
+#: ``kern.memorystatus_vm_pressure_level`` as a severity: macOS's stand-in for PSI in the swap gate.
+MEMORYSTATUS_SEVERITY = {2: SEVERITY_WARNING, 4: SEVERITY_CRITICAL}
 
 #: Free pages must stay under a line for this many consecutive samples (20 s at the default
 #: 10-s cadence). Normal load dips for a moment: 10 minutes of 50-ms reads on the 16 KB-page Mac
@@ -64,20 +68,29 @@ TASKPORT_TOOLS = frozenset({
 })
 
 
-def level(metric: str, value: Optional[float], thresholds: Dict[str, Dict[str, float]]) -> str:
-    """Severity of ``value`` for ``metric`` (``ok`` when the value or its thresholds are absent)."""
+def level(
+    metric: str, value: Optional[float], thresholds: Dict[str, Dict[str, float]], *,
+    held: bool = False, hysteresis_pct: float = 0.0,
+) -> str:
+    """Severity of ``value`` for ``metric`` (``ok`` when the value or its thresholds are absent).
+
+    ``held``: the finding is raised from the previous reading, so it stays at warning until the
+    value is ``hysteresis_pct`` percent of the warn line past that line — a value hugging the
+    line cannot flap the finding (rig-cli#699). Critical has no hysteresis: de-escalating is
+    silent anyway (``alert.decide`` never pages a lower level inside its cooldown)."""
     t = thresholds.get(metric)
     if value is None or not t:
         return SEVERITY_OK
+    margin = abs(t["warn"]) * hysteresis_pct / 100.0 if held else 0.0
     if metric in LOWER_IS_WORSE:
         if value <= t["critical"]:
             return SEVERITY_CRITICAL
-        if value <= t["warn"]:
+        if value <= t["warn"] + margin:
             return SEVERITY_WARNING
         return SEVERITY_OK
     if value >= t["critical"]:
         return SEVERITY_CRITICAL
-    if value >= t["warn"]:
+    if value >= t["warn"] - margin:
         return SEVERITY_WARNING
     return SEVERITY_OK
 
@@ -101,6 +114,53 @@ def _worse(a: str, b: str) -> str:
     return a if SEVERITY_RANK[a] >= SEVERITY_RANK[b] else b
 
 
+def _milder(a: str, b: str) -> str:
+    return a if SEVERITY_RANK[a] <= SEVERITY_RANK[b] else b
+
+
+def swap_pressure(
+    s: Sample, thresholds: Dict[str, Dict[str, float]], *, held: bool = False, hysteresis_pct: float = 0.0,
+) -> Optional[Tuple[str, List[str], Dict[str, Any]]]:
+    """``(severity, what was read, metrics)`` of the memory pressure behind a full swap
+    (rig-cli#685): the worse of PSI memory ``full avg60`` (Linux; macOS: the memorystatus level)
+    and the share of RAM still available. ``None`` when the platform gives none of these signals."""
+    levels: List[str] = []
+    said: List[str] = []
+    metrics: Dict[str, Any] = {}
+    if s.psi_full_avg60 is not None:
+        levels.append(level("swap_gate_psi_full_avg60", s.psi_full_avg60, thresholds,
+                            held=held, hysteresis_pct=hysteresis_pct))
+        said.append(f"PSI full avg60 {s.psi_full_avg60:.1f}%")
+        metrics["swap_gate_psi_full_avg60"] = s.psi_full_avg60
+    elif s.pressure_level is not None:
+        levels.append(MEMORYSTATUS_SEVERITY.get(s.pressure_level, SEVERITY_OK))
+        said.append(f"memorystatus level {s.pressure_level}")
+        metrics["pressure_level"] = s.pressure_level
+    avail = s.available_pct
+    if avail is not None:
+        levels.append(level("swap_gate_available_pct", avail, thresholds, held=held, hysteresis_pct=hysteresis_pct))
+        said.append(f"available memory {_fmt_gb(s.reclaimable)} ({avail:.0f}%)")
+        metrics["swap_gate_available_pct"] = round(avail, 2)
+    if not levels:
+        return None
+    return max(levels, key=SEVERITY_RANK.__getitem__), said, metrics
+
+
+#: SwapTotal below its size within this window means a swapoff is running; a swap that shrank
+#: for good (a device removed) is judged again once the window has passed
+SWAP_SHRINK_WINDOW_S = 900.0
+
+
+def swap_draining(s: Sample, history: Sequence[Sample]) -> bool:
+    """A swapoff is moving swap back into RAM: memguard's drain says so, or SwapTotal is below
+    its size within the last :data:`SWAP_SHRINK_WINDOW_S`. Mid-swapoff the kernel reports SwapTotal
+    = what is left on the device and SwapFree 0, so swap reads 100 % full while it empties (home,
+    2026-10-15 21:28, swap-drain: "9.0 GB of 9.0 GB used (100%)" with 37.6 GB reclaimable) — no
+    incident (rig-cli#685)."""
+    recent = (x.swap_total for x in history if s.taken_at - x.taken_at <= SWAP_SHRINK_WINDOW_S)
+    return s.swap_draining or s.swap_total < max(recent, default=0)
+
+
 def _pct(n: int, limit: Optional[int]) -> Optional[float]:
     """``n`` as a percent of the process-table limit (``None`` when the limit is unknown)."""
     return 100.0 * n / limit if limit else None
@@ -111,14 +171,16 @@ def _fmt_mb(v: Optional[int]) -> str:
 
 
 def sample_findings(
-    s: Sample, thresholds: Dict[str, Dict[str, float]], history: Sequence[Sample] = ()
+    s: Sample, thresholds: Dict[str, Dict[str, float]], history: Sequence[Sample] = (), *,
+    held: AbstractSet[str] = frozenset(), hysteresis_pct: float = 0.0,
 ) -> List[Finding]:
     """Findings from one in-process sample. ``history`` is older samples (oldest first), used
-    for the process-growth rate."""
+    for the process-growth rate. ``held`` names the findings raised from the previous reading:
+    they clear only past ``hysteresis_pct`` (see :func:`level`)."""
     out: List[Finding] = []
 
     def add(key: str, kind: str, metric: str, value: Optional[float], summary: str, **metrics) -> None:
-        sev = level(metric, value, thresholds)
+        sev = level(metric, value, thresholds, held=key in held, hysteresis_pct=hysteresis_pct)
         if sev != SEVERITY_OK:
             metrics[metric] = None if value is None else round(value, 2)
             out.append(Finding(key=key, kind=kind, severity=sev, summary=summary, metrics=metrics))
@@ -135,14 +197,28 @@ def sample_findings(
         free_gb=_gb(s.free))
     # A momentary dip to the reserve is normal load; judge the best of the last few readings.
     recent = [x.free for x in (*history[-(FREE_SUSTAIN_SAMPLES - 1):], s) if x.free is not None]
-    held = f"; at most {_fmt_mb(max(recent))} over the last {len(recent)} samples" if len(recent) > 1 else ""
-    pages = f" ({s.free_pages:,} pages{held})" if s.free_pages is not None else ""
+    best = f"; at most {_fmt_mb(max(recent))} over the last {len(recent)} samples" if len(recent) > 1 else ""
+    pages = f" ({s.free_pages:,} pages{best})" if s.free_pages is not None else ""
     add("free", "memory", "free_gb", _gb(max(recent)) if recent else None,
         f"free memory down to {_fmt_mb(s.free)}{pages} — the pageout daemon is not keeping the "
         f"free-page pool filled", free_pages=s.free_pages)
-    add("swap", "swap", "swap_pct", s.swap_pct,
-        f"swap {_fmt_gb(s.swap_used)} of {_fmt_gb(s.swap_total)} used ({(s.swap_pct or 0):.0f}%)",
-        swap_used_gb=_gb(s.swap_used), swap_total_gb=_gb(s.swap_total))
+    swap_held = "swap" in held
+    swap_sev = level("swap_pct", s.swap_pct, thresholds, held=swap_held, hysteresis_pct=hysteresis_pct)
+    swap_summary = f"swap {_fmt_gb(s.swap_used)} of {_fmt_gb(s.swap_total)} used ({(s.swap_pct or 0):.0f}%)"
+    swap_metrics = {"swap_pct": None if s.swap_pct is None else round(s.swap_pct, 2),
+                    "swap_used_gb": _gb(s.swap_used), "swap_total_gb": _gb(s.swap_total)}
+    pressure = (swap_pressure(s, thresholds, held=swap_held, hysteresis_pct=hysteresis_pct)
+                if swap_sev != SEVERITY_OK else None)
+    if pressure is not None:
+        # cold pages of a long-gone process fill swap while RAM is free: no pressure, no finding
+        gate, said, gate_metrics = pressure
+        swap_sev = _milder(swap_sev, gate)
+        swap_summary += " under memory pressure: " + ", ".join(said)
+        swap_metrics.update(gate_metrics)
+    if swap_sev != SEVERITY_OK and swap_draining(s, history):
+        swap_sev = SEVERITY_OK
+    if swap_sev != SEVERITY_OK:
+        out.append(Finding(key="swap", kind="swap", severity=swap_sev, summary=swap_summary, metrics=swap_metrics))
     add("compressor", "memory", "compressor_pct", s.compressor_pct,
         f"memory compressor at {(s.compressor_pct or 0):.0f}% of its page limit",
         compressor_pages=s.compressor_pages, compressor_limit_pages=s.compressor_limit_pages)
@@ -164,7 +240,8 @@ def sample_findings(
         ))
     growth = proc_growth_per_min(s, history)
     if growth is not None:
-        sev = level("proc_growth_per_min", growth, thresholds)
+        sev = level("proc_growth_per_min", growth, thresholds, held="proc_growth" in held,
+                    hysteresis_pct=hysteresis_pct)
         if sev != SEVERITY_OK:
             out.append(Finding(
                 key="proc_growth", kind="procs", severity=sev,

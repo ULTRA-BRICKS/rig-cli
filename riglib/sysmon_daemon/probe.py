@@ -21,6 +21,8 @@ import ctypes
 import errno
 import fcntl
 import functools
+import json
+import math
 import os
 import re
 import struct
@@ -68,6 +70,15 @@ class Sample:
     data_volume: Optional[str] = None  # where user data lives: /System/Volumes/Data (macOS), / (Linux)
     data_used: Optional[int] = None  # bytes used on it (df "Used")
     data_free: Optional[int] = None  # bytes available to unprivileged users (df "Available")
+    # Linux PSI /proc/pressure/memory: percent of wall time some / all non-idle tasks stalled on
+    # memory over the last 10 s / 60 s (None on macOS, an old kernel, or a container without it)
+    psi_some_avg10: Optional[float] = None
+    psi_some_avg60: Optional[float] = None
+    psi_full_avg10: Optional[float] = None
+    psi_full_avg60: Optional[float] = None
+    # memguard's swap-drain is moving swap back into RAM (swapoff): mid-swapoff the kernel reports
+    # SwapFree 0 and SwapTotal = what is left on the device, a 100 % that is no incident
+    swap_draining: bool = False
 
     @property
     def load_per_cpu(self) -> float:
@@ -104,6 +115,13 @@ class Sample:
         return self.free // self.page_size
 
     @property
+    def available_pct(self) -> Optional[float]:
+        """``reclaimable`` (MemAvailable on Linux) as a percent of RAM."""
+        if self.reclaimable is None or not self.mem_total:
+            return None
+        return 100.0 * self.reclaimable / self.mem_total
+
+    @property
     def data_used_pct(self) -> Optional[float]:
         """df's Capacity: Used / (Used + Available). The APFS volumes of one container share its
         free space, so Used / Size would under-read (88.6% where df said 96% on 2026-09-30)."""
@@ -114,7 +132,7 @@ class Sample:
     def as_dict(self) -> Dict[str, object]:
         out: Dict[str, object] = {k: getattr(self, k) for k in self.__dataclass_fields__}
         for derived in ("load_per_cpu", "wired_pct", "swap_pct", "compressor_pct", "procs_pct",
-                        "free_pages", "data_used_pct"):
+                        "free_pages", "data_used_pct", "available_pct"):
             out[derived] = getattr(self, derived)
         return out
 
@@ -320,11 +338,76 @@ def _meminfo(text: str) -> Dict[str, int]:
     return out
 
 
+_PSI_LINE = re.compile(r"^(some|full)\s+avg10=([\d.]+)\s+avg60=([\d.]+)", re.M)
+
+
+def memory_psi(text: Optional[str]) -> Dict[str, Optional[float]]:
+    """``/proc/pressure/memory`` → the ``Sample.psi_*`` fields; ``None`` for a line it lacks
+    (no PSI is unknown pressure, never zero pressure)."""
+    out: Dict[str, Optional[float]] = {f"psi_{kind}_avg{w}": None for kind in ("some", "full") for w in (10, 60)}
+    for kind, avg10, avg60 in _PSI_LINE.findall(text or ""):
+        out[f"psi_{kind}_avg10"] = float(avg10)
+        out[f"psi_{kind}_avg60"] = float(avg60)
+    return out
+
+
+#: memguard's swap-drain state (producer: ubuntu-tweaks /usr/local/sbin/swap-drain; contract rig-cli#693)
+SWAP_DRAIN_FILE = "/run/memguard/swap-drain.json"
+#: the drain refreshes ``updated`` about every second; an older file is a crashed drain
+SWAP_DRAIN_FRESH_S = 30.0
+#: ``updated`` may run this far ahead of the sample time (written between the clock read and the file read)
+SWAP_DRAIN_SKEW_S = 5.0
+
+
+def pid_alive(pid: int) -> bool:
+    """``kill(pid, 0)``: the process exists (another user's process counts). A pid no process can
+    have (zero, negative, past the C int range) is never alive."""
+    if not 0 < pid < 1 << 31:
+        return False
+    try:
+        os.kill(pid, 0)
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def swap_drain_live(text: Optional[str], now: float, alive: Callable[[int], bool] = pid_alive) -> bool:
+    """Whether ``swap-drain.json`` describes a drain running now (rig-cli#693): ``state``
+    ``draining``, its ``pid`` alive and ``updated`` at most :data:`SWAP_DRAIN_FRESH_S` old. A
+    missing, unreadable, stale or dead-pid file is no drain, so a crashed drain never hides swap."""
+    try:
+        d = json.loads(text) if text else None
+    except ValueError:
+        return False
+    if not isinstance(d, dict) or d.get("state") != "draining":
+        return False
+    pid, updated = d.get("pid"), d.get("updated")
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return False
+    # NaN/Infinity parse as floats, a 1e400-sized int does not convert, and a future stamp never
+    # ages: none of them is a fresh drain
+    if not isinstance(updated, (int, float)) or isinstance(updated, bool):
+        return False
+    try:
+        updated = float(updated)
+    except OverflowError:
+        return False
+    if not math.isfinite(updated):
+        return False
+    if not -SWAP_DRAIN_SKEW_S <= now - updated <= SWAP_DRAIN_FRESH_S:
+        return False
+    return alive(pid)
+
+
 def _read(path: str) -> Optional[str]:
+    """A text file, ``None`` when it is missing or unreadable — including bytes that are not
+    UTF-8 (a corrupt swap-drain.json must not stop the monitor)."""
     try:
         with open(path, encoding="utf-8") as fh:
             return fh.read()
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return None
 
 
@@ -369,6 +452,8 @@ def _linux_sample(now: float) -> Sample:
         data_volume="/",
         data_used=data_used,
         data_free=data_free,
+        **memory_psi(_read("/proc/pressure/memory")),
+        swap_draining=swap_drain_live(_read(SWAP_DRAIN_FILE), now),
     )
 
 

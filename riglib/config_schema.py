@@ -1557,18 +1557,26 @@ _SYSMON_BLOCK = Block(
         "census_interval_seconds": Leaf("integer", "seconds between ps censuses", default=60, minimum=5),
         "snapshot_interval_seconds": Leaf("integer", "seconds between live-session snapshots", default=300,
                                           minimum=30),
+        "hysteresis_pct": Leaf("number", "a raised finding clears only once its value is this percent of its warn "
+                               "line past it (swap warn 80 clears under 76); 0 turns it off", default=5.0,
+                               minimum=0, maximum=50),
         "events": Leaf("boolean", "stream WindowServer/watchdogd/authd log events (macOS)", default=True),
         "auto_remediate": Leaf("boolean", "launch a detached coding-agent session on a critical incident",
                                default=False),
     },
     nested={
         "thresholds": Block(
-            doc="warn/critical lines per metric (reclaimable_gb, free_gb and disk_free_gb: lower is worse)",
+            doc="warn/critical lines per metric (reclaimable_gb, free_gb, disk_free_gb and "
+                "swap_gate_available_pct: lower is worse)",
             nested={
                 name: _sysmon_threshold(doc)
                 for name, doc in (
                     ("load_per_cpu", "1-minute load average per CPU"),
-                    ("swap_pct", "swap used, percent"),
+                    ("swap_pct", "swap used, percent; a finding only under memory pressure (the swap_gate_* "
+                                 "lines), its severity the lower of the two"),
+                    ("swap_gate_psi_full_avg60", "swap gate: Linux PSI memory 'full' avg60, percent of the "
+                                                 "last minute every task stalled on memory (macOS: memorystatus)"),
+                    ("swap_gate_available_pct", "swap gate: MemAvailable (macOS reclaimable), percent of RAM"),
                     ("wired_pct", "wired memory, percent of RAM"),
                     ("reclaimable_gb", "free+inactive+speculative+purgeable GB"),
                     ("free_gb", "free memory pages GB (vm_stat 'Pages free'; Linux MemFree)"),
@@ -1597,14 +1605,17 @@ _SYSMON_BLOCK = Block(
                 "min_severity": Leaf("string", "lowest severity that alerts", enum=("warning", "critical"),
                                      default="critical"),
                 "route": Leaf("string", "where alerts go: `telegram` (tg-ctl alert send) or `agents` (every live "
-                              "omp session; Telegram only when no session took a problem alert)",
+                              "omp session; Telegram only when no session took a critical alert)",
                               enum=("telegram", "agents"), default="telegram"),
                 "cooldown_minutes": Leaf("integer", "re-alert an unchanged finding after this long", default=30,
                                          minimum=1),
                 "disk_cooldown_minutes": Leaf("integer", "re-alert a disk finding at the same level after this long",
                                               default=360, minimum=1),
+                "swap_cooldown_minutes": Leaf("integer", "re-alert an unchanged swap finding after this long",
+                                              default=120, minimum=1),
                 "max_per_hour": Leaf("integer", "messages per rolling hour", default=6, minimum=1),
-                "resolved": Leaf("boolean", "send one line when an alerted finding clears", default=True),
+                "resolved": Leaf("boolean", "send one line when an alerted finding clears (never with route "
+                                 "`agents`: it would start a turn in every session for nothing)", default=True),
                 "dry_run": Leaf("boolean", "record alerts without sending", default=False),
                 "tg_ctl_bin": Leaf("string", "the alert sender: `tg-ctl alert send` (tg-cli#636)", default="tg-ctl"),
                 "tg_bin": Leaf("string", "the `tg` fallback sender for a tg-ctl without `alert`", default="tg"),

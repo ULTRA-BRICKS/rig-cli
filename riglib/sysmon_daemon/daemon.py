@@ -77,7 +77,9 @@ class Monitor:
         self.which = which
         self.lineage = attrib.Lineage(start_time_of)
         self.memory: Dict[str, Any] = store.read_json(self.state_dir / store.MEMORY, {}) or {}
-        self.history: Deque[probe.Sample] = deque(maxlen=90)
+        # at least the swap-shrink window at any sample interval (a swapoff is a shrink within it)
+        interval = max(1, int(cfg.get("sample_interval_seconds") or 1))
+        self.history: Deque[probe.Sample] = deque(maxlen=max(90, int(detect.SWAP_SHRINK_WINDOW_S) // interval + 1))
         self.window = events.EventWindow()
         self.sample: Optional[probe.Sample] = None
         self.procs: Optional[List[Proc]] = None
@@ -215,7 +217,7 @@ class Monitor:
     def tick(self, now: float) -> List[Finding]:
         """One sampling round: sample, census when due, evaluate."""
         s = self.sampler(now)
-        found = detect.sample_findings(s, self.cfg["thresholds"], list(self.history))
+        found = self.sample_findings(s, list(self.history))
         self.history.append(s)
         self.sample = s
         ev = detect.event_findings(self.window.recent(now), self.cfg["thresholds"], now)
@@ -239,8 +241,14 @@ class Monitor:
             return
         if now - self.census_at >= EVENT_CENSUS_MIN_GAP_S:
             self.take_census(now)
-        found = detect.sample_findings(self.sample, self.cfg["thresholds"], list(self.history)[:-1])
+        found = self.sample_findings(self.sample, list(self.history)[:-1])
         self.evaluate(self.with_context(found + self.census_findings() + ev), now)
+
+    def sample_findings(self, s: probe.Sample, history: List[probe.Sample]) -> List[Finding]:
+        """:func:`.detect.sample_findings` with the findings raised from the previous reading
+        held until they clear past ``hysteresis_pct`` (rig-cli#699)."""
+        return detect.sample_findings(s, self.cfg["thresholds"], history, held={f.key for f in self.findings},
+                                      hysteresis_pct=float(self.cfg.get("hysteresis_pct") or 0))
 
     # ── the one evaluation path ───────────────────────────────────────────────────────────
     def evaluate(self, findings: List[Finding], now: float, *, kind: str = "live") -> None:
@@ -264,6 +272,8 @@ class Monitor:
             rec = alert.send(title, body, self.cfg, severity=alert.worst_severity(due),
                              key=alert.batch_key([f.key for f in due]), run=self.run_cmd)
             self._log("alerts", rec)
+            if rec.get("outcome") == "undelivered":
+                self.memory["alert"] = alert.refund(self.memory["alert"], now)
         if resolved:
             title, body = alert.render_resolved(resolved)
             self._log("alerts", alert.send(title, body, self.cfg, severity=alert.SEVERITY_INFO,

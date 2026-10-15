@@ -201,7 +201,8 @@ def runtime_config(block: Dict[str, Any], *, config_dir: Path, gpu_env: Dict[str
     from .sysmon_daemon.config import DEFAULTS
 
     rt = _merge(DEFAULTS, {})
-    for key in ("sample_interval_seconds", "census_interval_seconds", "snapshot_interval_seconds", "auto_remediate"):
+    for key in ("sample_interval_seconds", "census_interval_seconds", "snapshot_interval_seconds", "auto_remediate",
+                "hysteresis_pct"):
         if key in block:
             rt[key] = block[key]
     if "events" in block:

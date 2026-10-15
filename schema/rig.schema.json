@@ -1894,6 +1894,13 @@
           "default": 300,
           "minimum": 30
         },
+        "hysteresis_pct": {
+          "type": "number",
+          "description": "a raised finding clears only once its value is this percent of its warn line past it (swap warn 80 clears under 76); 0 turns it off",
+          "default": 5.0,
+          "minimum": 0,
+          "maximum": 50
+        },
         "events": {
           "type": "boolean",
           "description": "stream WindowServer/watchdogd/authd log events (macOS)",
@@ -1906,7 +1913,7 @@
         },
         "thresholds": {
           "type": "object",
-          "description": "warn/critical lines per metric (reclaimable_gb, free_gb and disk_free_gb: lower is worse)",
+          "description": "warn/critical lines per metric (reclaimable_gb, free_gb, disk_free_gb and swap_gate_available_pct: lower is worse)",
           "properties": {
             "load_per_cpu": {
               "type": "object",
@@ -1925,7 +1932,37 @@
             },
             "swap_pct": {
               "type": "object",
-              "description": "swap used, percent",
+              "description": "swap used, percent; a finding only under memory pressure (the swap_gate_* lines), its severity the lower of the two",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "swap_gate_psi_full_avg60": {
+              "type": "object",
+              "description": "swap gate: Linux PSI memory 'full' avg60, percent of the last minute every task stalled on memory (macOS: memorystatus)",
+              "properties": {
+                "warn": {
+                  "type": "number",
+                  "description": "warning line"
+                },
+                "critical": {
+                  "type": "number",
+                  "description": "critical line"
+                }
+              },
+              "additionalProperties": false
+            },
+            "swap_gate_available_pct": {
+              "type": "object",
+              "description": "swap gate: MemAvailable (macOS reclaimable), percent of RAM",
               "properties": {
                 "warn": {
                   "type": "number",
@@ -2216,7 +2253,7 @@
             },
             "route": {
               "type": "string",
-              "description": "where alerts go: `telegram` (tg-ctl alert send) or `agents` (every live omp session; Telegram only when no session took a problem alert)",
+              "description": "where alerts go: `telegram` (tg-ctl alert send) or `agents` (every live omp session; Telegram only when no session took a critical alert)",
               "enum": [
                 "telegram",
                 "agents"
@@ -2235,6 +2272,12 @@
               "default": 360,
               "minimum": 1
             },
+            "swap_cooldown_minutes": {
+              "type": "integer",
+              "description": "re-alert an unchanged swap finding after this long",
+              "default": 120,
+              "minimum": 1
+            },
             "max_per_hour": {
               "type": "integer",
               "description": "messages per rolling hour",
@@ -2243,7 +2286,7 @@
             },
             "resolved": {
               "type": "boolean",
-              "description": "send one line when an alerted finding clears",
+              "description": "send one line when an alerted finding clears (never with route `agents`: it would start a turn in every session for nothing)",
               "default": true
             },
             "dry_run": {

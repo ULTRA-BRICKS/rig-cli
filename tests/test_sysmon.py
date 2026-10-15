@@ -188,6 +188,27 @@ def test_alert_route_validates_and_renders_into_sysmon_json(tmp_path):
             validate({"version": 1, "sysmon": {"alert": {"route": bad}}})
 
 
+def test_swap_gate_hysteresis_and_swap_cooldown_validate_and_render_into_sysmon_json(tmp_path):
+    """rig-cli#685/#699: the swap pressure gate, the clear margin and the swap re-alert window."""
+    block = {"hysteresis_pct": 7.5, "alert": {"swap_cooldown_minutes": 90},
+             "thresholds": {"swap_gate_psi_full_avg60": {"warn": 3, "critical": 15},
+                            "swap_gate_available_pct": {"warn": 25, "critical": 12}}}
+    validate({"version": 1, "sysmon": block})
+    rt = json.loads(sysmon.build_sysmon(home=tmp_path, block=block, gpu_env={}).render_config())
+    assert rt["hysteresis_pct"] == 7.5 and rt["alert"]["swap_cooldown_minutes"] == 90
+    assert rt["thresholds"]["swap_gate_available_pct"] == {"warn": 25, "critical": 12}
+    default = json.loads(sysmon.build_sysmon(home=tmp_path, block={}, gpu_env={}).render_config())
+    assert default["hysteresis_pct"] == 5.0 and default["alert"]["swap_cooldown_minutes"] == 120
+    assert default["thresholds"]["swap_gate_psi_full_avg60"] == {"warn": 5.0, "critical": 20.0}
+    for bad in ({"hysteresis_pct": -1}, {"hysteresis_pct": 60}, {"hysteresis_pct": "5"}, {"hysteresis_pct": True},
+                {"hysteresis_pct": None},  # an empty `hysteresis_pct:` must not silently turn it off
+                {"alert": {"swap_cooldown_minutes": 0}},
+                # available memory: lower is worse, so warn must sit above critical
+                {"thresholds": {"swap_gate_available_pct": {"warn": 10, "critical": 20}}}):
+        with pytest.raises(ConfigError):
+            validate({"version": 1, "sysmon": bad})
+
+
 def test_free_and_data_volume_thresholds_and_reclaim_render_into_sysmon_json(tmp_path):
     block = {"thresholds": {"data_used_pct": {"warn": 85, "critical": 92}},
              "reclaim": {"worktree_roots": ["~/src"], "worktree_age_days": 3}}

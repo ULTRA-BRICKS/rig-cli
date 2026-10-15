@@ -642,7 +642,7 @@ AREAS: tuple[Area, ...] = (
                  "Lowest severity that sends an alert.", choices=("warning", "critical")),
             _opt("sysmon.alert.route", KIND_ENUM, "telegram",
                  "Where alerts go: `telegram` (your chat) or `agents` (every live omp session; Telegram only "
-                 "when no session took a problem alert).", choices=("telegram", "agents")),
+                 "when no session took a critical alert).", choices=("telegram", "agents")),
         ),
     ),
     Area(

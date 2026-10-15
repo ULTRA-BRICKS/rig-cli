@@ -3862,7 +3862,7 @@ def _validate_tgctl_reaper(t: dict[str, Any]) -> None:
 
 #: metrics where a LOWER value is worse (warn must sit ABOVE critical) — mirrors
 #: riglib.sysmon_daemon.detect.LOWER_IS_WORSE.
-_SYSMON_LOWER_IS_WORSE = {"reclaimable_gb", "free_gb", "disk_free_gb"}
+_SYSMON_LOWER_IS_WORSE = {"reclaimable_gb", "free_gb", "disk_free_gb", "swap_gate_available_pct"}
 _SYSMON_BOOLS = {
     "alert": ("enabled", "resolved", "dry_run"),
     "heal": ("enabled", "notify_agent", "throttle", "kill_orphans", "kill_owned", "dry_run", "restart_daemons"),
@@ -3870,7 +3870,7 @@ _SYSMON_BOOLS = {
     "sessions": ("restore_on_boot",),
 }
 _SYSMON_INTS = {
-    "alert": {"cooldown_minutes": 1, "disk_cooldown_minutes": 1, "max_per_hour": 1},
+    "alert": {"cooldown_minutes": 1, "disk_cooldown_minutes": 1, "swap_cooldown_minutes": 1, "max_per_hour": 1},
     "heal": {"grace_seconds": 0, "restart_cooldown_minutes": 1, "max_restarts_per_day": 1},
     "remediation": {"cooldown_minutes": 1},
     "gpu": {"slots": 1},
@@ -3898,8 +3898,9 @@ def _validate_sysmon(t: dict[str, Any]) -> None:
     exists to prevent): unknown keys at every level, non-bool flags, integers out of range,
     thresholds that are not ``{warn, critical}`` numbers or whose order is inverted (warn must be
     reached BEFORE critical: ``warn <= critical``, or ``warn >= critical`` for the lower-is-worse
-    ``reclaimable_gb``/``free_gb``/``disk_free_gb``), an unknown remediation agent or alert severity,
-    and ``reclaim`` path lists that are not lists of non-empty strings.
+    ``reclaimable_gb``/``free_gb``/``disk_free_gb``/``swap_gate_available_pct``), a
+    ``hysteresis_pct`` outside 0-50, an unknown remediation agent or alert severity, and ``reclaim``
+    path lists that are not lists of non-empty strings.
     """
     if not isinstance(t, dict):
         _sysmon_fail("", "sysmon must be a mapping")
@@ -3912,6 +3913,10 @@ def _validate_sysmon(t: dict[str, Any]) -> None:
     for key, low in (("sample_interval_seconds", 1), ("census_interval_seconds", 5), ("snapshot_interval_seconds", 30)):
         if key in t and (not _is_int(t[key]) or t[key] < low):
             _sysmon_fail(key, f"sysmon.{key} must be an int >= {low}, got {t[key]!r}")
+    if "hysteresis_pct" in t:
+        margin = t["hysteresis_pct"]
+        if isinstance(margin, bool) or not isinstance(margin, (int, float)) or not 0 <= margin <= 50:
+            _sysmon_fail("hysteresis_pct", f"sysmon.hysteresis_pct must be a number 0-50, got {margin!r}")
     for key in ("label", "config_dir", "python_bin"):
         if key in t and (not isinstance(t[key], str) or not t[key].strip()):
             _sysmon_fail(key, f"sysmon.{key} must be a non-empty string, got {t[key]!r}")

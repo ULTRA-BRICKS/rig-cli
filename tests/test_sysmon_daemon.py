@@ -671,12 +671,38 @@ def test_route_agents_sends_are_bounded_and_concurrent_so_stalled_sessions_canno
     "null", '{"pid": 11}', '[{"pid": "not-a-pid"}, {"pid": true}, "x"]',  # parseable but not a listing
     '[{"pid": "11"}, {"pid": 99999999999999999999}, {"pid": -3}]',  # pids are positive JSON numbers
 ])
-def test_route_agents_a_problem_alert_no_session_took_falls_back_to_telegram(status):
+def test_route_agents_a_critical_alert_no_session_took_falls_back_to_telegram(status):
     calls = []
-    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_WARNING, key="k", run=_agents_run(calls, status=status))
+    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_CRITICAL, key="k", run=_agents_run(calls, status=status))
     assert calls[-1][:3] == ["tg-ctl", "alert", "send"]
     assert rec["via"] == "tg-ctl alert" and rec["outcome"] == "sent" and rec["message_id"] == 77
     assert rec["undelivered"].startswith("no live agent session took it") and "fallback_reason" not in rec
+
+
+@pytest.mark.parametrize("severity", [SEVERITY_WARNING, alert.SEVERITY_INFO])
+def test_route_agents_a_warning_or_resolved_note_no_session_took_is_dropped_with_its_reason(severity):
+    """The owner's rule (2026-10-15): Telegram only when no agent can handle it — a 21:28 swap
+    WARNING nobody took was posted to his chat; only a critical may still fall back."""
+    calls = []
+    rec = alert.send("t", "b", _cfg(route="agents"), severity=severity, key="k", run=_agents_run(calls, status="[]"))
+    assert calls == [["tg-ctl", "omp-live", "status", "--json"]]
+    assert rec["via"] == "agents" and rec["outcome"] == "undelivered" and rec["delivered"] == []
+    assert rec["undelivered"].startswith("no live agent session took it: omp-live status lists no session")
+
+
+def test_an_empty_listing_names_the_live_omp_endpoints_the_registry_still_holds(tmp_path, monkeypatch):
+    """2026-10-15 21:28: `omp-live status` listed nobody while 3 omp sessions ran; the record says
+    which registry endpoints of running pids tg-ctl's probe dropped."""
+    reg = tmp_path / "omp-live"
+    reg.mkdir()
+    (reg / f"{os.getpid()}-{'a' * 32}.json").write_text("{}")
+    (reg / f"999999999-{'b' * 32}.json").write_text("{}")  # no such process
+    monkeypatch.setenv("TG_CTL_CONFIG_DIR", str(tmp_path))
+    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_WARNING, key="k", run=_agents_run([], status="[]"))
+    assert f"holds endpoints of running omp pids [{os.getpid()}]" in rec["undelivered"]
+    monkeypatch.setenv("TG_CTL_CONFIG_DIR", str(tmp_path / "none"))
+    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_WARNING, key="k", run=_agents_run([], status="[]"))
+    assert "unreadable" in rec["undelivered"]
 
 
 def test_route_agents_a_broadcast_that_cannot_start_threads_falls_back_to_telegram(monkeypatch):
@@ -689,14 +715,6 @@ def test_route_agents_a_broadcast_that_cannot_start_threads_falls_back_to_telegr
     rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_CRITICAL, key="k", run=_agents_run(calls))
     assert calls[-1][:3] == ["tg-ctl", "alert", "send"] and rec["via"] == "tg-ctl alert"
     assert "can't start new thread" in rec["undelivered"]
-
-
-def test_route_agents_a_resolved_notice_no_session_took_is_dropped_not_posted():
-    calls = []
-    rec = alert.send("t", "b", _cfg(route="agents"), severity=alert.SEVERITY_INFO, key="resolved:k",
-                     run=_agents_run(calls, status="[]"))
-    assert calls == [["tg-ctl", "omp-live", "status", "--json"]]
-    assert rec["via"] == "agents" and rec["outcome"] == "undelivered" and rec["delivered"] == []
 
 
 def test_route_agents_dry_run_runs_nothing():
