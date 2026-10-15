@@ -86,6 +86,9 @@ DEFAULTS: Dict[str, Any] = {
         "max_per_hour": 6,
         "resolved": True,
         "min_severity": "critical",
+        # telegram: tg-ctl alert send (the human chat); agents: every live omp session, Telegram
+        # only when no session took a problem alert (rig-cli#696)
+        "route": "telegram",
         "dry_run": False,
     },
     "heal": {

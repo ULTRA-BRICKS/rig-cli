@@ -2198,7 +2198,7 @@
         },
         "alert": {
           "type": "object",
-          "description": "Telegram alerts via tg-cli",
+          "description": "alerts: Telegram via tg-cli, or the live agent sessions",
           "properties": {
             "enabled": {
               "type": "boolean",
@@ -2213,6 +2213,15 @@
                 "critical"
               ],
               "default": "critical"
+            },
+            "route": {
+              "type": "string",
+              "description": "where alerts go: `telegram` (tg-ctl alert send) or `agents` (every live omp session; Telegram only when no session took a problem alert)",
+              "enum": [
+                "telegram",
+                "agents"
+              ],
+              "default": "telegram"
             },
             "cooldown_minutes": {
               "type": "integer",

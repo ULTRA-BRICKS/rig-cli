@@ -176,6 +176,18 @@ def test_alert_senders_validate_and_render_into_sysmon_json(tmp_path):
             validate({"version": 1, "sysmon": {"alert": bad}})
 
 
+def test_alert_route_validates_and_renders_into_sysmon_json(tmp_path):
+    block = {"alert": {"route": "agents"}}
+    validate({"version": 1, "sysmon": block})
+    rt = json.loads(sysmon.build_sysmon(home=tmp_path, block=block, gpu_env={}).render_config())
+    assert rt["alert"]["route"] == "agents"
+    default = json.loads(sysmon.build_sysmon(home=tmp_path, block={}, gpu_env={}).render_config())
+    assert default["alert"]["route"] == "telegram"
+    for bad in ("pager", "", 1, None):
+        with pytest.raises(ConfigError):
+            validate({"version": 1, "sysmon": {"alert": {"route": bad}}})
+
+
 def test_free_and_data_volume_thresholds_and_reclaim_render_into_sysmon_json(tmp_path):
     block = {"thresholds": {"data_used_pct": {"warn": 85, "critical": 92}},
              "reclaim": {"worktree_roots": ["~/src"], "worktree_age_days": 3}}

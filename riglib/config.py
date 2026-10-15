@@ -3959,6 +3959,9 @@ def _validate_sysmon(t: dict[str, Any]) -> None:
     severity = (t.get("alert") or {}).get("min_severity")
     if severity is not None and severity not in ("warning", "critical"):
         _sysmon_fail("alert.min_severity", f"sysmon.alert.min_severity must be warning|critical, got {severity!r}")
+    alert_block = t.get("alert") or {}
+    if "route" in alert_block and alert_block["route"] not in ("telegram", "agents"):
+        _sysmon_fail("alert.route", f"sysmon.alert.route must be telegram|agents, got {alert_block['route']!r}")
     agent = (t.get("remediation") or {}).get("agent")
     if agent is not None and agent not in ("omp", "claude-code", "codex", "opencode"):
         _sysmon_fail("remediation.agent",

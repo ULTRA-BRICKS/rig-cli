@@ -3286,7 +3286,8 @@ sysmon:
     reclaimable_gb: { warn: 2, critical: 1 }      # lower is worse
     data_used_pct: { warn: 90, critical: 95 }     # every disk alert lists reclaimable candidates
   alert: { min_severity: critical, cooldown_minutes: 30, disk_cooldown_minutes: 360, max_per_hour: 6,
-           resolved: true, dry_run: false }             # tg_bin / tg_ctl_bin: the senders (default PATH)
+           resolved: true, dry_run: false,              # tg_bin / tg_ctl_bin: the senders (default PATH)
+           route: telegram }                            # telegram | agents (the live omp sessions)
   heal: { enabled: true, notify_agent: true, throttle: true, kill_orphans: false, kill_owned: false,
           grace_seconds: 120, dry_run: false,        # every kill path is opt-in
           restart_daemons: true, restart_labels: ["ai.hyperide.*", "com.hyperide.*"],
@@ -3417,6 +3418,18 @@ deduplicated per finding key:
 - one "resolved" line is sent after a key stays clear for 5 minutes.
 
 The dedup state lives in `state/memory.json`, so a restart never re-sends.
+
+**`alert.route: agents` (rig-cli#696)** keeps alerts out of the human chat: instead of `tg-ctl alert
+send`, sysmon lists the live omp sessions (`tg-ctl omp-live status --json`) and sends each one a
+plain-text note with `tg-ctl omp-live send <pid> --session <id>` — the same broadcast
+mem-sentinel makes with `omp-steer all` (a busy session is steered, an idle one starts a turn).
+The note is the alert without its HTML, prefixed `[sysmon]`, plus one instruction line for a
+problem alert: every session stops or shrinks its listed processes, the rest hold off on new heavy
+work while the pressure lasts and check it with `rig sysmon sample` (never by waiting for a resolved
+note, which may be held or dropped). A problem alert that NO session took (none live, or every send failed) still posts
+to Telegram as before, so a dangerous state never goes silent; a resolved notice nobody took is
+dropped. The `alerts` log record carries `via: agents`, `delivered` (pids), `failed`, and
+`undelivered` when it fell back. `rig sysmon test-alert` follows the same route.
 
 **Heal ladder (safe by default).**
 

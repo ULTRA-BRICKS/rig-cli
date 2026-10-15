@@ -597,6 +597,128 @@ def test_a_sent_alert_without_an_ok_line_keeps_outcome_sent_and_no_message_id():
     assert rec["outcome"] == "sent" and rec["message_id"] is None and rec["detail"] == "sent, no id"
 
 
+# ── alert.route: agents (rig-cli#696) ─────────────────────────────────────────────────────
+LIVE = json.dumps([
+    {"pid": 11, "sessionId": "s-11", "cwd": "/a", "busy": False},
+    {"pid": 22, "sessionId": "s-22", "cwd": "/b", "busy": True},
+])
+
+
+def _agents_run(calls, status=LIVE, fail_pid=None):
+    def run(argv, **kw):
+        calls.append(argv)
+        if argv[1:3] == ["omp-live", "status"]:
+            return _completed(argv, 0, status) if isinstance(status, str) else status
+        if argv[1:3] == ["omp-live", "send"]:
+            if argv[3] == str(fail_pid):
+                return _completed(argv, 1, "", "endpoint gone")
+            return _completed(argv, 0, "OK steer\n")
+        return _completed(argv, 0, "OK tg#77\n")
+    return run
+
+
+def test_route_agents_broadcasts_plain_text_into_every_live_session_and_never_posts_to_telegram():
+    calls = []
+    rec = alert.send("sysmon WARNING on home: swap", "<b>WARNING</b> swap 16 &gt; 15\nincident <code>I1</code>",
+                     _cfg(route="agents"), severity=SEVERITY_WARNING, key="swap", run=_agents_run(calls))
+    assert calls[0] == ["tg-ctl", "omp-live", "status", "--json"]
+    sends = sorted(calls[1:], key=lambda c: c[3])  # the sends run side by side
+    assert [c[:4] for c in sends] == [["tg-ctl", "omp-live", "send", "11"], ["tg-ctl", "omp-live", "send", "22"]]
+    assert [alert.flag_value(c, "--session") for c in sends] == ["s-11", "s-22"]
+    assert all(alert.flag_value(c, "--request-id").startswith("sysmon-") for c in sends)
+    text = sends[0][-1]
+    assert sends[0][-2] == "--" and text == sends[1][-1]
+    assert text.startswith("[sysmon] sysmon WARNING on home: swap") and "<b>" not in text and "<code>" not in text
+    assert "WARNING swap 16 > 15" in text and "incident I1" in text
+    assert "Every session:" in text  # the instruction agents act on
+    assert not any(c[1] == "alert" or c[0] == "tg" for c in calls)
+    assert rec["via"] == "agents" and rec["outcome"] == "sent" and rec["delivered"] == [11, 22]
+    assert rec["failed"] == [] and rec["message_id"] is None
+
+
+def test_route_agents_one_failed_session_is_recorded_and_the_rest_still_count_as_sent():
+    calls = []
+    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_CRITICAL, key="k", run=_agents_run(calls, fail_pid=11))
+    assert rec["outcome"] == "sent" and rec["delivered"] == [22]
+    assert rec["failed"][0].startswith("11:") and "endpoint gone" in rec["failed"][0]
+    assert not any(c[1] == "alert" for c in calls)
+
+
+def test_route_agents_sends_are_bounded_and_concurrent_so_stalled_sessions_cannot_hold_the_tick():
+    import threading
+
+    hosts = json.dumps([{"pid": p, "sessionId": f"s-{p}"} for p in range(1, alert.AGENT_SEND_WORKERS + 1)])
+    barrier = threading.Barrier(alert.AGENT_SEND_WORKERS, timeout=5)
+    timeouts = []
+
+    def run(argv, **kw):
+        if argv[1] == "alert":
+            return _completed(argv, 0, "OK tg#5\n")
+        timeouts.append(kw["timeout"])
+        if argv[2] == "status":
+            return _completed(argv, 0, hosts)
+        barrier.wait()  # BrokenBarrierError after 5 s unless every send is in flight at once
+        raise subprocess.TimeoutExpired(argv, kw["timeout"])
+
+    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_CRITICAL, key="k", run=run)
+    assert set(timeouts) == {alert.AGENT_SEND_TIMEOUT_S}
+    assert rec["delivered"] == [] and len(rec["failed"]) == alert.AGENT_SEND_WORKERS
+    assert rec["via"] == "tg-ctl alert"  # nobody took it: the Telegram fallback
+
+
+@pytest.mark.parametrize("status", [
+    "[]", _completed(["tg-ctl"], 1, "", "registry unreadable"), "not json",
+    "null", '{"pid": 11}', '[{"pid": "not-a-pid"}, {"pid": true}, "x"]',  # parseable but not a listing
+    '[{"pid": "11"}, {"pid": 99999999999999999999}, {"pid": -3}]',  # pids are positive JSON numbers
+])
+def test_route_agents_a_problem_alert_no_session_took_falls_back_to_telegram(status):
+    calls = []
+    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_WARNING, key="k", run=_agents_run(calls, status=status))
+    assert calls[-1][:3] == ["tg-ctl", "alert", "send"]
+    assert rec["via"] == "tg-ctl alert" and rec["outcome"] == "sent" and rec["message_id"] == 77
+    assert rec["undelivered"].startswith("no live agent session took it") and "fallback_reason" not in rec
+
+
+def test_route_agents_a_broadcast_that_cannot_start_threads_falls_back_to_telegram(monkeypatch):
+    class NoThreads:
+        def __init__(self, **kw):
+            raise RuntimeError("can't start new thread")
+
+    monkeypatch.setattr(alert, "ThreadPoolExecutor", NoThreads)
+    calls = []
+    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_CRITICAL, key="k", run=_agents_run(calls))
+    assert calls[-1][:3] == ["tg-ctl", "alert", "send"] and rec["via"] == "tg-ctl alert"
+    assert "can't start new thread" in rec["undelivered"]
+
+
+def test_route_agents_a_resolved_notice_no_session_took_is_dropped_not_posted():
+    calls = []
+    rec = alert.send("t", "b", _cfg(route="agents"), severity=alert.SEVERITY_INFO, key="resolved:k",
+                     run=_agents_run(calls, status="[]"))
+    assert calls == [["tg-ctl", "omp-live", "status", "--json"]]
+    assert rec["via"] == "agents" and rec["outcome"] == "undelivered" and rec["delivered"] == []
+
+
+def test_route_agents_dry_run_runs_nothing():
+    rec = alert.send("t", "<b>b</b>", _cfg(route="agents", dry_run=True), severity=SEVERITY_WARNING, key="k",
+                     run=lambda *a, **k: pytest.fail("must not run"))
+    assert rec["via"] == "agents" and rec["outcome"] == "dry_run" and rec["text"].startswith("[sysmon] t")
+
+
+def test_agent_text_asks_for_action_only_on_a_real_problem_alert():
+    title, body = alert.render([_f()], incident_id=None, test=True, host="home")
+    assert alert.AGENT_ACTION not in alert.agent_text(title, body, SEVERITY_CRITICAL)  # the smoke test
+    assert "TEST MESSAGE" in alert.agent_text(title, body, SEVERITY_CRITICAL)
+    assert alert.AGENT_ACTION not in alert.agent_text("sysmon resolved on home", "cleared: swap", alert.SEVERITY_INFO)
+    assert alert.agent_text("sysmon WARNING on home: swap", "b", SEVERITY_WARNING).endswith(alert.AGENT_ACTION)
+
+
+def test_route_rejects_an_unknown_value_before_running_anything():
+    with pytest.raises(ValueError):
+        alert.send("t", "b", _cfg(route="pager"), severity=SEVERITY_WARNING, key="k",
+                   run=lambda *a, **k: pytest.fail("must not run"))
+
+
 def test_worst_severity_and_batch_key():
     assert alert.worst_severity([_f("a", SEVERITY_WARNING), _f("b")]) == SEVERITY_CRITICAL
     assert alert.worst_severity([]) == SEVERITY_WARNING

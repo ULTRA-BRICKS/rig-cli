@@ -639,7 +639,10 @@ AREAS: tuple[Area, ...] = (
                  "Run the heal ladder: notify the offending agent, throttle offenders on critical, stop "
                  "ORPHANED offender trees after the grace period. Never touches user-interactive processes."),
             _opt("sysmon.alert.min_severity", KIND_ENUM, "critical",
-                 "Lowest severity that sends a Telegram alert.", choices=("warning", "critical")),
+                 "Lowest severity that sends an alert.", choices=("warning", "critical")),
+            _opt("sysmon.alert.route", KIND_ENUM, "telegram",
+                 "Where alerts go: `telegram` (your chat) or `agents` (every live omp session; Telegram only "
+                 "when no session took a problem alert).", choices=("telegram", "agents")),
         ),
     ),
     Area(

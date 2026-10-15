@@ -1591,11 +1591,14 @@ _SYSMON_BLOCK = Block(
             },
         ),
         "alert": Block(
-            doc="Telegram alerts via tg-cli",
+            doc="alerts: Telegram via tg-cli, or the live agent sessions",
             leaves={
                 "enabled": Leaf("boolean", "send alerts", default=True),
                 "min_severity": Leaf("string", "lowest severity that alerts", enum=("warning", "critical"),
                                      default="critical"),
+                "route": Leaf("string", "where alerts go: `telegram` (tg-ctl alert send) or `agents` (every live "
+                              "omp session; Telegram only when no session took a problem alert)",
+                              enum=("telegram", "agents"), default="telegram"),
                 "cooldown_minutes": Leaf("integer", "re-alert an unchanged finding after this long", default=30,
                                          minimum=1),
                 "disk_cooldown_minutes": Leaf("integer", "re-alert a disk finding at the same level after this long",

@@ -1,4 +1,4 @@
-"""Telegram alerts through tg-cli, rate-limited and deduplicated.
+"""Alerts — to Telegram through tg-cli or into the live agent sessions — rate-limited and deduplicated.
 
 The monitor must be loud about a dangerous state and quiet otherwise, so :func:`decide` is a
 pure function over persisted state:
@@ -19,8 +19,11 @@ Delivery is ``tg-ctl alert send --source sysmon`` (tg-cli#636) with an HTML body
 the message to Telegram — resolved notices with ``--tag report``, alerts with ``--tag
 problem`` — naming in a footer every omp session that subscribed to alerts, and delivers the
 alert with its Telegram message id into those sessions. An older tg-ctl without that
-subcommand, or none on PATH, falls back to the same ``tg`` argv as before. The dedup
-state lives in ``memory.json`` so a daemon restart never re-sends what already went out.
+subcommand, or none on PATH, falls back to the same ``tg`` argv as before. With ``alert.route:
+agents`` (rig-cli#696) the alert skips Telegram: a plain-text note goes into every live omp
+session through ``tg-ctl omp-live`` (mem-sentinel's broadcast path), and only a problem alert
+that no session took still posts to Telegram. The dedup state lives in ``memory.json`` so a
+daemon restart never re-sends what already went out.
 """
 
 from __future__ import annotations
@@ -28,10 +31,13 @@ from __future__ import annotations
 import errno
 import hashlib
 import html
+import json
 import re
 import socket
 import subprocess
 import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .config import DEFAULTS
@@ -40,6 +46,8 @@ from .model import SEVERITY_CRITICAL, SEVERITY_INFO, SEVERITY_RANK, SEVERITY_WAR
 HOUR = 3600.0
 RESOLVE_AFTER_S = 300.0
 DISK_KIND = "disk"
+#: the title prefix of a ``rig sysmon test-alert`` smoke test
+TEST_PREFIX = "TEST — "
 
 
 def decide(
@@ -129,7 +137,7 @@ def render(
     """``(title, html_body)`` for a batch of findings."""
     host = host or socket.gethostname().split(".")[0]
     worst = worst_severity(findings)
-    prefix = "TEST — " if test else ""
+    prefix = TEST_PREFIX if test else ""
     title = f"{prefix}sysmon {worst.upper()} on {host}: " + "; ".join(f.key for f in findings)[:120]
     lines: List[str] = []
     if test:
@@ -208,21 +216,123 @@ def unsupported_alert_subcommand(proc: "subprocess.CompletedProcess[str]") -> bo
             and "tg-ctl " in err and "tg-ctl alert" not in err)
 
 
+#: ``alert.route``: ``telegram`` posts through tg-ctl (the human chat); ``agents`` broadcasts
+#: into every live omp session and keeps Telegram only as the fallback (rig-cli#696).
+ROUTES = ("telegram", "agents")
+#: What the agents are asked to do with a problem alert (mem-sentinel's broadcast says the same).
+#: It never waits on a "resolved" note — that one may be budget-held, disabled or undelivered.
+AGENT_ACTION = ("Every session: if your processes are listed above, stop or shrink them now (test suites, "
+                "type checkers, builds, stray children you started); otherwise hold off on new heavy work "
+                "while the pressure lasts — check it yourself with `rig sysmon sample`, not by waiting "
+                "for a resolved note.")
+_TAG = re.compile(r"<[^>]+>")
+
+
+def agent_text(title: str, body: str, severity: str) -> str:
+    """The plain-text note an agent session receives: the HTML body without its markup, plus
+    the instruction line for a real problem alert (a resolved notice or a ``test-alert`` smoke
+    test asks for nothing)."""
+    lines = [f"[sysmon] {title}", html.unescape(_TAG.sub("", body))]
+    if severity != SEVERITY_INFO and not title.startswith(TEST_PREFIX):
+        lines.append(AGENT_ACTION)
+    return "\n".join(lines)
+
+
 def send(
     title: str, body: str, cfg: Dict[str, Any], *, severity: str, key: str, run: Runner = subprocess.run,
 ) -> Dict[str, Any]:
-    """Deliver through ``tg-ctl alert send`` (Telegram + subscribed agent sessions), else —
-    only for a tg-ctl that does not know the subcommand, or none installed — through ``tg``.
-    ``alert.dry_run`` records the message without sending it. ``severity`` (one of
-    :data:`SEVERITIES`; ``info`` posts as a report, the rest as a problem) and ``key``
-    identify the alert to tg-ctl's throttle."""
+    """Deliver one alert along ``alert.route``. ``alert.dry_run`` records the message without
+    sending it. ``severity`` (one of :data:`SEVERITIES`; ``info`` posts as a report, the rest as
+    a problem) and ``key`` identify the alert to tg-ctl's throttle.
+
+    - ``telegram``: ``tg-ctl alert send`` (Telegram + subscribed agent sessions), else — only for
+      a tg-ctl that does not know the subcommand, or none installed — ``tg``;
+    - ``agents``: the note goes into every live omp session (:func:`_to_agents`). A problem alert
+      that no session took falls back to the ``telegram`` route — a dangerous state must never
+      go silent; a resolved notice nobody took is dropped."""
     if severity not in SEVERITIES:
         raise ValueError(f"severity must be one of {SEVERITIES}, not {severity!r}")
     a = cfg["alert"]
+    route = str(a.get("route") or "telegram")
+    if route not in ROUTES:
+        raise ValueError(f"alert.route must be one of {ROUTES}, not {route!r}")
+    record: Dict[str, Any] = {"at": time.time(), "title": title, "severity": severity, "key": key, "message_id": None}
+    if route == "agents":
+        tg_ctl = str(a.get("tg_ctl_bin") or DEFAULTS["alert"]["tg_ctl_bin"])
+        text = agent_text(title, body, severity)
+        record.update(via="agents")
+        if a.get("dry_run"):
+            record.update(outcome="dry_run", text=text)
+            return record
+        delivered, failed, why = _to_agents(text, tg_ctl, run)
+        record.update(delivered=delivered, failed=failed)
+        if delivered:
+            record.update(outcome="sent")
+            return record
+        # its own key: the Telegram leg may still record a tg-ctl → tg ``fallback_reason``
+        record.update(undelivered=f"no live agent session took it: {why or '; '.join(failed)}"[:300])
+        if severity == SEVERITY_INFO:
+            record.update(outcome="undelivered")
+            return record
+    return _to_telegram(title, body, a, severity, key, run, record)
+
+
+#: The broadcast runs inside the sampling tick, BEFORE the heal ladder: each send is bounded and
+#: they run side by side, so stalled endpoints delay mitigation by one timeout per
+#: ``AGENT_SEND_WORKERS`` sessions, not one per session. The cap stays small on purpose: each
+#: send is a tg-ctl process, and the alert usually fires while memory is already short.
+AGENT_SEND_TIMEOUT_S = 20
+AGENT_SEND_WORKERS = 8
+
+
+def _to_agents(text: str, tg_ctl: str, run: Runner) -> Tuple[List[int], List[str], str]:
+    """``(delivered_pids, failures, why_none)``: ``text`` sent into every session ``tg-ctl
+    omp-live status`` lists, the same broadcast mem-sentinel's ``omp-steer all`` does (tg-ctl
+    steers a busy session and starts a turn in an idle one). ``--session`` pins each send to
+    the session it was listed with; ``--`` keeps a text that starts with a dash an operand."""
+    proc, detail = _run([tg_ctl, "omp-live", "status", "--json"], run, timeout=AGENT_SEND_TIMEOUT_S)
+    if proc is None or proc.returncode != 0:
+        return [], [], f"omp-live status: {detail or (proc.stderr if proc else '') or 'failed'}".strip()[:300]
+    try:
+        listed = json.loads(proc.stdout or "[]")
+    except ValueError:
+        return [], [], "omp-live status: unreadable JSON"
+    # a malformed listing must never raise out of the sampling loop: skip what is not a session
+    hosts = [h for h in listed if isinstance(h, dict) and _is_pid(h.get("pid"))] if isinstance(listed, list) else []
+    if not hosts:
+        return [], [], "omp-live status lists no session"
+
+    def one(h: Dict[str, Any]) -> Tuple[int, Optional[str]]:
+        pid = int(h["pid"])
+        argv = [tg_ctl, "omp-live", "send", str(pid), "--request-id", f"sysmon-{pid}-{uuid.uuid4().hex[:12]}"]
+        if h.get("sessionId"):
+            argv += ["--session", str(h["sessionId"])]
+        sent, why = _run(argv + ["--", text], run, timeout=AGENT_SEND_TIMEOUT_S)
+        if sent is not None and sent.returncode == 0:
+            return pid, None
+        return pid, f"{pid}: {(why or (sent.stderr if sent else '') or 'failed').strip()}"[:200]
+
+    try:
+        with ThreadPoolExecutor(max_workers=min(AGENT_SEND_WORKERS, len(hosts))) as pool:
+            results = list(pool.map(one, hosts))  # map keeps the listing order
+    except RuntimeError as exc:
+        # "can't start new thread" during the very process storm being alerted: the caller
+        # falls back to Telegram rather than letting it kill the monitor
+        return [], [], f"broadcast could not start: {exc}"[:300]
+    return [pid for pid, err in results if err is None], [err for _, err in results if err is not None], ""
+
+
+def _is_pid(value: Any) -> bool:
+    # `omp-live status` lists pids as JSON numbers; anything else is not a session to address
+    return isinstance(value, int) and not isinstance(value, bool) and 0 < value < 1 << 32
+
+
+def _to_telegram(
+    title: str, body: str, a: Dict[str, Any], severity: str, key: str, run: Runner, record: Dict[str, Any],
+) -> Dict[str, Any]:
     ctl_argv = tg_ctl_argv(str(a.get("tg_ctl_bin") or DEFAULTS["alert"]["tg_ctl_bin"]), title, body, severity, key)
     fallback_argv = tg_argv(str(a.get("tg_bin") or DEFAULTS["alert"]["tg_bin"]), title, body, severity)
-    record: Dict[str, Any] = {"at": time.time(), "title": title, "tag": flag_value(fallback_argv, "--tag"),
-                              "severity": severity, "key": key, "via": "tg-ctl alert", "message_id": None}
+    record.update(tag=flag_value(fallback_argv, "--tag"), via="tg-ctl alert")
     if a.get("dry_run"):
         record.update(outcome="dry_run", argv=ctl_argv, fallback_argv=fallback_argv)
         return record
@@ -249,12 +359,14 @@ def send(
 _NEVER_RAN = frozenset({errno.ENOENT, errno.EACCES, errno.ENOTDIR, errno.ENOEXEC})
 
 
-def _run(argv: Sequence[str], run: Runner) -> Tuple[Optional["subprocess.CompletedProcess[str]"], str]:
+def _run(
+    argv: Sequence[str], run: Runner, timeout: float = 60,
+) -> Tuple[Optional["subprocess.CompletedProcess[str]"], str]:
     """``(proc, detail)``: ``proc`` is ``None`` only when the binary provably never started
     (:data:`_NEVER_RAN`); a timeout or any other failure is a non-zero completed process
     (it may have posted)."""
     try:
-        return run(list(argv), capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL), ""
+        return run(list(argv), capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL), ""
     except OSError as exc:
         if isinstance(exc, FileNotFoundError) or exc.errno in _NEVER_RAN:
             return None, f"{argv[0]}: cannot run ({exc})"[:300]
