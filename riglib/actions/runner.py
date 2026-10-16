@@ -3302,6 +3302,17 @@ def _rule_pattern(rule) -> str:
 
     if rule.matcher in SIGNAL_MATCHERS:  # no tokens to render — the matcher carries the shape
         return SIGNAL_MATCHERS[rule.matcher]
+    if rule.matcher == "code_pattern":  # its only flag ("word") is a match mode, not argv
+        return rule.tokens[0]
+    if rule.matcher == "mcp_tool":
+        shape = "MCP " + "|".join(rule.tokens)
+        return shape + (" setting " + "|".join(rule.flags) + " > 0" if rule.flags else "")
+    if rule.matcher == "write_path":
+        return "writes to " + "|".join(rule.tokens)
+    if rule.matcher == "http_write_url":
+        shape = "curl/wget/http POST|PUT|PATCH to *." + "|*.".join(rule.tokens)
+        shape += " " + "|".join(rule.value_prefixes)
+        return shape + (" carrying " + "|".join(rule.flags) if rule.flags else "")
     base = " ".join(rule.tokens)
     if rule.flags:
         base += " " + "|".join(rule.flags)

@@ -1115,6 +1115,15 @@ def test_guard_rules_cover_the_same_intents_as_the_glob_belts():
         "osascript": "osascript",
         "rg-pre": "--pre",
         "git-worktree-add": "git worktree add",
+        # rig-cli#714: direct Runpod creation (argv forms; the belts carry the same prefixes)
+        "runpodctl-pod-create": "runpodctl pod create",
+        "runpodctl-pods-create": "runpodctl pods create",
+        "runpodctl-serverless-create": "runpodctl serverless create",
+        "runpodctl-sls-create": "runpodctl sls create",
+        "runpodctl-cluster-create": "runpodctl cluster create",
+        "runpodctl-create-pod": "runpodctl create pod",
+        "runpodctl-create-pods": "runpodctl create pods",
+        "flash-deploy": "flash deploy",
     }
     ask_intents = {"pkill": "pkill", "killall": "killall", "git-reset-hard": "--hard"}
     # belt intents are the shared subset; argv-precision EXTRAS the glob dialects cannot
@@ -1131,6 +1140,16 @@ def test_guard_rules_cover_the_same_intents_as_the_glob_belts():
         "kill-pstree-fed",
         "kill-broadcast",
         "signal-session-infra",
+        # rig-cli#714: raw HTTP/GraphQL writes, MCP device writes, write targets and eval GraphQL
+        # are surfaces the glob belts cannot see (claude-code denies the MCP tools whole-tool)
+        "runpod-http-create",
+        "runpod-graphql-create",
+        "runpod-mcp-create",
+        "runpod-mcp-scale-up",
+        "runpod-budget-write",
+        "runpod-run-script-write",
+        "eval-runpod-graphql-deploy",
+        "eval-runpod-graphql-rent",
     }
     guard_ask_extras = {"kill-computed-pid"}
     assert {r.id for r in OMP_GUARD_DENY_RULES} == set(deny_intents) | guard_extras

@@ -47,6 +47,7 @@ Stdlib-only (the repo import rule): no yaml/json here; callers serialize.
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass
 from typing import Callable, Literal, TypedDict
 
@@ -443,6 +444,41 @@ SIGNAL_MATCHERS: dict[str, str] = {
     "kill_computed_pid": "kill $(…)|`…`|unchecked $VAR · … | xargs kill",
 }
 
+# Runpod spend matchers (rig-cli#714). Agents rent Runpod compute only through ``runpod-run`` (its
+# budget, pod cap and TTL); these families catch the paths around it that no argv prefix can:
+#   ``http_write_url`` — a curl/wget/http/xh stage whose effective method is POST, PUT or PATCH (or
+#                        an explicit method the guard cannot resolve) to a URL whose host is one of
+#                        ``tokens`` or a subdomain of one, and whose decoded, normalized path
+#                        matches one of the ``value_prefixes`` REGEXES. Non-empty ``flags`` are
+#                        request-body NEEDLES (GraphQL operation names): the write must then carry
+#                        one of them, or a body unreadable before it runs (``@file``, stdin, a
+#                        shell expansion) — and a needle in the URL itself also matches. DELETE is
+#                        never a match: deleting only ever stops spend.
+#   ``mcp_tool``       — an MCP device call: omp routes MCP tools as a ``write`` to
+#                        ``xd://mcp__<server>_<tool>``; ``tokens`` are those device names in their
+#                        normalized form (lower case, ``_`` never ``-``). Non-empty ``flags`` are
+#                        CONTENT keys: the call matches only when its JSON content sets one of them
+#                        above zero at any depth, or cannot be parsed.
+#   ``write_path``     — a write/edit/apply_patch target or a bash write (``>``/``>>``, tee, cp, mv,
+#                        install, ln, rm, chmod, truncate, ``dd of=``, ``sed -i``, ``perl -i``) on a
+#                        path matching one of the ``tokens`` globs (``~/``-anchored or absolute;
+#                        ``*`` stays in one segment, a trailing ``/**`` also covers the directory).
+#                        Reads are never matched.
+# ``code_pattern`` gains one opt-in flag for the same incident class: ``flags=("word",)`` matches
+# the needle as a whole word ANYWHERE in the eval source — a GraphQL operation name lives inside
+# query text, never as the quoted command name the default code_pattern shape looks for.
+
+# The tool_call surfaces each matcher judges; a matcher absent here judges bash argv only. A
+# rule's ``scope`` must equal its matcher's entry, so the generated TS can dispatch on it. One
+# addition the table cannot name: an mcp_tool rule also judges a tool whose NAME is the device
+# (``mcp__runpod_create_pod``), for a harness that exposes MCP tools directly.
+MATCHER_SCOPES: dict[str, tuple[str, ...]] = {
+    "code_pattern": ("eval",),
+    "mcp_tool": ("write",),
+    "write_path": ("bash", "write", "edit", "apply_patch"),
+}
+_CODE_PATTERN_FLAGS = frozenset({"word"})
+
 
 @dataclass(frozen=True)
 class GuardRule:
@@ -450,17 +486,17 @@ class GuardRule:
 
     id: str
     hint: str
-    # "argv_prefix" | "subcommand_flags" | "flag_value_prefix" | "code_pattern", or a signal
-    # matcher: "kill_pstree_fed" | "kill_broadcast" | "signal_protected" | "kill_computed_pid"
+    # "argv_prefix" | "subcommand_flags" | "flag_value_prefix" | "code_pattern" | "mcp_tool" |
+    # "write_path" | "http_write_url", or a signal matcher: "kill_pstree_fed" | "kill_broadcast" |
+    # "signal_protected" | "kill_computed_pid"
     matcher: str
     tokens: tuple[str, ...] = ()
     flags: tuple[str, ...] = ()
     value_prefixes: tuple[str, ...] = ()
     flags_with_value: tuple[str, ...] = ()  # subset of `flags` that ALSO matches `flag=value`
-    # "bash" (default): tokens/flags match the bash-tool's argv, same as every existing rule.
-    # ("eval",): the rule is a `code_pattern` match against the eval-tool's cell SOURCE TEXT
-    # instead of bash argv — a wholly different tool_call surface (see omp_guard.py's
-    # tool_call handler). No rule may be scoped to anything else.
+    # The tool_call surfaces the rule judges — always its matcher's MATCHER_SCOPES entry
+    # (("bash",) unless listed there): ("eval",) scans the eval cell's SOURCE TEXT, ("write",)
+    # the MCP device a write targets, write_path every file-writing surface.
     scope: tuple[str, ...] = ("bash",)
 
     def __post_init__(self) -> None:
@@ -498,21 +534,65 @@ class GuardRule:
                     "tokens/flags — its argv logic lives in the generated TS"
                 )
         elif self.matcher == "code_pattern":
-            if len(self.tokens) != 1 or self.flags or self.value_prefixes or self.flags_with_value:
+            if (
+                len(self.tokens) != 1
+                or not set(self.flags) <= _CODE_PATTERN_FLAGS
+                or self.value_prefixes
+                or self.flags_with_value
+            ):
                 raise ValueError(
-                    f"guard rule {self.id!r}: code_pattern needs exactly one token (the needle) "
-                    "and nothing else"
+                    f"guard rule {self.id!r}: code_pattern needs exactly one token (the needle), "
+                    "optionally flags=('word',), and nothing else"
                 )
+        elif self.matcher == "mcp_tool":
+            if (
+                not self.tokens
+                or any(not t.startswith("mcp__") or t != t.lower() or "-" in t for t in self.tokens)
+                or self.value_prefixes
+                or self.flags_with_value
+            ):
+                raise ValueError(
+                    f"guard rule {self.id!r}: mcp_tool needs normalized device names "
+                    "(mcp__<server>_<tool>, lower case, '_' not '-') + optional content-key flags"
+                )
+        elif self.matcher == "write_path":
+            if (
+                not self.tokens
+                or any(not t.startswith(("~/", "/")) for t in self.tokens)
+                or self.flags
+                or self.value_prefixes
+                or self.flags_with_value
+            ):
+                raise ValueError(
+                    f"guard rule {self.id!r}: write_path needs ~/-anchored or absolute path "
+                    "globs as tokens and nothing else"
+                )
+        elif self.matcher == "http_write_url":
+            if (
+                not self.tokens
+                or any(not t or t != t.lower() or "/" in t or ":" in t for t in self.tokens)
+                or not self.value_prefixes
+                or self.flags_with_value
+            ):
+                raise ValueError(
+                    f"guard rule {self.id!r}: http_write_url needs lower-case host tokens + "
+                    "path-regex value_prefixes (+ optional body-needle flags)"
+                )
+            for pattern in self.value_prefixes:
+                try:
+                    re.compile(pattern)
+                except re.error as exc:
+                    raise ValueError(
+                        f"guard rule {self.id!r}: value_prefixes entry {pattern!r} is not a regex: {exc}"
+                    ) from exc
         else:
             raise ValueError(f"guard rule {self.id!r}: unknown matcher {self.matcher!r}")
-        if self.matcher == "code_pattern":
-            if self.scope != ("eval",):
-                raise ValueError(
-                    f"guard rule {self.id!r}: code_pattern rules must scope to ('eval',) — "
-                    "they match source text, not bash argv"
-                )
-        elif self.scope != ("bash",):
-            raise ValueError(f"guard rule {self.id!r}: only code_pattern rules may scope outside ('bash',)")
+        expected_scope = MATCHER_SCOPES.get(self.matcher, ("bash",))
+        if self.scope != expected_scope:
+            raise ValueError(
+                f"guard rule {self.id!r}: a {self.matcher} rule must scope to {expected_scope!r} "
+                "(MATCHER_SCOPES) — the generated guard dispatches on it"
+            )
 
 
 # Shared text of every signal-safety block reason (rig-cli#701): the incident, then the safe
@@ -532,6 +612,32 @@ _SIGNAL_SAFE = (
 def _signal_hint(what: str) -> str:
     """A kill-class block reason: what is wrong, the incident, then the safe alternative."""
     return f"{what} — {_SIGNAL_INCIDENT}. Instead, {_SIGNAL_SAFE}"
+
+
+# rig-cli#714: every Runpod creation path outside runpod-run shares one reason.
+_RUNPOD_CREATE_HINT = (
+    "use runpod-run — creating Runpod pods, endpoints or clusters directly bypasses its budget, "
+    "pod cap and TTL"
+)
+# (rule id, argv prefix). `pods` is runpodctl's alias of `pod`, `sls` of `serverless`; `create
+# pod(s)` is the deprecated top-level form, still shipped.
+_RUNPOD_CREATE_ARGV: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("runpodctl-pod-create", ("runpodctl", "pod", "create")),
+    ("runpodctl-pods-create", ("runpodctl", "pods", "create")),
+    ("runpodctl-serverless-create", ("runpodctl", "serverless", "create")),
+    ("runpodctl-sls-create", ("runpodctl", "sls", "create")),
+    ("runpodctl-cluster-create", ("runpodctl", "cluster", "create")),
+    ("runpodctl-create-pod", ("runpodctl", "create", "pod")),
+    ("runpodctl-create-pods", ("runpodctl", "create", "pods")),
+    ("flash-deploy", ("flash", "deploy")),
+)
+# api.runpod.io (GraphQL + v2), rest.runpod.io (v1) and any other *.runpod.io host
+_RUNPOD_API_HOSTS: tuple[str, ...] = ("runpod.io",)
+# GraphQL mutations that rent compute or create/scale an endpoint
+_RUNPOD_GRAPHQL_CREATE: tuple[str, ...] = (
+    "podFindAndDeployOnDemand", "podRentInterruptable", "createCluster", "deployCpuPod",
+    "saveEndpoint",
+)
 
 
 OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
@@ -663,6 +769,46 @@ OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
                            "the session leader, gnome-shell/gnome-session/Xwayland, the tmux "
                            "server or an omp session (yours or another's)"),
               "signal_protected"),
+    # rig-cli#714 — see the Runpod spend matchers above. runpod-run is the ONE sanctioned way an
+    # agent rents Runpod compute (budget, pod cap, TTL); every other creation path is denied, and
+    # so is any agent write to runpod-run's budget ledger or its installed script/skill. runpod-run
+    # itself is unaffected: its own runpodctl/curl calls are subprocesses, not tool calls.
+    *(
+        GuardRule(rule_id, _RUNPOD_CREATE_HINT, "argv_prefix", tokens)
+        for rule_id, tokens in _RUNPOD_CREATE_ARGV
+    ),
+    GuardRule("runpod-http-create", _RUNPOD_CREATE_HINT, "http_write_url", _RUNPOD_API_HOSTS,
+              value_prefixes=(r"^/v[12]/(pods|endpoints|clusters)(/|$|\?)",)),
+    GuardRule("runpod-graphql-create", _RUNPOD_CREATE_HINT, "http_write_url", _RUNPOD_API_HOSTS,
+              flags=_RUNPOD_GRAPHQL_CREATE, value_prefixes=(r"^/graphql(/|$|\?)",)),
+    GuardRule("runpod-mcp-create", _RUNPOD_CREATE_HINT, "mcp_tool",
+              ("mcp__runpod_create_pod", "mcp__runpod_create_endpoint", "mcp__runpod_create_cluster",
+               "mcp__runpod_deploy_hub_repo"),
+              scope=MATCHER_SCOPES["mcp_tool"]),
+    # update-endpoint also renames and scales to zero; only raising workers above zero rents
+    GuardRule("runpod-mcp-scale-up",
+              "use runpod-run — scaling a Runpod endpoint above zero workers directly bypasses its "
+              "budget, pod cap and TTL",
+              "mcp_tool", ("mcp__runpod_update_endpoint",), flags=("workersMin", "workersMax"),
+              scope=MATCHER_SCOPES["mcp_tool"]),
+    GuardRule("runpod-budget-write",
+              "use runpod-run — its budget ledger (~/.config/runpod-run/budget*) is runpod-run's "
+              "own state; agents never edit it",
+              "write_path", ("~/.config/runpod-run/budget*",), scope=MATCHER_SCOPES["write_path"]),
+    # the INSTALLED copy only: the agent-tools source (skills/universal/runpod-offload) stays
+    # editable in a worktree, and `rig apply` installs it as a subprocess, not a tool call
+    GuardRule("runpod-run-script-write",
+              "use runpod-run as installed — change it in the agent-tools source "
+              "(skills/universal/runpod-offload) and run `rig apply`, never the installed copy",
+              "write_path", ("~/.agents/skills/runpod-offload/**", "~/.local/bin/runpod-run"),
+              scope=MATCHER_SCOPES["write_path"]),
+    # GraphQL from an eval cell (fetch/requests): only the two pod-renting operation names — the
+    # other GraphQL create names (createCluster, saveEndpoint, …) are common identifiers in
+    # unrelated code, so the eval scan would false-positive on them
+    GuardRule("eval-runpod-graphql-deploy", _RUNPOD_CREATE_HINT, "code_pattern",
+              ("podFindAndDeployOnDemand",), flags=("word",), scope=MATCHER_SCOPES["code_pattern"]),
+    GuardRule("eval-runpod-graphql-rent", _RUNPOD_CREATE_HINT, "code_pattern",
+              ("podRentInterruptable",), flags=("word",), scope=MATCHER_SCOPES["code_pattern"]),
 )
 
 # ask = sometimes-legit: confirm with the operator when a UI exists; BLOCK headless (a prompt
@@ -872,6 +1018,16 @@ CLAUDE_CODE_DENY_RULES: tuple[str, ...] = (
     # removes the prompt AND the location-bypass. CC-only (no EnterWorktree equivalent
     # on opencode/codex/omp).
     "EnterWorktree",
+    # rig-cli#714: Runpod compute is rented only through runpod-run. The argv forms mirror the
+    # omp guard's argv rules (prefix-only: `runpodctl -o json pod create` and the guard's
+    # HTTP/GraphQL/write-path rules stay omp-only). The Runpod MCP create/deploy tools are
+    # WHOLE-TOOL denies (Claude Code names MCP tools mcp__<server>__<tool>, Runpod's tool names
+    # are hyphenated) — none of them has a legitimate agent use outside runpod-run.
+    *(f"Bash({' '.join(tokens)}:*)" for _, tokens in _RUNPOD_CREATE_ARGV),
+    "mcp__runpod__create-pod",
+    "mcp__runpod__create-endpoint",
+    "mcp__runpod__create-cluster",
+    "mcp__runpod__deploy-hub-repo",
 )
 
 # ask = sometimes-legit: force a prompt (tg-ctl relays it to the operator's phone), don't block.
@@ -921,6 +1077,8 @@ OPENCODE_DENY_RULES: tuple[str, ...] = (
     "rg*--pre *",
     "rg*--pre=*",
     "rg*--pre",
+    # rig-cli#714: direct Runpod creation goes through runpod-run (same argv forms as claude-code)
+    *(" ".join(tokens) + "*" for _, tokens in _RUNPOD_CREATE_ARGV),
 )
 OPENCODE_ASK_RULES: tuple[str, ...] = (
     "pkill*",
@@ -1072,6 +1230,8 @@ CODEX_DENY_RULES: tuple[tuple[str, ...], ...] = (
     ("screencapture",),
     ("osascript",),
     ("rg", "--pre"),
+    # rig-cli#714: unambiguous full-command bans — Runpod compute goes through runpod-run
+    *(tokens for _, tokens in _RUNPOD_CREATE_ARGV),
 )
 
 

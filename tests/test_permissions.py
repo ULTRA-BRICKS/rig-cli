@@ -1571,11 +1571,12 @@ def test_default_rules_are_scoped_and_conservative():
     deny = DEFAULT_RULES["claude-code"]["deny"]
     ask = DEFAULT_RULES["claude-code"]["ask"]
     # every baked Bash rule is SCOPED (Tool(specifier)) — a bare "Bash" deny would remove the
-    # whole tool from the model's context. EnterWorktree is the one intentional whole-tool
-    # deny: the tool itself can CREATE a worktree at a model-supplied path, which is the
-    # location-bypass `rig worktree create` exists to close.
+    # whole tool from the model's context. The whole-tool denies are intentional: EnterWorktree
+    # can CREATE a worktree at a model-supplied path (the location-bypass `rig worktree create`
+    # exists to close), and the Runpod MCP create/deploy tools rent compute outside runpod-run.
+    whole_tool = {"EnterWorktree", *RUNPOD_MCP_WHOLE_TOOL_DENIES}
     for rule in (*deny, *ask):
-        if rule == "EnterWorktree":
+        if rule in whole_tool:
             continue
         assert rule.startswith("Bash(") and rule.endswith(")") and rule != "Bash(*)"
     assert "EnterWorktree" in deny
@@ -1612,6 +1613,52 @@ def test_default_rules_are_scoped_and_conservative():
     assert "Bash(pkill:*)" in ask and "Bash(killall:*)" in ask
     assert "Bash(git reset --hard:*)" in ask and "Bash(git reset * --hard *)" in ask
     assert "Bash(git reset * --hard)" in ask  # end-anchored: `git reset HEAD~1 --hard`
+
+
+# rig-cli#714: direct Runpod creation goes through runpod-run on every belt.
+RUNPOD_MCP_WHOLE_TOOL_DENIES = (
+    "mcp__runpod__create-pod",
+    "mcp__runpod__create-endpoint",
+    "mcp__runpod__create-cluster",
+    "mcp__runpod__deploy-hub-repo",
+)
+RUNPOD_CREATE_ARGV = (
+    ("runpodctl", "pod", "create"),
+    ("runpodctl", "pods", "create"),
+    ("runpodctl", "serverless", "create"),
+    ("runpodctl", "sls", "create"),
+    ("runpodctl", "cluster", "create"),
+    ("runpodctl", "create", "pod"),
+    ("runpodctl", "create", "pods"),
+    ("flash", "deploy"),
+)
+
+
+def test_belts_deny_direct_runpod_creation():
+    from riglib.permissions import (
+        CLAUDE_CODE_DENY_RULES,
+        CODEX_DENY_RULES,
+        OMP_GUARD_DENY_RULES,
+        OPENCODE_DENY_RULES,
+    )
+
+    # the list above is the omp guard's whole runpodctl/flash argv family: a new creation form
+    # added to the guard must be added here, and so reach every belt
+    guard_argv = {r.tokens for r in OMP_GUARD_DENY_RULES
+                  if r.matcher == "argv_prefix" and r.tokens[0] in ("runpodctl", "flash")}
+    assert guard_argv == set(RUNPOD_CREATE_ARGV)
+    for tool in RUNPOD_MCP_WHOLE_TOOL_DENIES:
+        assert tool in CLAUDE_CODE_DENY_RULES, tool
+    for argv in RUNPOD_CREATE_ARGV:
+        assert f"Bash({' '.join(argv)}:*)" in CLAUDE_CODE_DENY_RULES, argv
+        assert " ".join(argv) + "*" in OPENCODE_DENY_RULES, argv
+        assert argv in CODEX_DENY_RULES, argv
+    # reads and teardown stay open on every belt
+    for allowed in ("runpodctl pod list", "runpodctl user", "runpodctl billing", "runpodctl doctor",
+                    "runpodctl pod delete", "flash --help"):
+        assert not any(allowed.startswith(r[len("Bash("):-len(":*)")]) for r in CLAUDE_CODE_DENY_RULES
+                       if r.startswith("Bash(") and r.endswith(":*)")), allowed
+        assert not any(allowed.startswith(r[:-1]) for r in OPENCODE_DENY_RULES if r.endswith("*")), allowed
 
 
 def test_resolve_rules_default_override_dedup_unknown():

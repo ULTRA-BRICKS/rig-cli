@@ -1057,10 +1057,16 @@ patterns (a literal SPACE is required); a claude-code argv hook is a tracked fol
 built). `Bash(git worktree add:*)` (raw worktree creation goes through `rig worktree create`;
 the child `git worktree add` inside `rig` is not a gated tool call; prefix-only — `git -C`
 /`--git-dir` forms do not match, and a mid-pattern would false-positive a commit message
-that mentions "worktree add"), and `EnterWorktree`
+that mentions "worktree add"), `EnterWorktree`
 (whole-tool deny on purpose: the tool can CREATE a worktree at a model-supplied path, which
 is the location-bypass `rig worktree create` exists to close — CC-only, no equivalent on
-opencode/codex/omp). Ask (prompt, don't block): `Bash(pkill:*)`,
+opencode/codex/omp), and direct Runpod creation outside `runpod-run` (rig-cli#714):
+`Bash(runpodctl pod create:*)`, `Bash(runpodctl pods create:*)`,
+`Bash(runpodctl serverless create:*)`, `Bash(runpodctl sls create:*)`,
+`Bash(runpodctl cluster create:*)`, `Bash(runpodctl create pod:*)`,
+`Bash(runpodctl create pods:*)`, `Bash(flash deploy:*)` plus the whole-tool MCP denies
+`mcp__runpod__create-pod`, `mcp__runpod__create-endpoint`, `mcp__runpod__create-cluster` and
+`mcp__runpod__deploy-hub-repo`. Ask (prompt, don't block): `Bash(pkill:*)`,
 `Bash(killall:*)`, `Bash(git reset --hard:*)` + `Bash(git reset * --hard *)` +
 `Bash(git reset * --hard)`. The full annotated list lives in `riglib/permissions.py`.
 
@@ -1070,7 +1076,8 @@ the `permission.bash` object (values `"deny"`/`"ask"`), hand-written in opencode
 `"git push*--force*"`, `"git push -f*"`, `"git commit --no-verify*"`, `"sudo rm*"`,
 `"screencapture*"`, `"osascript*"`, `"git worktree add*"`, `"rg*--pre *"` + `"rg*--pre=*"` + `"rg*--pre"` (value-shaped / end-anchored,
 so they don't also deny the legitimate `--pretty` flag — a single substring-only `"rg*--pre*"`
-entry was rejected for exactly that regression). Ask: `"pkill*"`, `"killall*"`, `"git reset*--hard*"`.
+entry was rejected for exactly that regression), and the same eight Runpod creation prefixes as
+claude-code (`"runpodctl pod create*"` … `"flash deploy*"`). Ask: `"pkill*"`, `"killall*"`, `"git reset*--hard*"`.
 rig emits these AFTER
 the allow keys so they sit past any broad `"*"`/allow (last-match-wins ordering discipline). Two
 deliberate **fidelity gaps**, documented: (1) opencode `*` has NO word boundary, so
@@ -1087,7 +1094,9 @@ marker-delimited managed block of Starlark `prefix_rule(...)` lines into
 `~/.codex/rules/rig-managed.rules` (codex auto-scans `~/.codex/rules/*.rules` at startup — no
 `config.toml` reference needed). The resolved tool set becomes `decision="allow"` prefix rules; a
 MINIMAL coarse deny (`gh pr merge`, `git worktree add`, `sudo rm`, `screencapture`, `osascript`,
-and — rig-cli#187 — the flag-first 2-token `rg --pre`) becomes `decision="forbidden"`. **Fidelity gap:** `prefix_rule` matches a
+and — rig-cli#187 — the flag-first 2-token `rg --pre`, and — rig-cli#714 — the eight Runpod creation
+prefixes `runpodctl pod|pods|serverless|sls|cluster create`, `runpodctl create pod|pods` and
+`flash deploy`) becomes `decision="forbidden"`. **Fidelity gap:** `prefix_rule` matches a
 leading-token prefix, so a coarse `["git","push"]` forbidden would over-block ALL pushes — the
 coarse deny is therefore kept to unambiguous full-command (or unambiguous flag-first) bans only;
 every LATER-position flag-guard (force-push, `--no-verify` anywhere, `rg --pre` in a non-leading
@@ -1160,9 +1169,66 @@ claude-code/opencode/codex belts do not carry them yet (rig-cli#706):
 Every kill-class reason names the way out (proc://bg_N/kill, `systemctl --user stop
 run-<id>.scope`, `[ -n "$P" ] && ps -p "$P" && kill "$P"`). Check a command without running it:
 `bun ~/.omp/agent/extensions/rig-permissions-guard.ts '<command>'` prints `deny|ask <id>: <reason>`
-or `allow` (exit 2/1/0). Literal-PID verdicts are judged from the CHECKING process's ancestry and
+or `allow` (exit 2/1/0); `… --tool <name> --input '<json>'` does the same for any other tool call
+(e.g. `--tool write --input '{"path":"xd://mcp__runpod_create_pod","content":"{}"}'`), and a
+malformed invocation exits 64. Literal-PID verdicts are judged from the CHECKING process's ancestry and
 omp scope, so run it from the session's own bash tool to get that session's verdict. A kill run
 as the first word of another command's `$(…)` stays the documented wrapper gap above.
+
+**omp guard: Runpod compute only through `runpod-run` (rig-cli#714).** `runpod-run` is the one
+sanctioned way an agent rents Runpod compute (its budget, pod cap and TTL). The guard denies every
+other creation path, and every agent write to runpod-run's own state; each reason starts with
+`use runpod-run`. `runpod-run` itself is unaffected — its own `runpodctl`/`curl` calls and `rig
+apply` installing the skill are subprocesses, not tool calls.
+
+- DENY `runpodctl-pod-create`, `runpodctl-pods-create`, `runpodctl-serverless-create`,
+  `runpodctl-sls-create`, `runpodctl-cluster-create`, `runpodctl-create-pod`,
+  `runpodctl-create-pods`, `flash-deploy`: those argv prefixes, behind wrappers and nested
+  `sh -c` strings too, and past runpodctl's global `-o|--output`.
+- DENY `runpod-http-create`: a curl/wget/HTTPie/xh POST, PUT or PATCH (or an explicit method the
+  guard cannot resolve) to `*.runpod.io` whose decoded, normalized path matches
+  `^/v[12]/(pods|endpoints|clusters)(/|$|\?)` — create, update and lifecycle POSTs alike. GET reads
+  and DELETE (it only stops spend) stay allowed. A request whose URL, method or body comes from a
+  file the guard cannot read first — `curl -K|--config`, a `wget -i` write, a curl `{{var}}` URL
+  write — is denied whatever its host (fail closed); `wget -e method=…|post_data=…` is judged like
+  the matching flag.
+- DENY `runpod-graphql-create`: a write to `*.runpod.io/graphql` whose body carries
+  `podFindAndDeployOnDemand`, `podRentInterruptable`, `createCluster`, `deployCpuPod` or
+  `saveEndpoint`, or whose body cannot be read before it runs (`@file`, stdin, a `$…`/backtick
+  expansion — so a read query using GraphQL `$variables` is denied too); one of those names in the
+  URL denies as well. Bodies are matched as written, with JSON `\u…` escapes decoded and
+  `%XX`-decoded.
+- DENY `runpod-mcp-create`: a `write` to the MCP devices `xd://mcp__runpod_create_pod`,
+  `…_create_endpoint`, `…_create_cluster`, `…_deploy_hub_repo` (case, `%XX` and `-`/`_` spellings
+  normalized; a tool named `mcp__runpod_create_pod` directly too). `runpod-mcp-scale-up`:
+  `xd://mcp__runpod_update_endpoint` whose JSON content sets `workersMin` or `workersMax` above
+  zero at any depth, or cannot be parsed; renames and scale-to-zero pass. `list_*`, `get_*`,
+  `delete_*` and reading a device's docs stay allowed.
+- DENY `runpod-budget-write` (`~/.config/runpod-run/budget*`) and `runpod-run-script-write`
+  (`~/.agents/skills/runpod-offload/**`, `~/.local/bin/runpod-run`): `write`/`edit` (hashline
+  `[PATH#TAG]` headers and `MV DEST`)/`apply_patch` (`*** Update|Add|Delete File:`, `*** Move to:`)
+  targets, and bash `>`/`>>`, `tee`, `truncate`, `rm`/`chmod` (an ancestor directory counts),
+  `cp`/`install`/`ln`/`mv` destinations (and `mv` sources), the SOURCE of a link (`ln`, `cp -l|-s`:
+  a second name a later stage could write through), `dd of=`, `sed -i`, `perl -i`.
+  Paths resolve `~`/`$HOME`, `..`, the session's cwd (after a `cd DIR` stage) and symlinks
+  (`~/.local/bin/runpod-run` → the installed skill); a shell glob operand counts when it can reach
+  a protected path. Reads (`cat`, `less`, `grep`, `sed -n`, `cp` out) and the agent-tools source
+  copy (`skills/universal/runpod-offload`) stay allowed. A malformed `write`/`edit` input is never
+  blocked for that alone — only when the fields it does carry name a protected path or a
+  Runpod MCP device.
+- DENY `eval-runpod-graphql-deploy` / `eval-runpod-graphql-rent`: an eval cell whose source names
+  `podFindAndDeployOnDemand` / `podRentInterruptable` as a whole word, as written or with its
+  `\u…`/`\x…` string escapes decoded (a name assembled at runtime, e.g. by concatenation, is not
+  seen).
+
+Known gaps, same class as the wrapper gap above: a write by an interpreter (`python -c`,
+`node -e`), `rsync`, `xargs rm`, a `$VAR` path or URL host, and a `cd` to an unknowable directory
+are not judged (a literal `cd` adds a directory — the old one stays, since the cd may fail); a
+write POSTed to another host that redirects (`curl -L`, HTTP 307) to Runpod, and a request shaped
+by a default `~/.curlrc`/`~/.wgetrc`, are not seen; `runpodctl serverless update --workers-max N`
+and `runpodctl pod start` (they bill an existing endpoint or pod) are not denied; and the budget
+and installed-script path rules exist on omp only — the claude-code/opencode/codex belts carry the
+argv and (claude-code) MCP denies, not path-scoped Edit/Write denies.
 
 **pi/commandcode advisory instruction policy (tier 3).** These instruction-file harnesses
 have no execution-layer mechanism at all, so rig splices a marker-delimited ADVISORY block
