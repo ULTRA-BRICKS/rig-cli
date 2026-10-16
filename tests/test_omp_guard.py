@@ -98,10 +98,11 @@ def test_render_guard_ts_embeds_rules_and_provenance():
     ts = render_guard_ts()
     assert "https://git.hyperide.ai/ultrabricks/rig-cli" in ts
     assert "https://github.com/alex-mextner/rig-cli" not in ts
-    # every rule id + hint from the SINGLE registry is in the generated file
+    # every rule id + hint from the SINGLE registry is in the generated file (hints are embedded
+    # as JSON string literals, so a hint quoting `"$P"` appears escaped)
     for rule in (*OMP_GUARD_DENY_RULES, *OMP_GUARD_ASK_RULES):
         assert rule.id in ts
-        assert rule.hint in ts
+        assert json.dumps(rule.hint, ensure_ascii=False) in ts
     # the provenance header round-trips: template version + the exact rule-id sets
     prov = guard_provenance(ts)
     assert prov is not None
@@ -737,6 +738,10 @@ const cases: Case[] = [
   ["sudo -- rm denied", { toolName: "bash", input: { command: "sudo -- rm /x" } }, noUI, "sudo-rm"],
   ["env VAR force push denied", { toolName: "bash", input: { command: "env FOO=1 git push --force" } }, noUI, "git-push-force"],
   ["command prefix denied", { toolName: "bash", input: { command: "command gh pr merge" } }, noUI, "gh-pr-merge"],
+  // rig-cli#701: command strings run by sh -c / eval / env -S are re-parsed like top-level commands
+  ["sh -c force push denied", { toolName: "bash", input: { command: "sh -c 'git push --force'" } }, noUI, "git-push-force"],
+  ["env -S pr merge denied", { toolName: "bash", input: { command: "env -S 'gh pr merge 5'" } }, noUI, "gh-pr-merge"],
+  ["bash -c ls ok", { toolName: "bash", input: { command: "bash -c 'ls -la'" } }, noUI, "allow"],
   ["command -v probe allowed", { toolName: "bash", input: { command: "command -v gh" } }, noUI, "allow"],
   ["non-bash tool ignored", { toolName: "read", input: { command: "gh pr merge" } }, noUI, "allow"],
   ["comment hides operator stage", { toolName: "bash", input: { command: "echo ok # note; git reset --hard" } }, noUI, "allow"],
@@ -1122,9 +1127,14 @@ def test_guard_rules_cover_the_same_intents_as_the_glob_belts():
         "eval-addressbook-read",
         "eval-calendars-read",
         "eval-photos-library-read",
+        # rig-cli#701: judging WHAT a kill signals (operands, /proc lookups) is argv-only
+        "kill-pstree-fed",
+        "kill-broadcast",
+        "signal-session-infra",
     }
+    guard_ask_extras = {"kill-computed-pid"}
     assert {r.id for r in OMP_GUARD_DENY_RULES} == set(deny_intents) | guard_extras
-    assert {r.id for r in OMP_GUARD_ASK_RULES} == set(ask_intents)
+    assert {r.id for r in OMP_GUARD_ASK_RULES} == set(ask_intents) | guard_ask_extras
     for marker in (*deny_intents.values(), *ask_intents.values()):
         assert any(marker in g for g in (*CLAUDE_CODE_DENY_RULES, *CLAUDE_CODE_ASK_RULES)), marker
         assert any(marker in g for g in (*OPENCODE_DENY_RULES, *OPENCODE_ASK_RULES)), marker

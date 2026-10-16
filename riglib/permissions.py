@@ -395,10 +395,14 @@ def harness_supported(kind: str) -> bool:
 #                          ``=``-joinable value (``rg --pre``) opt in via ``flags_with_value``.
 # ``hint`` is the block/confirm reason: static text, NEVER command contents (a command can
 # carry secrets; reasons must not). KNOWN GAPS (documented, same class as the glob belts):
-# (1) wrapper indirection (``sh -c '…'``, ``env -S '…'``, command substitution ``$(…)``,
-# subshells, copied binaries, aliases, ``xargs``) hides the command string from argv
-# matching — the guard covers model-issued tool calls in trusted repositories; it is not
-# a sandbox. (2) ANSI-C quoting (``rg $'--pre' cmd``) tokenizes to the LITERAL string
+# (1) wrapper indirection (a command run as the first word of a ``$(…)`` substitution, copied
+# binaries, aliases, ``xargs`` for non-kill rules, a ``sh -c "$CMD"`` whose string is a
+# variable, a script FILE or another program's output piped into a shell) hides the command
+# from argv matching — the guard covers model-issued tool calls in trusted repositories; it is
+# not a sandbox. Literal ``sh -c '…'`` / ``bash -lc '…'`` / ``eval '…'`` / ``env -S '…'`` /
+# ``find -exec … ;`` / ``watch '…'`` strings and ``echo|printf … | sh`` / ``sh <<< '…'`` ARE
+# re-parsed as commands (rig-cli#701).
+# (2) ANSI-C quoting (``rg $'--pre' cmd``) tokenizes to the LITERAL string
 # ``$--pre``, not ``--pre`` — ordinary single/double quotes ARE caught (the shell strips them
 # before argv sees the token), but this one quoting FORM is not; this is a pre-existing
 # tokenizer limitation (equally true of every other ``subcommand_flags`` rule today, e.g.
@@ -410,13 +414,45 @@ def harness_supported(kind: str) -> bool:
 # env var (set in a shell profile before the agent's command ever runs) is a true blind spot no
 # argv check can see. Neither is fixed here — left as documented follow-up tickets, not silent
 # gaps (see the PR description for #187).
+
+# Signal-safety matchers (rig-cli#701). 2026-10-15 an agent, pushed off ``pkill`` by the ask
+# rule, ran ``kill -TERM $(pstree -p $P …)`` with an empty ``$P``: ``pstree -p`` printed the
+# whole system tree and SIGTERM reached ``systemd --user``, ending every omp session and the
+# desktop. These four families judge WHAT a kill-class command signals, which no prefix/flag
+# shape can express: the generated TS parses kill/pkill/killall operands and selectors, the
+# systemctl/loginctl/tmux verbs, the ``$(…)``/``xargs`` sources feeding a kill, and resolves a
+# literal PID against /proc (comm, session, cgroup, the guard process's own ancestry). A rule
+# only NAMES its matcher (no tokens/flags); the value here is the shape prose the advisory
+# instruction policy prints for it.
+#   ``kill_pstree_fed``   — kill fed by pstree output (substitution, ``| xargs kill``, a variable
+#                           assigned from pstree)
+#   ``kill_broadcast``    — kill -1 / 0 / negative PIDs (process groups), pkill -v, user- or
+#                           session-wide pkill/killall with no pattern
+#   ``signal_protected``  — any signal/stop aimed at session infrastructure: systemd (--user),
+#                           the logind session leader, gnome-shell/gnome-session/Xwayland, the
+#                           tmux server, an omp session, slices and user@/session units
+#   ``kill_computed_pid`` — kill whose target is computed at runtime: ``$(…)``, backticks,
+#                           ``xargs kill``, a glob, or a ``$VAR`` with no visible non-empty check
+SIGNAL_MATCHERS: dict[str, str] = {
+    "kill_pstree_fed": "kill $(pstree …) · pstree … | xargs kill",
+    "kill_broadcast": "kill -1|0|-PGID · pkill -v · pkill/killall -u USER with no pattern",
+    "signal_protected": (
+        "kill/pkill/killall/systemctl/loginctl/tmux kill-server aimed at systemd --user, "
+        "session leaders, slices, gnome-shell/gnome-session/Xwayland, the tmux server or omp"
+    ),
+    "kill_computed_pid": "kill $(…)|`…`|unchecked $VAR · … | xargs kill",
+}
+
+
 @dataclass(frozen=True)
 class GuardRule:
     """One command-granular guard rule — harness-agnostic INTENT, rendered per harness."""
 
     id: str
     hint: str
-    matcher: str  # "argv_prefix" | "subcommand_flags" | "flag_value_prefix"
+    # "argv_prefix" | "subcommand_flags" | "flag_value_prefix" | "code_pattern", or a signal
+    # matcher: "kill_pstree_fed" | "kill_broadcast" | "signal_protected" | "kill_computed_pid"
+    matcher: str
     tokens: tuple[str, ...] = ()
     flags: tuple[str, ...] = ()
     value_prefixes: tuple[str, ...] = ()
@@ -455,6 +491,12 @@ class GuardRule:
                     f"guard rule {self.id!r}: flag_value_prefix needs 1 token + flags + "
                     "value_prefixes (no flags_with_value — that's a subcommand_flags concept)"
                 )
+        elif self.matcher in SIGNAL_MATCHERS:
+            if self.tokens or self.flags or self.value_prefixes or self.flags_with_value:
+                raise ValueError(
+                    f"guard rule {self.id!r}: signal matcher {self.matcher!r} takes no "
+                    "tokens/flags — its argv logic lives in the generated TS"
+                )
         elif self.matcher == "code_pattern":
             if len(self.tokens) != 1 or self.flags or self.value_prefixes or self.flags_with_value:
                 raise ValueError(
@@ -471,6 +513,25 @@ class GuardRule:
                 )
         elif self.scope != ("bash",):
             raise ValueError(f"guard rule {self.id!r}: only code_pattern rules may scope outside ('bash',)")
+
+
+# Shared text of every signal-safety block reason (rig-cli#701): the incident, then the safe
+# alternative. The 2026-10-15 agent switched to the deadlier idiom because the pkill ask told it
+# what NOT to do but never what to do instead — every kill-class reason now names the way out.
+_SIGNAL_INCIDENT = (
+    "2026-10-15 an empty $P made `kill -TERM $(pstree -p $P …)` SIGTERM systemd --user and end "
+    "every omp session plus the desktop (rig-cli#701)"
+)
+_SIGNAL_SAFE = (
+    "stop your own job by handle — proc://bg_N/kill, `kill %1`, `kill $!`, "
+    "`systemctl --user stop run-<id>.scope` — or verify one PID and kill it literally: "
+    '`kill <pid>`, or `[ -n "$P" ] && ps -p "$P" && kill "$P"`'
+)
+
+
+def _signal_hint(what: str) -> str:
+    """A kill-class block reason: what is wrong, the incident, then the safe alternative."""
+    return f"{what} — {_SIGNAL_INCIDENT}. Instead, {_SIGNAL_SAFE}"
 
 
 OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
@@ -585,17 +646,42 @@ OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
               "reading the Photos library from eval bypasses the sandbox and accesses "
               "TCC-protected photo data directly — this data is not available to the eval tool",
               "code_pattern", ("~/Pictures/Photos Library.photoslibrary",), scope=("eval",)),
+    # rig-cli#701 — see SIGNAL_MATCHERS. pstree-fed kills are DENY, not ask: `pstree -p` with an
+    # empty or stale pid lists the WHOLE system tree, so the target set is unknowable by
+    # construction (the exact 2026-10-15 command). Broadcast/process-group kills and signals to
+    # session infrastructure have no legitimate agent use at all.
+    GuardRule("kill-pstree-fed",
+              _signal_hint("pstree-fed kills are banned: `pstree -p` with an empty or wrong pid "
+                           "lists the whole system tree"),
+              "kill_pstree_fed"),
+    GuardRule("kill-broadcast",
+              _signal_hint("kill -1, kill 0, negative PIDs (process groups), pkill -v and "
+                           "user-wide pkill/killall signal far more than your job"),
+              "kill_broadcast"),
+    GuardRule("signal-session-infra",
+              _signal_hint("never signal or stop systemd --user, user@/session units or slices, "
+                           "the session leader, gnome-shell/gnome-session/Xwayland, the tmux "
+                           "server or an omp session (yours or another's)"),
+              "signal_protected"),
 )
 
 # ask = sometimes-legit: confirm with the operator when a UI exists; BLOCK headless (a prompt
 # nobody can answer must never auto-approve).
 OMP_GUARD_ASK_RULES: tuple[GuardRule, ...] = (
     # broad pattern-kills have nuked OTHER sessions' work before (never-broad-pkill doctrine);
-    # reaping one's OWN strays is legit — hence ask, not deny
-    GuardRule("pkill", "broad pattern-kills have nuked other sessions' work before",
+    # reaping one's OWN strays is legit — hence ask, not deny. The hint names the safe way out:
+    # an ask that only says "no" pushed the 2026-10-15 agent to an unguarded idiom (rig-cli#701).
+    GuardRule("pkill", f"broad pattern-kills have nuked other sessions' work before — {_SIGNAL_SAFE}",
               "argv_prefix", ("pkill",)),
-    GuardRule("killall", "broad pattern-kills have nuked other sessions' work before",
+    GuardRule("killall", f"broad pattern-kills have nuked other sessions' work before — {_SIGNAL_SAFE}",
               "argv_prefix", ("killall",)),
+    # rig-cli#701: a kill whose target is computed at runtime ($(…), backticks, xargs, a glob, an
+    # unchecked $VAR) may be empty or the wrong set — ask, since reaping a verified own child this
+    # way is legit; a `[ -n "$P" ] &&` / `${P:?}` guard or `$!` passes without asking.
+    GuardRule("kill-computed-pid",
+              _signal_hint("kill target computed at runtime ($(…), backticks, xargs, an unchecked "
+                           "$VAR) can be empty or the wrong processes"),
+              "kill_computed_pid"),
     # `git reset --hard` has destroyed uncommitted work before
     GuardRule("git-reset-hard", "git reset --hard has destroyed uncommitted work before",
               "subcommand_flags", ("git", "reset"), ("--hard",)),

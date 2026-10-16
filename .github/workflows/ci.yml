@@ -37,6 +37,14 @@ jobs:
       # `test_tmux_e2e_gating.py` asserts it is on PATH in CI, like tmux and lsof.
       - name: Install abduco (pinned, built from source)
         run: bash scripts/install-abduco-ci.sh
+      # bun: the omp guard tests EXECUTE the generated rig-permissions-guard.ts (the enforcement
+      # layer itself). Without bun they skip, and the signal-safety rules (rig-cli#701) would go
+      # unproven on every PR — tests/test_omp_guard_signals.py fails instead of skipping when CI
+      # is set and bun is missing.
+      - name: Install bun (the generated omp guard must RUN in CI, not skip)
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
       - name: Install package + test deps
         run: pip install -e '.[test]' pyyaml
       - name: Unit suite

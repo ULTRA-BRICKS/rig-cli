@@ -3298,6 +3298,10 @@ INSTRUCTION_POLICY_END_MARKER = "# <<< rig-managed instruction policy (do not ed
 
 def _rule_pattern(rule) -> str:
     """The command shape a GuardRule targets, e.g. ``git push --force|-f`` (policy prose)."""
+    from ..permissions import SIGNAL_MATCHERS
+
+    if rule.matcher in SIGNAL_MATCHERS:  # no tokens to render — the matcher carries the shape
+        return SIGNAL_MATCHERS[rule.matcher]
     base = " ".join(rule.tokens)
     if rule.flags:
         base += " " + "|".join(rule.flags)

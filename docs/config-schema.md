@@ -1120,9 +1120,49 @@ and a differing user value is drift, never overwritten. An opt-in ACTIVATION pro
 (`RIG_OMP_PROBE=1 rig doctor`) proves the block channel end-to-end with a temporary
 nonce-blocking fixture extension; it stays out of the apply path (apply is
 offline/declarative). Known gap, documented: the guard covers model-issued tool calls in
-trusted repositories — wrapper indirection (`sh -c '…'`, command substitution `$(…)`,
-subshells, copied binaries, aliases) hides the command string from argv matching; it is not
-a sandbox.
+trusted repositories — wrapper indirection (a command run as the first word of a `$(…)`
+substitution, copied binaries, aliases, a `sh -c "$CMD"` whose string is a variable, a script
+file or another program's output piped into a shell) hides the command from argv matching; it is
+not a sandbox. Literal `sh -c '…'` / `bash -lc '…'` / `eval '…'` / `env -S '…'` /
+`find -exec … ;` / `watch '…'` strings and `echo|printf … | sh` / `sh <<< '…'` are re-parsed and
+matched like top-level commands (rig-cli#701).
+
+**omp guard signal safety (rig-cli#701).** 2026-10-15 an agent, pushed off `pkill` by the ask
+rule, ran `kill -TERM $(pstree -p $P …)` with an empty `$P`; `pstree -p` printed the whole system
+tree and SIGTERM reached `systemd --user`, ending every omp session and the desktop. The guard now
+judges what a kill-class command signals — kill/pkill/killall, also behind `sudo`/`doas`/`env`/
+`timeout`/`nohup`/`nice`/`setsid`/`stdbuf`/`ionice`/`chrt`/`taskset`/`strace`/`flock`/
+`systemd-run`/`xargs` (path-qualified too), the nested command strings above (any depth), shell
+keywords and subshells. A prefix chain deeper than 16 wrappers is denied outright
+(`signal-session-infra`) rather than guessed at. These rules live in the omp guard only — the
+claude-code/opencode/codex belts do not carry them yet (rig-cli#706):
+
+- DENY `kill-pstree-fed`: a kill fed by pstree (substitution, `| xargs kill`, a variable assigned
+  from pstree).
+- DENY `kill-broadcast`: `kill -1`, `kill 0`, negative PIDs / `kill -- -PGID` (also through a
+  variable bound to such a literal earlier in the command), `pkill -v`, and `pkill`/`killall`
+  selecting by user/session/group with no pattern.
+- DENY `signal-session-infra`: pkill/killall patterns naming systemd, gnome-shell/gnome-session/
+  Xwayland, gdm, tmux or omp; `kill $$`/`$PPID`; a kill of `$(pgrep|pidof|ps …)` for those names;
+  `systemctl exit|isolate|…` and stop/kill/restart of slices, `init.scope`, `user@*`, `session-*`,
+  omp scopes, GNOME/gdm/tmux/dbus units or a bare glob; `loginctl terminate-*|kill-*`;
+  `tmux kill-server` and `kill-session -a` on the default server (`-L default` included); and a
+  LITERAL PID that /proc resolves to pid 1, the guard's own omp process or one of its ancestors
+  (pane shell, tmux server), session infrastructure by comm, a logind session leader, or any
+  process in ANOTHER omp scope.
+- ASK `kill-computed-pid`: a kill whose target is computed at runtime (`$(…)`, backticks,
+  `xargs kill`, a glob, or a `$VAR` without a visible `[ -n "$VAR" ] &&` / `[ -z "$VAR" ] ||` /
+  `if [ -n … ]; then` check or `${VAR:?}`), and `xargs pkill|killall|systemctl stop` (patterns or
+  units from stdin).
+- Allowed: `kill <literal pid>` of your own processes, `kill %1`, `kill $!`, `kill -0` probes,
+  `kill -l`, `systemctl --user stop run-*.scope`.
+
+Every kill-class reason names the way out (proc://bg_N/kill, `systemctl --user stop
+run-<id>.scope`, `[ -n "$P" ] && ps -p "$P" && kill "$P"`). Check a command without running it:
+`bun ~/.omp/agent/extensions/rig-permissions-guard.ts '<command>'` prints `deny|ask <id>: <reason>`
+or `allow` (exit 2/1/0). Literal-PID verdicts are judged from the CHECKING process's ancestry and
+omp scope, so run it from the session's own bash tool to get that session's verdict. A kill run
+as the first word of another command's `$(…)` stays the documented wrapper gap above.
 
 **pi/commandcode advisory instruction policy (tier 3).** These instruction-file harnesses
 have no execution-layer mechanism at all, so rig splices a marker-delimited ADVISORY block
