@@ -3139,6 +3139,22 @@
             ]
           }
         },
+        "signal_scope": {
+          "type": "array",
+          "description": "Kinds whose launch through rig runs inside a Linux Landlock signal domain: the agent can signal only its own process tree. Linux only. Applies to every rig launch path, independent of `enabled`. `[]` turns it off; `RIG_SIGNAL_SCOPE=0` skips it for one launch.",
+          "default": [
+            "omp"
+          ],
+          "items": {
+            "type": "string",
+            "enum": [
+              "omp",
+              "claude",
+              "codex",
+              "opencode"
+            ]
+          }
+        },
         "real_bin": {
           "type": "object",
           "description": "kind -> absolute path of the real binary, for one that is not the first match on PATH (e.g. the omp fork checkout); recorded in ~/.config/rig/harness-real-bin.json",

@@ -4335,7 +4335,8 @@ the same conversation and tg-ctl can type into it from outside tmux. Install `ab
 other subcommands, `--help`, a launch with no terminal — runs the real binary untouched, so
 scripts, hooks and the harnesses' own headless children see no difference.
 
-**Opt-in, GLOBAL config only.** Default `enabled: false`; an absent or empty block does nothing.
+**Opt-in, GLOBAL config only.** Default `enabled: false`; an absent or empty block writes nothing
+(only `signal_scope`, below, acts by default).
 The block writes executables onto your PATH and names the binary they exec, so a committed repo
 `rig.yaml` must choose neither: `config.load` rejects `harness_wrappers` from any non-global layer
 (a repo `rig.yaml` or a `--config` file), and `rig config set harness_wrappers.… --global` writes the
@@ -4357,6 +4358,7 @@ harness_wrappers:
 | `dir` | str | `~/.local/share/rig/bin` | where the scripts land, one file per kind named after it (`<dir>/omp`). Absolute, `~…` or `$VAR…`; a relative path is rejected |
 | `kinds` | array of `omp` \| `claude` \| `codex` \| `opencode` | all four | harnesses to write a wrapper for; must not be empty (to install none, set `enabled: false`) |
 | `real_bin` | map kind → path | `{}` | absolute path (or `~…` / `$VAR…`) of the real binary for a kind whose real binary is not the first executable of that name on PATH — typically the omp fork checkout. A key must be one of the installed `kinds` |
+| `signal_scope` | array of `omp` \| `claude` \| `codex` \| `opencode` | `[omp]` | kinds whose launch through rig runs inside a Linux Landlock signal domain (see below). Independent of `enabled`; `[]` turns it off |
 
 **PATH ordering is yours.** rig never edits `PATH`, a shell rc file or an existing binary. A wrapper
 only takes effect once `dir` comes BEFORE the directories holding the real binaries, for example
@@ -4392,6 +4394,62 @@ file is the one case it will not fix by itself. A wrapper the config no longer d
 judged, and never deleted.
 
 Idempotent: a second `rig apply commit` with the same config changes nothing.
+
+### `signal_scope` — each agent session can signal only its own process tree (#704)
+
+Default `[omp]`, Linux only, and independent of `enabled`: it applies to every rig launch path of a
+listed kind (`rig harness exec` and the `rig harness` host, including every crash relaunch). rig
+puts `riglib/signal_scope.py` as the innermost argv prefix:
+`python3 -I -S <checkout>/riglib/signal_scope.py -- <real harness> <args…>`. The helper calls
+`prctl(PR_SET_NO_NEW_PRIVS)` and `landlock_restrict_self` with a ruleset that handles no filesystem
+or network access and only `LANDLOCK_SCOPE_SIGNAL` (Landlock ABI ≥ 6, kernel ≥ 6.12), then execs the
+harness in place (same pid, the harness's own argv). Each launch gets its own domain.
+
+**What it blocks.** The session (omp itself, its in-process `kill` builtin, eval kernels, MCP/LSP
+servers, subagents, the omp broker it starts) can send a signal — including signal 0 and
+`pidfd_send_signal` — only to processes in its own domain or one nested under it. Every other target
+gets `EPERM` ("Operation not permitted"). `kill -1` and `kill -<pgid>` skip targets outside the
+domain. A wrong pid list therefore ends at most that one session. Kernel-sent signals (tty
+Ctrl-C, SIGCHLD, SIGPIPE, SIGHUP) are unaffected, and processes outside can still signal in (tmux,
+the rig host, systemd). Domains nest up to 16 layers; a 17th launch (omp starting omp starting …)
+still starts, inside the 16 it has.
+
+**What it does not block.** Requests that ask a process *outside* the domain to do the killing:
+`systemctl --user stop|kill|exit|isolate`, `systemd-run --user … kill`, `loginctl terminate-*`,
+`tmux kill-server`, `docker kill`. Those stay the job of the permission guard (#701). This is
+protection against accidents, not against an adversarial agent. It also stops one session from
+killing a dev server another session started; use `systemctl --user stop <unit>` or ask that session.
+
+**NO_NEW_PRIVS side effects.** The flag is inherited across exec, so setuid/setgid bits and file
+capabilities no longer raise privilege inside the session:
+
+| Affected | Inside a contained session | Way out |
+|---|---|---|
+| `sudo`, `pkexec`, `su` | refused ("no new privileges" flag is set) | run them in a tmux pane outside omp |
+| AppImages (FUSE through setuid `fusermount3`) | `Cannot mount AppImage`, rc 127 | extract once (`--appimage-extract`) and exec `squashfs-root/AppRun`; ad hoc `APPIMAGE_EXTRACT_AND_RUN=1` with `TMPDIR` on disk |
+| `sshfs`, any FUSE mount, `fusermount3 -u` | `Operation not permitted` | `systemd-run --user --pipe --wait --quiet -- <cmd>` |
+| `newuidmap`/`newgidmap` (rootless podman) | fails | `systemd-run --user --pipe --wait --quiet -- <cmd>` |
+| Chrome / agent-browser, `bwrap`, docker | work (no setuid needed) | — |
+
+The escape hatch `systemd-run --user --pipe --wait --quiet -- <cmd>` has the user manager start
+`<cmd>` as a transient service: it runs outside every domain, with `NoNewPrivs: 0`. It is for the
+privilege-needing tools above (sudo, fusermount, rootless podman) only. An `EPERM` from `kill` is
+the containment working: re-running that `kill` through the escape hatch is exactly the incident
+this exists to stop (the permission guard's kill rules still apply to it).
+
+**Diagnosis.** A contained process has `RIG_SIGNAL_SCOPED=1` in its environment (inherited by every
+child): that is why `kill` says "Operation not permitted". When containment is unavailable (ABI < 6,
+not Linux, a failing syscall) the helper prints one line,
+`rig signal-scope: not contained (<detail>); starting <cmd> unrestricted`, and starts the harness
+anyway — it never blocks a launch. `RIG_SIGNAL_SCOPE=0` skips it for one launch. A missing or
+invalid global config falls back to the default `[omp]`.
+
+**Known limitation: omp's cross-project broker prune.** omp's liveness probes treat `EPERM` as
+"dead". A daemon broker started in one session's domain sees other projects' brokers and clients as
+dead, deletes their presence files and, after 5 minutes, their daemon runtime dirs. The services keep
+running and nothing is killed, but other sessions lose `proc://` control and logs for them, and
+`omp ps` may show a detached daemon as exited. The fix (only `ESRCH` means dead) is upstream in
+oh-my-pi.
 
 
 ## `tmux.recovery.enabled` — restore a lost server without cloning agents

@@ -3060,6 +3060,22 @@ def _validate_harness_wrappers(block: Any) -> None:
                 schema_path="harness_wrappers.kinds",
             )
 
+    if "signal_scope" in block:
+        # Unlike ``kinds``, an empty list is meaningful: it turns signal containment off.
+        scope = block["signal_scope"]
+        if not isinstance(scope, list) or not all(isinstance(k, str) for k in scope):
+            raise ConfigError(
+                f"harness_wrappers.signal_scope must be a list of strings, got {scope!r}",
+                schema_path="harness_wrappers.signal_scope",
+            )
+        unknown = [k for k in scope if k not in _HARNESS_WRAPPER_KINDS]
+        if unknown:
+            raise ConfigError(
+                f"harness_wrappers.signal_scope has unknown harness {unknown[0]!r}",
+                fix=f"use kinds from: {known}",
+                schema_path="harness_wrappers.signal_scope",
+            )
+
     if "real_bin" in block:
         real_bin = block["real_bin"]
         if not isinstance(real_bin, dict):

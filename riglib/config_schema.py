@@ -1802,6 +1802,13 @@ _HARNESS_WRAPPERS_BLOCK = Block(
             "array", "harnesses to write a wrapper for (a non-empty subset)",
             default=list(_WRAPPER_KINDS), items_type="string", items_enum=_WRAPPER_KINDS,
         ),
+        "signal_scope": Leaf(
+            "array",
+            "Kinds whose launch through rig runs inside a Linux Landlock signal domain: the agent can signal "
+            "only its own process tree. Linux only. Applies to every rig launch path, independent of `enabled`. "
+            "`[]` turns it off; `RIG_SIGNAL_SCOPE=0` skips it for one launch.",
+            default=["omp"], items_type="string", items_enum=_WRAPPER_KINDS,
+        ),
         "real_bin": Leaf(
             "object",
             "kind -> absolute path of the real binary, for one that is not the first match on PATH "

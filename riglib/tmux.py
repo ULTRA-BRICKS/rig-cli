@@ -1527,6 +1527,17 @@ take_break() {{
   log "stale breaker mutex $LOCK.break reclaimed"
   rmdir "$LOCK.break" 2>/dev/null; mkdir "$LOCK.break" 2>/dev/null
 }}
+# A holder we may not signal (EPERM, e.g. this run is inside an agent's Landlock signal domain,
+# #704) is alive, not dead. Linux asks /proc, which needs no signal right and no locale. Elsewhere
+# kill -0 decides: success or "not permitted" (forced to C, so never translated) is alive, any
+# other failure (no such process, a pid out of range) is dead.
+holder_dead() {{
+  if [ -d /proc/self ]; then [ ! -d "/proc/$1" ]; return; fi
+  local err
+  err=$(LC_ALL=C kill -0 "$1" 2>&1) && return 1
+  case "$err" in *"not permitted"*) return 1 ;; esac
+  return 0
+}}
 # Break the lock iff its recorded holder is dead or it is older than STALE_SECS (which also covers a
 # legacy empty lock with no pid file), then retry mkdir ONCE. Breakers serialise on a sibling mkdir
 # and re-judge under it, so two runs racing to break the same stale lock can never delete the lock
@@ -1536,9 +1547,12 @@ break_stale_lock() {{
   take_break || return 1
   local holder age reason="" rc
   if [ -d "$LOCK" ]; then
+    # Leading zeros are stripped as text (a padded 001234 is that pid; no arithmetic, so a huge
+    # number cannot wrap into a live one); all zeros names no holder.
     holder=$(cat "$LOCK/pid" 2>/dev/null); case "$holder" in ''|*[!0-9]*) holder=none ;; esac
+    holder=${{holder#"${{holder%%[!0]*}}"}}; [ -n "$holder" ] || holder=none
     age=$(( $(date +%s) - $(path_mtime "$LOCK") ))
-    if [ "$holder" != none ] && ! kill -0 "$holder" 2>/dev/null; then reason="holder dead"
+    if [ "$holder" != none ] && holder_dead "$holder"; then reason="holder dead"
     elif [ "$age" -gt "$STALE_SECS" ]; then reason="older than ${{STALE_SECS}}s"; fi
     if [ -n "$reason" ]; then
       log "stale lock $LOCK: holder pid $holder, $reason, age ${{age}}s — breaking it"

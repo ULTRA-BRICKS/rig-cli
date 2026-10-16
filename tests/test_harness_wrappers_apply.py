@@ -394,7 +394,8 @@ def test_the_json_schema_describes_the_block_and_marks_it_global_only():
     node = doc["properties"]["harness_wrappers"]
 
     assert node["x-rig-global-only"] is True
-    assert set(node["properties"]) == {"enabled", "dir", "kinds", "real_bin"}
+    assert set(node["properties"]) == {"enabled", "dir", "kinds", "real_bin", "signal_scope"}
+    assert node["properties"]["signal_scope"]["default"] == ["omp"]
     assert node["properties"]["kinds"]["items"]["enum"] == list(KINDS)
     assert node["properties"]["kinds"]["default"] == list(KINDS)
     assert node["properties"]["enabled"]["default"] is False
@@ -481,3 +482,76 @@ def test_cli_commit_writes_the_real_binary_record(tmp_path, fake_agent_tools, bi
     record = json.loads(harness_launcher.real_bin_config_path().read_text(encoding="utf-8"))
     assert record == {"omp": str(real.resolve())}
     assert os.access(bindir / "omp", os.X_OK)
+
+
+# --- harness_wrappers.signal_scope (#704): which rig launches run in their own signal domain ---
+
+
+@pytest.mark.parametrize("value", [[], ["omp"], ["omp", "claude"]])
+def test_validate_accepts_signal_scope(value):
+    validate({"version": 1, "harness_wrappers": {"signal_scope": value}})
+
+
+@pytest.mark.parametrize(
+    "value, msg",
+    [("omp", "harness_wrappers.signal_scope must be a list"), (["vim"], "unknown harness 'vim'")],
+)
+def test_validate_rejects_signal_scope(value, msg):
+    with pytest.raises(ConfigError, match=msg):
+        validate({"version": 1, "harness_wrappers": {"signal_scope": value}})
+
+
+def test_settings_default_signal_scope_is_omp():
+    assert wrapper_provision.settings_from_config({}).signal_scope == ("omp",)
+
+
+def test_settings_signal_scope_is_canonical_order():
+    block = {"signal_scope": ["codex", "omp", "codex"]}
+    assert wrapper_provision.settings_from_config(block).signal_scope == ("omp", "codex")
+
+
+def test_signal_scope_enabled_matrix(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("harness_wrappers:\n  signal_scope: [omp, codex]\n")
+    enabled = wrapper_provision.signal_scope_enabled
+    assert enabled("omp", {}, platform="linux", config_path=cfg)
+    assert enabled("codex", {}, platform="linux", config_path=cfg)
+    assert not enabled("claude", {}, platform="linux", config_path=cfg)
+    assert not enabled("omp", {"RIG_SIGNAL_SCOPE": "0"}, platform="linux", config_path=cfg)
+    assert not enabled("omp", {}, platform="darwin", config_path=cfg)
+
+
+def test_signal_scope_off_with_empty_list(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("harness_wrappers:\n  signal_scope: []\n")
+    assert not wrapper_provision.signal_scope_enabled("omp", {}, platform="linux", config_path=cfg)
+
+
+def test_signal_scope_enabled_reads_the_global_config_by_default():
+    path = global_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("harness_wrappers:\n  signal_scope: [claude]\n")
+    assert wrapper_provision.signal_scope_enabled("claude", {}, platform="linux")
+    assert not wrapper_provision.signal_scope_enabled("omp", {}, platform="linux")
+
+
+@pytest.mark.parametrize(
+    "text", [None, "", ": not yaml :", "harness_wrappers: 3\n", "harness_wrappers:\n  signal_scope: omp\n",
+     "harness_wrappers:\n  signal_scope: [not-a-harness]\n"]
+)
+def test_signal_scope_enabled_falls_back_to_default_on_bad_config(tmp_path, text):
+    cfg = tmp_path / "config.yaml"
+    if text is not None:
+        cfg.write_text(text)
+    assert wrapper_provision.signal_scope_enabled("omp", {}, platform="linux", config_path=cfg)
+    assert not wrapper_provision.signal_scope_enabled("claude", {}, platform="linux", config_path=cfg)
+
+
+@pytest.mark.parametrize(
+    "extra", ["  kinds: 7\n", "  real_bin: /opt/omp\n"], ids=["bad-kinds", "bad-real_bin"]
+)
+@pytest.mark.parametrize("scope, omp", [("[omp]", True), ("[]", False), ("[claude]", False)])
+def test_signal_scope_survives_malformed_unrelated_keys(tmp_path, extra, scope, omp):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(f"harness_wrappers:\n  signal_scope: {scope}\n{extra}")
+    assert wrapper_provision.signal_scope_enabled("omp", {}, platform="linux", config_path=cfg) is omp

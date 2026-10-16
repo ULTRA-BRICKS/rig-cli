@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from riglib import tmux
+from riglib import signal_scope, tmux
 
 # Run the script by path, as launchd does: its `#!/bin/bash` shebang is bash 3.2 on macOS.
 pytestmark = pytest.mark.skipif(not os.access("/bin/bash", os.X_OK), reason="/bin/bash not available")
@@ -76,7 +76,7 @@ def rig(tmp_path: Path):
         return json.loads(plan.autosave_health_path.read_text(encoding="utf-8"))
 
     lock = gen / ".tmux-autosave.lock"
-    return SimpleNamespace(run=run, health=health, lock=lock, home=home, env=env)
+    return SimpleNamespace(run=run, health=health, lock=lock, home=home, env=env, script=script)
 
 
 def _dead_pid() -> int:
@@ -163,6 +163,125 @@ def test_live_young_holder_is_respected(rig):
         assert (rig.lock / "pid").read_text(encoding="utf-8").strip() == str(holder.pid)
         assert rig.lock.stat().st_mtime == before
         assert not Path(f"{rig.lock}.break").exists()
+    finally:
+        holder.kill()
+        holder.wait()
+
+
+@pytest.mark.skipif(signal_scope.landlock_abi() < 6, reason="needs Landlock ABI >= 6")
+def test_lock_held_by_unsignalable_pid_is_not_broken(rig):
+    # Run from inside a Landlock signal domain (an omp session, #704), `kill -0` of a live holder
+    # outside the domain is EPERM. That holder is alive: its young lock must be respected.
+    holder = subprocess.Popen(["sleep", "60"], start_new_session=True)
+    try:
+        rig.lock.mkdir()
+        (rig.lock / "pid").write_text(f"{holder.pid}\n", encoding="utf-8")
+
+        proc = subprocess.run(
+            signal_scope.scoped_argv(["bash", str(rig.script)]),
+            env={**rig.env, **_LOADER_ENV},
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert "not contained" not in proc.stderr
+        assert "holder dead" not in proc.stdout
+        assert "busy: lock held, skipping" in proc.stdout
+        assert rig.lock.is_dir()
+    finally:
+        holder.kill()
+        holder.wait()
+
+
+def test_dead_holder_is_broken_under_non_c_locale(rig):
+    # the probe must not depend on English diagnostics: a translated "No such process" must still
+    # read as dead.
+    rig.env["LANG"] = "de_DE.UTF-8"
+    rig.env["LC_ALL"] = "de_DE.UTF-8"
+    pid = _dead_pid()
+    rig.lock.mkdir()
+    (rig.lock / "pid").write_text(f"{pid}\n", encoding="utf-8")
+
+    proc = rig.run()
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert f"holder pid {pid}" in _break_line(proc.stdout) and "holder dead" in proc.stdout
+    assert not rig.lock.exists()
+
+
+def test_young_lock_with_pid_zero_is_respected(rig):
+    # a corrupt pid file reading 0 names no holder: it is judged by age, never as a dead holder.
+    rig.lock.mkdir()
+    (rig.lock / "pid").write_text("0\n", encoding="utf-8")
+
+    proc = rig.run()
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "busy: lock held, skipping" in proc.stdout and "holder dead" not in proc.stdout
+    assert rig.lock.is_dir()
+
+
+def test_dead_holder_with_a_zero_padded_pid_is_broken(rig):
+    pid = _dead_pid()
+    rig.lock.mkdir()
+    (rig.lock / "pid").write_text(f"00{pid}\n", encoding="utf-8")
+
+    proc = rig.run()
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert f"holder pid {pid}," in _break_line(proc.stdout) and "holder dead" in proc.stdout
+    assert not rig.lock.exists()
+
+
+# A scoped run execs sys.executable; a setup-python build (CI) needs LD_LIBRARY_PATH to load
+# libpython, which the hermetic rig.env drops.
+_LOADER_ENV = {k: os.environ[k] for k in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH") if k in os.environ}
+
+
+def _fallback_probe(rig) -> str:
+    # holder_dead cut from the rendered script with its /proc branch disabled, so the non-/proc
+    # (macOS) branch runs as shipped: CI is Linux, where the /proc branch always wins.
+    text = rig.script.read_text()
+    body = text[text.index("holder_dead() {") :]
+    body = body[: body.index("\n}\n") + 3]
+    assert "[ -d /proc/self ]" in body
+    return body.replace("[ -d /proc/self ]", "false")
+
+
+def _fallback_says_dead(rig, pid, *, argv_prefix=()) -> bool:
+    script = f"{_fallback_probe(rig)}holder_dead {pid}"
+    env = {**rig.env, **_LOADER_ENV, "LANG": "de_DE.UTF-8", "LC_ALL": "de_DE.UTF-8"}
+    proc = subprocess.run([*argv_prefix, "bash", "-c", script], env=env, capture_output=True, timeout=30, check=False)
+    # holder_dead answers 0 (dead) or 1 (alive); anything else is a launch failure, not an answer.
+    assert proc.returncode in (0, 1), proc.stderr
+    return proc.returncode == 0
+
+
+def test_fallback_probe_reads_a_dead_pid_as_dead_under_any_locale(rig):
+    assert _fallback_says_dead(rig, _dead_pid())
+
+
+def test_fallback_probe_reads_an_out_of_range_pid_as_dead(rig):
+    assert _fallback_says_dead(rig, "9" * 30)
+
+
+def test_fallback_probe_reads_a_live_pid_as_alive(rig):
+    holder = subprocess.Popen(["sleep", "60"])
+    try:
+        assert not _fallback_says_dead(rig, holder.pid)
+    finally:
+        holder.kill()
+        holder.wait()
+
+
+@pytest.mark.skipif(signal_scope.landlock_abi() < 6, reason="needs Landlock ABI >= 6")
+def test_fallback_probe_reads_an_unsignalable_pid_as_alive(rig):
+    holder = subprocess.Popen(["sleep", "60"], start_new_session=True)
+    try:
+        assert not _fallback_says_dead(rig, holder.pid, argv_prefix=signal_scope.scoped_argv([]))
     finally:
         holder.kill()
         holder.wait()

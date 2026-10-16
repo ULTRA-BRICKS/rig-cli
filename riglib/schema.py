@@ -576,6 +576,11 @@ AREAS: tuple[Area, ...] = (
                  "A real binary that is not the first match on PATH (the omp fork checkout) is declared "
                  "per kind under harness_wrappers.real_bin in the global config file.",
                  items_enum=_WRAPPER_KINDS),
+            _opt("harness_wrappers.signal_scope", KIND_LIST, ["omp"],
+                 "Kinds whose launch through rig runs inside a Linux Landlock signal domain: the agent can "
+                 "signal only its own process tree. Linux only. Applies to every rig launch path, independent "
+                 "of `enabled`. `[]` turns it off; `RIG_SIGNAL_SCOPE=0` skips it for one launch.",
+                 items_enum=_WRAPPER_KINDS),
         ),
     ),
     Area(
