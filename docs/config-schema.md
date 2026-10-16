@@ -3395,7 +3395,10 @@ sysmon:
   alert: { min_severity: critical, cooldown_minutes: 30, disk_cooldown_minutes: 360, swap_cooldown_minutes: 120,
            max_per_hour: 6,
            resolved: true, dry_run: false,              # tg_bin / tg_ctl_bin: the senders (default PATH)
-           route: telegram }                            # telegram | agents (the live omp sessions)
+           route: telegram }                            # telegram | subscriber (the tg-ctl exclusive holder)
+  handler: { tmux_session: main, window: sysmon-handler, workdir: "~", warn_persist_minutes: 15,
+             spawn_cooldown_minutes: 60, startup_timeout_minutes: 5, idle_exit_minutes: 30,
+             dry_run: false }        # route subscriber only; tmux_session default: sessions.tmux_session
   heal: { enabled: true, notify_agent: true, throttle: true, kill_orphans: false, kill_owned: false,
           grace_seconds: 120, dry_run: false,        # every kill path is opt-in
           restart_daemons: true, restart_labels: ["ai.hyperide.*", "com.hyperide.*"],
@@ -3554,27 +3557,43 @@ deduplicated per finding key:
   down, still alerts (with the default `min_severity: critical`, one page per 6 hours);
 - one message per tick carries every due finding;
 - at most `max_per_hour` messages go out per hour;
-- one "resolved" line is sent after a key stays clear for 5 minutes — except with `route: agents`
-  (below).
+- one "resolved" line is sent after a key stays clear for 5 minutes (with `route: subscriber` it
+  reaches the holder only, never Telegram).
 
 The dedup state lives in `state/memory.json`, so a restart never re-sends.
 
-**`alert.route: agents` (rig-cli#696)** keeps alerts out of the human chat: instead of `tg-ctl alert
-send`, sysmon lists the live omp sessions (`tg-ctl omp-live status --json`) and sends each one a
-plain-text note with `tg-ctl omp-live send <pid> --session <id>` — the same broadcast
-mem-sentinel makes with `omp-steer all` (a busy session is steered, an idle one starts a turn).
-The note is the alert without its HTML, prefixed `[sysmon]`, plus one instruction line for a
-problem alert: every session stops or shrinks its listed processes, the rest hold off on new heavy
-work while the pressure lasts and check it with `rig sysmon sample` (never by waiting for a resolved
-note, which may be held or dropped). Only a **critical** alert that NO session took (none live, or
-every send failed) still posts to Telegram, so a dangerous state never goes silent; a warning
-nobody took is dropped (the owner's rule: Telegram only when no agent can handle it). **No resolved
-note is broadcast** (rig-cli#699): it asks nothing of anyone, so sending it would only start a turn
-in every live session — with a value flapping on a line that was every 5–20 minutes, in ~9
-sessions at once. The `alerts` log record carries `via: agents`, `delivered` (pids), `failed`, and
-`undelivered` (why no session took it — for an empty `omp-live status` also which running omp pids
-the tg-ctl omp-live registry still holds endpoints of) whether it was dropped or fell back. `rig
-sysmon test-alert` follows the same route.
+**`alert.route: subscriber` (rig-cli#700)** gives the machine's resource alerts to exactly one agent
+session: the exclusive holder of tg-ctl source `sysmon` (tg-cli#747). A session takes the slot with
+`tg-ctl alert subscribe --exclusive --source sysmon`; a second session asking is refused with the
+holder named and the `tg-ctl alert handoff-request` command to ask for it. sysmon sends every alert
+with `tg-ctl alert send … --to-holder`, which reaches the holder and nothing else (exit `0` sent, `3`
+vacant, `5` holder suspended or delivery failed). An alert that was not delivered waits in a pending
+list (at most 20 finding keys, dropped after `alert.disk_cooldown_minutes`) and is re-rendered from
+the CURRENT findings and sent again once a holder is bound, so a cleared finding is never replayed.
+
+When nobody holds the slot, sysmon raises a **handler session**: an interactive `omp --auto-approve`
+in tmux window `<handler.tmux_session>:sysmon-handler` (the session is created when it does not
+exist), whose first command subscribes it exclusively and whose system prompt (written to
+`state/handler/brief.md`) limits it to safe, reversible actions, asking on Telegram (`tg --tag
+decision`) before anything else. A spawn needs a CRITICAL finding, a WARNING present for
+`warn_persist_minutes`, or a crash reboot; at most one spawn per `spawn_cooldown_minutes`, never while
+the window exists, and never while the holder state is unknown (a `tg-ctl alert holder` error: a
+handler could not subscribe either). A handler that holds nothing `startup_timeout_minutes` after its
+spawn has failed to start; its window is left for inspection. sysmon closes the window it spawned (release,
+a final note, `tmux kill-window` by the stored window id after checking its pane pid) once there has
+been no finding, no delivered alert and an idle handler for `idle_exit_minutes`; it never touches a
+holder session it did not spawn.
+
+sysmon itself writes to Telegram only for a **CRITICAL** alert, and only when the handler cannot take
+it: the holder channel is broken (tg-ctl missing, failing, or too old for `--to-holder`), or the slot
+is vacant and the last spawn failed, the spawn cooldown is active with no window, or the window has
+held nothing past `startup_timeout_minutes`. A CRITICAL failed start also posts `sysmon handler did
+not start` once. A WARNING never reaches Telegram: its `alerts` record says `outcome: undelivered,
+reason: warning-no-telegram` and it waits as pending. Records carry `via: holder`, `outcome`
+(`sent`, `deferred`, `undelivered`, `error`), `reason`, and `fallback: telegram` when the Telegram
+leg ran. `route: subscriber` cannot be combined with `auto_remediate: true` (the handler replaces it);
+the former `route: agents` broadcast is removed and rejected with a pointer to `subscriber`. `rig
+sysmon test-alert` follows the same route and never spawns.
 
 **Heal ladder (safe by default).**
 
@@ -3679,6 +3698,14 @@ daemon is not running. The other commands:
   on synthetic findings. Alerts and heal are forced to dry-run; remediation follows the config.
 - `rig sysmon incidents [--show ID]`.
 - `rig sysmon restore`.
+- `rig sysmon handler status`: `holder: <state> <session> pid <pid>`, `window: <session>:sysmon-handler
+  <window id> pane <pid>` (or `absent`), `last spawn: <time> ok|failed|starting` (or `never`).
+- `rig sysmon handler spawn`: asks the daemon to raise the handler session now (it writes
+  `state/handler/spawn-request`, which the daemon consumes on its next tick, ignoring the trigger and
+  the cooldown), then waits up to `max(30, 2 × sample_interval_seconds + 10)` seconds and prints
+  `spawned: <session>:sysmon-handler pane <pid>` once the daemon recorded that window as its spawn.
+  Exit 4 without `alert.route: subscriber`, 3 when the window already exists, 1 when the daemon did
+  not spawn in time (the request stays for the daemon's next run).
 
 All of them forward to the same package the daemon runs.
 

@@ -176,16 +176,46 @@ def test_alert_senders_validate_and_render_into_sysmon_json(tmp_path):
             validate({"version": 1, "sysmon": {"alert": bad}})
 
 
-def test_alert_route_validates_and_renders_into_sysmon_json(tmp_path):
-    block = {"alert": {"route": "agents"}}
+def test_alert_route_subscriber_and_handler_render_into_sysmon_json(tmp_path):
+    """rig-cli#700: route subscriber plus the handler block; an integer tmux session (what `rig
+    config set … 0` coerces) renders as a string."""
+    block = {"alert": {"route": "subscriber"}, "handler": {"tmux_session": 0, "idle_exit_minutes": 45}}
     validate({"version": 1, "sysmon": block})
     rt = json.loads(sysmon.build_sysmon(home=tmp_path, block=block, gpu_env={}).render_config())
-    assert rt["alert"]["route"] == "agents"
+    assert rt["alert"]["route"] == "subscriber"
+    assert rt["handler"]["tmux_session"] == "0"
+    assert rt["handler"]["idle_exit_minutes"] == 45
+    assert rt["handler"]["spawn_cooldown_minutes"] == 60
     default = json.loads(sysmon.build_sysmon(home=tmp_path, block={}, gpu_env={}).render_config())
     assert default["alert"]["route"] == "telegram"
+    assert default["handler"] == {
+        "tmux_session": None, "window": "sysmon-handler", "workdir": "~", "warn_persist_minutes": 15,
+        "spawn_cooldown_minutes": 60, "startup_timeout_minutes": 5, "idle_exit_minutes": 30, "dry_run": False,
+    }
     for bad in ("pager", "", 1, None):
         with pytest.raises(ConfigError):
             validate({"version": 1, "sysmon": {"alert": {"route": bad}}})
+
+
+def test_alert_route_agents_is_rejected_with_the_new_name():
+    with pytest.raises(ConfigError, match="renamed to subscriber"):
+        validate({"version": 1, "sysmon": {"alert": {"route": "agents"}}})
+
+
+def test_subscriber_route_rejects_auto_remediate():
+    with pytest.raises(ConfigError, match="handler session replaces it"):
+        validate({"version": 1, "sysmon": {"auto_remediate": True, "alert": {"route": "subscriber"}}})
+    validate({"version": 1, "sysmon": {"auto_remediate": True, "alert": {"route": "telegram"}}})
+
+
+@pytest.mark.parametrize("handler", [
+    {"warn_persist_minutes": 0}, {"spawn_cooldown_minutes": "x"}, {"startup_timeout_minutes": 0},
+    {"idle_exit_minutes": True}, {"dry_run": 1}, {"tmux_session": " "}, {"tmux_session": -1},
+    {"tmux_session": True}, {"window": ""}, {"workdir": 3}, {"bogus": 1},
+])
+def test_handler_keys_are_validated(handler):
+    with pytest.raises(ConfigError):
+        validate({"version": 1, "sysmon": {"handler": handler}})
 
 
 def test_swap_gate_hysteresis_and_swap_cooldown_validate_and_render_into_sysmon_json(tmp_path):

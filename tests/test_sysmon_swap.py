@@ -5,7 +5,7 @@
 - a raised finding clears only once its value is ``hysteresis_pct`` of its warn line past it;
 - a finding that alerted, cleared and came back inside its cooldown is not new; an unchanged swap
   incident re-alerts once per ``swap_cooldown_minutes``;
-- with ``alert.route: agents`` no resolved note is broadcast;
+- with ``alert.route: subscriber`` every note, resolved ones included, reaches the holder only;
 - the replay of 2026-10-15 on home (swap pinned at ~100 %, MemAvailable 55-90 %) pages nobody.
 """
 
@@ -154,7 +154,7 @@ def test_a_held_process_growth_finding_clears_past_the_margin_too():
     assert not [f for f in detect.sample_findings(now, TH, [base]) if f.key == "proc_growth"]
 
 
-# ── alert.decide: cooldown across a clear, swap window, resolved under route agents ───────
+# ── alert.decide: cooldown across a clear, swap window ────────────────────────────────────
 def _cfg(**alert_over):
     cfg = config.load(None)
     cfg["alert"].update({"min_severity": "warning", **alert_over})
@@ -211,12 +211,14 @@ def test_a_memory_json_saved_before_level_sent_keeps_its_cooldown():
     assert due == [] and st["level_sent"] == {"wired": {SEVERITY_CRITICAL: 1000.0}}
 
 
-def test_route_agents_never_produces_a_resolved_note():
-    cfg = _cfg(route="agents")
+def test_route_subscriber_keeps_the_resolved_note_for_the_holder():
+    """rig-cli#700: one recipient, so the resolved note is back (route agents dropped it because it
+    started a turn in every live session)."""
+    cfg = _cfg(route="subscriber")
     _, _, st = alert.decide([_f()], {}, cfg, 0.0)
     _, _, st = alert.decide([], st, cfg, 10.0)
     _, resolved, st = alert.decide([], st, cfg, 10.0 + alert.RESOLVE_AFTER_S)
-    assert resolved == [] and st["keys"] == {} and len(st["sent"]) == 1  # no budget spent either
+    assert resolved == ["wired"] and st["keys"] == {}
 
 
 # ── replay: 2026-10-15 on home through the real monitor ───────────────────────────────────
@@ -238,19 +240,32 @@ def _replay_sample(at, row):
     )
 
 
-class _Agents:
-    """``tg-ctl omp-live``: one live session; every note it gets is kept with its sample time."""
+HOLDER = {"source": "sysmon", "state": "bound", "request": None,
+          "holder": {"sessionId": "s", "pid": 4242, "title": "t", "since": 1}}
 
-    def __init__(self):
+
+class _Holder:
+    """tg-ctl with one exclusive holder of source sysmon (``code`` 0) or none (``code`` 3): every
+    ``--to-holder`` alert is kept as ``(sample time, title)``; ``calls`` keeps every argv."""
+
+    def __init__(self, code=0):
+        self.code = code
         self.notes = []
+        self.calls = []
         self.now = None
 
     def __call__(self, argv, **kw):
+        self.calls.append(argv)
+        if argv[1:3] == ["alert", "holder"]:
+            doc = HOLDER if self.code == 0 else {**HOLDER, "state": "vacant", "holder": None}
+            return subprocess.CompletedProcess(argv, self.code, json.dumps(doc), "")
+        if argv[1:3] == ["alert", "send"] and "--to-holder" in argv:
+            if self.code == 0:
+                self.notes.append((self.now, alert.flag_value(argv, "--title")))
+            return subprocess.CompletedProcess(argv, self.code, "", "")
         if argv[1:3] == ["omp-live", "status"]:
-            return subprocess.CompletedProcess(argv, 0, json.dumps([{"pid": 4242, "sessionId": "s"}]), "")
-        if argv[1:3] == ["omp-live", "send"]:
-            self.notes.append((self.now, argv[-1]))
-        return subprocess.CompletedProcess(argv, 0, "", "")
+            return subprocess.CompletedProcess(argv, 0, "[]", "")
+        return subprocess.CompletedProcess(argv, 1, "", "unexpected")
 
 
 def _replay(tmp_path, **thresholds):
@@ -259,17 +274,18 @@ def _replay(tmp_path, **thresholds):
     cfg["events"]["enabled"] = False
     cfg["heal"]["enabled"] = False
     # home's live alert block on 2026-10-15
-    cfg["alert"].update(min_severity="warning", route="agents", cooldown_minutes=30, max_per_hour=6)
+    cfg["alert"].update(min_severity="warning", route="subscriber", cooldown_minutes=30, max_per_hour=6)
     cfg["thresholds"].update(thresholds)
     rows = list(_rows())
     samples = iter([_replay_sample(at, row) for at, row in rows])
-    agents = _Agents()
-    mon = daemon.Monitor(cfg, sampler=lambda now=None: next(samples), censor=lambda: [], run=agents, persist=False)
+    holder = _Holder()
+    mon = daemon.Monitor(cfg, sampler=lambda now=None: next(samples), censor=lambda: [], run=holder, persist=False)
     for at, _ in rows:
-        agents.now = at
+        holder.now = at
         mon.tick(at.timestamp())
-    swap = [at for at, text in agents.notes if text.startswith("[sysmon] sysmon ") and ": swap" in text.split("\n")[0]]
-    resolved = [at for at, text in agents.notes if "resolved" in text.split("\n")[0]]
+    assert not any(c[0] == "tg" or (c[1:3] == ["alert", "send"] and "--to-holder" not in c) for c in holder.calls)
+    swap = [at for at, title in holder.notes if title.startswith("sysmon ") and ": swap" in title]
+    resolved = [at for at, title in holder.notes if "resolved" in title]
     return swap, resolved
 
 
@@ -291,12 +307,13 @@ def test_replay_of_2026_10_15_pages_nobody_for_cold_swap(tmp_path, swap_pct):
 def test_replay_with_the_gate_inside_the_days_memavailable_band_still_pages_at_most_once_per_window(tmp_path):
     """Stress the same series: an available-memory line at 63 % sits inside the 55-90 % the day
     actually moved through, so the gate flips many times an hour. Hysteresis plus the clear-proof
-    cooldown must still hold it to one page per swap_cooldown_minutes and no resolved notes."""
+    cooldown must still hold it to one page per swap_cooldown_minutes, and at most one resolved note
+    (to the holder only) per page."""
     swap, resolved = _replay(tmp_path, swap_gate_available_pct={"warn": 63, "critical": 10})
     assert swap, "the stressed gate must page at least once, or this test proves nothing"
     gaps = [(b - a).total_seconds() for a, b in zip(swap, swap[1:])]
     assert all(g >= 120 * 60 for g in gaps), [t.strftime("%H:%M") for t in swap]
-    assert resolved == []
+    assert len(resolved) <= len(swap), ([t.strftime("%H:%M") for t in swap], [t.strftime("%H:%M") for t in resolved])
 
 
 # ── swapoff in progress is no incident (#685, Main's ruling 2026-10-15) ──────────────────
@@ -326,21 +343,6 @@ def test_the_swap_drain_file_counts_only_while_a_drain_is_running(text, alive, l
 def test_a_pid_no_process_can_have_is_not_alive_and_never_raises(pid):
     assert probe.pid_alive(pid) is False
     assert probe.swap_drain_live(_drain(pid=pid), 1000.0) is False
-
-
-def test_a_registry_name_with_an_impossible_pid_does_not_break_the_critical_fallback(tmp_path, monkeypatch):
-    (tmp_path / "omp-live").mkdir()
-    (tmp_path / "omp-live" / f"{10 ** 20}-{'a' * 32}.json").write_text("{}")
-    monkeypatch.setenv("TG_CTL_CONFIG_DIR", str(tmp_path))
-    calls = []
-
-    def run(argv, **kw):
-        calls.append(argv)
-        return subprocess.CompletedProcess(argv, 0, "[]" if argv[1] == "omp-live" else "OK tg#9\n", "")
-
-    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_CRITICAL, key="k", run=run)
-    assert rec["via"] == "tg-ctl alert" and rec["message_id"] == 9
-    assert "holds no endpoint of a running omp" in rec["undelivered"]
 
 
 def test_a_live_swap_drain_hides_a_full_swap_even_under_pressure():
@@ -376,20 +378,6 @@ def test_the_monitor_keeps_the_whole_shrink_window_at_a_one_second_interval(tmp_
     assert "swap" not in {f.key for f in mon.sample_findings(stalled, list(mon.history))}
 
 
-class _NoSession(_Agents):
-    """``omp-live status`` listing nobody, as it did at 2026-10-15T19:28:05Z; any Telegram post is kept."""
-
-    def __init__(self):
-        super().__init__()
-        self.calls = []
-
-    def __call__(self, argv, **kw):
-        self.calls.append(argv)
-        if argv[1:3] == ["omp-live", "status"]:
-            return subprocess.CompletedProcess(argv, 0, "[]", "")
-        return subprocess.CompletedProcess(argv, 0, "OK tg#1\n", "")
-
-
 @pytest.mark.parametrize("before", [[], [16 * GIB] * 6], ids=["daemon-just-started", "drain-seen-shrinking"])
 def test_replay_of_the_2026_10_15_19_28_05z_swapoff_sample_alerts_nobody(tmp_path, before):
     """21:28 local swap-drain: "WARNING swap 9.0 GB of 9.0 GB used (100%)" with 37.6 GB reclaimable
@@ -398,7 +386,8 @@ def test_replay_of_the_2026_10_15_19_28_05z_swapoff_sample_alerts_nobody(tmp_pat
     cfg["state_dir"] = str(tmp_path / "state")
     cfg["events"]["enabled"] = False
     cfg["heal"]["enabled"] = False
-    cfg["alert"].update(min_severity="warning", route="agents")
+    cfg["alert"].update(min_severity="warning", route="subscriber")
+    cfg["handler"]["dry_run"] = True
     cfg["thresholds"]["swap_pct"] = {"warn": 100, "critical": 101}  # home's override that day
     t0 = dt.datetime(2026, 10, 15, 19, 28, 5, tzinfo=dt.timezone.utc).timestamp()
     mem = 49_122_521_088  # home's MemTotal
@@ -409,7 +398,7 @@ def test_replay_of_the_2026_10_15_19_28_05z_swapoff_sample_alerts_nobody(tmp_pat
                           swap_used=9 * GIB, psi_full_avg60=None, psi_full_avg10=None, psi_some_avg10=None,
                           psi_some_avg60=None))
     it = iter(samples)
-    run = _NoSession()
+    run = _Holder(code=3)  # nobody held the alerts
     mon = daemon.Monitor(cfg, sampler=lambda now=None: next(it), censor=lambda: [], run=run, persist=False)
     for s in samples:
         found = mon.tick(s.taken_at)
@@ -424,19 +413,20 @@ def test_a_drain_file_that_is_not_utf8_is_unreadable_not_a_crash(tmp_path):
     assert probe._read(str(bad)) is None and probe.swap_drain_live(probe._read(str(bad)), 1000.0) is False
 
 
-def test_a_dropped_warning_spends_no_budget_so_a_critical_still_reaches_telegram(tmp_path):
-    """With no live session a warning is dropped; it must not use up max_per_hour and hold back
+def test_an_undelivered_warning_spends_no_budget_so_a_critical_still_goes_out(tmp_path):
+    """With no holder a warning is not delivered; it must not use up max_per_hour and hold back
     the critical that follows (the only alert that may still fall back to Telegram)."""
     cfg = config.load(None)
     cfg.update(state_dir=str(tmp_path))
     cfg["events"]["enabled"] = False
     cfg["heal"]["enabled"] = False
-    cfg["alert"].update(min_severity="warning", route="agents", max_per_hour=1)
+    cfg["alert"].update(min_severity="warning", route="subscriber", max_per_hour=1)
+    cfg["handler"]["dry_run"] = True
     samples = iter([_linux(taken_at=1000.0, load1=21.0), _linux(taken_at=1010.0, load1=40.0)])  # 1.31, 2.5 per CPU
-    run = _NoSession()
+    run = _Holder(code=3)
     mon = daemon.Monitor(cfg, sampler=lambda now=None: next(samples), censor=lambda: [], run=run, persist=False)
     mon.tick(1000.0)
-    assert not [c for c in run.calls if c[1] == "alert"] and mon.memory["alert"]["sent"] == []
+    assert mon.memory["alert"]["sent"] == []
     mon.tick(1010.0)
     posted = [c for c in run.calls if c[1:3] == ["alert", "send"]]
-    assert len(posted) == 1 and alert.flag_value(posted[0], "--severity") == SEVERITY_CRITICAL
+    assert [alert.flag_value(c, "--severity") for c in posted] == [SEVERITY_WARNING, SEVERITY_CRITICAL]

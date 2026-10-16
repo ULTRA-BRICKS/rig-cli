@@ -18,6 +18,9 @@ exercises exactly the production path:
 3. heal — :func:`.heal.plan` / :func:`.heal.execute` / :func:`.heal.record` (notify → throttle →
    opt-in kills; throttles are restored when the pressure clears and when the monitor stops);
 4. remediation — :func:`.remediate.maybe_spawn` once per incident when ``auto_remediate``;
+   with ``alert.route: subscriber`` instead the handler session (:mod:`.handler`, rig-cli#700):
+   raised when nobody holds the sysmon alerts, retired when things stay quiet, and the alerts the
+   holder did not get yet redelivered once one is bound;
 5. bookkeeping — the live-session snapshot, ``status.json`` heartbeat, ``memory.json``.
 
 At start the previous heartbeat decides whether the machine crashed since the last run
@@ -36,7 +39,7 @@ import time
 from collections import deque
 from typing import Any, Callable, Deque, Dict, List, Optional, Sequence, Tuple
 
-from . import __version__, alert, attrib, config, detect, events, heal, probe, reclaim, remediate, sessions, store
+from . import __version__, alert, attrib, config, detect, events, handler, heal, probe, reclaim, remediate, sessions, store
 from .model import SEVERITY_CRITICAL, SEVERITY_WARNING, Finding, LaunchdJob, Offender, Proc, to_jsonable
 
 #: an incident closes after this long without any critical finding.
@@ -77,6 +80,7 @@ class Monitor:
         self.which = which
         self.lineage = attrib.Lineage(start_time_of)
         self.memory: Dict[str, Any] = store.read_json(self.state_dir / store.MEMORY, {}) or {}
+        self.memory["handler"] = handler.load_state(self.memory.get("handler"))
         # at least the swap-shrink window at any sample interval (a swapoff is a shrink within it)
         interval = max(1, int(cfg.get("sample_interval_seconds") or 1))
         self.history: Deque[probe.Sample] = deque(maxlen=max(90, int(detect.SWAP_SHRINK_WINDOW_S) // interval + 1))
@@ -269,15 +273,17 @@ class Monitor:
                 due, incident_id=self.incident["id"] if self.incident else None,
                 extra_lines=self._memory_line() + self._reclaim_lines(due, now),
             )
-            rec = alert.send(title, body, self.cfg, severity=alert.worst_severity(due),
-                             key=alert.batch_key([f.key for f in due]), run=self.run_cmd)
-            self._log("alerts", rec)
-            if rec.get("outcome") == "undelivered":
+            rec = self._deliver(title, body, severity=alert.worst_severity(due),
+                                key=alert.batch_key([f.key for f in due]), finding_keys=[f.key for f in due], now=now)
+            if rec.get("via") == "holder" and not _delivered(rec):
+                # nothing reached anyone: the hourly budget is for messages that did
                 self.memory["alert"] = alert.refund(self.memory["alert"], now)
         if resolved:
             title, body = alert.render_resolved(resolved)
-            self._log("alerts", alert.send(title, body, self.cfg, severity=alert.SEVERITY_INFO,
-                                           key=alert.batch_key(resolved, prefix="resolved:"), run=self.run_cmd))
+            rec = self._deliver(title, body, severity=alert.SEVERITY_INFO,
+                                key=alert.batch_key(resolved, prefix="resolved:"), finding_keys=[], now=now)
+            if rec.get("via") == "holder" and not _delivered(rec):
+                self.memory["alert"] = alert.refund(self.memory["alert"], now)
 
         steps, self.memory["heal"] = heal.plan(findings, self.memory.get("heal") or {}, self.cfg, now)
         if steps:
@@ -296,7 +302,9 @@ class Monitor:
             if slow:
                 self._save_incident()
 
-        if self.incident is not None and critical and not self.incident.get("remediation"):
+        # the handler session replaces remediation (rig-cli#700); rig's validator rejects the pair,
+        # this also holds for a hand-written --config JSON
+        if self.incident is not None and critical and not self.incident.get("remediation") and not self._subscriber():
             result, self.memory["remediation"] = remediate.maybe_spawn(
                 self.incident, store.incident_dir(self.state_dir, self.incident["id"]), self.cfg,
                 self.memory.get("remediation") or {}, now, run=self.run_cmd,
@@ -304,6 +312,9 @@ class Monitor:
             if result.get("status") not in ("disabled",):
                 self.incident["remediation"] = result
                 self._save_incident()
+
+        if self._subscriber():
+            self._handle(findings, now)
 
         if self.incident is not None and not critical:
             if now - float(self.incident.get("last_critical_at") or now) >= CLOSE_AFTER_S:
@@ -317,6 +328,92 @@ class Monitor:
                 sessions.write_snapshot(self.state_dir, sessions.snapshot(self.attributor.hosts(), now))
             self.snapshot_at = now
         self.write_status(now)
+
+    # ── alert delivery and the handler session (rig-cli#700) ──────────────────────────────
+    def _subscriber(self) -> bool:
+        return str(self.cfg["alert"].get("route") or "telegram") == "subscriber"
+
+    def _deliver(
+        self, title: str, body: str, *, severity: str, key: str, finding_keys: Sequence[str], now: float,
+        crash: bool = False,
+    ) -> Dict[str, Any]:
+        """The one alert delivery call site. With ``route: subscriber`` a problem alert the holder
+        did not take is either posted to Telegram — only a CRITICAL one, and only when no handler
+        can take it (:func:`.handler.telegram_fallback_due`, or a broken channel) — or queued as
+        pending for the holder to come; a WARNING never reaches Telegram (ruling 17). A resolved
+        notice is never queued nor posted."""
+        rec = alert.send(title, body, self.cfg, severity=severity, key=key, run=self.run_cmd)
+        if rec.get("via") != "holder":
+            self._log("alerts", rec)
+            return rec
+        state = handler.observe_send(self.memory.get("handler") or {}, rec, now)
+        outcome = rec.get("outcome")
+        if severity != alert.SEVERITY_INFO and outcome in ("error", "undelivered", "deferred"):
+            window: Optional[handler.Window] = None
+            if outcome == "error":
+                fallback = True
+            elif outcome == "undelivered":
+                h, state = handler.current_holder(state, now, self.cfg, self.run_cmd)
+                window = handler.find_window(self.cfg, self.run_cmd)
+                state = handler.observe_window(state, window, now)
+                fallback = handler.telegram_fallback_due(state, now, self.cfg, holder=h, window=window)
+            else:
+                fallback = False
+            crash_item = {"title": title, "body": body, "at": now} if crash else None
+            if fallback and severity == SEVERITY_CRITICAL:
+                tg = alert.send_telegram(title, body, self.cfg, severity=severity, key=key, run=self.run_cmd)
+                rec.update(fallback="telegram", telegram=tg)
+                if tg.get("outcome") != "sent":
+                    state = handler.queue_pending(state, finding_keys, now, crash=crash_item)
+            else:
+                if fallback:
+                    rec.update(outcome="undelivered", reason="warning-no-telegram")
+                elif outcome == "undelivered" and handler.handler_starting(state, now, self.cfg, window):
+                    rec.update(reason="handler starting")
+                state = handler.queue_pending(state, finding_keys, now, crash=crash_item)
+        self.memory["handler"] = state
+        self._log("alerts", rec)
+        return rec
+
+    def _handle(self, findings: List[Finding], now: float) -> None:
+        """The handler tick, its failed-start notices, then the pending replay to a bound holder."""
+        raised = [f for f in findings if f.severity in (SEVERITY_WARNING, SEVERITY_CRITICAL)]
+        text = handler.plain_text(*alert.render(raised, incident_id=self.incident["id"] if self.incident else None)) \
+            if raised else "no finding is raised right now: check `rig sysmon sample`"
+        state, records, notices = handler.tick(findings, self.memory.get("handler") or {}, now, self.cfg,
+                                               self.run_cmd, alert_text=text)
+        self.memory["handler"] = state
+        for rec in records:
+            self._log_handler(rec)
+        for n in notices if self.cfg["alert"].get("enabled", True) else ():
+            self._log("alerts", alert.send_telegram(n["title"], n["body"], self.cfg, severity=n["severity"],
+                                                    key="handler-start-failed", run=self.run_cmd))
+        if (state.get("holder") or {}).get("state") != "bound":
+            return
+        replay, crash_item, state = handler.due_pending(state, findings, now, self.cfg)
+        self.memory["handler"] = state
+        if replay:
+            keys = [f.key for f in replay]
+            title, body = alert.render(replay, incident_id=self.incident["id"] if self.incident else None,
+                                       extra_lines=self._memory_line())
+            rec = self._deliver(title, body, severity=alert.worst_severity(replay), key=alert.batch_key(keys),
+                                finding_keys=keys, now=now)
+            if _delivered(rec):
+                self.memory["handler"] = handler.ack_pending(self.memory["handler"], keys, crash=False)
+        if crash_item:
+            rec = self._deliver(str(crash_item["title"]), str(crash_item["body"]), severity=SEVERITY_CRITICAL,
+                                key="crash", finding_keys=[], now=now, crash=True)
+            if _delivered(rec):
+                self.memory["handler"] = handler.ack_pending(self.memory["handler"], [], crash=True)
+
+    def _log_handler(self, rec: Dict[str, Any]) -> None:
+        """Every handler record goes to ``recent_handler``; the open incident keeps a copy too."""
+        log = self.memory.setdefault("recent_handler", [])
+        log.append(rec)
+        del log[:-50]
+        if self.incident is not None:
+            self.incident.setdefault("handler", []).append(rec)
+            self._save_incident()
 
     def _memory_line(self) -> List[str]:
         s = self.sample
@@ -423,11 +520,17 @@ class Monitor:
             extra.append(str(crash["panic_excerpt"])[:300])
         if self.cfg["alert"].get("enabled", True):
             title, body = alert.render([finding], incident_id=self.incident["id"], extra_lines=extra)
-            self._log("alerts", alert.send(title, body, self.cfg, severity=finding.severity, key=finding.key, run=self.run_cmd))
-        result, self.memory["remediation"] = remediate.maybe_spawn(
-            self.incident, store.incident_dir(self.state_dir, self.incident["id"]), self.cfg,
-            self.memory.get("remediation") or {}, now, run=self.run_cmd,
-        )
+            self._deliver(title, body, severity=finding.severity, key=finding.key, finding_keys=[], now=now, crash=True)
+        if self._subscriber():
+            # the next handler tick treats the crash as a spawn trigger (the crash finding never recurs)
+            self.memory["handler"] = {**(self.memory.get("handler") or {}), "post_crash_pending": True}
+        if self._subscriber():
+            result = {"status": "disabled", "reason": "alert.route subscriber: the handler session handles it"}
+        else:
+            result, self.memory["remediation"] = remediate.maybe_spawn(
+                self.incident, store.incident_dir(self.state_dir, self.incident["id"]), self.cfg,
+                self.memory.get("remediation") or {}, now, run=self.run_cmd,
+            )
         self.incident["remediation"] = result
         self._save_incident()
         closed = self.incident
@@ -534,6 +637,11 @@ class Monitor:
             store.write_json(self.state_dir / store.MEMORY, self.memory)
 
 
+def _delivered(rec: Dict[str, Any]) -> bool:
+    """The alert reached someone: the holder, Telegram, or its Telegram fallback."""
+    return rec.get("outcome") in ("sent", "dry_run") or (rec.get("telegram") or {}).get("outcome") == "sent"
+
+
 def build(cfg: Dict[str, Any], *, with_events: bool = True) -> Monitor:
     stream = events.LogStream() if with_events and cfg["events"].get("enabled") and probe.IS_DARWIN else None
     return Monitor(cfg, stream=stream)
@@ -566,6 +674,7 @@ def simulate(
     sim_cfg = copy.deepcopy(cfg)
     sim_cfg["alert"]["dry_run"] = True
     sim_cfg["heal"]["dry_run"] = True
+    sim_cfg["handler"]["dry_run"] = True
     now = time.time() if now is None else now
     mon = Monitor(sim_cfg, persist=False)
     mon.memory = {}

@@ -597,138 +597,107 @@ def test_a_sent_alert_without_an_ok_line_keeps_outcome_sent_and_no_message_id():
     assert rec["outcome"] == "sent" and rec["message_id"] is None and rec["detail"] == "sent, no id"
 
 
-# ── alert.route: agents (rig-cli#696) ─────────────────────────────────────────────────────
-LIVE = json.dumps([
-    {"pid": 11, "sessionId": "s-11", "cwd": "/a", "busy": False},
-    {"pid": 22, "sessionId": "s-22", "cwd": "/b", "busy": True},
-])
-
-
-def _agents_run(calls, status=LIVE, fail_pid=None):
+# ── alert.route: subscriber (rig-cli#700) ─────────────────────────────────────────────────
+def _holder_run(calls, code=0, out="OK holder s-1 pid 11\n", err=""):
     def run(argv, **kw):
         calls.append(argv)
-        if argv[1:3] == ["omp-live", "status"]:
-            return _completed(argv, 0, status) if isinstance(status, str) else status
-        if argv[1:3] == ["omp-live", "send"]:
-            if argv[3] == str(fail_pid):
-                return _completed(argv, 1, "", "endpoint gone")
-            return _completed(argv, 0, "OK steer\n")
-        return _completed(argv, 0, "OK tg#77\n")
+        return _completed(argv, code, out, err)
     return run
 
 
-def test_route_agents_broadcasts_plain_text_into_every_live_session_and_never_posts_to_telegram():
+def _before_text(argv):
+    """The flags before the body: ``--text`` is the last flag, its value the last item."""
+    return argv[:argv.index("--text")]
+
+
+def test_route_subscriber_delivers_to_the_holder_only():
     calls = []
-    rec = alert.send("sysmon WARNING on home: swap", "<b>WARNING</b> swap 16 &gt; 15\nincident <code>I1</code>",
-                     _cfg(route="agents"), severity=SEVERITY_WARNING, key="swap", run=_agents_run(calls))
-    assert calls[0] == ["tg-ctl", "omp-live", "status", "--json"]
-    sends = sorted(calls[1:], key=lambda c: c[3])  # the sends run side by side
-    assert [c[:4] for c in sends] == [["tg-ctl", "omp-live", "send", "11"], ["tg-ctl", "omp-live", "send", "22"]]
-    assert [alert.flag_value(c, "--session") for c in sends] == ["s-11", "s-22"]
-    assert all(alert.flag_value(c, "--request-id").startswith("sysmon-") for c in sends)
-    text = sends[0][-1]
-    assert sends[0][-2] == "--" and text == sends[1][-1]
-    assert text.startswith("[sysmon] sysmon WARNING on home: swap") and "<b>" not in text and "<code>" not in text
-    assert "WARNING swap 16 > 15" in text and "incident I1" in text
-    assert "Every session:" in text  # the instruction agents act on
-    assert not any(c[1] == "alert" or c[0] == "tg" for c in calls)
-    assert rec["via"] == "agents" and rec["outcome"] == "sent" and rec["delivered"] == [11, 22]
-    assert rec["failed"] == [] and rec["message_id"] is None
+    rec = alert.send("sysmon WARNING on home: swap", "<b>WARNING</b> swap", _cfg(route="subscriber"),
+                     severity=SEVERITY_WARNING, key="swap", run=_holder_run(calls))
+    assert len(calls) == 1
+    argv = calls[0]
+    assert argv[:3] == ["tg-ctl", "alert", "send"] and "--to-holder" in _before_text(argv)
+    assert argv[-2:] == ["--text", "<b>WARNING</b> swap"]  # the body stays intact and last
+    assert alert.flag_value(argv, "--source") == "sysmon" and alert.flag_value(argv, "--key") == "swap"
+    assert rec["via"] == "holder" and rec["outcome"] == "sent" and rec["message_id"] is None
+    assert not any(c[0] == "tg" or "--to-holder" not in c for c in calls)
 
 
-def test_route_agents_one_failed_session_is_recorded_and_the_rest_still_count_as_sent():
+@pytest.mark.parametrize("code,outcome,vacant,reason", [
+    (3, "undelivered", True, "no subscriber"),
+    (5, "deferred", None, "holder suspended"),
+    (1, "error", None, None),
+])
+def test_route_subscriber_maps_exit_codes(code, outcome, vacant, reason):
     calls = []
-    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_CRITICAL, key="k", run=_agents_run(calls, fail_pid=11))
-    assert rec["outcome"] == "sent" and rec["delivered"] == [22]
-    assert rec["failed"][0].startswith("11:") and "endpoint gone" in rec["failed"][0]
-    assert not any(c[1] == "alert" for c in calls)
+    rec = alert.send("t", "b", _cfg(route="subscriber"), severity=SEVERITY_CRITICAL, key="k",
+                     run=_holder_run(calls, code, "VACANT sysmon\n" if code == 3 else "", "boom" if code != 3 else ""))
+    assert len(calls) == 1  # no fallback inside send: the daemon decides it
+    assert rec["via"] == "holder" and rec["outcome"] == outcome and rec.get("vacant") is vacant
+    assert rec.get("reason") == reason and rec["returncode"] == code
+    if outcome in ("deferred", "undelivered"):
+        assert rec["detail"] and len(rec["detail"]) <= 300
 
 
-def test_route_agents_sends_are_bounded_and_concurrent_so_stalled_sessions_cannot_hold_the_tick():
-    import threading
+def test_route_subscriber_old_tg_ctl_is_an_error_not_silence():
+    calls = []
+    rec = alert.send("t", "b", _cfg(route="subscriber"), severity=SEVERITY_CRITICAL, key="k",
+                     run=_holder_run(calls, 1, "", "tg-ctl alert: unknown flag: --to-holder"))
+    assert rec["outcome"] == "error" and "unknown flag" in rec["detail"] and len(calls) == 1
 
-    hosts = json.dumps([{"pid": p, "sessionId": f"s-{p}"} for p in range(1, alert.AGENT_SEND_WORKERS + 1)])
-    barrier = threading.Barrier(alert.AGENT_SEND_WORKERS, timeout=5)
-    timeouts = []
+
+def test_route_subscriber_missing_tg_ctl_is_an_error():
+    def run(argv, **kw):
+        raise FileNotFoundError(errno.ENOENT, "No such file", argv[0])
+
+    rec = alert.send("t", "b", _cfg(route="subscriber"), severity=SEVERITY_CRITICAL, key="k", run=run)
+    assert rec["via"] == "holder" and rec["outcome"] == "error" and "cannot run" in rec["detail"]
+
+
+def test_route_subscriber_dry_run_runs_nothing():
+    rec = alert.send("t", "<b>b</b>", _cfg(route="subscriber", dry_run=True), severity=SEVERITY_WARNING, key="k",
+                     run=lambda *a, **k: pytest.fail("must not run"))
+    assert rec["via"] == "holder" and rec["outcome"] == "dry_run"
+    assert "--to-holder" in _before_text(rec["argv"]) and rec["argv"][-1] == "<b>b</b>"
+
+
+def test_send_telegram_is_the_tg_ctl_alert_path():
+    calls = []
 
     def run(argv, **kw):
-        if argv[1] == "alert":
-            return _completed(argv, 0, "OK tg#5\n")
-        timeouts.append(kw["timeout"])
-        if argv[2] == "status":
-            return _completed(argv, 0, hosts)
-        barrier.wait()  # BrokenBarrierError after 5 s unless every send is in flight at once
+        calls.append(argv)
+        return _completed(argv, 0, "OK tg#4210 sessions=1 (Supervisor (pid 7))\n")
+
+    rec = alert.send_telegram("sysmon CRITICAL on mac: load", "<b>CRITICAL</b> load 38", _cfg(route="subscriber"),
+                              severity=SEVERITY_CRITICAL, key="load;swap", run=run)
+    assert calls == [[
+        "tg-ctl", "alert", "send", "--source", "sysmon", "--severity", "critical", "--key", "load;swap",
+        "--title", "sysmon CRITICAL on mac: load", "--html", "--text", "<b>CRITICAL</b> load 38",
+    ]]
+    assert rec["outcome"] == "sent" and rec["via"] == "tg-ctl alert" and rec["message_id"] == 4210
+
+
+def test_holder_argv_puts_to_holder_among_the_flags():
+    argv = alert.holder_argv("tg-ctl", "--text", "--looks-like-a-flag", "warning", "k")
+    assert argv[-3:] == ["--to-holder", "--text", "--looks-like-a-flag"] and argv.count("--to-holder") == 1
+    assert alert.flag_value(argv, "--title") == "--text"  # a title that looks like the body flag
+
+
+def test_route_subscriber_a_hung_tg_ctl_is_a_bounded_error():
+    def run(argv, **kw):
+        assert kw["timeout"] == alert.HOLDER_SEND_TIMEOUT_S
         raise subprocess.TimeoutExpired(argv, kw["timeout"])
 
-    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_CRITICAL, key="k", run=run)
-    assert set(timeouts) == {alert.AGENT_SEND_TIMEOUT_S}
-    assert rec["delivered"] == [] and len(rec["failed"]) == alert.AGENT_SEND_WORKERS
-    assert rec["via"] == "tg-ctl alert"  # nobody took it: the Telegram fallback
+    rec = alert.send("t", "b", _cfg(route="subscriber"), severity=SEVERITY_CRITICAL, key="k", run=run)
+    assert rec["via"] == "holder" and rec["outcome"] == "error" and "timed out" in rec["detail"]
 
 
-@pytest.mark.parametrize("status", [
-    "[]", _completed(["tg-ctl"], 1, "", "registry unreadable"), "not json",
-    "null", '{"pid": 11}', '[{"pid": "not-a-pid"}, {"pid": true}, "x"]',  # parseable but not a listing
-    '[{"pid": "11"}, {"pid": 99999999999999999999}, {"pid": -3}]',  # pids are positive JSON numbers
-])
-def test_route_agents_a_critical_alert_no_session_took_falls_back_to_telegram(status):
-    calls = []
-    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_CRITICAL, key="k", run=_agents_run(calls, status=status))
-    assert calls[-1][:3] == ["tg-ctl", "alert", "send"]
-    assert rec["via"] == "tg-ctl alert" and rec["outcome"] == "sent" and rec["message_id"] == 77
-    assert rec["undelivered"].startswith("no live agent session took it") and "fallback_reason" not in rec
-
-
-@pytest.mark.parametrize("severity", [SEVERITY_WARNING, alert.SEVERITY_INFO])
-def test_route_agents_a_warning_or_resolved_note_no_session_took_is_dropped_with_its_reason(severity):
-    """The owner's rule (2026-10-15): Telegram only when no agent can handle it — a 21:28 swap
-    WARNING nobody took was posted to his chat; only a critical may still fall back."""
-    calls = []
-    rec = alert.send("t", "b", _cfg(route="agents"), severity=severity, key="k", run=_agents_run(calls, status="[]"))
-    assert calls == [["tg-ctl", "omp-live", "status", "--json"]]
-    assert rec["via"] == "agents" and rec["outcome"] == "undelivered" and rec["delivered"] == []
-    assert rec["undelivered"].startswith("no live agent session took it: omp-live status lists no session")
-
-
-def test_an_empty_listing_names_the_live_omp_endpoints_the_registry_still_holds(tmp_path, monkeypatch):
-    """2026-10-15 21:28: `omp-live status` listed nobody while 3 omp sessions ran; the record says
-    which registry endpoints of running pids tg-ctl's probe dropped."""
-    reg = tmp_path / "omp-live"
-    reg.mkdir()
-    (reg / f"{os.getpid()}-{'a' * 32}.json").write_text("{}")
-    (reg / f"999999999-{'b' * 32}.json").write_text("{}")  # no such process
-    monkeypatch.setenv("TG_CTL_CONFIG_DIR", str(tmp_path))
-    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_WARNING, key="k", run=_agents_run([], status="[]"))
-    assert f"holds endpoints of running omp pids [{os.getpid()}]" in rec["undelivered"]
-    monkeypatch.setenv("TG_CTL_CONFIG_DIR", str(tmp_path / "none"))
-    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_WARNING, key="k", run=_agents_run([], status="[]"))
-    assert "unreadable" in rec["undelivered"]
-
-
-def test_route_agents_a_broadcast_that_cannot_start_threads_falls_back_to_telegram(monkeypatch):
-    class NoThreads:
-        def __init__(self, **kw):
-            raise RuntimeError("can't start new thread")
-
-    monkeypatch.setattr(alert, "ThreadPoolExecutor", NoThreads)
-    calls = []
-    rec = alert.send("t", "b", _cfg(route="agents"), severity=SEVERITY_CRITICAL, key="k", run=_agents_run(calls))
-    assert calls[-1][:3] == ["tg-ctl", "alert", "send"] and rec["via"] == "tg-ctl alert"
-    assert "can't start new thread" in rec["undelivered"]
-
-
-def test_route_agents_dry_run_runs_nothing():
-    rec = alert.send("t", "<b>b</b>", _cfg(route="agents", dry_run=True), severity=SEVERITY_WARNING, key="k",
-                     run=lambda *a, **k: pytest.fail("must not run"))
-    assert rec["via"] == "agents" and rec["outcome"] == "dry_run" and rec["text"].startswith("[sysmon] t")
-
-
-def test_agent_text_asks_for_action_only_on_a_real_problem_alert():
-    title, body = alert.render([_f()], incident_id=None, test=True, host="home")
-    assert alert.AGENT_ACTION not in alert.agent_text(title, body, SEVERITY_CRITICAL)  # the smoke test
-    assert "TEST MESSAGE" in alert.agent_text(title, body, SEVERITY_CRITICAL)
-    assert alert.AGENT_ACTION not in alert.agent_text("sysmon resolved on home", "cleared: swap", alert.SEVERITY_INFO)
-    assert alert.agent_text("sysmon WARNING on home: swap", "b", SEVERITY_WARNING).endswith(alert.AGENT_ACTION)
+def test_a_sysmon_json_from_before_the_route_rename_stays_loud(tmp_path):
+    """A daemon reading a ``route: agents`` sysmon.json (rendered before rig-cli#700) alerts via
+    Telegram instead of raising out of the tick."""
+    path = tmp_path / "sysmon.json"
+    path.write_text(json.dumps({"alert": {"route": "agents"}}))
+    assert config.load(path)["alert"]["route"] == "telegram"
 
 
 def test_route_rejects_an_unknown_value_before_running_anything():
@@ -1250,3 +1219,362 @@ def test_test_alert_keys_every_invocation_uniquely_so_the_throttle_never_swallow
         assert rec["outcome"] == "dry_run" and rec["key"].startswith("test-")
         keys.append(rec["key"])
     assert keys[0] != keys[1]
+
+
+# ── route subscriber through the monitor (rig-cli#700) ────────────────────────────────────
+HOLDER_BOUND = json.dumps({"source": "sysmon", "state": "bound", "request": None,
+                           "holder": {"sessionId": "s-1", "pid": 11, "title": "h", "since": 1}})
+HOLDER_VACANT = json.dumps({"source": "sysmon", "state": "vacant", "holder": None, "request": None})
+
+
+class _Script:
+    """A runner answering by argv shape; ``to_holder`` / ``holder`` / ``window`` are mutable per tick."""
+
+    def __init__(self, to_holder=0, holder=3, window=None, to_holder_err=""):
+        self.to_holder, self.holder, self.window, self.to_holder_err = to_holder, holder, window, to_holder_err
+        self.calls = []
+
+    def __call__(self, argv, **kw):
+        self.calls.append(argv)
+        if argv[1:3] == ["alert", "holder"]:
+            return _completed(argv, self.holder, HOLDER_BOUND if self.holder == 0 else HOLDER_VACANT)
+        if argv[1:3] == ["alert", "send"]:
+            if "--to-holder" in argv:
+                return _completed(argv, self.to_holder, "OK holder\n" if self.to_holder == 0 else "", self.to_holder_err)
+            return _completed(argv, 0, "OK tg#5\n")
+        if argv[1:3] == ["omp-live", "status"]:
+            return _completed(argv, 0, "[]")
+        if argv[1] == "list-panes":
+            return _completed(argv, 0, self.window) if self.window else _completed(argv, 1, "", "can't find window")
+        if argv[1] == "has-session":
+            return _completed(argv, 0)
+        if argv[1] == "new-window":
+            self.window = "@5 4242\n"
+            return _completed(argv, 0, "@5 4242\n")
+        return _completed(argv, 0)
+
+    def holder_sends(self):
+        return [c for c in self.calls if c[1:3] == ["alert", "send"] and "--to-holder" in c]
+
+    def telegram_sends(self):
+        return [c for c in self.calls if c[0] == "tg" or (c[1:3] == ["alert", "send"] and "--to-holder" not in c)]
+
+    def ran(self, verb):
+        return [c for c in self.calls if c[0] == "tmux" and c[1] == verb]
+
+
+HOT, WARM = _sample(wired=int(23 * GIB)), _sample(wired=int(19 * GIB))
+
+
+def _sub_monitor(tmp_path, samples, run, **alert_over):
+    cfg = config.load(None)
+    cfg["state_dir"] = str(tmp_path / "state")
+    cfg["events"]["enabled"] = False
+    cfg["heal"]["enabled"] = False
+    cfg["alert"].update(route="subscriber", **alert_over)
+    it = iter(samples)
+    return daemon.Monitor(cfg, sampler=lambda now=None: next(it), censor=lambda: [], run=run)
+
+
+def test_subscriber_route_bound_holder_gets_the_alert_and_no_telegram(tmp_path):
+    run = _Script(to_holder=0, holder=0)
+    mon = _sub_monitor(tmp_path, [HOT], run)
+    mon.tick(1000.0)
+    assert len(run.holder_sends()) == 1 and run.telegram_sends() == []
+    assert run.ran("new-window") == run.ran("new-session") == [] and not [c for c in run.calls if c[1:3] == ["alert", "holder"]]
+    assert mon.incident["alerts"][-1]["via"] == "holder" and mon.incident["alerts"][-1]["outcome"] == "sent"
+
+
+def test_subscriber_route_vacant_critical_spawns_once(tmp_path):
+    run = _Script(to_holder=3, holder=3)
+    mon = _sub_monitor(tmp_path, [HOT, HOT], run)
+    mon.tick(1000.0)
+    assert len(run.ran("new-window")) == 1 and mon.memory["handler"]["last_spawn_at"] == 1000.0
+    assert run.telegram_sends() == []  # vacant, never spawned before: queued, not posted
+    mon.tick(1010.0)
+    assert len(run.ran("new-window")) == 1
+    assert mon.incident["handler"][0]["outcome"] == "spawned"
+    assert mon.memory["recent_handler"][0]["window"] == "main:sysmon-handler"
+
+
+def test_subscriber_route_vacant_fresh_warning_neither_spawns_nor_posts(tmp_path):
+    run = _Script(to_holder=3, holder=3)
+    mon = _sub_monitor(tmp_path, [WARM], run, min_severity="warning")
+    mon.tick(1000.0)
+    assert run.ran("new-window") == [] and run.telegram_sends() == []
+    rec = mon.memory["recent_alerts"][-1]
+    assert rec["outcome"] == "undelivered" and rec["reason"] == "no subscriber"
+    assert list(mon.memory["handler"]["pending"]["keys"]) == ["wired"]
+
+
+def test_vacant_critical_is_queued_and_reaches_the_spawned_handler(tmp_path):
+    run = _Script(to_holder=3, holder=3)
+    mon = _sub_monitor(tmp_path, [HOT, HOT], run)
+    mon.tick(1000.0)
+    assert len(run.ran("new-window")) == 1 and "wired" in mon.memory["handler"]["pending"]["keys"]
+    run.holder, run.to_holder = 0, 0
+    mon.tick(1000.0 + 120)
+    replays = run.holder_sends()[1:]
+    assert len(replays) == 1 and alert.flag_value(replays[0], "--key") == "wired"
+    assert mon.memory["handler"]["pending"]["keys"] == {} and run.telegram_sends() == []
+
+
+def test_deferred_alert_is_redelivered_when_the_holder_returns(tmp_path):
+    run = _Script(to_holder=5, holder=0)
+    mon = _sub_monitor(tmp_path, [HOT, HOT, HOT], run)
+    mon.tick(1000.0)
+    rec = mon.incident["alerts"][-1]
+    assert rec["outcome"] == "deferred" and rec["reason"] == "holder suspended"
+    assert "wired" in mon.memory["handler"]["pending"]["keys"]
+    mon.tick(1000.0 + 61)  # holder bound again, the replay is deferred again
+    assert "wired" in mon.memory["handler"]["pending"]["keys"]
+    run.to_holder = 0
+    mon.tick(1000.0 + 122)
+    sent = [c for c in run.holder_sends()[2:]]
+    assert len(sent) == 1 and alert.flag_value(sent[0], "--key") == "wired"
+    assert mon.memory["handler"]["pending"]["keys"] == {} and run.telegram_sends() == []
+
+
+def test_failed_start_posts_to_telegram_once(tmp_path):
+    run = _Script(to_holder=3, holder=3)
+    mon = _sub_monitor(tmp_path, [HOT] * 4, run, cooldown_minutes=1)
+    mon.tick(1000.0)
+    assert run.telegram_sends() == []
+    mon.tick(1000.0 + 300)  # nobody took the slot within 5 min
+    posts = run.telegram_sends()
+    assert len(posts) == 2  # the due re-alert falls back (window older than 5 min), then the notice
+    assert sum("sysmon handler did not start" in alert.flag_value(c, "--title") for c in posts) == 1
+    mon.tick(1000.0 + 420)  # the next due CRITICAL takes the fallback; the notice is not repeated
+    posts = run.telegram_sends()
+    assert sum("sysmon handler did not start" in alert.flag_value(c, "--title") for c in posts) == 1
+    assert len(posts) == 3 and mon.incident["alerts"][-1]["fallback"] == "telegram"
+
+
+def test_failed_start_after_warning_spawn_never_posts(tmp_path):
+    run = _Script(to_holder=3, holder=3)
+    mon = _sub_monitor(tmp_path, [WARM] * 4, run, min_severity="warning", cooldown_minutes=1)
+    mon.tick(1000.0)
+    mon.tick(1000.0 + 15 * 60)
+    assert len(run.ran("new-window")) == 1 and mon.memory["handler"]["spawn_severity"] == SEVERITY_WARNING
+    mon.tick(1000.0 + 20 * 60)
+    assert mon.memory["handler"]["last_spawn_ok"] is False
+    assert any(r.get("event") == "startup" and r["ok"] is False for r in mon.memory["recent_handler"])
+    rec = mon.memory["recent_alerts"][-1]
+    assert rec["outcome"] == "undelivered" and rec["reason"] == "warning-no-telegram"
+    assert run.telegram_sends() == []
+
+
+def test_resolved_notice_never_falls_back(tmp_path):
+    run = _Script(to_holder=0, holder=0)
+    calm = _sample()
+    mon = _sub_monitor(tmp_path, [HOT, calm, calm], run)
+    mon.tick(1000.0)
+    run.to_holder, run.holder = 3, 3
+    mon.tick(1010.0)
+    mon.tick(1010.0 + alert.RESOLVE_AFTER_S + 61)
+    infos = [c for c in run.holder_sends() if alert.flag_value(c, "--severity") == alert.SEVERITY_INFO]
+    assert len(infos) == 1 and run.telegram_sends() == []
+    assert "resolved:wired" not in (mon.memory["handler"].get("pending") or {}).get("keys", {})
+
+
+def test_an_undelivered_resolved_notice_gives_its_budget_back(tmp_path):
+    run = _Script(to_holder=0, holder=0)
+    calm = _sample()
+    mon = _sub_monitor(tmp_path, [HOT, calm, calm], run)
+    mon.tick(1000.0)
+    run.to_holder, run.holder = 3, 3
+    mon.tick(1010.0)
+    mon.tick(1010.0 + alert.RESOLVE_AFTER_S + 61)
+    assert mon.memory["alert"]["sent"] == [1000.0]  # the resolved notice reached nobody
+
+
+def test_alert_enabled_false_posts_no_handler_notice(tmp_path):
+    run = _Script(to_holder=3, holder=3)
+    run.window = None
+    mon = _sub_monitor(tmp_path, [HOT, HOT], run, enabled=False)
+    mon.tick(1000.0)
+    assert len(run.ran("new-window")) == 1
+    mon.tick(1000.0 + 300)
+    assert mon.memory["handler"]["last_spawn_ok"] is False and run.telegram_sends() == []
+
+
+@pytest.mark.parametrize("severity", [SEVERITY_CRITICAL, SEVERITY_WARNING])
+def test_old_tg_ctl_falls_back_to_telegram(tmp_path, severity):
+    run = _Script(to_holder=1, holder=1, to_holder_err="tg-ctl alert: unknown flag: --to-holder")
+    mon = _sub_monitor(tmp_path, [HOT if severity == SEVERITY_CRITICAL else WARM], run, min_severity="warning")
+    mon.tick(1000.0)
+    log = (mon.incident or {}).get("alerts") or mon.memory["recent_alerts"]
+    if severity == SEVERITY_CRITICAL:
+        assert len(run.telegram_sends()) == 1 and log[-1]["fallback"] == "telegram"
+    else:
+        assert run.telegram_sends() == [] and log[-1]["reason"] == "warning-no-telegram"
+    assert run.ran("new-window") == []  # holder unknown: no spawn
+
+
+def test_tick_never_raises_when_tmux_and_tg_ctl_are_missing(tmp_path):
+    def run(argv, **kw):
+        raise FileNotFoundError(errno.ENOENT, "missing", argv[0])
+
+    mon = _sub_monitor(tmp_path, [HOT, HOT], run)
+    mon.tick(1000.0)
+    mon.tick(1010.0)
+    assert mon.memory["handler"]["holder"]["state"] == "unknown"
+
+
+def test_post_crash_alert_takes_the_fallback_on_an_old_tg_ctl(tmp_path):
+    state = tmp_path / "state"
+    store.write_json(state / store.STATUS, {"heartbeat": {"boot_id": "boot-old", "last_heartbeat": 1.0,
+                                                           "clean_shutdown": False}})
+    run = _Script(to_holder=1, holder=1, to_holder_err="unknown flag: --to-holder")
+    mon = _sub_monitor(tmp_path, [_sample(boot_id="boot-new")], run)
+    mon.cfg["sessions"]["panic_dirs"] = [str(tmp_path / "none")]
+    mon.check_crash(2000.0)
+    assert len(run.telegram_sends()) == 1 and mon.memory["handler"]["post_crash_pending"] is True
+
+
+def test_spawn_request_file_is_honoured_once(tmp_path):
+    run = _Script(to_holder=0, holder=0)
+    mon = _sub_monitor(tmp_path, [_sample(), _sample()], run)
+    req = tmp_path / "state" / "handler" / "spawn-request"
+    req.parent.mkdir(parents=True)
+    req.write_text("")
+    mon.tick(1000.0)
+    assert len(run.ran("new-window")) == 1 and not req.exists()
+    req.write_text("")
+    mon.tick(1010.0)
+    assert len(run.ran("new-window")) == 1 and not req.exists()
+    assert mon.memory["recent_handler"][-1]["outcome"] == "refused: window exists"
+
+
+def test_subscriber_route_never_launches_remediation_even_from_a_raw_json_config(tmp_path, monkeypatch):
+    """rig's validator rejects auto_remediate with route subscriber; a hand-written --config JSON
+    must not get both agents for one incident either."""
+    monkeypatch.setattr(daemon.remediate, "maybe_spawn", lambda *a, **k: pytest.fail("remediation launched"))
+    run = _Script(to_holder=0, holder=0)
+    mon = _sub_monitor(tmp_path, [HOT], run)
+    mon.cfg["auto_remediate"] = True
+    mon.tick(1000.0)
+    assert mon.incident is not None and mon.incident["remediation"] is None
+
+
+def test_simulation_never_spawns_or_calls_tg_ctl(tmp_path, monkeypatch):
+    cfg = config.load(None)
+    cfg["state_dir"] = str(tmp_path / "state")
+    cfg["alert"]["route"] = "subscriber"
+    calls = []
+    monkeypatch.setattr(daemon.probe, "census", lambda **kw: [])
+    monkeypatch.setattr(daemon.probe, "tmux_panes", lambda *a, **k: {})
+    monkeypatch.setattr(daemon.probe, "launchd_jobs", lambda **k: {})
+    monkeypatch.setattr(subprocess, "run", lambda argv, **kw: calls.append(argv) or _completed(argv, 0))
+    inc = daemon.simulate(cfg, [_f("display_freeze")])
+    assert not [c for c in calls if c[0] in ("tg-ctl", "tg") or c[1:2] in (["new-window"], ["new-session"], ["kill-window"])]
+    assert [r["outcome"] for r in inc["handler"]] == ["would_spawn"]
+
+
+# ── rig sysmon handler status|spawn, test-alert under route subscriber ────────────────────
+def _cli_config(tmp_path, **over):
+    path = tmp_path / "sysmon.json"
+    path.write_text(json.dumps({"state_dir": str(tmp_path / "state"), "alert": {"route": "subscriber"}, **over}))
+    return str(path)
+
+
+def test_cli_handler_status_prints_holder_window_and_last_spawn(tmp_path, capsys, monkeypatch):
+    from riglib.sysmon_daemon import cli, handler
+
+    conf = _cli_config(tmp_path, handler={"tmux_session": "0"})
+    store.write_json(tmp_path / "state" / store.MEMORY, {"handler": {"last_spawn_at": 0.0, "last_spawn_ok": True}})
+    monkeypatch.setattr(handler, "read_holder", lambda cfg, run: handler.Holder("bound", "s-1", 11))
+    monkeypatch.setattr(handler, "find_window", lambda cfg, run: handler.Window("@5", 4242))
+    assert cli.main(["handler", "--config", conf, "status"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[0] == "holder: bound s-1 pid 11"
+    assert out[1] == "window: 0:sysmon-handler @5 pane 4242"
+    assert out[2].startswith("last spawn: 1970-01-01T") and out[2].endswith(" ok")
+    monkeypatch.setattr(handler, "read_holder", lambda cfg, run: handler.Holder("vacant"))
+    monkeypatch.setattr(handler, "find_window", lambda cfg, run: None)
+    store.write_json(tmp_path / "state" / store.MEMORY, {})
+    assert cli.main(["handler", "--config", conf, "status"]) == 0
+    assert capsys.readouterr().out.splitlines() == ["holder: vacant", "window: 0:sysmon-handler absent",
+                                                    "last spawn: never"]
+    for bad in ({"handler": {"last_spawn_at": 1, "last_spawn_ok": "oops"}}, ["not", "a", "map"]):
+        store.write_json(tmp_path / "state" / store.MEMORY, bad)
+        assert cli.main(["handler", "--config", conf, "status"]) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == "last spawn: never"
+
+
+def test_cli_handler_spawn_refuses_when_the_window_exists(tmp_path, capsys, monkeypatch):
+    from riglib.sysmon_daemon import cli, handler
+
+    monkeypatch.setattr(handler, "find_window", lambda cfg, run: handler.Window("@5", 4242))
+    assert cli.main(["handler", "--config", _cli_config(tmp_path), "spawn"]) == 3
+    assert "handler window exists" in capsys.readouterr().err
+    assert not (tmp_path / "state" / "handler" / "spawn-request").exists()
+
+
+def test_cli_handler_spawn_writes_a_request_and_reports_the_window(tmp_path, capsys, monkeypatch):
+    from riglib.sysmon_daemon import cli, handler
+
+    answers = iter([None, None, handler.Window("@5", 4242), handler.Window("@5", 4242)])
+    monkeypatch.setattr(handler, "find_window", lambda cfg, run: next(answers))
+    req = tmp_path / "state" / "handler" / "spawn-request"
+    written = []
+
+    def sleep(seconds):
+        written.append(req.exists())
+        if len(written) == 2:  # the daemon spawned and recorded its window
+            store.write_json(tmp_path / "state" / store.MEMORY, {"handler": {"window_id": "@5", "pane_pid": 4242}})
+
+    monkeypatch.setattr(cli.time, "sleep", sleep)
+    assert cli.main(["handler", "--config", _cli_config(tmp_path), "spawn"]) == 0
+    assert written == [True, True]  # the request waited for the daemon
+    assert not req.exists()  # a window raised by a concurrent request leaves ours no stale file
+    assert capsys.readouterr().out.strip() == "spawned: main:sysmon-handler pane 4242"
+
+
+def test_cli_handler_spawn_needs_route_subscriber_and_a_sane_wait(tmp_path, capsys, monkeypatch):
+    from riglib.sysmon_daemon import cli, handler
+
+    monkeypatch.setattr(handler, "find_window", lambda cfg, run: None)
+    conf = _cli_config(tmp_path, alert={"route": "telegram"})
+    assert cli.main(["handler", "--config", conf, "spawn"]) == cli.SPAWN_WRONG_ROUTE == 4
+    assert "needs sysmon.alert.route subscriber" in capsys.readouterr().err
+    assert not (tmp_path / "state" / "handler" / "spawn-request").exists()
+    for bad in ("nan", "inf", "-1"):
+        with pytest.raises(SystemExit):
+            cli.main(["handler", "--config", _cli_config(tmp_path), "spawn", "--wait", bad])
+
+
+def test_cli_handler_spawn_never_takes_a_foreign_window_for_its_spawn(tmp_path, capsys, monkeypatch):
+    from riglib.sysmon_daemon import cli, handler
+
+    answers = iter([None, handler.Window("@9", 77)])
+    monkeypatch.setattr(handler, "find_window", lambda cfg, run: next(answers, handler.Window("@9", 77)))
+    monkeypatch.setattr(cli.time, "sleep", lambda s: None)
+    assert cli.main(["handler", "--config", _cli_config(tmp_path), "spawn", "--wait", "0"]) == 1
+    assert "did not spawn" in capsys.readouterr().err
+
+
+def test_cli_handler_spawn_times_out_with_exit_1(tmp_path, capsys, monkeypatch):
+    from riglib.sysmon_daemon import cli, handler
+
+    monkeypatch.setattr(handler, "find_window", lambda cfg, run: None)
+    assert cli.main(["handler", "--config", _cli_config(tmp_path), "spawn", "--wait", "0"]) == 1
+    err = capsys.readouterr().err
+    assert "requested; the daemon did not spawn within 0 s" in err and "is ai.hyperide.sysmon running?" in err
+    assert handler.request_wait_s(config.load(None)) == 30.0
+
+
+def test_test_alert_with_route_subscriber_sends_only_to_the_holder(tmp_path, capsys):
+    from riglib.sysmon_daemon import cli
+
+    log = tmp_path / "argv.log"
+    fake = tmp_path / "tg-ctl"
+    fake.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> {log}\necho OK holder\n')
+    fake.chmod(0o755)
+    conf = _cli_config(tmp_path, alert={"route": "subscriber", "tg_ctl_bin": str(fake), "tg_bin": str(tmp_path / "no-tg")})
+    assert cli.main(["test-alert", "--config", conf]) == 0
+    rec = json.loads(capsys.readouterr().out)
+    assert rec["via"] == "holder" and rec["outcome"] == "sent"
+    calls = [line for line in log.read_text().splitlines() if line.startswith("alert ")]  # the body spans lines
+    assert len(calls) == 1 and calls[0].startswith("alert send ") and " --to-holder " in calls[0]
+    assert not (tmp_path / "state" / "handler").exists()  # test-alert never spawns

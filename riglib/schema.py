@@ -646,8 +646,13 @@ AREAS: tuple[Area, ...] = (
             _opt("sysmon.alert.min_severity", KIND_ENUM, "critical",
                  "Lowest severity that sends an alert.", choices=("warning", "critical")),
             _opt("sysmon.alert.route", KIND_ENUM, "telegram",
-                 "Where alerts go: `telegram` (your chat) or `agents` (every live omp session; Telegram only "
-                 "when no session took a critical alert).", choices=("telegram", "agents")),
+                 "Where alerts go: `telegram` (your chat) or `subscriber` (only the agent session holding "
+                 "`tg-ctl alert subscribe --exclusive --source sysmon`; with none, sysmon raises a handler omp "
+                 "in tmux, and only a CRITICAL alert no handler can take reaches Telegram).",
+                 choices=("telegram", "subscriber")),
+            _opt("sysmon.handler.tmux_session", KIND_STR, None,
+                 "tmux session the route-subscriber handler window opens in (default: "
+                 "sysmon.sessions.tmux_session); set it to the session you keep attached."),
         ),
     ),
     Area(

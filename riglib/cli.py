@@ -710,7 +710,7 @@ def _add_worktree_parser(sub: "argparse._SubParsersAction") -> None:
     warrant it."""
     smp = sub.add_parser(
         "sysmon",
-        help="the resource monitor: status | sample | test-alert | simulate | incidents | restore",
+        help="the resource monitor: status | sample | test-alert | simulate | incidents | restore | handler",
         description="Forward to the sysmon daemon's CLI (rig-cli#622) with --config defaulting to the "
         "installed sysmon.json (sysmon.config_dir in the global config). "
         "`rig sysmon <command> --help` shows each command's flags.",

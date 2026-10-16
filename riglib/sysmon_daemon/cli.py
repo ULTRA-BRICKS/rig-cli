@@ -10,18 +10,23 @@
                   incident (alerts/heal forced to dry-run; remediation follows the config)
 - ``incidents``   list incidents, or ``--show ID``
 - ``restore``     resume the omp sessions an incident interrupted (see :mod:`.sessions`)
+- ``handler``     ``status``: the sysmon alert holder, the handler window and the last spawn;
+                  ``spawn``: ask the daemon to raise the handler session now (``alert.route:
+                  subscriber``, rig-cli#700; the daemon is the only writer of handler state)
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
+import subprocess
 import sys
 import time
 import uuid
 from typing import Any, Dict, List, Optional
 
-from . import alert, config, daemon, detect, probe, sessions, store
+from . import alert, config, daemon, detect, handler, probe, sessions, store
 from .model import SEVERITY_CRITICAL, Finding, to_jsonable
 
 DEFAULT_CONFIG = "~/.config/rig/sysmon/sysmon.json"
@@ -264,6 +269,67 @@ def cmd_incidents(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_handler_status(args: argparse.Namespace) -> int:
+    cfg = _cfg(args.config)
+    memory = store.read_json(config.state_dir(cfg) / store.MEMORY, {})
+    state = handler.load_state(memory.get("handler") if isinstance(memory, dict) else None)
+    for line in handler.status_lines(cfg, state, handler.read_holder(cfg, subprocess.run),
+                                     handler.find_window(cfg, subprocess.run)):
+        print(line)
+    return 0
+
+
+def _seconds(text: str) -> float:
+    value = float(text)
+    if not math.isfinite(value) or value < 0:
+        raise argparse.ArgumentTypeError(f"not a number of seconds: {text}")
+    return value
+
+
+#: ``rig sysmon handler spawn`` exits: the daemon did not spawn in time, the handler window already
+#: exists, the route is not ``subscriber`` (argparse keeps 2 for a usage error)
+SPAWN_TIMEOUT, SPAWN_WINDOW_EXISTS, SPAWN_WRONG_ROUTE = 1, 3, 4
+
+
+def _spawned_window(cfg: Dict[str, Any]) -> Optional[str]:
+    """The window id the daemon recorded for the handler it spawned (``memory.json``)."""
+    memory = store.read_json(config.state_dir(cfg) / store.MEMORY, {})
+    return handler.load_state(memory.get("handler") if isinstance(memory, dict) else None).get("window_id")
+
+
+def cmd_handler_spawn(args: argparse.Namespace) -> int:
+    """Drop the spawn request the daemon consumes on its next tick, then wait for the window the
+    daemon records as its own (a window someone else opened under that name is not a spawn)."""
+    cfg = _cfg(args.config)
+    if str(cfg["alert"].get("route")) != "subscriber":
+        # the daemon consumes requests only with that route: a stale request would spawn later
+        print("rig sysmon handler spawn needs sysmon.alert.route subscriber", file=sys.stderr)
+        return SPAWN_WRONG_ROUTE
+    if handler.find_window(cfg, subprocess.run) is not None:
+        print("handler window exists", file=sys.stderr)
+        return SPAWN_WINDOW_EXISTS
+    req = handler.request_path(cfg)
+    req.parent.mkdir(parents=True, exist_ok=True)
+    req.write_text(f"{time.time()}\n", encoding="utf-8")
+    wait = args.wait if args.wait is not None else handler.request_wait_s(cfg)
+    name = f"{handler.tmux_session(cfg)}:{cfg['handler']['window']}"
+    deadline = time.monotonic() + wait
+    while True:
+        window = handler.find_window(cfg, subprocess.run)
+        if window is not None and window.window_id == _spawned_window(cfg):
+            # a concurrent request may have raised it: ours must not linger and spawn again later
+            req.unlink(missing_ok=True)
+            print(f"spawned: {name} pane {window.pane_pid}")
+            return 0
+        left = deadline - time.monotonic()
+        if left <= 0:
+            break
+        time.sleep(min(1.0, left))
+    # the request stays: the daemon spawns once it runs (or refuses it while a window exists)
+    print(f"requested; the daemon did not spawn within {wait:g} s (is {cfg['label']} running?)", file=sys.stderr)
+    return SPAWN_TIMEOUT
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     cfg = _cfg(args.config)
     mon = daemon.build(cfg, with_events=not args.no_events)
@@ -302,6 +368,12 @@ def build_parser() -> argparse.ArgumentParser:
     i.add_argument("--show", metavar="ID")
     i.add_argument("--json", action="store_true")
     i.set_defaults(func=cmd_incidents)
+    h = add("handler", "the alert.route subscriber handler session: status | spawn")
+    hsub = h.add_subparsers(dest="handler_cmd", required=True)
+    hsub.add_parser("status", help="holder, handler window and last spawn").set_defaults(func=cmd_handler_status)
+    hs = hsub.add_parser("spawn", help="ask the daemon to raise the handler session now")
+    hs.add_argument("--wait", type=_seconds, default=None, help=argparse.SUPPRESS)
+    hs.set_defaults(func=cmd_handler_spawn)
     sub.add_parser("restore", help="resume the omp sessions an incident interrupted", add_help=False)
     return p
 

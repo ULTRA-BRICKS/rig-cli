@@ -77,6 +77,9 @@ DEFAULT_GPU_PATTERNS = (
     "ollama_llama_server",
 )
 
+#: ``alert.route`` values (:mod:`.alert`).
+ALERT_ROUTES = ("telegram", "subscriber")
+
 DEFAULTS: Dict[str, Any] = {
     "version": 1,
     "label": "ai.hyperide.sysmon",  # the monitor's own launchd label: never restarted by itself
@@ -100,8 +103,9 @@ DEFAULTS: Dict[str, Any] = {
         "max_per_hour": 6,
         "resolved": True,
         "min_severity": "critical",
-        # telegram: tg-ctl alert send (the human chat); agents: every live omp session, Telegram
-        # only when no session took a critical alert (rig-cli#696; a warning nobody took is dropped)
+        # telegram: tg-ctl alert send (the human chat); subscriber: only the tg-ctl exclusive holder
+        # of source sysmon, a handler session raised when there is none, Telegram only for a
+        # CRITICAL alert no handler can take (rig-cli#700)
         "route": "telegram",
         "dry_run": False,
     },
@@ -127,6 +131,17 @@ DEFAULTS: Dict[str, Any] = {
         "cooldown_minutes": 60,
         "skills_dir": "~/.agents/skills",
         "workdir": "~",
+        "dry_run": False,
+    },
+    # the handler session `route: subscriber` raises when nobody holds the sysmon alerts (rig-cli#700)
+    "handler": {
+        "tmux_session": None,  # None: sessions.tmux_session
+        "window": "sysmon-handler",
+        "workdir": "~",
+        "warn_persist_minutes": 15,
+        "spawn_cooldown_minutes": 60,
+        "startup_timeout_minutes": 5,
+        "idle_exit_minutes": 30,
         "dry_run": False,
     },
     "sessions": {
@@ -179,13 +194,18 @@ def expand(path: str, home: Optional[Path] = None) -> Path:
 
 
 def load(path: Optional[Path]) -> Dict[str, Any]:
-    """Defaults merged with the JSON file at ``path`` (absent file → pure defaults)."""
+    """Defaults merged with the JSON file at ``path`` (absent file → pure defaults). An
+    ``alert.route`` this version does not know (a ``sysmon.json`` rendered before rig-cli#700 says
+    ``agents``) reads as ``telegram``: the monitor must stay loud until rig re-renders the file."""
     data: Dict[str, Any] = {}
     if path is not None and Path(path).is_file():
         loaded = json.loads(Path(path).read_text(encoding="utf-8"))
         if isinstance(loaded, dict):
             data = loaded
-    return _merge(DEFAULTS, data)
+    cfg = _merge(DEFAULTS, data)
+    if cfg["alert"].get("route") not in ALERT_ROUTES:
+        cfg["alert"]["route"] = "telegram"
+    return cfg
 
 
 def state_dir(cfg: Dict[str, Any]) -> Path:

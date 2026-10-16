@@ -3883,16 +3883,20 @@ _SYSMON_BOOLS = {
     "alert": ("enabled", "resolved", "dry_run"),
     "heal": ("enabled", "notify_agent", "throttle", "kill_orphans", "kill_owned", "dry_run", "restart_daemons"),
     "remediation": ("dry_run",),
+    "handler": ("dry_run",),
     "sessions": ("restore_on_boot",),
 }
 _SYSMON_INTS = {
     "alert": {"cooldown_minutes": 1, "disk_cooldown_minutes": 1, "swap_cooldown_minutes": 1, "max_per_hour": 1},
     "heal": {"grace_seconds": 0, "restart_cooldown_minutes": 1, "max_restarts_per_day": 1},
     "remediation": {"cooldown_minutes": 1},
+    "handler": {"warn_persist_minutes": 1, "spawn_cooldown_minutes": 1, "startup_timeout_minutes": 1,
+                "idle_exit_minutes": 1},
     "gpu": {"slots": 1},
     "reclaim": {"worktree_age_days": 1, "max_candidates": 1},
 }
-_SYSMON_STRS = {"alert": ("tg_ctl_bin", "tg_bin"), "sessions": ("tmux_session",), "gpu": ("slot_dir",)}
+_SYSMON_STRS = {"alert": ("tg_ctl_bin", "tg_bin"), "handler": ("window", "workdir"), "sessions": ("tmux_session",),
+                "gpu": ("slot_dir",)}
 #: lists of non-empty strings (an empty list turns that candidate source off)
 _SYSMON_STR_LISTS = {"reclaim": ("worktree_roots", "cache_dirs")}
 
@@ -3936,7 +3940,7 @@ def _validate_sysmon(t: dict[str, Any]) -> None:
     for key in ("label", "config_dir", "python_bin"):
         if key in t and (not isinstance(t[key], str) or not t[key].strip()):
             _sysmon_fail(key, f"sysmon.{key} must be a non-empty string, got {t[key]!r}")
-    for section in ("thresholds", "alert", "heal", "remediation", "sessions", "gpu", "reclaim"):
+    for section in ("thresholds", "alert", "heal", "remediation", "handler", "sessions", "gpu", "reclaim"):
         if section in t and not isinstance(t[section], dict):
             _sysmon_fail(section, f"sysmon.{section} must be a mapping")
         if isinstance(t.get(section), dict):
@@ -3981,8 +3985,19 @@ def _validate_sysmon(t: dict[str, Any]) -> None:
     if severity is not None and severity not in ("warning", "critical"):
         _sysmon_fail("alert.min_severity", f"sysmon.alert.min_severity must be warning|critical, got {severity!r}")
     alert_block = t.get("alert") or {}
-    if "route" in alert_block and alert_block["route"] not in ("telegram", "agents"):
-        _sysmon_fail("alert.route", f"sysmon.alert.route must be telegram|agents, got {alert_block['route']!r}")
+    if alert_block.get("route") == "agents":
+        _sysmon_fail("alert.route", "sysmon.alert.route: agents was renamed to subscriber (rig-cli#700)")
+    if "route" in alert_block and alert_block["route"] not in ("telegram", "subscriber"):
+        _sysmon_fail("alert.route", f"sysmon.alert.route must be telegram|subscriber, got {alert_block['route']!r}")
+    if alert_block.get("route") == "subscriber" and t.get("auto_remediate") is True:
+        _sysmon_fail("auto_remediate", "sysmon.auto_remediate cannot be on with alert.route subscriber: the handler "
+                                       "session replaces it (rig-cli#700)")
+    session = (t.get("handler") or {}).get("tmux_session")
+    # a string, or a non-negative int: `rig config set … 0` coerces the session name `0` to one
+    if session is not None and not ((isinstance(session, str) and session.strip())
+                                    or (_is_int(session) and session >= 0)):
+        _sysmon_fail("handler.tmux_session",
+                     f"sysmon.handler.tmux_session must be a tmux session name, got {session!r}")
     agent = (t.get("remediation") or {}).get("agent")
     if agent is not None and agent not in ("omp", "claude-code", "codex", "opencode"):
         _sysmon_fail("remediation.agent",

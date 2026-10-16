@@ -2235,7 +2235,7 @@
         },
         "alert": {
           "type": "object",
-          "description": "alerts: Telegram via tg-cli, or the live agent sessions",
+          "description": "alerts: Telegram via tg-cli, or the tg-ctl exclusive holder of source sysmon",
           "properties": {
             "enabled": {
               "type": "boolean",
@@ -2253,10 +2253,10 @@
             },
             "route": {
               "type": "string",
-              "description": "where alerts go: `telegram` (tg-ctl alert send) or `agents` (every live omp session; Telegram only when no session took a critical alert)",
+              "description": "where alerts go: `telegram` (tg-ctl alert send) or `subscriber` (only the tg-ctl exclusive holder of source sysmon; with no holder sysmon raises a handler session, and only a CRITICAL alert no handler can take reaches Telegram)",
               "enum": [
                 "telegram",
-                "agents"
+                "subscriber"
               ],
               "default": "telegram"
             },
@@ -2286,7 +2286,7 @@
             },
             "resolved": {
               "type": "boolean",
-              "description": "send one line when an alerted finding clears (never with route `agents`: it would start a turn in every session for nothing)",
+              "description": "send one line when an alerted finding clears (route `subscriber`: to the holder only, never Telegram)",
               "default": true
             },
             "dry_run": {
@@ -2402,6 +2402,60 @@
             "dry_run": {
               "type": "boolean",
               "description": "build the brief and command without launching",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "handler": {
+          "type": "object",
+          "description": "the handler session alert.route `subscriber` raises when nobody holds the sysmon alerts (rig-cli#700): an interactive omp in a tmux window that subscribes exclusively",
+          "properties": {
+            "tmux_session": {
+              "type": [
+                "string",
+                "integer"
+              ],
+              "description": "tmux session of the handler window (default: sessions.tmux_session)",
+              "minimum": 0
+            },
+            "window": {
+              "type": "string",
+              "description": "tmux window name",
+              "default": "sysmon-handler"
+            },
+            "workdir": {
+              "type": "string",
+              "description": "the handler's working directory",
+              "default": "~"
+            },
+            "warn_persist_minutes": {
+              "type": "integer",
+              "description": "a WARNING raises a handler after persisting this long",
+              "default": 15,
+              "minimum": 1
+            },
+            "spawn_cooldown_minutes": {
+              "type": "integer",
+              "description": "at most one handler spawn per this many minutes",
+              "default": 60,
+              "minimum": 1
+            },
+            "startup_timeout_minutes": {
+              "type": "integer",
+              "description": "a handler not holding the alerts this long after its spawn has failed to start",
+              "default": 5,
+              "minimum": 1
+            },
+            "idle_exit_minutes": {
+              "type": "integer",
+              "description": "close the spawned handler after this long with no finding, no alert and an idle session",
+              "default": 30,
+              "minimum": 1
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "record the spawn without running tmux",
               "default": false
             }
           },

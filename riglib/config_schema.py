@@ -1599,14 +1599,15 @@ _SYSMON_BLOCK = Block(
             },
         ),
         "alert": Block(
-            doc="alerts: Telegram via tg-cli, or the live agent sessions",
+            doc="alerts: Telegram via tg-cli, or the tg-ctl exclusive holder of source sysmon",
             leaves={
                 "enabled": Leaf("boolean", "send alerts", default=True),
                 "min_severity": Leaf("string", "lowest severity that alerts", enum=("warning", "critical"),
                                      default="critical"),
-                "route": Leaf("string", "where alerts go: `telegram` (tg-ctl alert send) or `agents` (every live "
-                              "omp session; Telegram only when no session took a critical alert)",
-                              enum=("telegram", "agents"), default="telegram"),
+                "route": Leaf("string", "where alerts go: `telegram` (tg-ctl alert send) or `subscriber` (only the "
+                              "tg-ctl exclusive holder of source sysmon; with no holder sysmon raises a handler "
+                              "session, and only a CRITICAL alert no handler can take reaches Telegram)",
+                              enum=("telegram", "subscriber"), default="telegram"),
                 "cooldown_minutes": Leaf("integer", "re-alert an unchanged finding after this long", default=30,
                                          minimum=1),
                 "disk_cooldown_minutes": Leaf("integer", "re-alert a disk finding at the same level after this long",
@@ -1614,8 +1615,8 @@ _SYSMON_BLOCK = Block(
                 "swap_cooldown_minutes": Leaf("integer", "re-alert an unchanged swap finding after this long",
                                               default=120, minimum=1),
                 "max_per_hour": Leaf("integer", "messages per rolling hour", default=6, minimum=1),
-                "resolved": Leaf("boolean", "send one line when an alerted finding clears (never with route "
-                                 "`agents`: it would start a turn in every session for nothing)", default=True),
+                "resolved": Leaf("boolean", "send one line when an alerted finding clears (route `subscriber`: "
+                                 "to the holder only, never Telegram)", default=True),
                 "dry_run": Leaf("boolean", "record alerts without sending", default=False),
                 "tg_ctl_bin": Leaf("string", "the alert sender: `tg-ctl alert send` (tg-cli#636)", default="tg-ctl"),
                 "tg_bin": Leaf("string", "the `tg` fallback sender for a tg-ctl without `alert`", default="tg"),
@@ -1654,6 +1655,25 @@ _SYSMON_BLOCK = Block(
                 "cooldown_minutes": Leaf("integer", "at most one launch per this many minutes", default=60,
                                          minimum=1),
                 "dry_run": Leaf("boolean", "build the brief and command without launching", default=False),
+            },
+        ),
+        "handler": Block(
+            doc="the handler session alert.route `subscriber` raises when nobody holds the sysmon alerts "
+                "(rig-cli#700): an interactive omp in a tmux window that subscribes exclusively",
+            leaves={
+                "tmux_session": Leaf(("string", "integer"), "tmux session of the handler window (default: "
+                                     "sessions.tmux_session)", minimum=0),
+                "window": Leaf("string", "tmux window name", default="sysmon-handler"),
+                "workdir": Leaf("string", "the handler's working directory", default="~"),
+                "warn_persist_minutes": Leaf("integer", "a WARNING raises a handler after persisting this long",
+                                             default=15, minimum=1),
+                "spawn_cooldown_minutes": Leaf("integer", "at most one handler spawn per this many minutes",
+                                               default=60, minimum=1),
+                "startup_timeout_minutes": Leaf("integer", "a handler not holding the alerts this long after "
+                                                "its spawn has failed to start", default=5, minimum=1),
+                "idle_exit_minutes": Leaf("integer", "close the spawned handler after this long with no "
+                                          "finding, no alert and an idle session", default=30, minimum=1),
+                "dry_run": Leaf("boolean", "record the spawn without running tmux", default=False),
             },
         ),
         "sessions": Block(
