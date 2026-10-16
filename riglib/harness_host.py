@@ -52,6 +52,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Callable, TextIO
 
+from . import signal_scope
 from .harness_kinds import KINDS, SessionRef, relaunch_argv, validate_kind
 from .harness_sessions import Tracker, terminal_id
 
@@ -129,6 +130,9 @@ class HostSpec:
     label: str | None = None
     #: the conversation known at launch (Claude Code's assigned id).
     session: SessionRef | None = None
+    #: start the harness inside its own Landlock signal domain (#704); decided once, at launch, so
+    #: every crash relaunch is contained the same way.
+    signal_scope: bool = False
 
     def to_env(self) -> str:
         body: dict = {"v": 1, "harness": self.harness, "argv": self.argv, "cwd": self.cwd}
@@ -136,6 +140,8 @@ class HostSpec:
             body["label"] = self.label
         if self.session:
             body["session"] = self.session.to_json()
+        if self.signal_scope:
+            body["signal_scope"] = True
         return json.dumps(body, separators=(",", ":"))
 
     @classmethod
@@ -148,9 +154,16 @@ class HostSpec:
             validate_kind(harness)
             session = data.get("session")
             ref = SessionRef(**{k: session[k] for k in ("id", "file", "cwd") if k in session}) if session else None
-            return cls(harness, argv, str(cwd), data.get("label"), ref)
+            return cls(harness, argv, str(cwd), data.get("label"), ref, data.get("signal_scope") is True)
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(f"{ENV_SPEC} is missing or invalid: {exc}") from exc
+
+
+def child_argv(spec: HostSpec, command: list[str]) -> list[str]:
+    """What the host spawns for ``command``: behind the signal-scope helper when the spec asks for
+    it. ``command`` stays the bare harness argv, so relaunch/resume logic never sees the prefix;
+    the helper execs in place, so ``child.pid`` is still the harness's pid."""
+    return signal_scope.scoped_argv(command) if spec.signal_scope else command
 
 
 # ── the command abduco runs ──────────────────────────────────────────────────────────────────
@@ -354,7 +367,9 @@ def supervise(
         while True:
             started, started_wall = clock(), time.time()
             try:
-                child = subprocess.Popen(command, env=child_env, cwd=cwd if os.path.isdir(cwd) else None)
+                child = subprocess.Popen(
+                    child_argv(spec, command), env=child_env, cwd=cwd if os.path.isdir(cwd) else None
+                )
             except OSError as exc:
                 report(f"cannot start {shlex.join(command)}: {exc}")
                 return 127

@@ -24,8 +24,18 @@ import pytest
 
 from riglib import harness_launcher as hl
 from riglib import omp_inspect
+from riglib import signal_scope as ss
 from riglib.harness_host import ENV_SPEC, HostSpec
 from riglib.harness_sessions import omp_agent_root
+
+_REAL_SIGNAL_SCOPE_ENABLED = hl.wrapper_provision.signal_scope_enabled
+
+
+@pytest.fixture(autouse=True)
+def _no_signal_scope(monkeypatch):
+    # The default config contains omp on Linux; the launch-shape tests below assert the bare
+    # harness argv, so they run with the scope decided off. The signal-scope tests opt back in.
+    monkeypatch.setattr(hl.wrapper_provision, "signal_scope_enabled", lambda kind, env, **kw: False)
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -755,3 +765,51 @@ class TestRealAbduco:
         finally:
             for key in ("FAKE_OMP_STATE", "FAKE_OMP_SESSION", "PI_CODING_AGENT_DIR"):
                 os.environ.pop(key, None)
+
+
+# ── signal scope (#704): rig launches start the harness in its own Landlock signal domain ─────
+def test_noninteractive_exec_goes_through_the_helper_when_enabled(monkeypatch):
+    monkeypatch.setattr(hl.wrapper_provision, "signal_scope_enabled", lambda kind, env, **kw: True)
+    monkeypatch.setattr(hl, "resolve_real_bin", lambda kind, env: "/opt/omp")
+    calls = []
+    hl.exec_or_wrap("omp", ["-p", "hi"], env={}, interactive_tty=False, exec_fn=lambda p, a, e: calls.append((p, a)))
+    assert calls == [(sys.executable, ss.scoped_argv(["/opt/omp", "-p", "hi"]))]
+
+
+def test_noninteractive_exec_is_untouched_when_disabled(monkeypatch):
+    monkeypatch.setattr(hl.wrapper_provision, "signal_scope_enabled", lambda kind, env, **kw: False)
+    monkeypatch.setattr(hl, "resolve_real_bin", lambda kind, env: "/opt/omp")
+    calls = []
+    hl.exec_or_wrap("omp", ["-p", "hi"], env={}, interactive_tty=False, exec_fn=lambda p, a, e: calls.append((p, a)))
+    assert calls == [("/opt/omp", ["/opt/omp", "-p", "hi"])]
+
+
+def test_run_session_records_the_decision_in_the_spec(monkeypatch):
+    decided = []
+
+    def enabled(kind, env, **kw):
+        decided.append(kind)
+        return True
+
+    monkeypatch.setattr(hl.wrapper_provision, "signal_scope_enabled", enabled)
+    monkeypatch.setattr(hl, "resolve_real_bin", lambda kind, env: "/opt/omp")
+    calls = []
+    hl.exec_or_wrap("omp", [], env={}, interactive_tty=True, exec_fn=lambda p, a, e: calls.append(e))
+    spec = HostSpec.from_env(calls[0][ENV_SPEC])
+    assert spec.signal_scope is True
+    assert spec.argv == ["/opt/omp"]  # the prefix is applied at spawn time, never stored
+    assert decided == ["omp"]  # decided once, in exec_or_wrap, and passed down
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="signal scope is Linux-only")
+def test_direct_run_session_is_contained_by_default(monkeypatch):
+    # `rig harness run` calls run_session directly: with no explicit value it decides itself,
+    # from the real (default) config.
+    monkeypatch.setattr(hl.wrapper_provision, "signal_scope_enabled", _REAL_SIGNAL_SCOPE_ENABLED)
+    monkeypatch.delenv("RIG_SIGNAL_SCOPE", raising=False)
+    calls = []
+    hl.run_session("omp", [], real_bin="/opt/omp", exec_fn=lambda p, a, e: calls.append(e))
+    assert HostSpec.from_env(calls[0][ENV_SPEC]).signal_scope is True
+    calls.clear()
+    hl.run_session("omp", [], real_bin="/opt/omp", signal_scope=False, exec_fn=lambda p, a, e: calls.append(e))
+    assert HostSpec.from_env(calls[0][ENV_SPEC]).signal_scope is False

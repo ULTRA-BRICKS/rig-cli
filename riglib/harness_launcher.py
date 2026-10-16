@@ -34,7 +34,7 @@ import uuid
 from pathlib import Path
 from typing import Callable, NoReturn
 
-from . import omp_inspect
+from . import omp_inspect, signal_scope, wrapper_provision
 from .harness_host import ENV_SPEC, HostSpec, host_command, hosts_dir, rig_entry, validate_name
 from .harness_kinds import KINDS, is_interactive, prepare_launch, validate_kind
 
@@ -125,9 +125,11 @@ def _ensure_socket_dir() -> None:
     socket_root.chmod(0o700)
 
 
-def build_spec(kind: str, args: list[str], *, real_bin: str, label: str | None, cwd: str) -> HostSpec:
+def build_spec(
+    kind: str, args: list[str], *, real_bin: str, label: str | None, cwd: str, signal_scope: bool
+) -> HostSpec:
     argv, session = prepare_launch(kind, [real_bin, *args])
-    return HostSpec(kind, argv, cwd, label, session)
+    return HostSpec(kind, argv, cwd, label, session, signal_scope)
 
 
 def run_session(
@@ -142,9 +144,13 @@ def run_session(
     abduco_bin: str = DEFAULT_ABDUCO_BIN,
     exec_fn: ExecFn = os.execvpe,
     run_fn: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    signal_scope: bool | None = None,
 ) -> str:
     """Host ``<kind> *args`` in abduco. Returns the session name; with the default ``exec_fn``
-    an attaching run never returns (tests inject a recording stand-in)."""
+    an attaching run never returns (tests inject a recording stand-in).
+
+    ``signal_scope``: start the harness in its own signal domain (#704). ``None`` decides it here
+    from the config, because ``rig harness run`` calls this directly, not through ``exec_or_wrap``."""
     validate_kind(kind)
     name = validate_name(host_id) if host_id else generate_host_id(kind)
     if not name.startswith(f"{kind}-"):
@@ -152,7 +158,9 @@ def run_session(
     real = real_bin or resolve_real_bin(kind)
     if is_managed_wrapper(shutil.which(real) or real):
         raise RuntimeError(f"the {kind} executable {real} is the rig wrapper; repair its real-bin configuration")
-    spec = build_spec(kind, args, real_bin=real, label=label, cwd=cwd or os.getcwd())
+    if signal_scope is None:
+        signal_scope = wrapper_provision.signal_scope_enabled(kind, os.environ)
+    spec = build_spec(kind, args, real_bin=real, label=label, cwd=cwd or os.getcwd(), signal_scope=signal_scope)
     _ensure_socket_dir()
     argv = build_run_argv(name, abduco_bin=abduco_bin, detach=detach)
     env = run_env(spec)
@@ -281,9 +289,11 @@ def exec_or_wrap(
     launch on a terminal; execs everything else (headless, subcommands, no tty) straight through."""
     env = env if env is not None else dict(os.environ)
     real = resolve_real_bin(kind, env)
+    scoped = wrapper_provision.signal_scope_enabled(kind, env)
     if interactive_tty is None:
         interactive_tty = sys.stdin.isatty() and sys.stdout.isatty()
     if not (interactive_tty and is_interactive(kind, args)):
-        exec_fn(real, [real, *args], env)
+        argv = signal_scope.scoped_argv([real, *args]) if scoped else [real, *args]
+        exec_fn(argv[0], argv, env)
         return
-    run_session(kind, args, real_bin=real, exec_fn=exec_fn)
+    run_session(kind, args, real_bin=real, exec_fn=exec_fn, signal_scope=scoped)

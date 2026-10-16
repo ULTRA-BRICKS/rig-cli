@@ -25,6 +25,7 @@ import pytest
 from riglib import harness_host as hh
 from riglib import harness_kinds as hk
 from riglib import harness_sessions as hs
+from riglib import signal_scope as ss
 from riglib.harness_kinds import SessionRef
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -226,7 +227,10 @@ FAKE_HARNESS = textwrap.dedent(
     state = Path(os.environ["FAKE_STATE"])
     runs = json.loads(state.read_text()) if state.exists() else []
     keys = ("RIG_SESSION", "RIG_AGENT_ID", "RIG_HOST_SPEC", "TG_AGENT", "PI_SESSION_FILE", "RIG_DETACHED_AGENT")
-    runs.append({"pid": os.getpid(), "argv": sys.argv[1:], "cwd": os.getcwd(), "env": {k: os.environ.get(k) for k in keys}})
+    status = Path("/proc/self/status").read_text() if Path("/proc/self/status").exists() else ""
+    nnp = next((line.split()[1] for line in status.splitlines() if line.startswith("NoNewPrivs:")), None)
+    runs.append({"pid": os.getpid(), "argv0": sys.argv[0], "argv": sys.argv[1:], "cwd": os.getcwd(),
+                 "env": {k: os.environ.get(k) for k in keys}, "nnp": nnp, "scoped": os.environ.get("RIG_SIGNAL_SCOPED")})
     state.write_text(json.dumps(runs))
     for path, text in json.loads(os.environ.get("FAKE_FILES", "[]")):
         path = path.replace("{pid}", str(os.getpid()))
@@ -264,7 +268,7 @@ def _runs(tmp_path: Path) -> list[dict]:
     return json.loads(state.read_text()) if state.exists() else []
 
 
-def _host(fake_script, tmp_path, plan, *, kind="omp", args=(), session=None, registry=None, policy=None, files=(), delay="0", **kw):
+def _host(fake_script, tmp_path, plan, *, kind="omp", args=(), session=None, registry=None, policy=None, files=(), delay="0", signal_scope=False, **kw):
     home = tmp_path / "home"
     home.mkdir(exist_ok=True)
     env = {
@@ -276,7 +280,7 @@ def _host(fake_script, tmp_path, plan, *, kind="omp", args=(), session=None, reg
         "FAKE_FILES": json.dumps(list(files)),
         "FAKE_DELAY": delay,
     }
-    spec = hh.HostSpec(kind, [str(fake_script), *args], str(tmp_path / "work"), "lbl", session)
+    spec = hh.HostSpec(kind, [str(fake_script), *args], str(tmp_path / "work"), "lbl", session, signal_scope)
     return hh.supervise(
         spec,
         name=f"{kind}-0123456789ab",
@@ -556,3 +560,43 @@ def test_killed_harness_returns_in_the_same_abduco_session_and_a_requested_exit_
                 os.kill(pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
+
+
+# ── signal scope (#704): the host starts the harness in its own Landlock signal domain ────────
+def test_spec_round_trips_signal_scope():
+    spec = hh.HostSpec("omp", ["/opt/omp"], "/tmp", signal_scope=True)
+    assert hh.HostSpec.from_env(spec.to_env()).signal_scope is True
+    assert "signal_scope" not in hh.HostSpec("omp", ["/opt/omp"], "/tmp").to_env()
+    assert hh.HostSpec.from_env(hh.HostSpec("omp", ["/opt/omp"], "/tmp").to_env()).signal_scope is False
+
+
+def test_child_argv_prefixes_only_when_scoped():
+    command = ["/opt/omp", "--resume", "/s.jsonl"]
+    scoped = hh.HostSpec("omp", ["/opt/omp"], "/tmp", signal_scope=True)
+    assert hh.child_argv(scoped, command) == ss.scoped_argv(command)
+    assert hh.child_argv(hh.HostSpec("omp", ["/opt/omp"], "/tmp"), command) == command
+
+
+@pytest.mark.skipif(ss.landlock_abi() < 6, reason="needs Landlock ABI >= 6")
+def test_every_relaunch_is_contained_and_unprefixed_in_registry(fake, tmp_path, monkeypatch):
+    seen_pids = []
+    real_write = hh.Registry.write
+
+    def write(self, *, harness_pid, session, restarts):
+        seen_pids.append(harness_pid)
+        real_write(self, harness_pid=harness_pid, session=session, restarts=restarts)
+
+    monkeypatch.setattr(hh.Registry, "write", write)
+    spec = hh.HostSpec("omp", [str(fake)], str(tmp_path / "work"), "lbl", signal_scope=True)
+    registry = _registry(tmp_path, spec)
+    rc = _host(fake, tmp_path, "1,1,0", registry=registry, signal_scope=True)
+    assert rc == 0
+    runs = _runs(tmp_path)
+    assert len(runs) == 3
+    for run in runs:
+        assert run["nnp"] == "1" and run["scoped"] == "1"
+        assert run["argv0"] == str(fake)  # the helper exec'd in place: the harness is the process
+    # the registry recorded the harness's own pid (not a helper process) for every start
+    assert [p for p in seen_pids if p] == [r["pid"] for r in runs]
+    log = (tmp_path / "supervisor.log").read_text()
+    assert str(ss.HELPER) not in log
