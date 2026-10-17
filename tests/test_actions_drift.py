@@ -2359,6 +2359,78 @@ def test_ci_companion_script_vendored(fake_agent_tools, tmp_path):
     assert (repo / "ci/leftover-grep/leftover-grep.sh").is_file()  # companion vendored
 
 
+def test_ci_companion_python_script_vendored(fake_agent_tools, tmp_path):
+    """A workflow that runs `python3 ci/<slot>/<name>.py` gets that script (and a helper it
+    imports) vendored and drift-tracked; the slot's own tests stay in agent-tools (rig-cli#725)."""
+    slot = fake_agent_tools / "ci" / "python-only"
+    slot.mkdir(parents=True)
+    (slot / "workflow.yml").write_text(
+        "name: python-only\njobs:\n  x:\n    steps:\n      - run: python3 ci/python-only/python_only.py\n",
+        encoding="utf-8",
+    )
+    (slot / "python_only.py").write_text("#!/usr/bin/env python3\nimport helpers\n", encoding="utf-8")
+    (slot / "helpers.py").write_text("X = 1\n", encoding="utf-8")
+    for test_file in ("test_python_only.py", "python_only_test.py", "python_only.test.py", "conftest.py"):
+        (slot / test_file).write_text("def test_x():\n    pass\n", encoding="utf-8")
+    (slot / "README.md").write_text("# python-only\n", encoding="utf-8")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = LoadedConfig(
+        data={
+            "agent_tools_source": str(fake_agent_tools),
+            "skills": {"enabled": False}, "agent_hooks": {"enabled": False}, "mcp": {"enabled": False},
+            "git_hooks": {"dispatcher": {"enabled": False}},
+            "ci": {"target": str(repo / ".github/workflows"), "items": {"python-only": {"enabled": True}}},
+        },
+        repo_root=repo,
+    )
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    report = run_plan(plan)
+    assert not report.errors, [r.detail for r in report.errors]
+    vendored = repo / "ci/python-only/python_only.py"
+    assert vendored.read_text(encoding="utf-8") == (slot / "python_only.py").read_text(encoding="utf-8")
+    assert os.access(vendored, os.X_OK)
+    assert (repo / "ci/python-only/helpers.py").is_file()
+    for test_file in ("test_python_only.py", "python_only_test.py", "python_only.test.py", "conftest.py"):
+        assert not (repo / "ci/python-only" / test_file).exists(), test_file
+    assert not [i for i in detect(plan).items if i.category == "ci"]
+
+    vendored.write_text("print('edited')\n", encoding="utf-8")
+    assert any(
+        i.direction == "modified" and i.item == "python-only:python_only.py" for i in detect(plan).items
+    )
+    vendored.unlink()
+    assert any(
+        i.direction == "missing" and i.item == "python-only:python_only.py" for i in detect(plan).items
+    )
+
+
+def test_ci_all_installs_new_python_slot_with_its_script(fake_agent_tools, tmp_path):
+    """`ci.all: true` picks up a newly published slot with no per-repo enablement, so its
+    workflow must never land without the `.py` it runs (rollout order in the python-only spec)."""
+    slot = fake_agent_tools / "ci" / "python-only"
+    slot.mkdir(parents=True)
+    (slot / "workflow.yml").write_text(
+        "name: python-only\njobs:\n  x:\n    steps:\n      - run: python3 ci/python-only/python_only.py\n",
+        encoding="utf-8",
+    )
+    (slot / "python_only.py").write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = LoadedConfig(
+        data={
+            "agent_tools_source": str(fake_agent_tools),
+            "skills": {"enabled": False}, "agent_hooks": {"enabled": False}, "mcp": {"enabled": False},
+            "git_hooks": {"dispatcher": {"enabled": False}},
+            "ci": {"target": str(repo / ".github/workflows"), "all": True},
+        },
+        repo_root=repo,
+    )
+    run_plan(build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown"))
+    assert (repo / ".github/workflows/python-only.yml").is_file()
+    assert (repo / "ci/python-only/python_only.py").is_file()
+
+
 def test_secret_scan_workflow_resolves_slotnamed(fake_agent_tools, tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()

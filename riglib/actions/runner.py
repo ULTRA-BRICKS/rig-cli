@@ -708,7 +708,7 @@ def _do_install_ci(action: Action, on_conflict: str) -> ActionResult:
     for comp, rel in companions:
         comp_target = repo_root / rel
         c_out = fsutil.copy_file(comp, comp_target, on_conflict)
-        if comp.suffix in (".sh", ".mjs"):
+        if comp.suffix in _CI_COMPANION_SUFFIXES:
             _chmod_x_if_changed(comp_target, c_out)
         if c_out.backup is not None and out.backup is None:
             out.backup = c_out.backup
@@ -718,8 +718,10 @@ def _do_install_ci(action: Action, on_conflict: str) -> ActionResult:
     return ActionResult(action, best_status, f"workflow {out.detail}{extra}", out.backup)
 
 
-# companion files to vendor alongside a workflow (helpers the workflow shells out to).
-_CI_COMPANION_SUFFIXES = (".sh", ".mjs")
+# companion files to vendor alongside a workflow (helpers the workflow runs). New agent-tools
+# gates are stdlib Python (`python3 ci/<slot>/<name>.py`, agent-tools#945); .sh/.mjs remain
+# for the older slots until they are ported.
+_CI_COMPANION_SUFFIXES = (".py", ".sh", ".mjs")
 _CI_COMPANION_EXTRA = ("pull_request_template.md",)
 # slots whose workflow imports a companion from a FIXED path (not ci/<slot>/). Maps the
 # companion filename → its repo-relative install dir, per the agent-tools workflow's import.
@@ -731,13 +733,27 @@ _CI_COMPANION_FIXED_PATHS = {
 }
 
 
+def _is_python_test(p: Path) -> bool:
+    """A test-shaped .py (pytest's ``test_*.py``/``*_test.py``, ``*.test.py``, ``conftest.py``).
+
+    Contract with agent-tools: a slot's tests run there (``tests/``) and never ship; a gate
+    script never has a test-shaped name. Vendoring one would also let the consumer repo's
+    own pytest collect it.
+    """
+    if p.suffix != ".py":
+        return False
+    return p.name == "conftest.py" or p.name.startswith("test_") or p.stem.endswith(("_test", ".test"))
+
+
 def _ci_companion_files(source: Path, workflow: Path) -> list[tuple[Path, str]]:
     """Companions a CI slot's workflow invokes + their repo-relative install path.
 
     Returns ``(source_file, repo_relative_install_path)`` pairs. Most companions live in
-    ``ci/<slot>/`` (where the workflow runs ``bash ci/<slot>/x.sh``), but some workflows
-    import from a fixed path (pr-checklist → ``.github/scripts/``); those are mapped
-    explicitly. Excludes the workflow yml, READMEs, test files, and gitleaks config.
+    ``ci/<slot>/`` (where the workflow runs ``python3 ci/<slot>/x.py`` or ``bash
+    ci/<slot>/x.sh``), but some workflows import from a fixed path (pr-checklist →
+    ``.github/scripts/``); those are mapped explicitly. Excludes the workflow yml, READMEs,
+    test files (``*.test.mjs`` and test-shaped ``.py``, see ``_is_python_test``), and
+    gitleaks config.
     """
     slot = source.name
     fixed = _CI_COMPANION_FIXED_PATHS.get(slot, {})
@@ -745,7 +761,7 @@ def _ci_companion_files(source: Path, workflow: Path) -> list[tuple[Path, str]]:
     for p in sorted(source.iterdir()):
         if not p.is_file() or p == workflow:
             continue
-        if p.name.endswith(".test.mjs") or p.name.startswith("README"):
+        if p.name.endswith(".test.mjs") or p.name.startswith("README") or _is_python_test(p):
             continue
         if p.suffix in _CI_COMPANION_SUFFIXES or p.name in _CI_COMPANION_EXTRA:
             install_dir = fixed.get(p.name, f"ci/{slot}")
