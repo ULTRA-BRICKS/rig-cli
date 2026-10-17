@@ -67,7 +67,7 @@ def _isolate_home(monkeypatch, tmp_path):
 
 @pytest.fixture(autouse=True)
 def _isolate_scheduler(monkeypatch):
-    """Never let a test touch the REAL launchd / crontab — or write a real plist file.
+    """Never let a test touch the REAL launchd / systemd --user / crontab — or write a real unit file.
 
     The model-freshness schedule (models:) is in the DEFAULT scaffold, so any e2e test that
     runs `rig init --yes` end-to-end would otherwise (1) write a real
@@ -81,7 +81,7 @@ def _isolate_scheduler(monkeypatch):
     this autouse stub for those tests — so they exercise the real install logic safely while
     every OTHER test is fully insulated from the host scheduler.
 
-    It ALSO stubs the daemon/crontab seams on BOTH the `runner` and `drift` modules (drift
+    It ALSO stubs the daemon/systemd/crontab seams on BOTH the `runner` and `drift` modules (drift
     imports them by name, so patching only `runner` would leave `drift`'s bindings live).
     """
     from riglib import drift as driftmod
@@ -209,7 +209,16 @@ def _isolate_scheduler(monkeypatch):
         monkeypatch.setattr(mod, "_launchctl_bootstrap", lambda plist: 0, raising=False)
         monkeypatch.setattr(mod, "_launchctl_bootout", lambda plist: 0, raising=False)
         monkeypatch.setattr(mod, "_launchctl_gui_loaded", lambda label: False, raising=False)
-        monkeypatch.setattr(mod, "_read_crontab", lambda: (crontab_store["has"], crontab_store["content"]))
+        # the systemd --user timer probe (Linux schedule, rig-cli#721): never ask the real user
+        # manager. Dedicated schedule tests stub `_systemctl_user` themselves.
+        monkeypatch.setattr(mod, "schedule_timer_active", lambda sched: False)
+    monkeypatch.setattr(runner, "_systemctl_user", lambda *args: 0)
+    # `rig doctor`'s scheduler-writability check asks the real user manager; report it healthy
+    # suite-wide (CI containers have none). test_doctor_scheduler.py exercises the real check.
+    from riglib import doctor as doctormod
+
+    monkeypatch.setattr(doctormod, "scheduler_problem", lambda: None)
+    monkeypatch.setattr(runner, "_read_crontab", lambda: (crontab_store["has"], crontab_store["content"]))
 
     def _fake_write_crontab(contents):
         crontab_store["has"] = True

@@ -196,15 +196,14 @@ def test_schedule_sandboxed_reapply_with_current_plist_never_probes_launchd(monk
     assert "HOME is overridden" in res.detail
 
 
-def test_schedule_crontab_sandboxed_home_never_writes(monkeypatch, tmp_path):
+def test_schedule_systemd_sandboxed_home_never_enables(monkeypatch, tmp_path):
     home = _sandbox_home(monkeypatch, tmp_path)
-    monkeypatch.setattr(runner, "_read_crontab", lambda: (False, ""))
-    monkeypatch.setattr(runner, "_write_crontab", lambda contents: pytest.fail(f"crontab written: {contents!r}"))
+    monkeypatch.setattr(runner, "_systemctl_user", lambda *args: pytest.fail(f"systemctl --user {args}"))
     action = _schedule_action(home)
-    action.options["platform"] = "crontab"
+    action.options["platform"] = "systemd"
     res = runner._do_provision_schedule(action, "backup")
     assert res.status == "created"
-    assert "HOME is overridden" in res.detail and "crontab write" in res.detail
+    assert "HOME is overridden" in res.detail and "systemctl --user enable" in res.detail
 
 
 def test_schedule_real_home_loads(monkeypatch, tmp_path):
@@ -386,15 +385,14 @@ def test_drift_tg_ctl_sandboxed_home_never_probes_launchd(monkeypatch, tmp_path)
     assert not [i for i in report.items if i.category == "tg_ctl"]
 
 
-def test_drift_schedule_crontab_sandboxed_home_is_not_reported_missing(monkeypatch, tmp_path):
-    """Apply skips the crontab WRITE under a sandbox (rig-cli#116); status must not turn that
-    into permanent, un-convergeable 'crontab line not installed' drift."""
+def test_drift_schedule_systemd_sandboxed_home_is_not_reported_missing(monkeypatch, tmp_path):
+    """Apply skips the timer ENABLE under a sandbox (rig-cli#116); status must not turn that
+    into permanent, un-convergeable 'timer not enabled+active' drift."""
     home = _sandbox_home(monkeypatch, tmp_path)
     action = _schedule_action(home)
-    action.options["platform"] = "crontab"
-    monkeypatch.setattr(runner, "_read_crontab", lambda: (False, ""))
+    action.options["platform"] = "systemd"
     assert runner._do_provision_schedule(action, "backup").status == "created"
-    monkeypatch.setattr(driftmod, "_read_crontab", lambda: pytest.fail("drift read the real crontab"))
+    monkeypatch.setattr(driftmod, "schedule_timer_active", lambda s: pytest.fail("drift probed the real user manager"))
     report = driftmod.detect(InstallPlan(actions=[action]))
     assert not [i for i in report.items if i.category == "models"]
 

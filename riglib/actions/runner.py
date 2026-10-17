@@ -4840,12 +4840,12 @@ def _do_register_codex_hook_bridge(action: Action, on_conflict: str) -> ActionRe
     )
 
 
-# ── model-freshness schedule provisioning (launchd / crontab) ──────────────────────
+# ── model-freshness schedule provisioning (launchd / systemd --user) ──────────────────────
 def schedule_plan_from_action(action: Action):
     """Rebuild the pure :class:`~riglib.schedule.SchedulePlan` an action describes.
 
     Shared by the install handler and the drift check so both agree on the exact desired
-    artifact (plist XML / crontab line) from the action's options. Lazy import keeps the
+    artifact (plist XML / systemd unit files) from the action's options. Lazy import keeps the
     actions package import-light.
     """
     from ..schedule import build_schedule
@@ -4861,7 +4861,9 @@ def schedule_plan_from_action(action: Action):
 
 
 def _read_crontab() -> tuple[bool, str]:
-    """Return (has_crontab, contents). A missing crontab is (False, "") — not an error."""
+    """Return (readable, contents) of the user's crontab — only to remove the LEGACY managed pair
+    earlier rig versions installed. A missing crontab, or one an agent shell cannot read
+    (``NoNewPrivs=1`` defeats the setgid ``crontab`` binary, rig-cli#721), is (False, "")."""
     try:
         res = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=15)
     except (OSError, subprocess.SubprocessError):
@@ -4883,10 +4885,10 @@ def _write_crontab(contents: str) -> int:
 
 
 def _crontab_without_managed(contents: str, label: str) -> list[str]:
-    """Strip rig's managed sentinel pair (comment + following cron line) for ``label``.
+    """Strip rig's legacy managed sentinel pair (comment + following cron line) for ``label``.
 
     Removes the ``# rig-managed: <label>`` comment AND the cron line immediately after it,
-    leaving every other (user) line untouched. The basis for idempotent re-write + removal.
+    leaving every other (user) line untouched.
     """
     from ..schedule import CRON_SENTINEL_PREFIX
 
@@ -4905,52 +4907,13 @@ def _crontab_without_managed(contents: str, label: str) -> list[str]:
     return out
 
 
-def crontab_with_managed(contents: str, label: str, desired_pair: list[str]) -> list[str] | None:
-    """Return the crontab lines with rig's managed pair updated IN PLACE — or None if no
-    change is needed (already exactly present at its current position).
-
-    Position-preserving: if the managed pair already exists, the cron line is replaced where
-    it sits (keeping any user lines that follow it); if absent, the pair is appended. This
-    avoids the spurious "drift → reorder-to-end" churn that a strip-then-append would cause
-    when the user has their own crontab lines after rig's block. Returns None when the desired
-    pair is already present unchanged (the idempotent no-op).
-    """
-    from ..schedule import CRON_SENTINEL_PREFIX
-
-    sentinel = f"{CRON_SENTINEL_PREFIX} {label}"
-    lines = contents.splitlines()
-    out: list[str] = []
-    replaced = False
-    changed = False
-    i = 0
-    while i < len(lines):
-        if lines[i].strip() == sentinel:
-            # found our block: emit the desired pair here (in place), skip the old cron line
-            out.extend(desired_pair)
-            old_cron = lines[i + 1] if i + 1 < len(lines) else ""
-            if old_cron.strip() != desired_pair[1].strip():
-                changed = True
-            replaced = True
-            i += 2  # consume the sentinel + the cron line that followed it
-            continue
-        out.append(lines[i])
-        i += 1
-    if not replaced:
-        # append our block (drop a trailing blank so the file stays tidy)
-        while out and not out[-1].strip():
-            out.pop()
-        out.extend(desired_pair)
-        changed = True
-    return out if changed else None
-
-
 # ── the sandboxed-HOME guard for every launchd-touching action (rig-cli#116) ─────────
 # Every fsutil-based action follows ``Path.home()``, so overriding ``$HOME`` LOOKS like a full
 # sandbox — but ``launchctl`` acts on the per-user ``gui/<uid>`` domain, which HOME cannot
 # redirect. A HOME-only-isolated ``rig apply`` (a test, an e2e leg, a manual catalog check) once
 # bootstrapped the REAL ``ai.hyperide.tg-ctl`` agent from a plist under a scratch HOME (pointing at
 # a nonexistent binary) and crash-looped it 23,641 times until booted out by hand. So: before ANY
-# live launchctl (or crontab) mutation, compare the resolved ``Path.home()`` with the uid's real
+# live launchctl (or systemctl --user) mutation, compare the resolved ``Path.home()`` with the uid's real
 # login home; when they differ, the action behaves exactly like its ``RIG_*_DRY_RUN`` env (artifact
 # written, live mutation skipped) and says so in its detail. Fail-closed: an unknown login home
 # counts as sandboxed. ONE predicate feeds every launchd-backed provisioner's dry-run seam
@@ -5000,7 +4963,7 @@ def _env_flag(var: str) -> bool:
 
 
 def _live_skip_reason(env_var: str, verb: str) -> str:
-    """Why a live launchd/crontab mutation was skipped, for an action's detail: the env flag when
+    """Why a live launchd/systemd mutation was skipped, for an action's detail: the env flag when
     it is set (``RIG_X_DRY_RUN — skipped <verb>``), else the sandboxed-HOME note.
 
     ``Path.home()`` itself can raise here in the exact state ``_home_is_sandboxed`` degrades to
@@ -5025,8 +4988,8 @@ def _schedule_dry_run() -> bool:
     """Honor RIG_SCHEDULE_DRY_RUN — write the artifact file but DON'T touch the live daemon.
 
     For CI / containers / smoke where a real ``launchctl load`` (a per-user daemon mutation
-    HOME can't redirect) or a real ``crontab`` write is unwanted. The plist file still lands
-    (in the configured/HOME path), but the daemon load / crontab write is skipped. ALSO true
+    HOME can't redirect) or a real ``systemctl --user enable`` is unwanted. The plist / unit files
+    still land (in the HOME path), but the daemon load / timer enable is skipped. ALSO true
     automatically under a sandboxed HOME (:func:`_home_is_sandboxed`, rig-cli#116).
     """
     return _env_flag("RIG_SCHEDULE_DRY_RUN") or _home_is_sandboxed()
@@ -5050,15 +5013,15 @@ def _do_provision_schedule(action: Action, on_conflict: str) -> ActionResult:
 
     The "check whether the cron exists and install it if missing" rule: a re-apply that finds the schedule
     already present and current is a no-op (``skipped``); a missing/drifted schedule is
-    (re)installed. Cross-platform: launchd plist + ``launchctl load`` on macOS, a managed
-    sentinel-fenced crontab line on Linux. ``on_conflict`` is honored for the macOS plist
-    (a user-modified plist at the path is backed up before rewrite under ``backup``).
-    ``RIG_SCHEDULE_DRY_RUN`` writes the artifact file but skips the live daemon mutation.
+    (re)installed. Cross-platform: launchd plist + ``launchctl load`` on macOS, a systemd --user
+    service + timer on Linux (rig-cli#721). ``on_conflict`` is honored for the plist / unit files
+    (a user-modified file at the path is backed up before rewrite under ``backup``).
+    ``RIG_SCHEDULE_DRY_RUN`` writes the artifact files but skips the live daemon mutation.
     """
     sched = schedule_plan_from_action(action)
     if sched.platform == "launchd":
         return _provision_launchd(action, sched, on_conflict)
-    return _provision_crontab(action, sched)
+    return _provision_systemd(action, sched, on_conflict)
 
 
 def _provision_launchd(action: Action, sched, on_conflict: str) -> ActionResult:
@@ -5130,29 +5093,103 @@ def _provision_launchd(action: Action, sched, on_conflict: str) -> ActionResult:
     )
 
 
-def _provision_crontab(action: Action, sched) -> ActionResult:
-    desired_pair = sched.crontab_lines()
-    _has, current = _read_crontab()
-    # Position-preserving update: replace our block where it sits (or append if absent), so a
-    # user's own crontab lines that come AFTER rig's block don't trigger a spurious reorder.
-    new_lines = crontab_with_managed(current, sched.label, desired_pair)
-    if new_lines is None:
-        # already present and current at its position → idempotent no-op.
-        return ActionResult(action, "skipped", f"models/{action.item}: crontab line for '{sched.label}' already installed at {sched.human_time}")
+def schedule_timer_active(sched) -> bool:
+    """True when the schedule's systemd --user timer is enabled (survives re-login), active
+    (armed now) and loaded from the CURRENT unit files. Files written by a dry-run apply or
+    behind a failed daemon-reload leave the manager on the old schedule (NeedDaemonReload)."""
+    return (
+        _systemctl_user("is-enabled", "--quiet", sched.timer_name) == 0
+        and _systemctl_user("is-active", "--quiet", sched.timer_name) == 0
+        and all(
+            _systemctl_user_output("show", "--property=NeedDaemonReload", "--value", unit) == "no"
+            for unit in (sched.timer_name, sched.service_name)
+        )
+    )
+
+
+def _remove_legacy_crontab(label: str) -> str:
+    """Drop the crontab pair earlier rig versions installed for ``label``; return a detail
+    suffix (empty when there was nothing to do). Best-effort: an unreadable crontab (the
+    NoNewPrivs agent shell) is skipped, never an error — the timer is the schedule now."""
+    from ..schedule import CRON_SENTINEL_PREFIX
+
+    readable, current = _read_crontab()
+    if not readable:
+        return ""
+    if f"{CRON_SENTINEL_PREFIX} {label}" not in (ln.strip() for ln in current.splitlines()):
+        return ""
+    kept = _crontab_without_managed(current, label)
+    if _write_crontab("\n".join(kept).rstrip("\n") + "\n" if kept else "") != 0:
+        return "; legacy crontab line NOT removed (`crontab -` failed) — remove it by hand"
+    return "; removed legacy crontab line"
+
+
+def _provision_systemd(action: Action, sched, on_conflict: str) -> ActionResult:
+    files = sched.unit_files()
+    current = {p: (p.read_text(encoding="utf-8") if p.is_file() else None) for p in files}
+    if all(current[p] == text for p, text in files.items()):
+        if _schedule_dry_run():
+            return ActionResult(
+                action, "skipped",
+                f"models/{action.item}: systemd units for '{sched.label}' already current "
+                f"({_live_skip_reason('RIG_SCHEDULE_DRY_RUN', 'systemctl --user probe')})",
+            )
+        if schedule_timer_active(sched):
+            # retried here too: a first apply from a NoNewPrivs shell could not read the crontab,
+            # so a later apply from a normal shell must still drop the legacy line
+            legacy = _remove_legacy_crontab(sched.label)
+            return ActionResult(
+                action, "updated" if legacy else "skipped",
+                f"models/{action.item}: systemd timer '{sched.timer_name}' already installed at {sched.human_time}"
+                + legacy,
+            )
+
+    backup = None
+    for path, text in files.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        out = fsutil.write_file(path, text, on_conflict)
+        if out.status == "error":
+            return ActionResult(action, "error", f"models/{action.item}: {out.detail}", out.backup)
+        if out.status == "skipped" and current[path] is not None and current[path] != text:
+            return ActionResult(
+                action, "skipped",
+                f"models/{action.item}: {path} differs but on_conflict=skip — left unchanged "
+                f"(drift NOT reconciled; re-run with on_conflict=backup/overwrite)",
+            )
+        backup = backup or out.backup
     if _schedule_dry_run():
         return ActionResult(
             action, "created",
-            f"models/{action.item}: {_live_skip_reason('RIG_SCHEDULE_DRY_RUN', 'crontab write')} "
-            f"— would install crontab line '{sched.label}' at {sched.human_time} (not written)",
+            f"models/{action.item}: wrote {sched.timer_name} + {sched.service_name} "
+            f"({_live_skip_reason('RIG_SCHEDULE_DRY_RUN', 'systemctl --user enable')})",
+            backup,
         )
-    new_contents = "\n".join(new_lines).rstrip("\n") + "\n"
-    rc = _write_crontab(new_contents)
-    if rc != 0:
-        return ActionResult(action, "error", f"models/{action.item}: `crontab -` write failed (rc={rc})")
-    verb = "installed" if not any(sched.label in ln for ln in current.splitlines()) else "updated"
+    if _systemctl_user("daemon-reload") != 0:
+        return ActionResult(
+            action, "error",
+            f"models/{action.item}: wrote units but `systemctl --user daemon-reload` failed "
+            "(no reachable user manager? see `rig doctor`)",
+            backup,
+        )
+    if _systemctl_user("enable", "--now", sched.timer_name) != 0:
+        return ActionResult(
+            action, "error",
+            f"models/{action.item}: `systemctl --user enable --now {sched.timer_name}` failed",
+            backup,
+        )
+    # a changed OnCalendar only takes effect once the running timer is restarted
+    if _systemctl_user("restart", sched.timer_name) != 0:
+        return ActionResult(
+            action, "error",
+            f"models/{action.item}: `systemctl --user restart {sched.timer_name}` failed",
+            backup,
+        )
+    verb = "installed" if all(c is None for c in current.values()) else "updated"
     return ActionResult(
-        action, "created",
-        f"models/{action.item}: crontab line '{sched.label}' {verb} → daily {sched.human_time}",
+        action, "backed_up" if backup else "created",
+        f"models/{action.item}: systemd timer '{sched.timer_name}' {verb} → daily {sched.human_time}"
+        + _remove_legacy_crontab(sched.label),
+        backup,
     )
 
 
@@ -6818,6 +6855,15 @@ def _systemctl_user(*args: str) -> int:
     except (OSError, subprocess.SubprocessError):
         return 1
     return res.returncode
+
+
+def _systemctl_user_output(*args: str) -> str | None:
+    """stdout (stripped) of a ``systemctl --user`` query, or ``None`` when it failed."""
+    try:
+        res = subprocess.run(["systemctl", "--user", *args], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return res.stdout.strip() if res.returncode == 0 else None
 
 
 def _sysmon_service_loaded(plan) -> bool:

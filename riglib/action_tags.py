@@ -182,7 +182,7 @@ ACTION_TAGS: dict[str, ActionTag] = {
     ),
     "provision_schedule": _tag(
         "provision_schedule", "starts_reloads_service", AUDIENCE_BOTH,
-        "Installs a launchd/cron schedule (e.g. the daily model-freshness check) that runs "
+        "Installs a launchd/systemd-timer schedule (e.g. the daily model-freshness check) that runs "
         "independently of any interactive session.",
     ),
     "provision_agents_symlink": _tag(

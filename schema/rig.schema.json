@@ -971,7 +971,7 @@
             },
             "label": {
               "type": "string",
-              "description": "the launchd Label / crontab sentinel identity"
+              "description": "the launchd Label / systemd unit name"
             }
           },
           "additionalProperties": false

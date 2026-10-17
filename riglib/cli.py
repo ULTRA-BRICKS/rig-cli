@@ -2771,14 +2771,18 @@ def _known_name(k) -> str:
 
 def _print_schedule_status(plan, report) -> None:
     """Report the model-freshness daily schedule: installed / drifted / not configured."""
+    drifted = [d for d in report.items if d.category == "models"]
     sched_actions = [a for a in plan.actions if a.kind == "provision_schedule"]
     if not sched_actions:
+        # no action: either an explicit opt-out (quiet) or no models: block at all, which drift
+        # reports with the enabling command (rig-cli#721)
+        if drifted:
+            print(f"\n  model-freshness schedule: {_warn('not configured')}  " + _dim(f"({drifted[0].detail})"))
         return
     action = sched_actions[0]
     opts = action.options
     when = f"{int(opts.get('hour', 12)):02d}:{int(opts.get('minute', 0)):02d}"
     platform = opts.get("platform", "?")
-    drifted = [d for d in report.items if d.category == "models"]
     if drifted:
         state = _warn(f"drifted ({drifted[0].detail})")
     else:
@@ -3186,6 +3190,19 @@ def _print_claude_config_dirs() -> list:
     return gaps
 
 
+def _models_schedule_opted_out() -> bool:
+    """True when the effective config says ``models.enabled: false`` — then an unwritable
+    scheduler is irrelevant and doctor must not fail on it. An unloadable config is not an
+    opt-out (doctor still reports the scheduler)."""
+    from .config import ConfigError, load
+
+    try:
+        models = load(_doctor_repo_root()).data.get("models")
+    except (ConfigError, OSError):
+        return False
+    return isinstance(models, dict) and models.get("enabled") is False
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     from . import errors
     from .doctor import diagnose
@@ -3229,6 +3246,15 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     # are there — the rig-cli#368 class, invisible to `rig status` before the fan-out.
     config_dir_gaps = _print_claude_config_dirs()
 
+    # scheduler: a present binary is not a working schedule — rig must be able to WRITE to it
+    # (the crontab path silently failed from every NoNewPrivs agent shell, rig-cli#721).
+    from .doctor import scheduler_problem
+
+    sched_problem = None if _models_schedule_opted_out() else scheduler_problem()
+    if sched_problem:
+        print(_err(_bold("\n  ▸ scheduler unwritable — rig cannot install the daily model-freshness schedule:")))
+        print(f"    {_err('✗')} {sched_problem}")
+
     missing_req = report.missing_required
     only_deps_clean = not missing_req and not (args.optional and report.missing_optional)
     # an explicitly opted-into probe that FAILED must never end in the clean-bill success
@@ -3250,6 +3276,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     if failed_probes and not missing_req:
         print(_err("\n  an activation probe above FAILED — the claimed enforcement channel does not work"))
         return errors.EXIT_PROBE_FAILED
+    if only_deps_clean and not dead_targets and sched_problem:
+        print(_err("\n  the scheduler above is unwritable — `rig apply` cannot install the model-freshness schedule"))
+        return errors.EXIT_MISSING_TARGET
     if only_deps_clean and not dead_targets and config_dir_gaps:
         print(_err("\n  a claude config dir above lacks the rig hook bridge — those sessions run no guard (see fix: lines)"))
         return errors.EXIT_DRIFT

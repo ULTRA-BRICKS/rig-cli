@@ -458,7 +458,7 @@ AREAS: tuple[Area, ...] = (
         "models", "model-freshness schedule", "A daily cron that runs the model-freshness checker and proposes version bumps.",
         (
             _opt("models.enabled", KIND_BOOL, True,
-                 "Provision the daily checker schedule (launchd on macOS, crontab on Linux). "
+                 "Provision the daily checker schedule (launchd on macOS, systemd --user timer on Linux). "
                  "Off = leave the system cron alone."),
             _opt("models.schedule.time", KIND_STR, "12:00",
                  "Daily run time, HH:MM 24-hour (default noon). Fail-closed on a malformed/out-of-range value."),

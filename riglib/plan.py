@@ -3192,7 +3192,7 @@ def _build_models(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> 
 
     The CTO's #3685 direction: on ``rig init`` AND ``rig apply``, check whether the daily
     checker cron is installed and install it if missing. The action carries the
-    platform-resolved desired schedule (launchd plist on macOS / crontab line on Linux); the
+    platform-resolved desired schedule (launchd plist on macOS / systemd --user timer on Linux); the
     install-if-missing + idempotency live in ``actions/runner.py``, so the plan stays pure.
 
     No ``models`` block (or ``enabled: false``) → no action (rig leaves the system cron
@@ -3238,8 +3238,8 @@ def _build_models(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> 
 
     sched = build_schedule(checker_path=checker_path, hour=hour, minute=minute, label=label)
     # the action target is the artifact path the install/drift code keys off: the plist on
-    # macOS, or the user's crontab (a sentinel-conceptual target) on Linux.
-    target = sched.plist_path if sched.platform == "launchd" else config.repo_root
+    # macOS, or the timer unit on Linux.
+    target = sched.plist_path if sched.platform == "launchd" else sched.unit_dir / sched.timer_name
     plan.actions.append(
         Action(
             kind="provision_schedule",

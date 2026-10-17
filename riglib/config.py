@@ -2170,7 +2170,7 @@ def parse_hhmm(value: str) -> tuple[int, int]:
 def _validate_models(m: dict[str, Any]) -> None:
     """Validate the ``models`` block — the model-freshness checker's daily schedule.
 
-    The block provisions a daily cron (launchd on macOS, crontab on Linux) that runs the
+    The block provisions a daily cron (launchd on macOS, a systemd --user timer on Linux) that runs the
     agent-tools checker. Fail-closed on: a non-mapping block, a non-bool ``enabled``, a
     malformed ``schedule.time`` (must be ``HH:MM``), and unknown keys (typo guard). An
     EMPTY/absent block means "no schedule provisioned" — rig leaves the system cron alone.
@@ -2199,6 +2199,14 @@ def _validate_models(m: dict[str, Any]) -> None:
     if label is not None and not isinstance(label, str):
         raise ConfigError(
             f"models.schedule.label must be a string, got {label!r}",
+            schema_path="models.schedule.label",
+        )
+    # the label is the plist / systemd unit FILE name and the `systemctl` unit argument, so it
+    # must be a plain unit-name token: no `/` or `..` that would escape the unit dir, and no
+    # leading `-` that systemctl would parse as an option.
+    if label is not None and (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9:_.-]*", label) or ".." in label):
+        raise ConfigError(
+            f"models.schedule.label must match [A-Za-z0-9][A-Za-z0-9:_.-]* without '..', got {label!r}",
             schema_path="models.schedule.label",
         )
 

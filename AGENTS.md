@@ -204,7 +204,7 @@ bare `rig config-web` prints help, never launches.
   follows `Path.home()`, but `launchctl` acts on the real per-user `gui/<uid>` domain regardless
   of `$HOME`; a HOME-only-isolated `rig apply` once bootstrapped the REAL `ai.hyperide.tg-ctl`
   agent from a scratch-HOME plist and crash-looped it 23,641 times. So before ANY live
-  launchctl/crontab mutation the runner compares the resolved `Path.home()` with the uid's real
+  launchctl/systemctl mutation the runner compares the resolved `Path.home()` with the uid's real
   login home (`riglib/actions/runner.py::_home_is_sandboxed`, one predicate feeding the four
   `_*_dry_run` seams: schedule, tmux, tg_ctl, spotlight); when they differ it behaves exactly like
   the DRY_RUN env (artifact written, live mutation skipped) and says so in the action detail

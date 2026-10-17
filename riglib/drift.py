@@ -34,7 +34,6 @@ from .actions.runner import (
     _git_global,
     _launchctl_gui_loaded,
     _launchctl_loaded,
-    _read_crontab,
     _schedule_dry_run,
     _spotlight_dry_run,
     _tg_ctl_dry_run,
@@ -44,7 +43,7 @@ from .actions.runner import (
     _tmux_dry_run,
     _resolve_excludes_target,
     build_hook_descriptor,
-    crontab_with_managed,
+    schedule_timer_active,
     codex_hook_bridge_block_bounds,
     codex_hook_bridge_block_malformed,
     codex_hook_bridge_conflict,
@@ -420,6 +419,17 @@ def compute_drift_report(
             ),
             report,
         )
+    # a host config with no ``models:`` block at all: the daily model-freshness schedule is
+    # silently absent (a global config written before the scaffold default gained the block,
+    # rig-cli#721). Surface it as drift naming the one command that turns it on; ``enabled:
+    # false`` is an explicit opt-out and stays quiet, and a machine with no global config yet is
+    # `rig init`'s job, not this check's.
+    if loaded.global_path is not None and "models" not in loaded.data and not _restricted_out("models"):
+        report.items.append(DriftItem(
+            "missing", "models", "model-freshness", loaded.global_path,
+            "no `models:` block, so no daily model-freshness schedule — enable with: "
+            "rig config set --global models.enabled true (or opt out: models.enabled false)",
+        ))
     # disabled-but-installed shell env vars: config opted the env category out, but a prior
     # apply may have left rig.env.sh + its live source line in rc_path. apply won't remove
     # them, so surface as disk→config drift (mirrors the disabled-global-excludes scan above;
@@ -3140,12 +3150,12 @@ def _check_codex_hook_bridge(action: Action, config_file: Path, report: DriftRep
 def _check_schedule(action: Action, report: DriftReport) -> None:
     """Flag drift between the configured daily model-freshness schedule and disk.
 
-    missing  — the launchd plist / crontab managed line is absent (or, on macOS, the plist
-               exists but the job is not loaded into launchd).
+    missing  — the launchd plist / systemd unit files are absent (or the plist exists but the
+               job is not loaded / the timer is not enabled+active).
     modified — the artifact on disk differs from the desired one (e.g. someone changed the
                run time, or the checker path). ``rig apply`` converges.
-    Cross-platform: launchd plist content + loaded state on macOS; the sentinel-fenced
-    crontab pair on Linux. Shares the desired-artifact computation with the install handler.
+    Cross-platform: launchd plist content + loaded state on macOS; the systemd --user service +
+    timer on Linux. Shares the desired-artifact computation with the install handler.
     """
     sched = schedule_plan_from_action(action)
     if sched.platform == "launchd":
@@ -3167,22 +3177,24 @@ def _check_schedule(action: Action, report: DriftReport) -> None:
                 DriftItem("missing", "models", action.item, plist, f"launchd job '{sched.label}' not loaded")
             )
         return
-    # crontab branch — position-preserving (a user's lines after rig's block are NOT drift).
-    # `crontab_with_managed` returns None iff our managed pair is already present unchanged at
-    # its position; a non-None result means an apply WOULD change something → drift. Apply skips
-    # the crontab WRITE under dry-run / a sandboxed HOME (rig-cli#116) too, so status must not
-    # report the resulting absence as drift — that would make a sandboxed run un-convergeable.
-    if _schedule_dry_run():
-        return
-    _has, current = _read_crontab()
-    desired_pair = sched.crontab_lines()
-    if not any(sched.label in ln for ln in current.splitlines()):
+    # systemd --user branch (rig-cli#721): both unit files current, then the timer enabled +
+    # active. Apply skips the systemctl calls under dry-run / a sandboxed HOME (rig-cli#116), so
+    # status skips the live probe there too — else a sandboxed run could never converge.
+    for path, text in sched.unit_files().items():
+        if not path.is_file():
+            report.items.append(
+                DriftItem("missing", "models", action.item, path, f"systemd unit {path.name} not installed")
+            )
+            return
+        if path.read_text(encoding="utf-8") != text:
+            report.items.append(
+                DriftItem("modified", "models", action.item, path, f"{path.name} differs from configured schedule")
+            )
+            return
+    if not _schedule_dry_run() and not schedule_timer_active(sched):
         report.items.append(
-            DriftItem("missing", "models", action.item, action.target, f"crontab line for '{sched.label}' not installed")
-        )
-    elif crontab_with_managed(current, sched.label, desired_pair) is not None:
-        report.items.append(
-            DriftItem("modified", "models", action.item, action.target, "crontab schedule differs from configured time/checker")
+            DriftItem("missing", "models", action.item, action.target,
+                      f"systemd timer '{sched.timer_name}' not enabled+active")
         )
 
 

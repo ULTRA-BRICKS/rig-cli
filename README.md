@@ -448,9 +448,12 @@ models:
 ```
 
 Cross-platform: **macOS → launchd** (a `~/Library/LaunchAgents/ai.hyperide.model-freshness.plist`
-loaded via `launchctl`), **Linux → crontab** (a sentinel-fenced managed line). `rig status`
-reports whether the schedule is installed or drifted; `rig doctor` flags a missing scheduler
-binary. See [`docs/config-schema.md`](docs/config-schema.md#models) for the full schema.
+loaded via `launchctl`), **Linux → systemd --user timer** (`ai.hyperide.model-freshness.timer`
++ `.service` in `~/.config/systemd/user`, listed by `systemctl --user list-timers`; crontab is not
+used because agent shells run with `NoNewPrivs=1`, which defeats the setgid `crontab`). `rig status`
+reports whether the schedule is installed or drifted, and a global config with no `models:` block
+as drift with the enabling command (`rig config set --global models.enabled true`); `rig doctor`
+flags a missing or unwritable scheduler. See [`docs/config-schema.md`](docs/config-schema.md#models) for the full schema.
 
 ### Drift — surfaced both ways, never silently reconciled
 
@@ -522,7 +525,7 @@ riglib/
   config.py         cascade loader + fail-closed schema validation
   detect.py         env/project + OS/package-manager detection
   plan.py           (config + catalog) → ordered InstallPlan       ← shared by init & apply
-  schedule.py       pure planning of the model-freshness cron artifact (launchd/crontab)
+  schedule.py       pure planning of the model-freshness schedule artifact (launchd/systemd)
   drift.py          two-way drift detection
   doctor.py         dependency diagnosis + bootstrap across package managers
   state.py          SetupState ⇄ rig.yaml (the single serializer)

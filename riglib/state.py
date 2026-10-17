@@ -133,7 +133,7 @@ def default_state(
             # reproducible). Override to ~/.claude/settings.json for a machine-wide setting.
         },
         # Daily model-freshness checker: rig provisions a once-a-day cron (launchd on macOS,
-        # crontab on Linux) that runs the agent-tools checker (lib/checker/model_freshness.py)
+        # a systemd --user timer on Linux) that runs the agent-tools checker (lib/checker/model_freshness.py)
         # to propose model-version bumps. On `rig init` AND `rig apply`, rig checks whether the
         # schedule is installed and installs it if missing (idempotent). Default: NOON. Turn it
         # off with enabled: false. The checker path resolves from agent_tools_source unless a

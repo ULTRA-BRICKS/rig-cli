@@ -808,7 +808,7 @@ _MODELS_BLOCK = Block(
             doc="when the daily checker runs.",
             leaves={
                 "time": Leaf("string", "daily run time, HH:MM 24-hour", default="12:00"),
-                "label": Leaf("string", "the launchd Label / crontab sentinel identity"),
+                "label": Leaf("string", "the launchd Label / systemd unit name"),
             },
         ),
     },

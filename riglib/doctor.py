@@ -13,6 +13,7 @@ Package name varies per manager, so each dependency carries a per-manager name m
 from __future__ import annotations
 
 import importlib.util
+import os
 import re
 import shutil
 import subprocess
@@ -82,12 +83,12 @@ DEPENDENCIES: list[Dependency] = [
         pkg={"brew": "", "apt": "", "dnf": "", "pacman": ""},
     ),
     # The daily model-freshness schedule (models:) is provisioned via the platform-native
-    # scheduler: launchd (launchctl) on macOS, crontab on Linux. Both ship with the OS; this
-    # entry surfaces the one rig will actually use so a stripped container without crontab is
-    # flagged. The probe is for the scheduler binary the CURRENT platform uses.
+    # scheduler: launchd (launchctl) on macOS, a systemd --user timer on Linux. This entry
+    # surfaces the binary rig will actually use; whether rig can WRITE to that scheduler is the
+    # separate :func:`scheduler_problem` check.
     Dependency(
-        "launchctl" if sys.platform == "darwin" else "crontab",
-        "model-freshness daily schedule (models:) — launchd on macOS, crontab on Linux",
+        "launchctl" if sys.platform == "darwin" else "systemctl",
+        "model-freshness daily schedule (models:) — launchd on macOS, systemd --user timer on Linux",
     ),
 ]
 
@@ -399,6 +400,40 @@ def diagnose(os_info: OsInfo | None = None) -> DoctorReport:
             )
         )
     return report
+
+
+def scheduler_problem() -> str | None:
+    """Why rig could NOT install the model-freshness schedule here, or ``None`` when it can.
+
+    Binary presence is not enough (rig-cli#721): on Linux the old crontab path failed from every
+    agent shell (``NoNewPrivs=1`` defeats the setgid ``crontab``). The timer needs a reachable
+    systemd user manager and a writable unit dir; launchd needs a writable LaunchAgents dir.
+    """
+    if sys.platform == "darwin":
+        unit_dir = Path.home() / "Library" / "LaunchAgents"
+    else:
+        from .schedule import systemd_user_unit_dir
+
+        unit_dir = systemd_user_unit_dir()
+        try:
+            res = subprocess.run(
+                ["systemctl", "--user", "show-environment"], capture_output=True, text=True, timeout=15
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"`systemctl --user` could not run ({exc})"
+        if res.returncode != 0:
+            why = (res.stderr or res.stdout).strip().splitlines()
+            return (
+                "no reachable systemd user manager (`systemctl --user show-environment`: "
+                f"{why[0] if why else f'rc={res.returncode}'}) — log in once, or "
+                "`loginctl enable-linger $USER`, and make sure XDG_RUNTIME_DIR is set"
+            )
+    probe = unit_dir
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    if not os.access(probe, os.W_OK):
+        return f"{unit_dir} is not writable (nearest existing dir {probe})"
+    return None
 
 
 def _python_install_command(package: str) -> list[str]:

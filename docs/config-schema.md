@@ -83,7 +83,7 @@ mcp: { ... }
 mode: { ... }                 # GLOBAL operating mode; autonomous review/fix/quorum/escalation policy
 harness: { ... }              # agent harness auto/permission provisioning (auto-mode)
 permissions: { ... }          # per-harness permissions layer (allowlist + deny/ask baselines), default ON
-models: { ... }               # daily model-freshness checker schedule (launchd/crontab cron)
+models: { ... }               # daily model-freshness checker schedule (launchd / systemd --user timer)
 agents_md: { ... }            # AGENTS.md (canonical) + CLAUDE.md (symlink), default ON
 github: { ... }               # repo settings: ruleset/merge/ghas/actions via gh api + browser via agent-browser, default ON
 tmux: { ... }                 # rig-managed tmux config (generate + migrate ~/.tmux.conf), opt-in
@@ -1399,7 +1399,7 @@ models:
   enabled: true                # provision the daily checker schedule (false → leave system cron alone)
   schedule:
     time: "12:00"              # daily run time, HH:MM 24h (default: noon)
-    # label: ai.hyperide.model-freshness   # launchd Label / crontab sentinel (advanced)
+    # label: ai.hyperide.model-freshness   # launchd Label / systemd unit name (advanced)
   # checker_path: ~/xp/agent-tools/lib/checker/model_freshness.py   # default: resolved from agent_tools_source
 ```
 
@@ -1407,7 +1407,7 @@ models:
 | --- | --- | --- | --- |
 | `enabled` | bool | `true` (scaffold) | provision the daily schedule (set `false` to leave the system cron untouched) |
 | `schedule.time` | `HH:MM` | `12:00` (noon) | daily run time, 24-hour; fail-closed on a malformed/out-of-range value |
-| `schedule.label` | str | `ai.hyperide.model-freshness` | the launchd Label / crontab sentinel identity (one string across platforms) |
+| `schedule.label` | str | `ai.hyperide.model-freshness` | the launchd Label / systemd unit name (one string across platforms) |
 | `checker_path` | path | resolved from `agent_tools_source` | the `model_freshness.py` the schedule runs |
 
 **Cross-platform.** The CTO asked for a "cron"; rig provisions the platform-native
@@ -1416,26 +1416,36 @@ equivalent:
 - **macOS → launchd.** A `~/Library/LaunchAgents/<label>.plist` with a daily
   `StartCalendarInterval` (Hour/Minute), loaded via `launchctl load`. (cron is
   deprecated/unmanaged on macOS; launchd is the supported scheduler.)
-- **Linux → crontab.** A single managed crontab line `MIN HOUR * * * python3 <checker>`,
-  fenced by a `# rig-managed: <label>` sentinel comment so it is idempotent (re-apply finds
-  it by sentinel) and removable, and so it never disturbs the user's other crontab lines.
+- **Linux → systemd --user timer.** `~/.config/systemd/user/<label>.service` (oneshot; runs
+  `python3 <checker>` through `bash -lc` so the login PATH and provider env apply) plus
+  `<label>.timer` (`OnCalendar=*-*-* HH:MM:00`, `Persistent=true`), enabled with `systemctl
+  --user enable --now`. Visible in `systemctl --user list-timers`; output lands in the journal
+  (`journalctl --user -u <label>.service`). Not crontab: agent shells run with `NoNewPrivs=1`,
+  which stops the setgid `crontab` binary from reading or writing the spool, so an agent-run
+  `rig apply` could never install or verify it (rig-cli#721). A crontab line left by an older
+  rig (`# rig-managed: <label>` sentinel) is removed on the next apply when the crontab is
+  readable.
 
 **Idempotency (the "check whether the cron exists and install it if missing" rule).** Both `init` and `apply`
 run this. A present-and-current schedule re-applies as a no-op (`skipped`); a missing or
 drifted one is (re)installed. `rig status` reports the schedule explicitly (installed /
-drifted / not configured) and surfaces a wrong run time or checker path as drift; `rig
-doctor` flags a missing scheduler binary (`launchctl`/`crontab`).
+drifted / not configured) and surfaces a wrong run time or checker path as drift. A global
+config with NO `models:` block (written before the scaffold default gained it) is drift too,
+naming the enabling command `rig config set --global models.enabled true`; an explicit
+`enabled: false` stays quiet. `rig doctor` flags a missing scheduler binary
+(`launchctl`/`systemctl`) and a scheduler rig cannot write (no reachable systemd user manager,
+or an unwritable `~/.config/systemd/user` / `~/Library/LaunchAgents`).
 
 Set `RIG_SCHEDULE_DRY_RUN=1` to write the artifact file but **skip the live daemon mutation**
-(no `launchctl load`, no `crontab` write) — for CI, containers, or smoke tests where touching
+(no `launchctl load`, no `systemctl --user enable`) — for CI, containers, or smoke tests where touching
 the real per-user scheduler is unwanted. The same skip happens **automatically when `$HOME` is
 overridden** (the resolved `Path.home()` differs from the uid's real login home): a HOME-only
-sandbox cannot redirect the per-user launchd/crontab, so rig writes the artifact and reports
+sandbox cannot redirect the per-user launchd/systemd manager, so rig writes the artifact and reports
 `HOME is overridden (<home> != <real home>) — skipped live launchctl load (sandboxed run)` instead
 of mutating the real scheduler (rig-cli#116; applies to `tmux`, `tg_ctl`, `spotlight` too). The
 post-apply verify skips its loaded-check and `rig status` suppresses the live loaded-probe (and, on
-Linux, the crontab-line-missing check) under the same condition, so a sandboxed apply exits 0 and
-stays converged on both the launchd and crontab platforms. Note `sudo rig apply` with a
+Linux, the timer-active check) under the same condition, so a sandboxed apply exits 0 and
+stays converged on both the launchd and systemd platforms. Note `sudo rig apply` with a
 preserved user `$HOME` counts as sandboxed too (uid 0's login home is not yours) — run rig as the
 user whose launchd session it should manage.
 
