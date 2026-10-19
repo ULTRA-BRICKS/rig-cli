@@ -337,6 +337,13 @@ def _run_worktree_list_porcelain(repo_root: Path, *, timeout: int = _GIT_TIMEOUT
     return _parse_worktree_records(res.stdout)
 
 
+def worktree_records(repo_root: Path, *, timeout: int = _GIT_TIMEOUT_S) -> list[dict[str, str]]:
+    """Every worktree record git lists for ``repo_root`` — the PRIMARY first, bare/prunable/detached
+    included — for callers (the removal verdict) that need the raw facts :func:`list_worktrees`
+    filters out. Raises :class:`WorktreeGcError` when the listing cannot be trusted."""
+    return _run_worktree_list_porcelain(repo_root, timeout=timeout)
+
+
 def _resolve_primary_worktree(repo_root: Path) -> Path:
     """The actual PRIMARY worktree's path for ``repo_root`` — which may itself be a LINKED
     worktree (e.g. ``rig worktree gc --repo <a-worktree>``, or `rig status` run from inside one;
@@ -590,38 +597,34 @@ def _forgejo_target(repo_root: Path) -> forgejo_prs.ForgejoRepo | None:
     return forgejo_prs.forgejo_repo_from_remote(res.stdout.strip())
 
 
-def _fetch_forgejo_pr_index(target: forgejo_prs.ForgejoRepo) -> dict[str, PrInfo]:
-    """The same per-branch index as :func:`_fetch_pr_index`, read from Forgejo (``fj`` has no JSON)."""
+def _fetch_forgejo_raw_prs(target: forgejo_prs.ForgejoRepo) -> list:
+    """Every PR of a Forgejo repo in the ``gh pr list --json`` shape (``fj`` has no JSON)."""
     try:
-        raw = forgejo_prs.fetch_pulls(target, state="all", limit=_GH_PAGE_LIMIT)
+        return forgejo_prs.fetch_pulls(target, state="all", limit=_GH_PAGE_LIMIT)
     except forgejo_prs.ForgeLookupError as exc:
         raise GhLookupError(f"Forgejo pull-request list failed: {exc}") from exc
-    return _index_prs_by_branch(raw)
 
 
-def _fetch_pr_index(repo_root: Path) -> dict[str, PrInfo]:
-    """One ``gh pr list --state all`` call for the whole repo, indexed by head branch name.
+def fetch_raw_prs(repo_root: Path) -> list:
+    """One ``gh pr list --state all`` call for the whole repo — the raw ``--json`` records
+    (including ``headRefOid``/``baseRefName``/``mergeCommit``, which :mod:`riglib.removal_verdict`
+    needs to PROVE a landing). Raises :class:`GhLookupError` when the list cannot be trusted.
 
-    A canonical Forgejo ``origin`` is routed to :func:`_fetch_forgejo_pr_index` instead — ``gh``
+    A canonical Forgejo ``origin`` is routed to :func:`_fetch_forgejo_raw_prs` instead — ``gh``
     cannot see a Forgejo repo.
-
-    A single call (rather than one ``gh`` invocation per worktree) is both cheaper — matters for
-    `rig status`, which calls into this on every invocation — and simpler to reason about. Like
-    :mod:`riglib.daily.github`, a very large ``--state all`` history beyond ``_GH_PAGE_LIMIT``
-    could in principle miss an old PR; unlike ``daily``, that risk here is one-sided and
-    self-limiting: a branch this misses just reads as "no PR found" and falls through to the
-    ``no-pr-stale`` bucket, which is never removed without both ``--yes`` AND ``--include-stale``.
     """
     forgejo_target = _forgejo_target(repo_root)
     if forgejo_target is not None:
-        return _fetch_forgejo_pr_index(forgejo_target)
+        return _fetch_forgejo_raw_prs(forgejo_target)
     try:
         res = subprocess.run(
             [
                 "gh", "pr", "list",
                 "--state", "all",
                 "--limit", str(_GH_PAGE_LIMIT),
-                "--json", "number,state,headRefName,mergedAt,closedAt,url,isCrossRepository",
+                "--json",
+                "number,state,headRefName,mergedAt,closedAt,url,isCrossRepository,"
+                "headRefOid,baseRefName,mergeCommit",
             ],
             cwd=repo_root,
             capture_output=True,
@@ -643,8 +646,20 @@ def _fetch_pr_index(repo_root: Path) -> dict[str, PrInfo]:
         raise GhLookupError("`gh pr list` returned unparseable JSON") from exc
     if not isinstance(raw, list):
         raise GhLookupError(f"`gh pr list` returned a non-list JSON root ({type(raw).__name__})")
+    return raw
 
-    return _index_prs_by_branch(raw)
+
+def _fetch_pr_index(repo_root: Path) -> dict[str, PrInfo]:
+    """:func:`fetch_raw_prs`, indexed by head branch name.
+
+    A single call (rather than one ``gh`` invocation per worktree) is both cheaper — matters for
+    `rig status`, which calls into this on every invocation — and simpler to reason about. Like
+    :mod:`riglib.daily.github`, a very large ``--state all`` history beyond ``_GH_PAGE_LIMIT``
+    could in principle miss an old PR; unlike ``daily``, that risk here is one-sided and
+    self-limiting: a branch this misses just reads as "no PR found" and falls through to the
+    ``no-pr-stale`` bucket, which is never removed without both ``--yes`` AND ``--include-stale``.
+    """
+    return _index_prs_by_branch(fetch_raw_prs(repo_root))
 
 
 # OPEN outranks MERGED outranks CLOSED — deliberately, and safety-critical: a branch name can be

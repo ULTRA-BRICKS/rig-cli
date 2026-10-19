@@ -241,13 +241,53 @@ freshly created tree never dirties `git status` in the primary checkout. See
 create`/`remove`/`gc` rows for the user-facing contract.
 
 - **`rig worktree create <name>`** — the single door. `--branch`/`--from` override the branch/base.
-- **`rig worktree remove <name>`** — the inverse: removes the worktree AND its branch (`git
-  worktree remove` alone leaves the branch behind).
+- **`rig worktree remove <path|name>`** — the inverse: removes the worktree AND its branch (`git
+  worktree remove` alone leaves the branch behind) — but ONLY when the **landed-removal verdict**
+  says SAFE (below); accepts a worktree anywhere git knows it; `--force` never overrides the
+  verdict (it only unlocks a locked worktree).
+- **`rig worktree verdict <path|name|branch> [--remote [NAME]] [--json]`** — read-only: "is deleting
+  this guaranteed to lose nothing?" Exit 0 SAFE / 10 UNSAFE.
+- **`rig worktree guard`** — the PreToolUse backend (bash command on stdin → one JSON
+  `pass|allow|deny`) behind the agent-tools `block-unlanded-removal` hook.
 - **`rig worktree gc`** — the reconciler for everything ALREADY on disk (including worktrees that
   predate this convention, wherever they physically live — `git worktree list` tracks every
   linked worktree for a repo regardless of location). Classifies each as live/prunable/dirty/
   merged/closed/no-pr-stale/active and removes only the safe classes; `rig status` reports a
   stale-worktree count using the same classifier. See `riglib/worktree_gc.py`'s module docstring.
+
+### The landed-removal verdict — one engine, every entry point
+
+`riglib/removal_verdict.py` is the ONLY place that decides whether deleting a worktree, a local
+branch or a remote branch loses work; `rig worktree remove`, `rig worktree verdict` and the hook
+backend `rig worktree guard` (`riglib/removal_guard.py`) all call it — never write a second check.
+SAFE only if (fail CLOSED on any error/timeout/missing tool/ambiguity) the worktree is clean
+(`status --porcelain --untracked-files=all` empty; no merge/rebase/cherry-pick/revert/bisect in
+progress; no process with it as cwd; no other worktree or ignored git repo inside it; not the
+primary checkout / default branch / a branch checked out elsewhere; other ignored files are NOT
+protected, by rule) AND every commit unique to the branch/HEAD is LANDED on `origin/<default>` (resolved
+from `origin/HEAD`), proven in order: ancestor of `origin/<default>`; a MERGED PR (not merely
+closed) whose merge commit is on `origin/<default>` and whose recorded head equals — or descends
+from — the tip (commits made after the PR head are NOT covered); `git merge-tree --write-tree`
+no-op or `git cherry` all-`-`. Pushing, stashes and the reflog never count. The forge lookup is
+gc's (`worktree_gc.fetch_raw_prs`: `gh`, or the Forgejo API for a `git.hyperide.ai` origin) — never
+a second fetcher; an outage only removes the PR proof. Tests use REAL git (tmp bare origin + linked
+worktrees, `tests/removal_helpers.py`) and a fake forge; every data-loss shape has a negative test
+and mutation-checking the engine (break a condition → a test must fail) is part of changing it.
+
+The guard parses conservatively: ONE simple command with literal targets is judged; chains,
+subshells, substitutions, wrappers (`bash -c`/`eval`/`xargs`/`sudo`/`env`), assignment prefixes,
+variables/globs/braces/`~` in a target, a git/`worktree` subcommand or a flag assembled from an
+expansion (`git $S -D x`, `git branch -$L x`, a bare `$FLAG` among `git branch`'s arguments),
+`--git-dir`/`-c`/`--work-tree`, symlinked/unknown paths, `push --mirror/--prune` and `git update-ref -d` of a branch / `HEAD` / `--stdin` are DENIED,
+never guessed; `$'-D'` is decoded, `${IFS}`/`$VAR` splitting is normalized away before the check,
+and long options match by any unambiguous prefix (`--d`, `--del`). Known gap: a `git push` whose
+`--delete`/`:name` arrives whole inside a variable (`git push origin "$D" x`) is not caught. Quoted/heredoc text that only mentions a removal
+passes. There is NO bypass flag — `--force` does not change a verdict and no env var skips it; the
+sanctioned rescue for work you really mean to drop is `git add -A && git diff --binary HEAD >
+~/.cache/<repo>-recovery/<wt>-<ts>.patch` plus pushing a followup branch. Every allow/deny is
+appended to `~/.cache/rig/removal-guard.jsonl`. `rig worktree gc` keeps its own classifier (it
+removes `closed`-PR and `prunable` trees that this verdict would call UNSAFE) — routing gc through
+the verdict is a separate, deliberately-not-done change.
 
 **Known gap (GH-329, tracked, not yet fixed here):** the agent-tools skill
 `skills/by-type/monorepo/worktree-isolation` — the one an agent reaches for when told to isolate

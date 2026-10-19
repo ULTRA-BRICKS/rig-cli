@@ -39,6 +39,7 @@ EXIT_REPO_CORRUPT = 7  # a managed checkout's git config is corrupted (e.g. core
 # 8 is retired — never reuse it: it was `rig codex update`'s failure code; that updater moved to
 # harness-cli (`harness codex update`, which keeps 8 for the same failure).
 EXIT_PROBE_FAILED = 9  # an opt-in activation probe FAILED (the claimed channel does not work)
+EXIT_REMOVAL_UNSAFE = 10  # a landed-removal verdict said UNSAFE: deleting the target could lose work
 EXIT_MISSING_DEP = 127  # a required external tool/binary isn't installed (shell convention)
 
 

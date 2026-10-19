@@ -1,4 +1,9 @@
-"""`rig worktree remove` — the inverse of `rig worktree create`.
+"""`rig worktree remove` — the inverse of `rig worktree create`, mechanics of a SAFE removal.
+
+Every repo here has an origin whose default branch holds the initial commit, because `remove` now
+runs the landed-removal verdict first (the verdict's own cases, and the refusals — dirty,
+unlanded, live, ``--force`` — live in tests/test_removal_verdict.py and
+tests/test_worktree_removal_entry_points.py).
 
 Covers: happy path removes both the worktree dir and its branch; the branch to delete is read
 from ``git worktree list --porcelain -z`` rather than assumed to equal ``name`` (proven via a
@@ -6,8 +11,8 @@ from ``git worktree list --porcelain -z`` rather than assumed to equal ``name`` 
 ``"`` (both legal, both quoted specially by git's default porcelain format — ``-z`` sidesteps
 that); a detached-HEAD worktree (no branch) is removed cleanly with no branch-delete attempted; a
 STALE registration (worktree dir deleted by hand, not via git) is recovered rather than refused;
-name validation and a symlinked ``.worktrees/`` are rejected the same way ``create`` rejects bad
-input; a LOCKED worktree and a genuinely nonexistent target surface git's own refusal instead of
+an empty name, a path-like target that git has not registered, and a symlinked ``.worktrees/`` are
+rejected; a LOCKED worktree and a genuinely nonexistent target surface git's own refusal instead of
 being force-removed or guessed at; a branch-lookup failure refuses the WHOLE removal (never
 guesses "detached"); a `git branch -D` failure AFTER a successful worktree removal is reported
 with the same "leaves the branch behind" reasoning `_partial_state_cleanup_hint` documents for
@@ -30,8 +35,11 @@ from riglib.config import WORKTREES_DIR_NAME
 
 # ── helpers (mirrors test_worktree_create.py) ────────────────────────────────────
 def _git_repo(path: Path) -> Path:
+    """A repo with an `origin` (a bare sibling directory) whose default branch holds the initial
+    commit — `remove` judges "landed" against origin/<default>, so a repo without one could not
+    remove anything (fail closed; see tests/test_removal_verdict.py)."""
     path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=path, check=True)
     (path / "README.md").write_text("# repo\n", encoding="utf-8")
     subprocess.run(["git", "add", "."], cwd=path, check=True)
     subprocess.run(
@@ -39,6 +47,11 @@ def _git_repo(path: Path) -> Path:
         cwd=path,
         check=True,
     )
+    origin = path.parent / f"{path.name}-origin.git"
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
+    subprocess.run(["git", "remote", "add", "origin", str(origin)], cwd=path, check=True)
+    subprocess.run(["git", "push", "-q", "origin", "main"], cwd=path, check=True)
+    subprocess.run(["git", "remote", "set-head", "origin", "-a"], cwd=path, check=True)
     return path
 
 
@@ -200,13 +213,19 @@ def test_remove_recovers_a_stale_registration_after_manual_directory_deletion(tm
     assert not _branch_exists(repo, "agent-1")
 
 
-def test_remove_name_with_path_separator_is_rejected(tmp_path):
+def test_remove_path_like_target_that_is_not_a_registered_worktree_is_refused(tmp_path):
+    """A path-like target is accepted ONLY if git has it registered (any location) — an arbitrary
+    `a/b` or `../../etc` can never be removed through this command."""
     repo = _git_repo(tmp_path / "repo")
+    (repo / "a").mkdir()
+    (repo / "a" / "b").mkdir()
 
-    res = worktree.remove(repo, "a/b")
-
-    assert res.status == "error"
-    assert res.exit_code == errors.EXIT_CONFIG
+    for target in ("a/b", "../../etc", "/tmp"):
+        res = worktree.remove(repo, target)
+        assert res.status == "error"
+        assert res.exit_code == errors.EXIT_CONFIG
+        assert "not a working tree" in res.message
+    assert (repo / "a" / "b").is_dir()
 
 
 def test_remove_empty_name_is_rejected(tmp_path):

@@ -717,11 +717,16 @@ def _add_worktree_parser(sub: "argparse._SubParsersAction") -> None:
     )
     smp.add_argument("sysmon_args", nargs=argparse.REMAINDER, help="command and its flags")
 
-    wp = sub.add_parser("worktree", help="create/remove/gc a standardized agent worktree under .worktrees/")
+    wp = sub.add_parser(
+        "worktree",
+        help="create/remove/verdict/guard/gc a standardized agent worktree under .worktrees/",
+    )
     wp.set_defaults(_worktree_parser=wp)
-    wsub = wp.add_subparsers(dest="worktree_command", metavar="<create|remove|gc>")
+    wsub = wp.add_subparsers(dest="worktree_command", metavar="<create|remove|verdict|guard|gc>")
     _add_worktree_create_subparser(wsub)
     _add_worktree_remove_subparser(wsub)
+    _add_worktree_verdict_subparser(wsub)
+    _add_worktree_guard_subparser(wsub)
     _add_worktree_gc_subparser(wsub)
 
 
@@ -757,28 +762,95 @@ def _add_worktree_create_subparser(wsub: "argparse._SubParsersAction") -> None:
 def _add_worktree_remove_subparser(wsub: "argparse._SubParsersAction") -> None:
     wr = wsub.add_parser(
         "remove",
-        help="remove a linked worktree at .worktrees/<name> and delete its branch",
-        description="The inverse of `rig worktree create`: run `git worktree remove --force` on "
-        "the standardized <repo>/.worktrees/<name> path, then `git branch -D` the branch it had "
-        "checked out — `git worktree remove` alone leaves the branch behind, so a bare retry of "
-        "`create` with the same name fails with 'a branch already exists'. Also recovers a STALE "
-        "registration (the worktree directory was deleted by hand instead of via git): if git "
-        "still has <name> registered with a live branch, that branch is still found and deleted "
-        "even though the directory itself is already gone. Requires git >= 2.36 (uses `worktree "
-        "list --porcelain -z`).",
+        help="remove a landed, clean linked worktree (anywhere git knows it) and delete its branch",
+        description="The inverse of `rig worktree create`, but ONLY when removal provably loses "
+        "nothing: it first runs the landed-removal verdict (see `rig worktree verdict`) — the tree "
+        "must be clean and every commit on it landed on origin/<default> (ancestor, merged PR "
+        "with the same head, or a content no-op) — and refuses with exit 10 otherwise. `--force` "
+        "never overrides that verdict; it only lets git unlock a LOCKED worktree. The target is "
+        "a worktree path anywhere git knows it, or a name (.worktrees/<name>, else a unique "
+        "branch / directory name). Then runs `git worktree remove --force` and `git branch -D` "
+        "the branch it had checked out — `git worktree remove` alone leaves the branch behind, so "
+        "a bare retry of `create` with the same name fails with 'a branch already exists'. Also "
+        "recovers a STALE registration (the worktree directory was deleted by hand instead of via "
+        "git). Requires git >= 2.36 (uses `worktree list --porcelain -z`).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit codes:\n"
-        "  0    success\n"
+        "  0    removed\n"
         "  1    git worktree list/remove/branch -D timed out, or an unexpected runtime error\n"
         "       ran into rig itself (not a missing git — that's 127)\n"
-        "  2    invalid name, .worktrees/ is a symlink escaping the repo, <name> was never a\n"
-        "       registered worktree, or git rejected the request (locked worktree, branch\n"
+        "  2    <target> is not (or ambiguously) a registered worktree, .worktrees/ is a symlink\n"
+        "       escaping the repo, or git rejected the request (locked worktree, branch\n"
         "       checked out elsewhere, git < 2.36, …)\n"
         "  6    not a git repository\n"
+        "  10   UNSAFE verdict: removing it could lose work (nothing was removed)\n"
         "  127  git is not installed",
     )
-    wr.add_argument("name", help="worktree directory name under .worktrees/ to remove")
+    wr.add_argument("target", help="worktree path (anywhere git knows it) or name (.worktrees/<name>, branch, or directory name)")
     wr.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
+    wr.add_argument(
+        "--force", action="store_true",
+        help="also unlock a LOCKED worktree (git's `--force --force`); NEVER overrides an UNSAFE verdict",
+    )
+    wr.add_argument(
+        "--no-fetch", action="store_true",
+        help="do not refresh origin/<default> before judging (default: best-effort `git fetch`)",
+    )
+
+
+def _add_worktree_verdict_subparser(wsub: "argparse._SubParsersAction") -> None:
+    wv = wsub.add_parser(
+        "verdict",
+        help="read-only: is removing this worktree / local branch / remote branch guaranteed to lose nothing?",
+        description="Print the landed-removal verdict (SAFE / UNSAFE with reasons) for a worktree, a "
+        "local branch, or — with --remote — a remote branch. SAFE only when the worktree is clean "
+        "(staged, unstaged and untracked all count; no merge/rebase/cherry-pick in progress; no "
+        "process with it as cwd; not the primary checkout or default branch) AND every commit "
+        "unique to it is LANDED on origin/<default>, proven in order: (1) tip is an ancestor of "
+        "origin/<default>; (2) a MERGED PR for the head branch whose merge commit is on "
+        "origin/<default> and whose recorded head is the tip or a descendant of it; (3) `git "
+        "merge-tree` shows merging would be a no-op, or `git cherry` shows only `-` lines. Pushing "
+        "is irrelevant; a stash or the reflog is never relied on. Every error, timeout, missing "
+        "tool or ambiguity is UNSAFE. The same engine gates `rig worktree remove` and the "
+        "PreToolUse removal guard.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="exit codes:\n"
+        "  0    SAFE\n"
+        "  2    <target> is not (or ambiguously) a worktree or branch of this repo\n"
+        "  6    not a git repository\n"
+        "  10   UNSAFE\n"
+        "  127  git is not installed",
+    )
+    wv.add_argument("target", help="worktree path or name, or a branch name")
+    wv.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
+    wv.add_argument(
+        "--remote", nargs="?", const="origin", default=None, metavar="NAME",
+        help="judge deleting branch <target> on this remote (default remote: origin)",
+    )
+    wv.add_argument("--json", action="store_true", help="machine-readable output")
+    wv.add_argument(
+        "--no-fetch", action="store_true",
+        help="do not refresh origin/<default> before judging (default: best-effort `git fetch`)",
+    )
+
+
+def _add_worktree_guard_subparser(wsub: "argparse._SubParsersAction") -> None:
+    wg = wsub.add_parser(
+        "guard",
+        help="PreToolUse hook backend: read a bash command on stdin, print one JSON allow/deny/pass decision",
+        description="Reads a bash command from stdin and prints ONE JSON object "
+        '{"decision": "pass"|"allow"|"deny", "reason": …, "targets": […]}. Recognizes `git worktree '
+        "remove`, `git branch -d/-D` and `git push <remote> --delete <name>` / `:<name>`; every "
+        "target must be SAFE per `rig worktree verdict` for `allow`; anything it cannot parse with "
+        "certainty (chains, subshells, variables, globs, wrappers, --git-dir …) is `deny`; not a "
+        "removal is `pass`. Always exits 0 once a decision is printed — the hook treats any other "
+        "outcome as deny (fail closed).",
+    )
+    wg.add_argument("-C", "--cwd", default=".", help="directory the command runs in (default: cwd)")
+    wg.add_argument(
+        "--no-fetch", action="store_true",
+        help="do not refresh origin/<default> before judging (default: best-effort `git fetch`)",
+    )
 
 
 def _add_worktree_gc_subparser(wsub: "argparse._SubParsersAction") -> None:
@@ -1256,6 +1328,10 @@ def cmd_worktree(args: argparse.Namespace) -> int:
         return _cmd_worktree_create(args)
     if args.worktree_command == "remove":
         return _cmd_worktree_remove(args)
+    if args.worktree_command == "verdict":
+        return _cmd_worktree_verdict(args)
+    if args.worktree_command == "guard":
+        return _cmd_worktree_guard(args)
     if args.worktree_command == "gc":
         return _cmd_worktree_gc(args)
     args._worktree_parser.print_help()
@@ -1395,6 +1471,15 @@ def _worktree_bun_install(repo_root: Path, worktree_path: Path) -> int:
     return errors_module.EXIT_CONFIG  # diagnosed (lockfile, network, script), not a rig crash
 
 
+def _process_cwd_or_none() -> Path | None:
+    """The process cwd, or ``None`` when it was deleted out from under the shell (the very
+    "worktree directory removed by hand" case `rig worktree remove` exists to recover)."""
+    try:
+        return Path.cwd()
+    except OSError:
+        return None
+
+
 def _cmd_worktree_remove(args: argparse.Namespace) -> int:
     from . import worktree as worktree_mod
 
@@ -1402,12 +1487,63 @@ def _cmd_worktree_remove(args: argparse.Namespace) -> int:
     if env is None:
         return exit_code
 
-    result = worktree_mod.remove(env.repo_root, args.name)
+    result = worktree_mod.remove(
+        env.repo_root, args.target, cwd=_process_cwd_or_none(), force=args.force, fetch=not args.no_fetch
+    )
     if result.status == "error":
         print(_err(f"error: {result.message}"))
         return result.exit_code
 
     print(_ok(result.message))
+    return 0
+
+
+def _cmd_worktree_verdict(args: argparse.Namespace) -> int:
+    """Read-only landed-removal verdict for a worktree, a local branch, or (``--remote``) a remote
+    branch. Exit 0 = SAFE, 10 = UNSAFE, 2 = target is neither a worktree nor a local branch."""
+    from . import errors as errors_module
+    from . import removal_verdict
+    from . import worktree as worktree_mod
+
+    env, exit_code = _resolve_worktree_repo_env(args.cwd)
+    if env is None:
+        return exit_code
+
+    fetch = not args.no_fetch
+    if args.remote is not None:
+        verdict = removal_verdict.remote_branch_verdict(env.repo_root, args.remote, args.target, fetch=fetch)
+    else:
+        path, resolve_error = worktree_mod.resolve_target(env.repo_root, args.target, cwd=_process_cwd_or_none())
+        if path is not None:
+            verdict = removal_verdict.worktree_verdict(env.repo_root, path, fetch=fetch)
+        elif resolve_error is not None and not resolve_error.not_found:
+            print(_err(f"error: {resolve_error.message}"))
+            return resolve_error.exit_code
+        elif not removal_verdict.local_branch_exists(env.repo_root, args.target):
+            print(_err(f"error: {args.target!r} is neither a registered worktree nor a local branch"))
+            return errors_module.EXIT_CONFIG
+        else:
+            verdict = removal_verdict.branch_verdict(env.repo_root, args.target, fetch=fetch)
+
+    if args.json:
+        print(json.dumps(verdict.to_dict()))
+    else:
+        print(verdict.render())
+    return 0 if verdict.safe else errors_module.EXIT_REMOVAL_UNSAFE
+
+
+def _cmd_worktree_guard(args: argparse.Namespace) -> int:
+    """PreToolUse removal-guard backend: one bash command on stdin → one JSON decision on stdout.
+    Always exits 0 once a decision is printed; an unreadable stdin is itself a ``deny``."""
+    from . import removal_guard
+
+    try:
+        command = sys.stdin.read()
+    except (OSError, ValueError) as exc:
+        decision = removal_guard.GuardDecision("deny", f"removal guard: DENY — could not read the command from stdin ({exc})")
+    else:
+        decision = removal_guard.evaluate_command(command, Path(args.cwd), fetch=not args.no_fetch)
+    print(json.dumps(decision.to_dict()))
     return 0
 
 

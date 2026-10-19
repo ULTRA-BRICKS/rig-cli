@@ -113,10 +113,17 @@ def normalize_pull(pull: dict) -> dict:
         state = "MERGED"
     else:
         state = "OPEN" if pull.get("state") == "open" else "CLOSED"
+    base = pull.get("base") or {}
+    merge_oid = pull.get("merge_commit_sha")
     return {
         "number": pull.get("number"),
         "state": state,
         "headRefName": head.get("ref"),
+        # head/base/merge oids let the landed-removal verdict PROVE a squash/rebase merge
+        # (riglib.removal_verdict) instead of trusting a branch name
+        "headRefOid": head.get("sha"),
+        "baseRefName": base.get("ref"),
+        "mergeCommit": {"oid": merge_oid} if state == "MERGED" and merge_oid else None,
         "mergedAt": pull.get("merged_at"),
         "closedAt": pull.get("closed_at"),
         "url": pull.get("html_url", ""),

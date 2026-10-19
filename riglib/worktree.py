@@ -37,7 +37,10 @@ git operation, not a config/catalog/plan validation path, so it follows the resu
 precedent for that class of command (set by the since-removed ``rig codex update``, which moved to
 harness-cli).
 
-``rig worktree remove`` is the inverse: it tears down a ``.worktrees/<name>`` created above.
+``rig worktree remove`` is the inverse: it tears down a worktree created above — but only after
+the landed-removal verdict (:mod:`riglib.removal_verdict`) proves nothing is lost (clean tree,
+every commit landed on ``origin/<default>``); an UNSAFE verdict refuses with exit 10 and ``--force``
+never overrides it. The target may be any worktree git knows, not only ``.worktrees/<name>``.
 ``git worktree remove`` alone leaves the branch behind (a bare retry of ``create`` then fails with
 "a branch named '<name>' already exists" — the same gotcha :func:`_partial_state_cleanup_hint`
 below documents for a FAILED ``create``), so ``remove()`` also deletes the branch, in the same
@@ -58,7 +61,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import errors
+from . import errors, removal_verdict as rv, worktree_gc
 from .actions.runner import reconcile_worktrees_exclude
 from .config import WORKTREES_DIR_NAME
 
@@ -120,6 +123,8 @@ class WorktreeResult:
     branch: str | None = None
     exclude_note: str = ""
     exit_code: int = 0
+    verdict: rv.Verdict | None = None  # the landed-removal verdict `remove` ran (SAFE or UNSAFE)
+    not_found: bool = False  # `resolve_target`: nothing registered matches (vs. ambiguous / unsafe)
 
 
 def worktree_path(repo_root: Path, name: str) -> Path:
@@ -416,17 +421,19 @@ def _find_worktree_branch(repo_root: Path, target: Path) -> str | None:
     return ci_fallback
 
 
-def _run_git_worktree_remove(repo_root: Path, target: Path) -> WorktreeResult | None:
+def _run_git_worktree_remove(repo_root: Path, target: Path, *, force: bool = False) -> WorktreeResult | None:
     """Run ``git worktree remove --force <target>``. Returns an error result, or ``None`` on success.
 
-    ``--force`` matches this command's intent (tearing an agent-created worktree down wholesale,
-    same as ``create``'s counterpart) — a worktree with uncommitted or untracked changes is still
-    removed rather than blocking on them. A LOCKED worktree still refuses even with one ``--force``
-    (git requires unlocking, or ``--force`` twice); that refusal surfaces as an ordinary error here
-    rather than being silently retried, so a lock made on purpose isn't blown through by accident.
+    Only ever called AFTER :func:`remove`'s landed-removal verdict said SAFE, so git's own
+    "unclean worktree" refusal has nothing left to protect — the single ``--force`` just lets git
+    delete a clean tree that holds ignored files, or a registration whose directory is already
+    gone. A LOCKED worktree still refuses with one ``--force`` (git requires unlocking, or
+    ``--force`` twice); ``force=True`` (the CLI's ``--force``) passes it twice. That is ALL
+    ``--force`` ever does here: it can unlock a lock, it can never override a data-loss verdict.
     Captures raw bytes, not ``text=True`` — see :func:`_decode_message`.
     """
-    cmd = ["git", "-C", str(repo_root), "worktree", "remove", "--force", str(target)]
+    flags = ["--force", "--force"] if force else ["--force"]
+    cmd = ["git", "-C", str(repo_root), "worktree", "remove", *flags, str(target)]
     try:
         res = subprocess.run(cmd, capture_output=True, timeout=_GIT_TIMEOUT_S)
     except subprocess.TimeoutExpired:
@@ -514,85 +521,189 @@ def _resolve_branch_to_delete(repo_root: Path, target: Path) -> tuple[str | None
         )
 
 
-def remove(repo_root: Path, name: str) -> WorktreeResult:
-    """Remove the linked worktree at ``<repo_root>/.worktrees/<name>`` AND its branch.
+def _not_a_worktree(arg: str) -> WorktreeResult:
+    return WorktreeResult(
+        "error",
+        f"{arg!r} is not a working tree registered with git (see `git worktree list`)",
+        exit_code=errors.EXIT_CONFIG,
+        not_found=True,
+    )
+
+
+def resolve_target(
+    repo_root: Path, arg: str, *, cwd: Path | None = None
+) -> tuple[Path | None, WorktreeResult | None]:
+    """``(registered worktree path, None)`` for ``arg``, or ``(None, error_result)``.
+
+    ``arg`` may be a PATH to a worktree — absolute, or relative to ``cwd`` (the caller's working
+    directory, when given) or ``repo_root`` — wherever git knows it, not only under ``.worktrees/``;
+    or a NAME. A name resolves, in order: the standardized ``<repo>/.worktrees/<name>``; then the
+    unique registered worktree whose branch equals it; then the unique one whose directory name
+    equals it. A path is tried FIRST but only counts when git has that exact location registered, so
+    a branch called ``feature/x`` is never shadowed by a source directory of the same name. More
+    than one match is refused, never guessed. Never returns ``(None, None)``.
+    """
+    if not arg or not arg.strip():
+        return None, WorktreeResult("error", "worktree name must not be empty", exit_code=errors.EXIT_CONFIG)
+    try:
+        records = worktree_gc.worktree_records(repo_root)
+    except worktree_gc.WorktreeGcError as exc:
+        return None, WorktreeResult(
+            "error",
+            f"could not list worktrees: {exc} — refusing to remove anything without knowing what is registered",
+            exit_code=exc.exit_code,
+        )
+    linked = [
+        (Path(r["worktree"]), r.get("branch", "").removeprefix("refs/heads/"))
+        for r in records[1:]
+        if "worktree" in r
+    ]
+
+    candidates = [Path(arg)] if Path(arg).is_absolute() else [*([cwd / arg] if cwd else []), repo_root / arg]
+    for candidate in candidates:  # the shell's reading (cwd-relative) wins over the repo-root reading
+        by_path = {p for p, _ in linked if rv.same_path(p, candidate)}
+        if len(by_path) == 1:
+            return next(iter(by_path)), None
+        if len(by_path) > 1:
+            listed = ", ".join(str(m) for m in sorted(by_path))
+            return None, WorktreeResult(
+                "error",
+                f"{arg!r} is ambiguous — it matches {listed}; pass the full path",
+                exit_code=errors.EXIT_CONFIG,
+            )
+    if _invalid_name_reason(arg) is None:
+        standardized = worktree_path(repo_root, arg)
+        if _target_escapes_repo(repo_root, standardized):
+            return None, WorktreeResult(
+                "error",
+                f"{standardized.parent} is a symlink pointing outside {repo_root} — refusing to remove "
+                "through it",
+                path=standardized,
+                exit_code=errors.EXIT_CONFIG,
+            )
+        if standardized.is_symlink():
+            return None, WorktreeResult(
+                "error",
+                f"{standardized} is itself a symlink — refusing to remove through it (a real "
+                "worktree root is never a symlink)",
+                path=standardized,
+                exit_code=errors.EXIT_CONFIG,
+            )
+        for p, _ in linked:
+            if rv.same_path(p, standardized):
+                return p, None
+    for matches in (
+        [p for p, branch in linked if branch == arg],
+        [p for p, _ in linked if p.name == arg],
+    ):
+        if len(matches) == 1:
+            return matches[0], None
+        if len(matches) > 1:
+            listed = ", ".join(str(m) for m in matches)
+            return None, WorktreeResult(
+                "error",
+                f"{arg!r} is ambiguous — it matches {listed}; pass the full path",
+                exit_code=errors.EXIT_CONFIG,
+            )
+    return None, _not_a_worktree(arg)
+
+
+def remove(
+    repo_root: Path,
+    target: str,
+    *,
+    cwd: Path | None = None,
+    force: bool = False,
+    forge: rv.ForgeLookup | None = None,
+    process_cwds: rv.ProcessCwds = rv.all_process_cwds,
+    fetch: bool = False,
+) -> WorktreeResult:
+    """Remove a linked worktree AND its branch — but ONLY when that provably loses nothing.
+
+    ``target`` is a worktree path (anywhere git knows it, relative to ``cwd`` when given) or a name;
+    see :func:`resolve_target`. Before any mutation it runs the landed-removal verdict
+    (:func:`riglib.removal_verdict.worktree_verdict`): the tree must be clean and every commit on
+    it landed on ``origin/<default>``, proven. An UNSAFE verdict refuses with
+    ``EXIT_REMOVAL_UNSAFE`` and the reasons, and **nothing — not even ``force=True`` — overrides
+    it**: ``force`` only lets git unlock a locked worktree. A repo with no resolvable
+    ``origin/<default>`` therefore cannot remove anything (fail closed).
 
     The inverse of :func:`create`: wraps ``git worktree remove --force <path>`` followed by
     ``git branch -D <branch>`` (see the module docstring and
-    :data:`_WORKTREE_REMOVE_ALONE_LEAVES_BRANCH` for why both steps are required). The branch to
-    delete is read from ``git worktree list --porcelain`` via :func:`_find_worktree_branch`
-    rather than assumed to equal ``name`` — ``create --branch`` can diverge from the directory
-    name. That lookup runs BEFORE any git mutation (mirrors ``create``'s "reconcile before
-    mutate" ordering): a lookup failure refuses the whole removal rather than guessing "detached"
-    and silently stranding a real branch. A worktree that genuinely IS detached (no branch to
-    find) is removed with just the first step; that is reported as success, not an error, since
-    there is nothing left for the second step to do.
+    :data:`_WORKTREE_REMOVE_ALONE_LEAVES_BRANCH` for why both steps are required; ``-D`` is right
+    here because a squash-merged branch is never "merged" to git even though the verdict has just
+    proven it landed). The branch to delete is read from ``git worktree list --porcelain`` via
+    :func:`_find_worktree_branch` rather than assumed to equal ``name`` — ``create --branch`` can
+    diverge from the directory name. That lookup runs BEFORE any git mutation (mirrors
+    ``create``'s "reconcile before mutate" ordering): a lookup failure refuses the whole removal
+    rather than guessing "detached" and silently stranding a real branch. A worktree that
+    genuinely IS detached (no branch to find) is removed with just the first step; that is
+    reported as success, not an error, since there is nothing left for the second step to do.
 
-    Deliberately has NO ``target.exists()`` precondition (unlike ``create``'s "target already
-    exists" check, which guards the opposite direction) — ``git worktree remove --force`` is
-    itself the authority on whether ``target`` is a real worktree to tear down, and it is MORE
-    capable than a filesystem check: a worktree whose directory was deleted by hand (`rm -rf`
-    instead of `git worktree remove`) is still REGISTERED with git and still has a live branch —
-    `git worktree remove --force` recognizes and prunes that stale registration (verified
-    empirically), which is exactly the recovery this command should offer, not refuse. A `name`
-    that was never created at all still fails cleanly: git's own "is not a working tree" error
-    surfaces through :func:`_run_git_worktree_remove` below.
+    A worktree whose directory was deleted by hand (`rm -rf` instead of `git worktree remove`) is
+    still REGISTERED with git and still has a live branch — the verdict then checks its commits
+    only, and `git worktree remove --force` prunes the stale registration (verified empirically).
 
-    Refuses if ``target`` ITSELF (not just its ``.worktrees`` parent, which
-    :func:`_target_escapes_repo` already covers) is a symlink: a genuinely rig-created (or any
-    normal `git worktree add`-created) worktree root is NEVER a symlink — git always creates a
-    real directory there — so this refusal has no legitimate worktree to false-positive on. A
+    Refuses if the standardized ``.worktrees/`` parent, or ``.worktrees/<name>`` ITSELF, is a
+    symlink: a genuinely rig-created (or any normal `git worktree add`-created) worktree root is
+    NEVER a symlink, so this refusal has no legitimate worktree to false-positive on. A
     hand-crafted ``.worktrees/<name> -> /elsewhere`` symlink would otherwise resolve straight
-    through both the branch lookup and the git mutation, letting a name that LOOKS local silently
-    operate on whatever the symlink points to (dangling, or another worktree this same repo
-    happens to have registered elsewhere).
+    through both the branch lookup and the git mutation.
     """
-    reason = _invalid_name_reason(name)
-    if reason is not None:
-        return WorktreeResult("error", reason, exit_code=errors.EXIT_CONFIG)
+    path, resolve_error = resolve_target(repo_root, target, cwd=cwd)
+    if resolve_error is not None or path is None:
+        return resolve_error or _not_a_worktree(target)
 
-    target = worktree_path(repo_root, name)
-    if _target_escapes_repo(repo_root, target):
+    verdict = rv.worktree_verdict(repo_root, path, forge=forge, process_cwds=process_cwds, fetch=fetch)
+    if not verdict.safe:
         return WorktreeResult(
             "error",
-            f"{target.parent} is a symlink pointing outside {repo_root} — refusing to remove "
-            "through it",
-            path=target,
-            exit_code=errors.EXIT_CONFIG,
-        )
-    if target.is_symlink():
-        return WorktreeResult(
-            "error",
-            f"{target} is itself a symlink — refusing to remove through it (a real worktree "
-            "root is never a symlink)",
-            path=target,
-            exit_code=errors.EXIT_CONFIG,
+            f"{verdict.render()}\n"
+            f"refusing to remove {path}: it could hold work that is not on the default branch. "
+            "`--force` does not override this; land it (merge the PR), or "
+            f"{rv.rescue_hint('worktree', str(path))}.",
+            path=path,
+            exit_code=errors.EXIT_REMOVAL_UNSAFE,
+            verdict=verdict,
         )
 
-    branch_name, lookup_error = _resolve_branch_to_delete(repo_root, target)
+    branch_name, lookup_error = _resolve_branch_to_delete(repo_root, path)
     if lookup_error is not None:
         return lookup_error
 
-    remove_error = _run_git_worktree_remove(repo_root, target)
+    changed = rv.changed_since(path, verdict.tip)
+    if changed is not None:
+        return WorktreeResult(
+            "error",
+            f"refusing to remove {path}: {changed} (it changed after the verdict was computed — "
+            "re-run the removal to judge the new state)",
+            path=path,
+            exit_code=errors.EXIT_REMOVAL_UNSAFE,
+            verdict=verdict,
+        )
+
+    remove_error = _run_git_worktree_remove(repo_root, path, force=force)
     if remove_error is not None:
         return remove_error
 
     if branch_name is None:
         return WorktreeResult(
             "removed",
-            f"removed worktree at {target} (no branch found for it — was HEAD detached?)",
-            path=target,
+            f"removed worktree at {path} (no branch found for it — was HEAD detached?)",
+            path=path,
             exit_code=0,
+            verdict=verdict,
         )
 
-    branch_error = _run_git_branch_delete(repo_root, branch_name, target)
+    branch_error = _run_git_branch_delete(repo_root, branch_name, path)
     if branch_error is not None:
         return branch_error
 
     return WorktreeResult(
         "removed",
-        f"removed worktree at {target} and branch {branch_name}",
-        path=target,
+        f"removed worktree at {path} and branch {branch_name} (landed via {verdict.landed_by})",
+        path=path,
         branch=branch_name,
         exit_code=0,
+        verdict=verdict,
     )
