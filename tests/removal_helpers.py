@@ -127,6 +127,21 @@ class Sandbox:
         return sha
 
 
+def superseded(sb: Sandbox, name: str = "sup") -> tuple[Path, str]:
+    """A pushed branch with commits that never reach main (its PR was closed as superseded)."""
+    wt = sb.worktree(name)
+    tip = sb.commit(wt, f"{name}.txt", f"{name}\n", f"feat {name}")
+    sb.push(wt, name)
+    sb.fetch()
+    return wt, tip
+
+
+def keep_on(sb: Sandbox, wt: Path, ref: str = "archive/keep") -> None:
+    """Push ``wt``'s HEAD to a second remote branch — the archive the deny text tells you to create."""
+    git(wt, "push", "-q", "origin", f"HEAD:refs/heads/{ref}")
+    sb.fetch()
+
+
 def pr(
     branch: str,
     *,

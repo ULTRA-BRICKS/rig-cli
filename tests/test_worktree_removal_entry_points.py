@@ -338,3 +338,27 @@ def test_a_deleted_cwd_does_not_crash_remove_or_verdict(sb, tmp_path, monkeypatc
     code, out = run_cli(["worktree", "remove", "-C", str(sb.primary), "--no-fetch", "stale-dir"], capsys)
     assert code == 0, out
     assert not wt.exists()
+
+
+def test_cli_verdict_remote_reports_safe_for_a_superseded_branch_and_names_the_archive_ref(sb, capsys):
+    wt = sb.worktree("superseded")
+    sb.commit(wt, "s.txt", "s\n", "feat superseded")
+    sb.push(wt, "superseded")
+    git(wt, "push", "-q", "origin", "HEAD:refs/heads/archive/superseded-prs")
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    code, out = run_cli(
+        ["worktree", "verdict", "-C", str(sb.primary), "--no-fetch", "--remote", "origin", "--json", "superseded"], capsys
+    )
+    data = json.loads(out)
+    assert code == 0 and data["safe"] is True and data["landed_by"] == "preserved"
+    assert any("origin/archive/superseded-prs" in note for note in data["notes"])
+
+
+def test_cli_verdict_remote_still_refuses_a_branch_nothing_else_holds(sb, capsys):
+    wt = sb.worktree("lonely")
+    sb.commit(wt, "l.txt", "l\n", "feat lonely")
+    sb.push(wt, "lonely")
+    code, out = run_cli(
+        ["worktree", "verdict", "-C", str(sb.primary), "--no-fetch", "--remote", "origin", "--json", "lonely"], capsys
+    )
+    assert code == errors.EXIT_REMOVAL_UNSAFE and json.loads(out)["safe"] is False

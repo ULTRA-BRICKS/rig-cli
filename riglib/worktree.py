@@ -623,7 +623,7 @@ def remove(
     ``target`` is a worktree path (anywhere git knows it, relative to ``cwd`` when given) or a name;
     see :func:`resolve_target`. Before any mutation it runs the landed-removal verdict
     (:func:`riglib.removal_verdict.worktree_verdict`): the tree must be clean and every commit on
-    it landed on ``origin/<default>``, proven. An UNSAFE verdict refuses with
+    it landed on ``origin/<default>`` or held by another remote branch that stays, proven. An UNSAFE verdict refuses with
     ``EXIT_REMOVAL_UNSAFE`` and the reasons, and **nothing — not even ``force=True`` — overrides
     it**: ``force`` only lets git unlock a locked worktree. A repo with no resolvable
     ``origin/<default>`` therefore cannot remove anything (fail closed).
@@ -661,7 +661,7 @@ def remove(
             f"{verdict.render()}\n"
             f"refusing to remove {path}: it could hold work that is not on the default branch. "
             "`--force` does not override this; land it (merge the PR), or "
-            f"{rv.rescue_hint('worktree', str(path))}.",
+            f"{rv.rescue_hint('worktree', str(path), tip=verdict.tip)}.",
             path=path,
             exit_code=errors.EXIT_REMOVAL_UNSAFE,
             verdict=verdict,

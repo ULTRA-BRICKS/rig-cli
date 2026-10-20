@@ -1,6 +1,7 @@
 """The landed-removal verdict: "is deleting this worktree / local branch / remote branch guaranteed
 to lose nothing?" — SAFE only when the target is clean AND every commit unique to it is LANDED on
-origin/<default>, proven (ancestor / merged-PR-with-matching-head / content no-op), never assumed.
+origin/<default> (ancestor / merged-PR-with-matching-head / content no-op) or still held by another
+live remote branch (preserved), proven, never assumed.
 
 Real git throughout (tmp bare origin, clones, linked worktrees); the forge is a fake PR list. Every
 NEGATIVE case below is a data-loss scenario that must stay UNSAFE.
@@ -15,7 +16,7 @@ import time
 from pathlib import Path
 
 import pytest
-from removal_helpers import FakeForge, Sandbox, forge_down, git, no_processes, pr
+from removal_helpers import FakeForge, Sandbox, forge_down, git, keep_on, no_processes, pr, superseded
 
 from riglib import removal_verdict as rv
 
@@ -806,3 +807,208 @@ def test_an_empty_proc_scan_is_untrusted_not_clean(monkeypatch, tmp_path):
     real_path = rv.Path
     monkeypatch.setattr(rv, "Path", lambda *a: fake_proc if a == ("/proc",) else real_path(*a))
     assert rv._proc_cwds(1000) is None
+
+
+# ── preserved: the commits survive on another remote branch ──────────────────────
+def closed_pr(branch: str, tip: str) -> FakeForge:
+    return FakeForge([pr(branch, state="CLOSED", head_oid=tip, merge_oid=None)])
+
+
+def test_remote_branch_whose_commits_survive_on_an_archive_branch_is_safe_and_names_it(sb):
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    v = rv.remote_branch_verdict(sb.primary, "origin", "sup", forge=closed_pr("sup", tip))
+    assert v.safe, v.render()
+    assert v.landed_by == "preserved"
+    assert "origin/archive/keep" in v.render()
+
+
+def test_local_branch_whose_commits_survive_on_an_archive_branch_is_safe(sb):
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    v = rv.branch_verdict(sb.primary, "sup", forge=closed_pr("sup", tip))
+    assert v.safe, v.render()
+    assert v.landed_by == "preserved"
+
+
+def test_clean_worktree_whose_commits_survive_on_an_archive_branch_is_safe(sb):
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    v = wt_verdict(sb, wt, closed_pr("sup", tip))
+    assert v.safe, v.render()
+    assert v.landed_by == "preserved"
+
+
+def test_detached_worktree_whose_commits_survive_on_a_remote_branch_is_safe(sb):
+    wt = sb.worktree("det", detach=True)
+    sb.commit(wt, "d.txt", "d\n", "detached work")
+    keep_on(sb, wt, "followup")
+    assert wt_verdict(sb, wt).landed_by == "preserved"
+
+
+def test_an_octopus_archive_commit_preserves_every_parent_tip(sb):
+    one, _ = superseded(sb, "one")
+    two, _ = superseded(sb, "two")
+    arch = sb.worktree("arch")
+    git(arch, "merge", "-q", "--no-edit", "one", "two")
+    git(arch, "push", "-q", "origin", "HEAD:refs/heads/archive/octopus")
+    sb.fetch()
+    for name in ("one", "two"):
+        v = rv.remote_branch_verdict(sb.primary, "origin", name, forge=FakeForge())
+        assert v.safe and v.landed_by == "preserved", v.render()
+
+
+def test_a_dirty_worktree_stays_unsafe_even_when_its_commits_are_preserved(sb):
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    (wt / "scratch.txt").write_text("uncommitted\n")
+    v = wt_verdict(sb, wt, closed_pr("sup", tip))
+    assert not v.safe and "dirty-worktree" in codes(v)
+
+
+def test_the_branch_itself_on_the_remote_does_not_preserve_it(sb):
+    wt, tip = superseded(sb)
+    v = rv.remote_branch_verdict(sb.primary, "origin", "sup", forge=closed_pr("sup", tip))
+    assert not v.safe and "not-landed" in codes(v)
+
+
+def test_a_branch_the_same_push_deletes_does_not_preserve_it(sb):
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    v = rv.remote_branch_verdict(
+        sb.primary, "origin", "sup", forge=FakeForge(), removing=frozenset({"sup", "archive/keep"})
+    )
+    assert not v.safe and "not-landed" in codes(v)
+
+
+def test_remote_holders_stay_when_a_local_branch_is_deleted_whatever_its_name(sb):
+    """`git branch -D` touches no remote ref: a local branch named like the holder changes nothing."""
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    git(sb.primary, "branch", "archive/keep", "origin/archive/keep")
+    assert rv.branch_verdict(sb.primary, "sup", forge=FakeForge()).landed_by == "preserved"
+    assert rv.branch_verdict(sb.primary, "archive/keep", forge=FakeForge()).landed_by == "preserved"
+
+
+def test_a_holder_on_another_remote_preserves_a_branch_of_that_remote(sb):
+    wt, tip = superseded(sb)
+    git(sb.primary, "remote", "add", "upstream", str(sb.origin))
+    git(wt, "push", "-q", "origin", "HEAD:refs/heads/archive/keep")
+    git(sb.primary, "fetch", "-q", "upstream")
+    v = rv.remote_branch_verdict(sb.primary, "upstream", "sup", forge=FakeForge())
+    assert v.safe and v.landed_by == "preserved" and any("upstream/archive/keep" in n for n in v.notes)
+    assert "git push upstream upstream/sup:refs/heads/archive/sup-<ts>" in rv.rescue_hint("remote-branch", "upstream/sup")
+    # the judged tip is pushed by sha (the tracking ref can be stale or absent) to a name unique per commit
+    assert f"git push upstream {tip}:refs/heads/archive/sup-{tip[:8]}" in rv.rescue_hint(
+        "remote-branch", "upstream/sup", tip=tip
+    )
+
+
+def test_a_local_branch_pushed_only_under_its_own_name_is_still_unsafe(sb):
+    """`git branch -D sup` with the only other copy being `origin/sup` is the plain 'pushed is irrelevant' case."""
+    wt, tip = superseded(sb)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    v = rv.branch_verdict(sb.primary, "sup", forge=FakeForge())
+    assert not v.safe and "not-landed" in codes(v) and v.tip == tip
+
+
+def test_a_remote_alias_of_the_target_is_not_a_second_branch(sb):
+    """A symbolic `refs/heads/alias -> refs/heads/sup` on a plain git server vanishes with `sup`."""
+    wt, tip = superseded(sb)
+    git(sb.origin, "symbolic-ref", "refs/heads/alias", "refs/heads/sup")
+    sb.fetch()
+    assert git(sb.primary, "rev-parse", "--verify", "-q", "refs/remotes/origin/alias") == tip
+    v = rv.remote_branch_verdict(sb.primary, "origin", "sup", forge=FakeForge())
+    assert not v.safe and "not-landed" in codes(v)
+
+
+def test_a_local_branch_sharing_the_name_of_a_remote_target_does_not_hide_its_holder(sb):
+    """Local `sup` tracks `origin/feat/foo`; that is irrelevant when deleting `origin/sup`: feat/foo stays."""
+    wt, tip = superseded(sb)
+    git(wt, "push", "-q", "-u", "origin", "HEAD:refs/heads/feat/foo")
+    sb.fetch()
+    assert git(wt, "config", "--get", "branch.sup.merge") == "refs/heads/feat/foo"
+    v = rv.remote_branch_verdict(sb.primary, "origin", "sup", forge=FakeForge())
+    assert v.safe and v.landed_by == "preserved" and any("origin/feat/foo" in n for n in v.notes)
+
+
+def test_a_preserved_verdict_does_not_claim_the_commits_are_on_the_default_branch(sb):
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    v = rv.remote_branch_verdict(sb.primary, "origin", "sup", forge=FakeForge())
+    assert v.safe and "default branch" not in v.render()
+
+
+def test_the_remote_branch_a_local_branch_tracks_is_its_own_copy_not_a_holder(sb):
+    """`git push -u origin HEAD:feat/foo` puts the branch's own copy under another name: still 'pushing
+    is irrelevant' — only a SECOND remote branch counts."""
+    wt = sb.worktree("wt-foo")
+    sb.commit(wt, "f.txt", "f\n", "feat foo")
+    git(wt, "push", "-q", "-u", "origin", "HEAD:refs/heads/feat/foo")
+    sb.fetch()
+    assert git(wt, "config", "--get", "branch.wt-foo.merge") == "refs/heads/feat/foo"
+    worktree = wt_verdict(sb, wt)
+    assert not worktree.safe and "not-landed" in codes(worktree)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    local = rv.branch_verdict(sb.primary, "wt-foo", forge=FakeForge())
+    assert not local.safe and "not-landed" in codes(local)
+    git(sb.primary, "push", "-q", "origin", "wt-foo:refs/heads/archive/foo")
+    sb.fetch()
+    assert rv.branch_verdict(sb.primary, "wt-foo", forge=FakeForge()).landed_by == "preserved"
+
+
+def test_a_holder_that_moved_forward_is_trusted_only_after_a_fetch(sb):
+    """The tracking ref no longer matches the remote, so it proves nothing until `git fetch` catches up."""
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    git(sb.integrator, "fetch", "-q", "origin")
+    git(sb.integrator, "checkout", "-q", "-B", "moved", "origin/archive/keep")
+    sb.commit(sb.integrator, "m.txt", "m\n", "archive moved forward")
+    git(sb.integrator, "push", "-q", "origin", "moved:refs/heads/archive/keep")
+    stale = rv.remote_branch_verdict(sb.primary, "origin", "sup", forge=FakeForge())
+    assert not stale.safe and "git fetch origin --prune" in stale.render()
+    sb.fetch()
+    assert rv.remote_branch_verdict(sb.primary, "origin", "sup", forge=FakeForge()).landed_by == "preserved"
+
+
+def test_a_remote_branch_that_does_not_contain_the_commits_does_not_preserve_them(sb):
+    wt, tip = superseded(sb)
+    other = sb.worktree("other")
+    sb.commit(other, "o.txt", "o\n", "unrelated work")
+    keep_on(sb, other, "archive/other")
+    v = rv.remote_branch_verdict(sb.primary, "origin", "sup", forge=closed_pr("sup", tip))
+    assert not v.safe and "not-landed" in codes(v)
+
+
+def test_a_stale_tracking_ref_of_a_deleted_remote_branch_does_not_preserve_commits(sb):
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    git(sb.origin, "update-ref", "-d", "refs/heads/archive/keep")  # gone on the remote, still tracked locally
+    assert git(sb.primary, "rev-parse", "--verify", "-q", "refs/remotes/origin/archive/keep") == tip
+    remote = rv.remote_branch_verdict(sb.primary, "origin", "sup", forge=FakeForge())
+    assert not remote.safe and "not-landed" in codes(remote)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    local = rv.branch_verdict(sb.primary, "sup", forge=FakeForge())
+    assert not local.safe and "not-landed" in codes(local)
+
+
+def test_a_tracking_ref_that_the_remote_has_moved_elsewhere_does_not_preserve_commits(sb):
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    git(sb.integrator, "fetch", "-q", "origin")
+    git(sb.integrator, "checkout", "-q", "-B", "rewritten", "origin/main")
+    sb.commit(sb.integrator, "r.txt", "r\n", "archive force-pushed to something else")
+    git(sb.integrator, "push", "-q", "--force", "origin", "rewritten:refs/heads/archive/keep")
+    v = rv.remote_branch_verdict(sb.primary, "origin", "sup", forge=FakeForge())
+    assert not v.safe and "not-landed" in codes(v)
+
+
+def test_an_unreachable_remote_cannot_vouch_for_a_local_branch(sb):
+    wt, tip = superseded(sb)
+    keep_on(sb, wt)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    git(sb.primary, "remote", "set-url", "origin", str(sb.root / "does-not-exist.git"))
+    v = rv.branch_verdict(sb.primary, "sup", forge=FakeForge())
+    assert not v.safe and "not-landed" in codes(v)

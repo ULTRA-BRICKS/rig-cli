@@ -265,10 +265,22 @@ SAFE only if (fail CLOSED on any error/timeout/missing tool/ambiguity) the workt
 progress; no process with it as cwd; no other worktree or ignored git repo inside it; not the
 primary checkout / default branch / a branch checked out elsewhere; other ignored files are NOT
 protected, by rule) AND every commit unique to the branch/HEAD is LANDED on `origin/<default>` (resolved
-from `origin/HEAD`), proven in order: ancestor of `origin/<default>`; a MERGED PR (not merely
-closed) whose merge commit is on `origin/<default>` and whose recorded head equals — or descends
-from — the tip (commits made after the PR head are NOT covered); `git merge-tree --write-tree`
-no-op or `git cherry` all-`-`. Pushing, stashes and the reflog never count. The forge lookup is
+from `origin/HEAD`) or still held by a branch that survives the removal, proven in order: ancestor of
+`origin/<default>`; a MERGED PR (not merely closed) whose merge commit is on `origin/<default>` and whose
+recorded head equals — or descends from — the tip (commits made after the PR head are NOT covered);
+`git merge-tree --write-tree` no-op or `git cherry` all-`-`; **`preserved`** — the tip is reachable
+from ANOTHER branch of the same remote (`origin` for a worktree / local branch), confirmed live with
+`git ls-remote` (a stale tracking ref of a deleted or moved branch proves nothing, an unreachable remote
+proves nothing). That is the route for a PR closed as superseded: push the commits to a branch that
+stays (`git push origin <sha>:refs/heads/archive/<name>-<sha8>`, the name the deny text prints), then delete. The target's own branch, a
+same-named or tracked (`branch.<name>.merge`) remote branch and every branch the SAME `git push` also
+deletes never count (`removing`:
+deleting `a` and `b` on the remote together cannot be vouched for by `a` and `b`; a push that deletes a
+branch AND rewrites another ref is denied outright, since the rewritten ref could be the holder). A
+local branch / worktree removal touches no remote ref, so every remote holder stays. A holder is trusted at
+the moment of the check: a LATER force-push or rebase of it is not a removal and is not seen, hence the
+fresh per-commit archive name; two sessions deleting each other's only holder at the same instant can both
+pass. Pushing the target's own branch, stashes and the reflog never count. The forge lookup is
 gc's (`worktree_gc.fetch_raw_prs`: `gh`, or the Forgejo API for a `git.hyperide.ai` origin) — never
 a second fetcher; an outage only removes the PR proof. Tests use REAL git (tmp bare origin + linked
 worktrees, `tests/removal_helpers.py`) and a fake forge; every data-loss shape has a negative test
@@ -284,7 +296,7 @@ and long options match by any unambiguous prefix (`--d`, `--del`). Known gap: a 
 `--delete`/`:name` arrives whole inside a variable (`git push origin "$D" x`) is not caught. Quoted/heredoc text that only mentions a removal
 passes. There is NO bypass flag — `--force` does not change a verdict and no env var skips it; the
 sanctioned rescue for work you really mean to drop is `git add -A && git diff --binary HEAD >
-~/.cache/<repo>-recovery/<wt>-<ts>.patch` plus pushing a followup branch. Every allow/deny is
+~/.cache/<repo>-recovery/<wt>-<ts>.patch` plus pushing the commits to a branch that stays (`archive/<name>`). Every allow/deny is
 appended to `~/.cache/rig/removal-guard.jsonl`. `rig worktree gc` keeps its own classifier (it
 removes `closed`-PR and `prunable` trees that this verdict would call UNSAFE) — routing gc through
 the verdict is a separate, deliberately-not-done change.

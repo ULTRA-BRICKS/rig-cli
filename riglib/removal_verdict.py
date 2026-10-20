@@ -18,8 +18,8 @@ protected — "ignored-only files are allowed" is a deliberate rule, and ``git w
 --force`` deletes them.
 
 **Landed.** Every commit unique to the branch/HEAD is on ``origin/<default>`` (the default branch is
-RESOLVED from ``refs/remotes/origin/HEAD``, never hardcoded). Landed means ANY of, tried in this
-order, each proven rather than assumed:
+RESOLVED from ``refs/remotes/origin/HEAD``, never hardcoded) or is still held by a branch that
+survives the removal. That means ANY of, tried in this order, each proven rather than assumed:
 
 1. ``ancestor`` — the tip is an ancestor of ``origin/<default>``;
 2. ``pr-merged`` — the forge has a MERGED (not merely closed) PR for the head branch whose base is
@@ -29,10 +29,22 @@ order, each proven rather than assumed:
 3. ``content-noop`` / ``cherry`` — ``git merge-tree --write-tree origin/<default> <tip>`` yields
    the very tree ``origin/<default>`` already has (merging would change nothing), or ``git cherry``
    shows only ``-`` lines (every commit has a patch-id twin upstream — a rebase merge; refused when
-   the branch contains merge commits, which ``git cherry`` skips).
+   the branch contains merge commits, which ``git cherry`` skips);
+4. ``preserved`` — the tip is reachable from ANOTHER branch of the same remote (``origin`` for a
+   worktree or local branch) that the removal leaves in place: a PR closed as superseded, whose
+   commits were pushed to an ``archive/*`` or follow-up branch, loses nothing when its own branch
+   goes. The holder must still exist on the remote at the very commit the local tracking ref shows
+   (``git ls-remote``), so a stale tracking ref of a branch that was deleted or moved is never
+   trusted, and an unreachable remote proves nothing. It is NEVER the target's own branch, a
+   same-named branch on the remote, the remote branch the target is configured to track, or — for a
+   remote deletion — any branch the same ``git push``
+   also deletes: deleting ``a`` and ``b`` together cannot be vouched for by ``a`` and ``b`` (a local
+   branch or worktree removal touches no remote ref, so every remote holder stays). The verdict
+   names the holder in ``notes``.
 
-Whether a branch was PUSHED is irrelevant (the branch ref is what deletion removes) and a stash or
-the reflog is never relied on. A forge outage only removes proof 2; proofs 1 and 3 are local.
+Whether the target's OWN branch was pushed is irrelevant (the branch ref is what deletion removes;
+a same-named or tracked remote branch never counts) and a stash or the reflog is never relied on. A forge
+outage only removes proof 2, an unreachable remote only proof 4; proofs 1 and 3 are local.
 
 A caller about to mutate re-checks the tip and cleanliness it was promised with
 (:func:`changed_since`): verdict and delete are separate steps, so this narrows — never closes — the
@@ -50,6 +62,14 @@ process of ANOTHER user is never inspected. The forge's PR list is capped by the
 (``worktree_gc._GH_PAGE_LIMIT``); a PR older than that simply reads as "no PR" and falls through to
 the local proofs. Landed content that a later upstream commit deliberately reverted still counts as
 landed — the question asked is whether the work reached the default branch, not whether it stayed.
+Proof 4 is judged per command: two sessions that each delete the only other holder of the same
+commits at the same instant can both pass, and a holder deleted later is judged on its own (it is
+then the target, and its commits must be landed or held elsewhere). A holder is trusted at the
+moment of the check: a LATER non-deleting rewrite of it (a force-push, a rebase) is not a removal
+and this guard never sees it, which is why the rescue names a fresh ``archive/<name>-<sha>`` branch
+rather than a working branch. Proof 4 costs one ``git ls-remote`` per target that has a candidate
+holder, so a very large batch can exhaust the hook's 120 s budget (then it is denied, fail closed):
+split it.
 """
 
 from __future__ import annotations
@@ -64,6 +84,7 @@ from typing import Callable, Literal
 from . import worktree_gc
 
 LANDING_REMOTE = "origin"
+PRESERVED = "preserved"  # the `landed_by` of proof 4
 _GIT_TIMEOUT_S = 30
 _NET_TIMEOUT_S = 30
 _PS_TIMEOUT_S = 10
@@ -145,7 +166,9 @@ class Verdict:
     def render(self) -> str:
         head = f"{'SAFE' if self.safe else 'UNSAFE'} to remove {self.kind} {self.target}"
         lines = [head]
-        if self.safe and self.landed_by:
+        if self.safe and self.landed_by == PRESERVED:
+            lines.append("  its commits are held by another remote branch that stays (see the note)")
+        elif self.safe and self.landed_by:
             lines.append(f"  landed on the default branch via: {self.landed_by}")
         lines.extend(f"  - [{r.code}] {r.message}" for r in self.reasons)
         lines.extend(f"  note: {n}" for n in self.notes)
@@ -158,16 +181,30 @@ def _unsafe(
     return Verdict(kind, str(target), False, tuple(reasons), None, tuple(notes), tip)
 
 
-def rescue_hint(kind: TargetKind, target: str, repo_name: str = "<repo>") -> str:
-    """The sanctioned rescue for work you really mean to drop — ONE wording for every refusal."""
+def rescue_hint(kind: TargetKind, target: str, repo_name: str = "<repo>", tip: str | None = None) -> str:
+    """The sanctioned rescue for work you really mean to drop — ONE wording for every refusal. The
+    route it names is the ``preserved`` proof: the commits must sit on a branch of the SAME remote
+    that the removal leaves in place (a remote-branch target is ``<remote>/<branch>``). ``tip`` is the
+    commit the verdict judged: it makes the archive name unique per commit (a reused branch name must
+    never tempt a force-push over an earlier archive) and, for a remote branch, is pushed by sha since
+    the tracking ref can be stale or absent."""
+    keep = "and retry (a commit held by another remote branch that stays counts as preserved)"
+    suffix = tip[:8] if tip else "<ts>"
     if kind == "worktree":
-        name = Path(target).name or "<wt>"
+        name = Path(target).name or "wt"
         return (
-            f"rescue its content first (from inside {target}): "
+            f"rescue its content first, running both commands from inside {target}: "
             f"`git add -A && git diff --binary HEAD > ~/.cache/{repo_name}-recovery/{name}-<ts>.patch`, "
-            "then `git push origin HEAD:refs/heads/<followup-branch>` so the commits stay reachable"
+            "then push the commits to a branch that is not being deleted — "
+            f"`git push {LANDING_REMOTE} HEAD:refs/heads/archive/{name}-{suffix}` — {keep} once the tree is clean "
+            "(commit what the patch holds, or discard it)"
         )
-    return f"keep its commits reachable first: push them to a followup branch / open a PR ({kind} {target})"
+    remote, _, branch = target.partition("/") if kind == "remote-branch" else (LANDING_REMOTE, "", target)
+    source = tip if kind == "remote-branch" and tip else target
+    return (
+        "push the commits to a branch that is not being deleted — "
+        f"`git push {remote} {source}:refs/heads/archive/{branch or target}-{suffix}` — {keep}"
+    )
 
 
 # ── git plumbing ─────────────────────────────────────────────────────────────────
@@ -420,12 +457,86 @@ def _prove_content(repo: Path, tip: str, default: _Default) -> tuple[str | None,
     return None, why
 
 
+def _own_names(repo: Path, branch: str | None, remote: str) -> frozenset[str]:
+    """The ``remote`` branch names that are the LOCAL target's own pushed copy: its name, and the
+    branch it is configured to track (where ``git push -u`` put it under a different name). Pushing
+    the target itself never counts as a second copy."""
+    if branch is None:
+        return frozenset()
+    names = {branch}
+    if _out(run_git(repo, "config", "--get", f"branch.{branch}.remote")) == remote:
+        merge = _out(run_git(repo, "config", "--get", f"branch.{branch}.merge"))
+        if merge.startswith("refs/heads/"):
+            names.add(merge.removeprefix("refs/heads/"))
+    return frozenset(names)
+
+
+def _prove_preserved(
+    repo: Path, tip: str, remote: str, own: frozenset[str], removing: frozenset[str], notes: list[str]
+) -> tuple[str | None, list[str]]:
+    """Proof 4. Returns ``("preserved", [])`` — the holder named in ``notes`` — or ``(None, why_not)``.
+
+    One cheap local call lists the ``<remote>`` tracking refs that contain ``tip``; only then does
+    ``git ls-remote`` confirm that a holder still exists on the remote at that very commit, because
+    a tracking ref outlives a branch that was deleted or force-moved on the server. A holder is never
+    one of ``own`` (the target's own copy), one of ``removing`` (the branches the same ``git push``
+    deletes; named in the failure message) or a symbolic alias of another branch, which disappears
+    with it."""
+    prefix = f"refs/remotes/{remote}/"
+    listed = run_git(repo, "for-each-ref", f"--contains={tip}", "--format=%(objectname) %(refname)", prefix.rstrip("/"))
+    if listed.returncode != 0:
+        return None, [f"could not list the {remote} branches that contain it ({_err(listed)})"]
+    holders: dict[str, str] = {}
+    also_removed: list[str] = []
+    for line in os.fsdecode(listed.stdout).splitlines():
+        sha, _, ref = line.partition(" ")
+        name = ref.removeprefix(prefix)
+        if not ref.startswith(prefix) or name == "HEAD" or name in own or not _OID_RE.match(sha):
+            continue
+        if name in removing:
+            also_removed.append(name)
+        else:
+            holders[name] = sha
+    if not holders:
+        gone = f" (the same command also deletes {', '.join(sorted(also_removed))})" if also_removed else ""
+        return None, [f"no other {remote} branch holds it{gone}"]
+    named = ", ".join(f"{remote}/{name}" for name in sorted(holders))
+    ls = run_git(repo, "ls-remote", "--symref", "--heads", remote, timeout=_NET_TIMEOUT_S)
+    if ls.returncode != 0:
+        return None, [f"{named} cannot be confirmed: `git ls-remote {remote}` failed ({_err(ls)})"]
+    live: dict[str, str] = {}
+    aliases: set[str] = set()
+    for line in os.fsdecode(ls.stdout).splitlines():
+        left, _, ref = line.partition("\t")
+        if left.startswith("ref: "):
+            aliases.add(ref)
+        else:
+            live[ref] = left
+    for name in sorted(holders):
+        ref = f"refs/heads/{name}"
+        if ref not in aliases and live.get(ref) == holders[name]:
+            notes.append(f"the commits are also held by {remote}/{name}, which stays")
+            return PRESERVED, []
+    return None, [f"{named} hold(s) it only in the local tracking refs; the remote's branch is not at the commit they show (`git fetch {remote} --prune`)"]
+
+
 def _prove_landed(
-    repo: Path, tip: str, branch: str | None, default: _Default, forge: ForgeLookup, notes: list[str]
+    repo: Path,
+    tip: str,
+    branch: str | None,
+    default: _Default,
+    forge: ForgeLookup,
+    notes: list[str],
+    *,
+    remote: str,
+    own: frozenset[str] = frozenset(),
+    removing: frozenset[str] = frozenset(),
 ) -> tuple[str | None, list[Reason]]:
     """``(proof, [])`` when landed, else ``(None, [not-landed reason])``. Proofs run in the
-    documented order and the first that holds wins (so a forge outage is only consulted when the
-    cheap local proof fails)."""
+    documented order and the first that holds wins (so a forge outage or a remote lookup is only
+    consulted when the cheap local proofs fail). ``remote`` is where proof 4 looks for holders and
+    ``own`` the target's own remote copy and ``removing`` the branch names the same push deletes there
+    (see :func:`_prove_preserved`)."""
     try:
         anc = _is_ancestor(repo, tip, default.sha)
     except GitFailure as exc:
@@ -441,18 +552,26 @@ def _prove_landed(
             return proof, []
         details.extend(f"PR proof: {w}" for w in why)
         proof, why = _prove_content(repo, tip, default)
+        if proof is not None:
+            return proof, []
+        details.extend(f"content proof: {w}" for w in why)
+        proof, why = _prove_preserved(repo, tip, remote, own, removing, notes)
+        if proof is not None:
+            return proof, []
+        details.extend(f"preserved proof: {w}" for w in why)
     except GitFailure as exc:
         return None, [Reason("not-landed", f"could not run a landing proof: {exc}")]
-    if proof is not None:
-        return proof, []
-    details.extend(f"content proof: {w}" for w in why)
     try:
         count = _unique_commit_count(repo, default, tip)
     except GitFailure:
         count = None
     unique = "some commits" if count is None else f"{count} commit(s)"
     return None, [
-        Reason("not-landed", f"{unique} at {tip[:12]} are not proven to be on {default.ref}: " + "; ".join(details))
+        Reason(
+            "not-landed",
+            f"{unique} at {tip[:12]} are not proven to be on {default.ref} or held by another {remote} branch "
+            "that stays: " + "; ".join(details),
+        )
     ]
 
 
@@ -703,7 +822,8 @@ def worktree_verdict(
                 reasons.append(Reason("live-process", "a running process has this worktree (or a subdirectory) as its cwd"))
 
         if default is not None and _OID_RE.match(head):
-            proof, why = _prove_landed(repo_root, head, branch, default, forge, notes)
+            own = _own_names(repo_root, branch, LANDING_REMOTE)
+            proof, why = _prove_landed(repo_root, head, branch, default, forge, notes, remote=LANDING_REMOTE, own=own)
             if proof is None:
                 reasons.extend(why)
             elif not reasons:
@@ -713,14 +833,13 @@ def worktree_verdict(
     return _unsafe(kind, target, reasons, notes, head if _OID_RE.match(head) else None)
 
 
-def branch_verdict(
-    repo_root: Path, branch: str, *, forge: ForgeLookup | None = None, fetch: bool = False
-) -> Verdict:
+def branch_verdict(repo_root: Path, branch: str, *, forge: ForgeLookup | None = None, fetch: bool = False) -> Verdict:
     """Verdict for deleting the LOCAL branch ``branch`` (``git branch -D``)."""
     forge = forge or default_forge_lookup
     kind = "local-branch"
     reasons: list[Reason] = []
     notes: list[str] = []
+    tip = ""
     try:
         bad = _check_ref_format(repo_root, branch)
         if bad is not None:
@@ -737,22 +856,30 @@ def branch_verdict(
         for rec in _worktree_records(repo_root):
             if rec.get("branch") == f"refs/heads/{branch}":
                 reasons.append(Reason("branch-checked-out", f"branch {branch!r} is checked out in {rec.get('worktree')}"))
-        proof, why = _prove_landed(repo_root, tip, branch, default, forge, notes)
+        own = _own_names(repo_root, branch, LANDING_REMOTE)
+        proof, why = _prove_landed(repo_root, tip, branch, default, forge, notes, remote=LANDING_REMOTE, own=own)
         if proof is None:
             reasons.extend(why)
         elif not reasons:
             return Verdict(kind, branch, True, (), proof, tuple(notes), tip)
     except _VERDICT_ERRORS as exc:
         reasons.append(Reason("verdict-error", f"could not complete the check: {exc}"))
-    return _unsafe(kind, branch, reasons, notes)
+    return _unsafe(kind, branch, reasons, notes, tip if _OID_RE.match(tip) else None)
 
 
 def remote_branch_verdict(
-    repo_root: Path, remote: str, branch: str, *, forge: ForgeLookup | None = None, fetch: bool = False
+    repo_root: Path,
+    remote: str,
+    branch: str,
+    *,
+    forge: ForgeLookup | None = None,
+    fetch: bool = False,
+    removing: frozenset[str] = frozenset(),
 ) -> Verdict:
     """Verdict for deleting ``branch`` on ``remote`` (``git push <remote> --delete <branch>``).
     The REMOTE's current tip is what gets checked (via ``ls-remote``, not a possibly stale local
-    tracking ref) — it can differ from the local branch tip."""
+    tracking ref) — it can differ from the local branch tip. ``removing`` are the branch names the
+    same ``git push`` deletes on ``remote`` (they never count as holders of this branch's commits)."""
     forge = forge or default_forge_lookup
     kind = "remote-branch"
     target = f"{remote}/{branch}"
@@ -790,7 +917,9 @@ def remote_branch_verdict(
                     [Reason("not-landed", f"the remote tip {tip[:12]} is not available locally to check ({_err(got)})")],
                     notes,
                 )
-        proof, why = _prove_landed(repo_root, tip, branch, default, forge, notes)
+        proof, why = _prove_landed(
+            repo_root, tip, branch, default, forge, notes, remote=remote, own=frozenset({branch}), removing=removing
+        )
         if proof is not None:
             return Verdict(kind, target, True, (), proof, tuple(notes), tip)
         return _unsafe(kind, target, why, notes, tip)

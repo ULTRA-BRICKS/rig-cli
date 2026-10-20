@@ -769,6 +769,12 @@ def _parse_push_delete(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal |
         return None
     remote = _plain(positionals[0], "remote name")
     items = [_Item("remote-branch", name, remote) for name in map(_branch_name, deletions) if name is not None]
+    if items and len(deletions) != len(refspecs):
+        # The branch that vouches for a deleted one could be the very ref this same push rewrites.
+        raise _Deny(
+            "a `git push` that deletes a branch AND updates another ref in the same command cannot be evaluated "
+            "— run the deletion as its own command"
+        )
     return _Removal(tuple(items), c_dirs) if items else None
 
 
@@ -942,7 +948,8 @@ def _rescue_text(verdicts: list[rv.Verdict]) -> str:
     unsafe = next((v for v in verdicts if not v.safe), None)
     if unsafe is not None:
         repo = _repo_name(Path(unsafe.target)) if unsafe.kind == "worktree" else "<repo>"
-        lines.append(f"  - To discard {unsafe.kind} {unsafe.target} on purpose, {rv.rescue_hint(unsafe.kind, unsafe.target, repo)}.")
+        hint = rv.rescue_hint(unsafe.kind, unsafe.target, repo, unsafe.tip)
+        lines.append(f"  - To discard {unsafe.kind} {unsafe.target} on purpose, {hint}.")
     return "\n".join(lines)
 
 
@@ -956,13 +963,13 @@ def _repo_name(path: Path) -> str:
 
 
 def _verdict_for(
-    item: _Item, eff: Path, forge: rv.ForgeLookup, process_cwds: rv.ProcessCwds
+    item: _Item, eff: Path, forge: rv.ForgeLookup, process_cwds: rv.ProcessCwds, removing: frozenset[str]
 ) -> rv.Verdict:
     if item.kind == "worktree":
         return rv.worktree_verdict(eff, _worktree_target(eff, item.name), forge=forge, process_cwds=process_cwds)
     if item.kind == "local-branch":
         return rv.branch_verdict(eff, item.name, forge=forge)
-    return rv.remote_branch_verdict(eff, item.remote, item.name, forge=forge)
+    return rv.remote_branch_verdict(eff, item.remote, item.name, forge=forge, removing=removing)
 
 
 def _evaluate_segments(
@@ -993,21 +1000,29 @@ def _evaluate_segments(
             cached = forge(repo)
         return cached
 
+    # The branches this ONE push deletes on the remote: none of them may vouch for another (deleting
+    # `a` and `b` together leaves nothing holding a commit that only they hold). A local branch or
+    # worktree removal touches no remote ref, so the remote holders all stay.
+    removing = frozenset(item.name for item in removal.items if item.kind == "remote-branch")
     verdicts: list[rv.Verdict] = []
     for item in removal.items:
-        verdicts.append(_verdict_for(item, eff, cached_forge, process_cwds))
+        verdicts.append(_verdict_for(item, eff, cached_forge, process_cwds, removing))
     notes = "".join(f"\nnote: {n}" for n in (*refresh_notes, *(n for v in verdicts for n in v.notes)))
     if all(v.safe for v in verdicts):
         proofs = ", ".join(f"{v.kind} {v.target} ({v.landed_by})" for v in verdicts)
         return GuardDecision(
-            "allow", f"every target is clean and proven landed on the default branch: {proofs}{notes}", tuple(verdicts)
+            "allow",
+            "every target is clean and proven landed on the default branch or held by another remote branch that "
+            f"stays: {proofs}{notes}",
+            tuple(verdicts),
         )
     body = "\n".join(v.render() for v in verdicts)
     reason = (
         "removal guard: DENY — this removal could lose work that is not on the default branch.\n"
         f"{body}\n"
         "Nothing was run. A removal is allowed only when the target is clean AND every commit on it is landed on "
-        "origin/<default>, proven (ancestor, merged PR with the same head, or content no-op) — `--force` never changes that.\n"
+        "origin/<default>, proven (ancestor, merged PR with the same head, content no-op, or held by another remote "
+        "branch that stays) — `--force` never changes that.\n"
         f"{_rescue_text(verdicts)}{notes}"
     )
     return GuardDecision("deny", reason, tuple(verdicts))

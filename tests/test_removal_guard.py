@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
-from removal_helpers import FakeForge, Sandbox, git, no_processes
+from removal_helpers import FakeForge, Sandbox, git, keep_on, no_processes, superseded
 
 from riglib import removal_guard as rg
 
@@ -634,3 +634,133 @@ def test_update_ref_that_does_not_touch_branches_passes(sb):
     assert decide(sb, "git update-ref refs/tags/v1 HEAD").decision == "pass"
     assert decide(sb, "git update-ref -m msg refs/tags/v1 HEAD").decision == "pass"
     assert decide(sb, "git update-ref -d refs/remotes/origin/gone").decision == "pass"
+
+
+# ── preserved: commits that survive on another remote branch ─────────────────────
+def superseded_with_archive(sb: Sandbox, name: str = "sup", archive: str = "archive/keep") -> Path:
+    """A pushed branch that never lands on main, plus a second remote branch holding its commits."""
+    wt, _ = superseded(sb, name)
+    keep_on(sb, wt, archive)
+    return wt
+
+
+@pytest.mark.parametrize(
+    "template",
+    ["git push origin --delete {b}", "git push origin :{b}", "git branch -D {b}", "git branch -d {b}"],
+)
+def test_allows_deleting_a_branch_whose_commits_survive_on_another_remote_branch(sb, template):
+    wt = superseded_with_archive(sb)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    d = decide(sb, template.format(b="sup"))
+    assert d.decision == "allow", d.reason
+    assert d.verdicts[0].landed_by == "preserved"
+    assert "origin/archive/keep" in d.reason
+    assert "held by another remote branch" in d.reason
+
+
+def test_allows_removing_a_clean_worktree_whose_commits_survive_on_another_remote_branch(sb):
+    wt = superseded_with_archive(sb)
+    d = decide(sb, f"git worktree remove {wt}")
+    assert d.decision == "allow", d.reason
+
+
+def test_denies_removing_a_dirty_worktree_even_when_its_commits_survive_elsewhere(sb):
+    wt = superseded_with_archive(sb)
+    (wt / "scratch.txt").write_text("uncommitted\n")
+    d = decide(sb, f"git worktree remove --force {wt}")
+    assert d.decision == "deny" and "dirty-worktree" in d.reason
+
+
+@pytest.mark.parametrize(
+    "both",
+    [
+        "git push origin --delete one two",
+        "git push origin :one :two",
+        "git push origin --delete refs/heads/one refs/heads/two",
+        "git push origin :one :refs/heads/two",
+        "git push origin --delete one refs/heads/two",
+        "git push --force origin +:one :two",
+    ],
+)
+def test_denies_deleting_the_only_two_branches_that_hold_the_commits_in_one_command(sb, both):
+    wt = sb.worktree("one")
+    sb.commit(wt, "one.txt", "x\n", "feat one")
+    git(wt, "push", "-q", "origin", "HEAD:refs/heads/one", "HEAD:refs/heads/two")
+    sb.fetch()
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    # either one alone is fine: the other still holds the commit
+    assert decide(sb, "git push origin --delete one").decision == "allow"
+    assert decide(sb, "git push origin --delete two").decision == "allow"
+    # both in ONE command would leave nothing
+    d = decide(sb, both)
+    assert d.decision == "deny" and "not-landed" in d.reason
+    assert not any(v.safe for v in d.verdicts)
+
+
+def test_denies_deleting_the_branch_and_the_archive_that_preserves_it_together(sb):
+    wt = superseded_with_archive(sb)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    d = decide(sb, "git push origin --delete sup archive/keep")
+    assert d.decision == "deny" and "not-landed" in d.reason
+    assert "the same command also deletes archive/keep" in d.reason
+
+
+def test_local_branch_deletes_never_remove_the_remote_holders(sb):
+    """`git branch -D` touches no remote ref, so naming the archive in the same command changes nothing."""
+    wt = superseded_with_archive(sb)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    git(sb.primary, "branch", "archive/keep", "origin/archive/keep")
+    d = decide(sb, "git branch -D sup archive/keep")
+    assert d.decision == "allow", d.reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git push origin :sup main:refs/heads/archive/keep",
+        "git push --force origin :sup HEAD:refs/heads/archive/keep",
+        "git push origin +HEAD~1:refs/heads/archive/keep :sup",
+        "git push origin :sup archive/keep",
+    ],
+)
+def test_denies_a_push_that_deletes_a_branch_and_rewrites_another_ref(sb, command):
+    """The holder that vouches for `sup` could be the very ref this push moves."""
+    wt = superseded_with_archive(sb)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    d = decide(sb, command)
+    assert d.decision == "deny" and "own command" in d.reason
+
+
+def test_a_tag_deletion_beside_an_ordinary_push_is_not_a_branch_removal(sb):
+    assert decide(sb, "git push origin :refs/tags/v1 main").decision == "pass"
+
+
+def test_the_deny_text_names_the_route_that_works(sb):
+    wt = sb.worktree("lone")
+    sb.commit(wt, "a.txt", "a\n", "unmerged and unarchived")
+    sb.push(wt, "lone")
+    d = decide(sb, "git push origin --delete lone")
+    assert d.decision == "deny"
+    assert "push the commits to a branch that is not being deleted" in d.reason
+    assert "archive/" in d.reason
+
+
+def test_the_deny_text_pushes_to_the_remote_the_branch_is_deleted_from(sb):
+    git(sb.primary, "remote", "add", "upstream", str(sb.origin))
+    wt = sb.worktree("lone-up")
+    tip = sb.commit(wt, "a.txt", "a\n", "unmerged and unarchived")
+    sb.push(wt, "lone-up")
+    git(sb.primary, "fetch", "-q", "upstream")
+    d = decide(sb, "git push upstream --delete lone-up")
+    assert d.decision == "deny"
+    assert f"git push upstream {tip}:refs/heads/archive/lone-up-{tip[:8]}" in d.reason
+
+
+def test_the_rescue_names_an_archive_branch_unique_to_the_commit(sb):
+    """A reused worktree/branch name must never lead to a push over an earlier archive branch."""
+    wt = sb.worktree("work")
+    tip = sb.commit(wt, "a.txt", "a\n", "unmerged and unarchived")
+    d = decide(sb, f"git worktree remove {wt}")
+    assert d.decision == "deny"
+    assert f"git push origin HEAD:refs/heads/archive/work-{tip[:8]}" in d.reason
+    assert f"inside {wt}" in d.reason
