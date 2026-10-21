@@ -25,6 +25,15 @@ from riglib.cli import main
 from riglib.repository_registry import RepositoryEntry, RepositoryRegistry
 
 
+@pytest.fixture(autouse=True)
+def _verdict_gate_open(monkeypatch):
+    """These tests pin gc's OWN classifier and removal mechanics on bare, origin-less repos, where
+    the landed-removal verdict can never be SAFE (no `origin/<default>` to land on). The verdict
+    gate itself — every UNSAFE shape kept, SAFE removed, dry run honest — is covered with real
+    git in `tests/test_worktree_gc_verdict.py`."""
+    monkeypatch.setattr(worktree_gc._RemovalGate, "unsafe_reason", lambda self, entry: None)
+
+
 # ── helpers ──────────────────────────────────────────────────────────────────────
 def _git_repo(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)

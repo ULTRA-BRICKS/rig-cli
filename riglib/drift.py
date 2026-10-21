@@ -27,6 +27,7 @@ from .actions.runner import (
     ECOSYSTEM_README_END_MARKER,
     EXECPOLICY_BEGIN_MARKER,
     EXECPOLICY_END_MARKER,
+    RigPinError,
     _brew_installed_snapshot,
     _ci_companion_files,
     _find_marker_lines,
@@ -1428,6 +1429,11 @@ def _check_agent_hook(action: Action, report: DriftReport) -> None:
     try:
         spec, _ = build_hook_descriptor(action)
         expected = descriptor_text(spec)
+    except RigPinError as exc:
+        report.items.append(
+            DriftItem("modified", "agent_hooks", action.item, descriptor, f"cannot verify the rig pin: {exc}")
+        )
+        return
     except (OSError, ValueError):
         return  # unreadable source — the install action surfaces this, not drift
     if descriptor.read_text(encoding="utf-8") != expected:

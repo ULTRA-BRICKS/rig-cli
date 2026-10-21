@@ -24,6 +24,20 @@ recent activity is very likely abandoned, but "very likely" is not "certain", so
 opt-in. ``dirty``/``live``/``active`` (an open PR, or recent PR-less activity) are never
 auto-removed by this command at all.
 
+**Every removal also has to pass the landed-removal verdict** (:mod:`riglib.removal_verdict`, the
+one engine behind ``rig worktree remove`` and the PreToolUse removal guard): the classifier above
+only NOMINATES a worktree, :class:`_RemovalGate` decides. A worktree is removed only when the
+verdict says SAFE — clean, no process in it, no nested repository, and every commit on it landed
+on ``origin/<default>`` or held by another remote branch that stays — AND the branch that gc deletes
+still points at the very commit the verdict judged (deleted by compare-and-delete). gc therefore keeps, with the
+verdict's reasons in the report, a ``closed`` PR whose commits only live on the branch being
+deleted (archive them: ``git push origin <sha>:refs/heads/archive/<name>-<sha8>``), a ``prunable``
+worktree whose branch holds unlanded commits, and a ``no-pr-stale`` one that never landed.
+``--yes`` and ``--include-stale`` widen what gc NOMINATES, never what the verdict accepts; there is
+no override. The dry-run plan consults the same gate, so it never promises a removal the real run
+would refuse. The gate refreshes ``origin/<default>`` ONCE per run (the only thing a dry run
+writes: a remote-tracking ref) and asks the forge at most once per run.
+
 Both cross-process dependencies are injectable so the classifier is unit-testable without a real
 running agent or real network access:
 
@@ -150,9 +164,13 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from . import errors, forgejo_prs
+
+if TYPE_CHECKING:  # removal_verdict imports this module, so it is imported lazily at run time
+    from .removal_verdict import ForgeLookup, ProcessCwds
+    from .removal_verdict import PrRecord as RvPrRecord
 
 DEFAULT_OLDER_THAN_DAYS = 14
 
@@ -234,6 +252,7 @@ class GcEntry:
     removed: bool = False
     remove_error: str | None = None
     skipped_reason: str | None = None
+    judged_tip: str | None = None  # the commit the removal verdict called SAFE (set by _RemovalGate)
 
     @property
     def path(self) -> Path:
@@ -1298,6 +1317,48 @@ def _dir_size_bytes(path: Path) -> int:
     return total
 
 
+def _delete_judged_branch(repo_root: Path, entry: GcEntry, judged_tip: str) -> None:
+    """Delete ``entry.branch`` ONLY while it still sits at ``judged_tip``, the commit the removal
+    verdict called SAFE. Compare-and-delete (``git update-ref -d <ref> <oldvalue>``), not a check
+    followed by ``branch -D``: removing a big worktree takes a while, and a commit that lands on the
+    branch meanwhile was never judged — git refuses the delete and the branch stays. ``update-ref -d``
+    lacks ``branch -D``'s refusal to delete a branch another worktree has checked out, so that check is
+    done first (this entry's own worktree is already gone). Then drops the ``branch.<name>.*`` config the
+    way ``git branch -D`` does (best effort: it may not exist)."""
+    ref = f"refs/heads/{entry.branch}"
+    try:
+        for rec in worktree_records(repo_root):
+            if rec.get("branch") == ref:
+                entry.remove_error = (
+                    f"worktree removed, but branch {entry.branch!r} is checked out in {rec.get('worktree')} "
+                    "— left in place"
+                )
+                return
+        res = subprocess.run(
+            ["git", "-C", str(repo_root), "update-ref", "-d", ref, judged_tip],
+            capture_output=True,
+            timeout=_GIT_TIMEOUT_S,
+        )
+        if res.returncode != 0:
+            detail = _decode(res.stderr).strip() or _decode(res.stdout).strip() or f"exit {res.returncode}"
+            entry.remove_error = (
+                f"worktree removed, but branch {entry.branch!r} was not deleted — it moved or vanished after the "
+                f"removal verdict, or git refused ({detail}); left in place"
+            )
+            return
+    except (OSError, subprocess.SubprocessError, WorktreeGcError) as exc:
+        entry.remove_error = f"worktree removed, but could not delete branch {entry.branch!r}: {exc}"
+        return
+    try:  # best effort: a missing branch.<name> section is the normal case
+        subprocess.run(
+            ["git", "-C", str(repo_root), "config", "--remove-section", f"branch.{entry.branch}"],
+            capture_output=True,
+            timeout=_GIT_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def _remove_worktree_and_branch(repo_root: Path, entry: GcEntry) -> None:
     """Best-effort ``git worktree remove --force`` + ``git branch -D``, operating on the entry's
     OWN registered path (not assumed to be under the standardized ``.worktrees/<name>`` location —
@@ -1324,6 +1385,9 @@ def _remove_worktree_and_branch(repo_root: Path, entry: GcEntry) -> None:
     entry.removed = True
     if not entry.branch:
         return
+    if entry.judged_tip is not None:
+        _delete_judged_branch(repo_root, entry, entry.judged_tip)
+        return
     # `--` before the branch name as defensive hardening (review-flagged): `entry.branch` comes
     # from git's OWN `worktree list` output, not from `_invalid_name_reason`-validated input the
     # way `rig worktree create`'s branch names are, so it's worth not assuming its shape. Verified
@@ -1342,7 +1406,81 @@ def _remove_worktree_and_branch(repo_root: Path, entry: GcEntry) -> None:
         entry.remove_error = f"worktree removed, but git branch -D failed: {exc}"
 
 
-def _execute_removals(repo_root: Path, entries: list[GcEntry], liveness_check: LivenessCheck | None) -> None:
+class _RemovalGate:
+    """The landed-removal verdict, as gc consumes it: one instance per run, ``unsafe_reason(entry)``
+    per removal. ``None`` means SAFE — the verdict for the worktree is SAFE, the branch that gc will
+    ``branch -D`` still points at the commit that verdict judged (the worktree may have been
+    re-pointed since planning: a verdict for the NEW HEAD proves nothing about the planned branch).
+    Anything else — an UNSAFE verdict, any error —
+    is a reason string and the entry is kept (fail closed). Imports :mod:`riglib.removal_verdict`
+    lazily: that module imports this one.
+
+    ``forge`` and ``process_cwds`` are resolved from the verdict module at construction time (so a
+    test patching them is honored); the forge answer is cached for the whole run and
+    ``origin/<default>`` is refreshed once, on first use — a stale tracking ref can only make a
+    merged branch look unlanded, never the reverse, but refreshing is what lets a branch merged a
+    minute ago be removed at all.
+    """
+
+    def __init__(self, repo_root: Path, forge: ForgeLookup | None, process_cwds: ProcessCwds | None) -> None:
+        from . import removal_verdict as rv
+
+        self._rv = rv
+        self._repo_root = repo_root
+        self._forge_lookup = forge or rv.default_forge_lookup
+        self._process_cwds = process_cwds or rv.all_process_cwds
+        self._forge_cache: list[RvPrRecord] | None = None
+        self._forge_error: Exception | None = None
+        self._refreshed = False
+        self._refresh_notes: list[str] = []
+
+    def _forge(self, repo_root: Path) -> list[RvPrRecord]:
+        """One lookup per run — an outage is remembered too, so N nominees cost one timeout, not N."""
+        if self._forge_error is not None:
+            raise self._forge_error
+        if self._forge_cache is None:
+            try:
+                self._forge_cache = self._forge_lookup(repo_root)
+            except Exception as exc:
+                self._forge_error = exc
+                raise
+        return self._forge_cache
+
+    def unsafe_reason(self, entry: GcEntry) -> str | None:
+        """``None`` when SAFE (and ``entry.judged_tip`` records the commit the verdict judged, for the
+        branch deletion to re-verify), else why the entry is kept."""
+        rv = self._rv
+        try:
+            if not self._refreshed:
+                self._refreshed = True
+                self._refresh_notes = rv.refresh_default_ref(self._repo_root)
+            verdict = rv.worktree_verdict(
+                self._repo_root, entry.path, forge=self._forge, process_cwds=self._process_cwds
+            )
+            if not verdict.safe or verdict.tip is None:
+                why = "; ".join(f"[{r.code}] {r.message}" for r in verdict.reasons) or "no reason given"
+                notes = "".join(f" (note: {n})" for n in (*self._refresh_notes, *verdict.notes))
+                return f"removal verdict UNSAFE — {why}{notes}"
+            if entry.branch:
+                res = rv.run_git(
+                    self._repo_root, "rev-parse", "--verify", "-q", "--end-of-options", f"refs/heads/{entry.branch}^{{commit}}"
+                )
+                branch_tip = os.fsdecode(res.stdout).strip() if res.returncode == 0 else None
+                if branch_tip != verdict.tip:
+                    return (
+                        f"removal verdict UNSAFE — [branch-moved] branch {entry.branch!r} is "
+                        f"{'gone' if branch_tip is None else 'not at the commit ' + verdict.tip[:12] + ' the verdict judged'} "
+                        f"for {entry.path}"
+                    )
+            entry.judged_tip = verdict.tip
+        except Exception as exc:  # noqa: BLE001 — any failure to decide is UNSAFE
+            return f"removal verdict UNSAFE — [verdict-error] could not complete the check: {exc}"
+        return None
+
+
+def _execute_removals(
+    repo_root: Path, entries: list[GcEntry], liveness_check: LivenessCheck | None, gate: _RemovalGate
+) -> None:
     """Attempt every planned removal; one entry's failure must not skip the rest.
 
     Re-checks liveness, dirtiness, AND unpushed-commit safety IMMEDIATELY before EACH removal —
@@ -1376,13 +1514,13 @@ def _execute_removals(repo_root: Path, entries: list[GcEntry], liveness_check: L
         if not entry.plan_removable:
             continue
         try:
-            _execute_one_removal(repo_root, entry, liveness_check)
+            _execute_one_removal(repo_root, entry, liveness_check, gate)
         except Exception as exc:  # noqa: BLE001 - deliberately broad, see docstring below
             entry.remove_error = f"pre-removal recheck failed: {exc}"
 
 
 def _execute_one_removal(
-    repo_root: Path, entry: GcEntry, liveness_check: LivenessCheck | None
+    repo_root: Path, entry: GcEntry, liveness_check: LivenessCheck | None, gate: _RemovalGate
 ) -> None:
     """One entry's slice of :func:`_execute_removals`'s loop body, split out so the CALLER can wrap
     it in a single ``try/except`` — review-caught gap: the liveness recheck's ``path.resolve()``
@@ -1402,6 +1540,10 @@ def _execute_one_removal(
     skip_reason = _recheck_dirty_and_unpushed(repo_root, entry)
     if skip_reason is not None:
         entry.skipped_reason = skip_reason
+        return
+    reason = gate.unsafe_reason(entry)  # last, nearest to the destructive call
+    if reason is not None:
+        entry.skipped_reason = reason
         return
     _remove_worktree_and_branch(repo_root, entry)
 
@@ -1473,6 +1615,8 @@ def run_gc(
     older_than_days: int = DEFAULT_OLDER_THAN_DAYS,
     liveness_check: LivenessCheck | None = None,
     pr_lookup: PrLookup | None = None,
+    forge: ForgeLookup | None = None,
+    process_cwds: ProcessCwds | None = None,
 ) -> GcReport:
     """Classify, size, and — only when ``yes`` is set and ``dry_run`` is not — actually remove.
 
@@ -1495,6 +1639,9 @@ def run_gc(
     has other real ``claude``/``codex``/``opencode`` sessions running — routing the recheck through
     a *different* default than planning would make it possible to mock one without the other and
     silently reintroduce a non-hermetic, environment-dependent test.
+
+    ``forge`` / ``process_cwds`` are the landed-removal verdict's own injectable dependencies (see
+    :class:`_RemovalGate`); ``None`` resolves to the real PR lookup / process scan at call time.
     """
     # Resolved HERE too (not just inside `plan_gc`): the removal calls below need the SAME
     # primary-anchored path `plan_gc` classified against, and resolving independently — rather
@@ -1510,13 +1657,21 @@ def run_gc(
         liveness_check=liveness_check,
         pr_lookup=pr_lookup,
     )
+    effective_dry_run = dry_run or not yes
+    gate = _RemovalGate(primary, forge, process_cwds)
+    if effective_dry_run:
+        # The plan must not promise a removal the real run would refuse: a nominee the verdict
+        # calls UNSAFE is reported as kept, and does not count as reclaimable.
+        for entry in entries:
+            if entry.plan_removable and (reason := gate.unsafe_reason(entry)) is not None:
+                entry.plan_removable = False
+                entry.skipped_reason = reason
     for entry in entries:
         if entry.plan_removable:
             entry.size_bytes = _dir_size_bytes(entry.path) if entry.path.exists() else 0
 
-    effective_dry_run = dry_run or not yes
     if not effective_dry_run:
-        _execute_removals(primary, entries, liveness_check)
+        _execute_removals(primary, entries, liveness_check, gate)
 
     return GcReport(repo_root=primary, entries=entries, dry_run=effective_dry_run, include_stale=include_stale)
 

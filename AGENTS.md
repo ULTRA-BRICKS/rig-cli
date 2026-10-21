@@ -297,18 +297,48 @@ and long options match by any unambiguous prefix (`--d`, `--del`). Known gap: a 
 passes. There is NO bypass flag — `--force` does not change a verdict and no env var skips it; the
 sanctioned rescue for work you really mean to drop is `git add -A && git diff --binary HEAD >
 ~/.cache/<repo>-recovery/<wt>-<ts>.patch` plus pushing the commits to a branch that stays (`archive/<name>`). Every allow/deny is
-appended to `~/.cache/rig/removal-guard.jsonl`. `rig worktree gc` keeps its own classifier (it
-removes `closed`-PR and `prunable` trees that this verdict would call UNSAFE) — routing gc through
-the verdict is a separate, deliberately-not-done change.
+appended to `~/.cache/rig/removal-guard.jsonl`. `rig worktree gc` keeps its own CLASSIFIER but not
+its own removal decision: every removal (dry-run plan and `--yes` execution alike) goes through the
+same verdict via `worktree_gc._RemovalGate` — a nominee the verdict calls UNSAFE is reported `kept —
+removal verdict UNSAFE — <reasons>`, and the branch gc deletes must still sit at the commit the verdict
+judged (the worktree may have been re-pointed since planning). `--yes`/`--include-stale` widen what gc
+nominates, never what the verdict accepts. The gate refreshes `origin/<default>` once per run and asks
+the forge at most once per run.
 
-**Known gap (GH-329, tracked, not yet fixed here):** the agent-tools skill
-`skills/by-type/monorepo/worktree-isolation` — the one an agent reaches for when told to isolate
-parallel work — still teaches a RAW `git worktree add ../.worktrees/agent-$run_id -b
-work/$run_id` pattern (a sibling-of-repo location, one of the very conventions this section
-replaces) and never mentions `rig worktree create`. That skill lives in the agent-tools repo,
-which this repo consumes read-only (see "The integration seam" above) — rig-cli cannot fix it
-here. Needs a follow-up PR against agent-tools pointing the skill at `rig worktree create`
-wherever the target repo has one (falling back to raw `git worktree add` only when it doesn't).
+**Overwrites and `rm -r` (rig-cli#740).** Re-pointing a branch loses its old tip as surely as deleting
+it, so the guard also judges `git branch -f|-M|-C` (and `-m`/`-c` combined with `-f`/`--force`),
+`git checkout -B` and `git switch -C|--force-create`: the DESTINATION branch's current tip goes through
+`removal_verdict.overwrite_verdict` — the same proofs as a deletion, except that a fast-forward (the new
+start contains the old tip), a branch that does not exist yet, and being the default branch are not
+reasons. A start-point from an expansion only loses the fast-forward exemption; a destination from an
+expansion is denied. And `rm -r <path>`: every literal operand (an unquoted glob is expanded, `~`/`$HOME`
+prefixes resolved, a symlinked spelling checked too) is compared with the EXISTING linked worktrees of the
+cwd's repository, of the repository the operand sits in, and of any repository found by a bounded scan
+inside it (depth 4, 5000 entries, no `node_modules`/`.git`); a worktree that IS or sits under an operand
+gets the worktree verdict, and one UNSAFE one denies. Overwrites and `rm -r` are judged per command even
+inside a chain (`git fetch && git checkout -B x origin/x`), but a `cd`/`pushd` anywhere in the command
+makes relative paths and the cwd-resolved repository unknowable (denied; use absolute paths / `git -C
+<abs>`). Operands from a variable/substitution/brace, `xargs`/`find`/`parallel`-fed `rm -r` and
+`bash -c`/`eval`/`ssh` strings are denied. NOT judged (documented limits): `rm -r` of a SUB-directory of
+a worktree (ordinary editing), of a primary checkout or a parent directory whose worktrees are all SAFE
+(its local-only branches, stashes and untracked files are not examined), and a tree too large for the scan
+cap; `find -delete`, `rsync --delete`, `mv` and interpreters are out of scope (agent-tools#966).
+
+**The hook pins the rig it talks to (agent-tools#961).** `rig apply` rewrites the exact argument
+`/ABSOLUTE/PATH/TO/rig` in an agent-hook descriptor's `args` to the absolute path of the launcher that ran
+the apply (`riglib/actions/runner.py::pinned_rig_path`: `sys.argv[0]` when it is an executable file named
+`rig`, else `rig` on PATH, else the install fails loudly — never a bare `rig`). The agent-tools
+`block-unlanded-removal` hook reads `--rig <path>` instead of resolving `rig` through its own PATH, so a
+shadowing binary cannot answer for the guard; a moved or reinstalled rig shows up as drift and a re-apply
+re-pins it. A rig older than the first one that has `worktree guard` degrades the hook as documented in
+its README.
+
+**Known gap (GH-329, tracked as agent-tools#967):** the agent-tools skill
+`skills/by-type/monorepo/worktree-isolation` prefers `rig worktree create` in prose but its Pattern
+block still teaches a RAW `git worktree add ../.worktrees/agent-$run_id -b work/$run_id` (a
+sibling-of-repo location, one of the very conventions this section replaces) and cleans up with `git
+worktree remove --force`. That skill lives in the agent-tools repo, which this repo consumes read-only
+(see "The integration seam" above) — rig-cli cannot fix it here.
 
 ## Harness workflow guards (worktree-only + orchestrator-only)
 

@@ -20,10 +20,27 @@ with the reason, never guessed. Words inside quotes and heredoc bodies that mere
 refs/heads/<b>`` (or ``HEAD``, an empty new value, ``--stdin``) deletes a branch with no per-target
 verdict, so it is denied with a pointer to ``git branch -D`` rather than judged.
 
+Two more shapes lose work without being a deletion and are judged by the same verdict
+(rig-cli#740). **Overwriting a local branch** — ``git branch -f``/``-M``/``-C`` (and ``-m``/``-c`` with
+``-f``/``--force``), ``git checkout -B``, ``git switch -C``/``--force-create``: the DESTINATION branch's
+current tip must be landed or held elsewhere (:func:`riglib.removal_verdict.overwrite_verdict`; a
+fast-forward, a brand-new branch and a landed tip pass). **``rm -r <path>``** of a linked worktree or of a
+directory containing one: each literal operand (unquoted globs expanded, ``~``/``$HOME`` resolved, symlinks
+followed) is compared with the existing linked worktrees of the cwd's repository, of the repository the
+operand sits in and of any repository a bounded scan finds inside it; every worktree that is or sits under
+an operand gets the worktree verdict. Unlike a deletion these are judged PER COMMAND inside a chain (they
+are everyday commands), but a ``cd``/``pushd`` anywhere in the command makes relative paths and the
+cwd-resolved repository unknowable (denied). Operands from an expansion, ``xargs``/``find``/``parallel``-fed
+``rm -r`` and ``bash -c``/``eval``/``ssh`` strings are denied. NOT judged: ``rm -r`` of a sub-directory OF a
+worktree (ordinary editing) and of a primary checkout or a directory whose worktrees are all SAFE (the
+primary's own local-only branches, stashes and untracked files are not examined), and any target too large
+for the scan caps.
+
 Known limits (heuristic hook, not a sandbox): a removal hidden behind something this lexer cannot
 see — a script file the command runs, a git alias, ``python -c``, an interpreter other than the
-listed executors — is not caught; ``git branch -m/-M/-f`` and ``git push --force`` can also
-overwrite a branch without being a deletion and are out of scope here (separate guards own them);
+listed executors — is not caught; ``git push --force`` can also overwrite a REMOTE branch without
+being a deletion and is out of scope here (a separate guard owns it); a ``find -delete``, ``rsync
+--delete``, ``mv`` or ``shutil.rmtree`` of a worktree is not seen at all (agent-tools#966);
 ``git branch -r -d`` deletes only a remote-tracking ref, which loses nothing the remote lacks, and
 passes. A ``git push`` whose ``--delete`` or ``:name`` refspec arrives inside a variable
 (``git push origin "$D" x`` with ``D=--delete``, or ``x$F`` with ``F=' --delete'``) is not caught: refusing every pushed variable would
@@ -33,6 +50,7 @@ bare expansion among its arguments IS refused.)
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 import re
@@ -47,6 +65,10 @@ from . import worktree_gc
 _MENTION_RE = re.compile(
     r"worktree\s+(?:remove|rm)\b"
     r"|\bbranch\b.*?(?:\s--d|\s-[A-Za-z]*[dD][A-Za-z]*\b)"
+    r"|\bbranch\b.*?(?:\s--(?:forc|mo|cop)|\s-[A-Za-z]*[fMC][A-Za-z]*\b)"  # overwrite: -f/--force, -M, -C
+    r"|\bcheckout\b.*?\s-[A-Za-z]*B"  # checkout -B
+    r"|\bswitch\b.*?(?:\s-[A-Za-z]*C|\s--force-c)"  # switch -C / --force-create
+    r"|(?<![\w.-])rm\b[^\n]*?\s(?:-[A-Za-z]*[rR]|--r)"  # a recursive rm
     r"|\bpush\b.*?(?:--d|--mi|--pr|\s-[A-Za-z]*d[A-Za-z]*\b|\s\+?:\S)"
     r"|\bupdate-ref\b",  # every update-ref is analyzed: a deletion can hide in `-d`, `--stdin` or an empty value
     re.S,
@@ -70,7 +92,7 @@ _WRAPPERS = frozenset(
 # Shell keywords that precede a command on the same segment (`then git …`, `! git …`).
 _KEYWORD_HEADS = frozenset({"then", "do", "else", "elif", "while", "until", "if", "!"})
 _GIT_RUNNERS = _WRAPPERS | _KEYWORD_HEADS
-_SUBCOMMANDS = frozenset({"branch", "push", "worktree", "update-ref"})
+_SUBCOMMANDS = frozenset({"branch", "push", "worktree", "update-ref", "checkout", "switch"})
 _SUBCOMMAND_RE = re.compile(r"\b(?:" + "|".join(sorted(_SUBCOMMANDS)) + r")\b")
 _GIT_VALUE_GLOBALS = frozenset({"-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix", "--config-env", "--attr-source"})
 _GIT_PLAIN_GLOBALS = frozenset({"--no-pager", "-P", "--paginate", "-p", "--no-optional-locks", "--no-replace-objects", "--literal-pathspecs"})
@@ -79,7 +101,12 @@ _PUSH_VALUE_FLAGS = frozenset({"-o", "--push-option", "--repo", "--receive-pack"
 # accepts any UNAMBIGUOUS prefix, so this errs wide: `--d` is `--delete` for `git branch` (and where
 # it is ambiguous git refuses the command anyway). `_MENTION_RE` above must cover the same prefixes
 # (tests/test_removal_guard.py pins that), because it decides which commands reach the parsers.
-_LONG_OPTIONS = {"--delete": 3, "--mirror": 4, "--prune": 4, "--remotes": 4, "--stdin": 4, "--repo": 5}
+_LONG_OPTIONS = {
+    "--delete": 3, "--mirror": 4, "--prune": 4, "--remotes": 4, "--stdin": 4, "--repo": 5,
+    "--force": 6, "--move": 4, "--copy": 5, "--recursive": 3, "--force-create": 9,
+}
+_FEEDERS = frozenset({"xargs", "find", "parallel"})  # run another command on operands they produce themselves
+_JOINING_EXECUTORS = frozenset({"eval", "ssh"})  # hand their separate arguments to a shell as ONE command line
 
 
 def _is_long_option(token: str, full: str) -> bool:
@@ -576,15 +603,24 @@ def _tokenize(s: str) -> _Parsed:  # noqa: C901 — one flat state machine reads
 # ── segment analysis ─────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class _Item:
-    kind: rv.TargetKind
+    kind: str  # an rv.TargetKind, or "rm-path" (a path a recursive `rm` deletes)
     name: str
     remote: str = ""
+    start: str = ""  # overwrite only: the revision the branch is re-pointed at ("" = unknown)
+    overwrite: bool = False  # a local branch that is RE-POINTED (branch -f/-M/-C, checkout -B) rather than deleted
+    glob: bool = False  # rm-path only: the operand carries an unquoted glob
 
 
 @dataclass(frozen=True)
 class _Removal:
     items: tuple[_Item, ...]
     c_dirs: tuple[str, ...]
+
+    @property
+    def in_place(self) -> bool:
+        """Overwrites and `rm -r` are judged per command, even inside a chain (see ``_evaluate_in_place``);
+        a deletion is judged only as ONE simple command."""
+        return all(i.overwrite or i.kind == "rm-path" for i in self.items)
 
 
 def _plain(word: _Word, what: str) -> str:
@@ -781,8 +817,10 @@ def _parse_push_delete(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal |
 def _parse_update_ref(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal | None:
     """``git update-ref`` deletes any ref with no landed check — ``-d``, an empty new value, or
     ``--stdin`` commands — so a branch (``refs/heads/…``), ``HEAD`` (which follows its symref) or an
-    unknowable target is refused (use ``git branch -D <name>`` so the verdict judges it). Tags,
-    remote-tracking refs and other namespaces pass."""
+    unknowable target is refused (use ``git branch -D <name>`` so the verdict judges it). Setting a
+    branch to a new value overwrites it like ``git branch -f`` and is judged as an overwrite. Tags,
+    remote-tracking refs and other namespaces pass (``update-ref HEAD <x>`` moves the CURRENT branch and
+    is not judged: a known gap)."""
     positionals, flags = _split_args(args, frozenset({"-m"}), short_value_letters="m")
     _deny_dynamic_flags(flags, "git update-ref")
     if any(_is_long_option(f.text, "--stdin") for f in flags):
@@ -800,6 +838,10 @@ def _parse_update_ref(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal | 
     ):
         raise _Deny("`git update-ref` on a branch with an expanded new value could be a deletion (empty / null oid)")
     if not deletes:
+        if ref.text.startswith("refs/heads/"):
+            # overwriting a branch re-points it exactly like `git branch -f`: judge its current tip
+            name = ref.text.removeprefix("refs/heads/")
+            return _Removal((_Item("local-branch", name, start=_start_text(new_value), overwrite=True),), c_dirs)
         return None
     if ref.text == "HEAD" or ref.text.startswith("refs/heads/") or not ref.text.startswith("refs/"):
         raise _Deny(
@@ -807,6 +849,135 @@ def _parse_update_ref(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal | 
             "use `git branch -D <name>` so the removal is verified"
         )
     return None
+
+
+def _parse_branch(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal | None:
+    return _parse_branch_delete(args, c_dirs) or _parse_branch_overwrite(args, c_dirs)
+
+
+def _start_text(word: _Word | None) -> str:
+    """The start-point revision a branch is re-pointed at, as written (``""`` when absent). A word from an
+    expansion carries its unexpanded text, which is no revision: the overwrite verdict then simply gets
+    no fast-forward exemption."""
+    return "" if word is None else word.text
+
+
+def _parse_branch_overwrite(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal | None:
+    """``git branch -f <name> [<start>]``, ``-M``/``-C`` and ``-m``/``-c`` combined with ``-f``/
+    ``--force`` (and the long spellings): the DESTINATION branch is overwritten when it already exists.
+    A plain ``-m``/``-c`` refuses to overwrite, a delete or another mode (list, -u, -r, …) is not an
+    overwrite: those return ``None``."""
+    names, flags = _split_args(args, _BRANCH_VALUE_FLAGS, short_value_letters="u")
+    _deny_dynamic_flags(flags, "git branch")
+    letters = _short_letters(flags)
+    is_move = "m" in letters or "M" in letters or any(_is_long_option(f.text, "--move") for f in flags)
+    is_copy = "c" in letters or "C" in letters or any(_is_long_option(f.text, "--copy") for f in flags)
+    forced = "f" in letters or "M" in letters or "C" in letters or any(_is_long_option(f.text, "--force") for f in flags)
+    other_mode = bool(set(letters) & set("ulr")) or any(
+        _is_branch_mode_long(f.text) and not _is_long_option(f.text, "--move") and not _is_long_option(f.text, "--copy")
+        for f in flags
+    )
+    if not forced or other_mode or (is_move and is_copy) or _wants_delete(flags, uppercase=True):
+        return None
+    if is_move or is_copy:
+        if len(names) not in (1, 2):
+            return None
+        dest = _plain(names[-1], "branch name")
+        start = f"refs/heads/{_plain(names[0], 'branch name')}" if len(names) == 2 else "HEAD"
+    else:
+        if not names:
+            return None
+        dest = _plain(names[0], "branch name")
+        start = _start_text(names[1]) if len(names) > 1 else "HEAD"
+    return _Removal((_Item("local-branch", dest, start=start, overwrite=True),), c_dirs)
+
+
+def _parse_checkout_overwrite(args: list[_Word], c_dirs: tuple[str, ...], switch: bool) -> _Removal | None:
+    """``git checkout -B <name> [<start>]`` / ``git switch -C|--force-create <name> [<start>]`` re-point
+    ``<name>`` (creating it when absent). The value of ``-B``/``-C`` is the rest of its cluster
+    (``-Bname``) or the next word; everything after ``--`` is a path, not a start-point."""
+    letter = "C" if switch else "B"
+    dest: _Word | None = None
+    positionals: list[_Word] = []
+    options_done = False
+    i = 0
+    while i < len(args):
+        word = args[i]
+        text = word.text
+        i += 1
+        if options_done:
+            continue  # a path after `--`, never a start-point
+        if text == "-" or not text.startswith("-"):
+            positionals.append(word)
+        elif text == "--":
+            options_done = True
+        elif text.startswith("--"):
+            if switch and _is_long_option(text, "--force-create"):
+                if "=" in text:
+                    dest = _Word(text.split("=", 1)[1], word.raw, word.dynamic, word.glob, word.subs)
+                elif i < len(args):
+                    dest, i = args[i], i + 1
+        else:
+            _deny_dynamic_flags([word], f"git {'switch' if switch else 'checkout'}")
+            if letter in text[1:]:
+                rest = text[text.index(letter, 1) + 1 :]
+                if rest:
+                    dest = _Word(rest, word.raw, word.dynamic, word.glob, word.subs)
+                elif i < len(args):
+                    dest, i = args[i], i + 1
+    if dest is None:
+        return None
+    name = _plain(dest, "branch name")
+    start = _start_text(positionals[0]) if positionals else "HEAD"
+    return _Removal((_Item("local-branch", name, start=start, overwrite=True),), c_dirs)
+
+
+def _parse_checkout(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal | None:
+    return _parse_checkout_overwrite(args, c_dirs, switch=False)
+
+
+def _parse_switch(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal | None:
+    return _parse_checkout_overwrite(args, c_dirs, switch=True)
+
+
+def _home_resolved(word: _Word) -> str | None:
+    """The text of ``word`` with a leading ``~`` / ``$HOME`` / ``${HOME}`` resolved, ``word.text``
+    itself when it has no expansion, ``None`` when anything else in it is unknowable."""
+    if not word.dynamic:
+        return word.text
+    text = word.text
+    for prefix in ("~", "$HOME", "${HOME}"):
+        if text == prefix or text.startswith(prefix + "/"):
+            rest = text[len(prefix) :]
+            return None if any(ch in rest for ch in "$`{}~") else os.path.expanduser("~") + rest
+    return None
+
+
+def _parse_rm(args: list[_Word], *, fed: bool) -> _Removal | None:
+    """A RECURSIVE ``rm`` (``-r``/``-R``/``--recursive`` in any cluster, anywhere before ``--``): each
+    operand becomes an ``rm-path`` item judged against the linked worktrees it is or contains. A
+    non-recursive ``rm`` cannot delete a directory and is not one; ``fed`` means the operands arrive
+    from ``xargs``/``find``/``parallel``, which the guard cannot see."""
+    positionals, flags = _split_args(args)
+    _deny_dynamic_flags(flags, "rm")
+    recursive = bool(set(_short_letters(flags)) & set("rR")) or any(_is_long_option(f.text, "--recursive") for f in flags)
+    if not recursive:
+        return None
+    if fed:
+        raise _Deny(
+            "a recursive `rm` fed by xargs/find/parallel deletes paths the guard cannot see — name each path in a "
+            "plain `rm -r <path>` command"
+        )
+    items: list[_Item] = []
+    for word in positionals:
+        text = _home_resolved(word)
+        if text is None:
+            raise _Deny(
+                f"`rm -r` target {word.raw!r} contains unexpanded shell syntax ($var, $(…), `…`, brace expansion) — "
+                "cannot know whether it is a worktree; name the path literally"
+            )
+        items.append(_Item("rm-path", text, glob=word.glob))
+    return _Removal(tuple(items), ()) if items else None
 
 
 def _parse_git(words: list[_Word]) -> _Removal | None:
@@ -839,9 +1010,11 @@ def _parse_git(words: list[_Word]) -> _Removal | None:
     sub, args = words[i].text, words[i + 1 :]
     parsers = {
         "worktree": _parse_worktree_remove,
-        "branch": _parse_branch_delete,
+        "branch": _parse_branch,
         "push": _parse_push_delete,
         "update-ref": _parse_update_ref,
+        "checkout": _parse_checkout,
+        "switch": _parse_switch,
     }
     parser = parsers.get(sub)
     if parser is None:
@@ -906,6 +1079,8 @@ def _analyze_segment(seg: _Segment) -> _Removal | None:
     if head in _EXECUTORS and (
         any(mentions_removal(w.raw) or mentions_removal(w.text) for w in (*words, *seg.redirect_words))
         or any(mentions_removal(b) for b in seg.heredocs)
+        # `eval` and `ssh` join their ARGUMENTS into one command line: `eval git branch -D x`
+        or (head in _JOINING_EXECUTORS and mentions_removal(_raw_line(words[1:])))
     ):
         raise _Deny(f"`{head}` would run a removal command from a string/script the guard cannot evaluate")
     for k, w in enumerate(words[1:], start=1):
@@ -918,6 +1093,14 @@ def _analyze_segment(seg: _Segment) -> _Removal | None:
         # a wrapper runs the git; for any other command `git` is just an argument (`grep git "$f"`)
         if mentions_removal(_raw_line(words[k:])) or (head in _GIT_RUNNERS and _parse_git(words[k:]) is not None):
             raise _Deny(f"`{head}` wraps a git removal command (sudo/env/xargs/time/find -exec …) — run it directly")
+    if head == "rm":
+        return _parse_rm(words[1:], fed=False)
+    if head == "exec" or head in _GIT_RUNNERS:
+        k = next((k for k in range(1, len(words)) if os.path.basename(words[k].text) == "rm"), None)
+        if k is not None:
+            wrapped = _parse_rm(words[k + 1 :], fed=head in _FEEDERS)
+            if wrapped is not None:
+                return wrapped
     return None
 
 
@@ -963,13 +1146,196 @@ def _repo_name(path: Path) -> str:
 
 
 def _verdict_for(
-    item: _Item, eff: Path, forge: rv.ForgeLookup, process_cwds: rv.ProcessCwds, removing: frozenset[str]
+    item: _Item, eff: Path, forge: rv.ForgeLookup, process_cwds: rv.ProcessCwds, removing: frozenset[str], fetch: bool
 ) -> rv.Verdict:
     if item.kind == "worktree":
         return rv.worktree_verdict(eff, _worktree_target(eff, item.name), forge=forge, process_cwds=process_cwds)
+    if item.kind == "local-branch" and item.overwrite:
+        return rv.overwrite_verdict(eff, item.name, start=item.start, forge=forge, fetch=fetch)
     if item.kind == "local-branch":
         return rv.branch_verdict(eff, item.name, forge=forge)
     return rv.remote_branch_verdict(eff, item.remote, item.name, forge=forge, removing=removing)
+
+
+def _cached_forge(forge: rv.ForgeLookup) -> rv.ForgeLookup:
+    """One forge lookup per command, however many targets it judges."""
+    cached: list[rv.PrRecord] | None = None
+
+    def lookup(repo: Path) -> list[rv.PrRecord]:
+        nonlocal cached
+        if cached is None:
+            cached = forge(repo)
+        return cached
+
+    return lookup
+
+
+def _decide(verdicts: list[rv.Verdict], refresh_notes: list[str]) -> GuardDecision:
+    """``allow`` when every verdict is SAFE, else ``deny`` with every verdict rendered and the rescue."""
+    notes = "".join(f"\nnote: {n}" for n in (*refresh_notes, *(n for v in verdicts for n in v.notes)))
+    if all(v.safe for v in verdicts):
+        proofs = ", ".join(f"{v.kind} {v.target} ({v.landed_by})" for v in verdicts)
+        return GuardDecision(
+            "allow",
+            "every target is clean and proven landed on the default branch or held by another remote branch that "
+            f"stays: {proofs}{notes}",
+            tuple(verdicts),
+        )
+    body = "\n".join(v.render() for v in verdicts)
+    reason = (
+        "removal guard: DENY — this removal/overwrite could lose work that is not on the default branch.\n"
+        f"{body}\n"
+        "Nothing was run. A removal or overwrite is allowed only when the target is clean AND every commit on it is "
+        "landed on origin/<default>, proven (ancestor, merged PR with the same head, content no-op, or held by "
+        "another remote branch that stays) — `--force` never changes that.\n"
+        f"{_rescue_text(verdicts)}{notes}"
+    )
+    return GuardDecision("deny", reason, tuple(verdicts))
+
+
+# ── rm -r of a worktree ──────────────────────────────────────────────────────────
+_CWD_CHANGERS = frozenset({"cd", "pushd", "popd", "chdir"})
+
+
+def _changes_cwd(parsed: _Parsed) -> bool:
+    """True when some word of the command is a directory change: what a relative path or a repository
+    resolved from the cwd means after it is not knowable here (a loose superset — a false hit only
+    asks for an absolute path)."""
+    return any(w.text in _CWD_CHANGERS for seg in parsed.segments for w in seg.words)
+
+
+def _rm_targets(item: _Item, cwd: Path, cwd_moves: bool) -> list[Path]:
+    """Every path ``rm -r`` would delete for one operand (read the way the kernel resolves it: symlinks
+    first, then ``..``), plus — for an unquoted glob — what the shell would expand it to (relative to the
+    REAL cwd)."""
+    text = item.name
+    if not os.path.isabs(text):
+        if cwd_moves:
+            raise _Deny(
+                f"`rm -r {text}` follows a `cd`/`pushd` in the same command, so the directory it is relative to is "
+                "unknowable — use an absolute path"
+            )
+        text = os.path.join(cwd, text)
+    found = [Path(os.path.realpath(text))]  # physical: `link/..` is the parent of the link's TARGET
+    if item.glob:
+        found.extend(Path(os.path.normpath(m)) for m in sorted(glob.glob(text)))
+    return found
+
+
+def _nearest_directory(path: Path) -> Path:
+    current = path
+    while not current.is_dir() and current != current.parent:
+        current = current.parent
+    return current
+
+
+def _contains(outer: Path, inner: Path) -> bool:
+    return inner == outer or outer in inner.parents
+
+
+_SCAN_ENTRY_LIMIT = 5000  # directory entries looked at per `rm -r` target when hunting for nested repositories
+_SCAN_DEPTH = 4
+_SCAN_SKIP = frozenset({".git", "node_modules"})
+
+
+def _repositories_inside(path: Path) -> list[Path]:
+    """Directories under ``path`` (itself included) that hold a ``.git`` entry — a linked worktree's
+    pointer file or a repository — found by a BOUNDED walk (depth and entry caps, no symlinks, no
+    descent into a repository root or ``node_modules``). A worktree of a repository that is neither the
+    cwd's nor the one ``path`` sits in (``rm -rf ~/old-worktrees``) is found this way. A target so large
+    that the cap is hit is only partially scanned: a documented limit, not a guess."""
+    found: list[Path] = []
+    seen = 0
+    if not path.is_dir():
+        return found
+    for root, dirs, files in os.walk(path, followlinks=False):
+        here = Path(root)
+        seen += len(dirs) + len(files)
+        if ".git" in dirs or ".git" in files:
+            found.append(here)
+            dirs[:] = []  # the repository's own records list every worktree it has
+        else:
+            depth = len(here.relative_to(path).parts)
+            dirs[:] = [] if depth >= _SCAN_DEPTH else [d for d in dirs if d not in _SCAN_SKIP]
+        if seen > _SCAN_ENTRY_LIMIT:
+            break
+    return found
+
+
+def _worktrees_under(paths: list[Path], cwd: Path) -> list[tuple[Path, Path]]:
+    """``(primary checkout, linked worktree)`` for every EXISTING linked worktree that one of ``paths``
+    is or contains. The repositories consulted are the cwd's, the one each path sits in and any found
+    inside a path (:func:`_repositories_inside`), so a worktree of another repository is found from
+    anywhere; each target is compared in its written and its symlink-resolved form, so a link to a
+    worktree (or to the directory holding it) cannot hide it. A sub-directory OF a worktree is
+    ordinary editing and is not matched."""
+    seeds = list(dict.fromkeys([cwd, *(_nearest_directory(p) for p in paths), *(r for p in paths for r in _repositories_inside(p))]))
+    repos: dict[Path, list[dict[str, str]]] = {}
+    for seed in seeds:
+        if not rv.is_git_repo(seed):
+            continue
+        try:
+            records = worktree_gc.worktree_records(seed)
+        except worktree_gc.WorktreeGcError as exc:
+            raise _Deny(f"could not list the worktrees of the repository at {seed} ({exc})") from exc
+        if records:
+            repos.setdefault(Path(os.path.realpath(records[0]["worktree"])), records)
+    targets = {form for p in paths for form in (p, Path(os.path.realpath(p)))}
+    found: list[tuple[Path, Path]] = []
+    for records in repos.values():
+        for rec in records[1:]:
+            wt = Path(rec.get("worktree", ""))
+            if "bare" in rec or not wt.exists():
+                continue
+            forms = {Path(os.path.normpath(wt)), Path(os.path.realpath(wt))}
+            if any(_contains(t, w) for t in targets for w in forms) and (Path(records[0]["worktree"]), wt) not in found:
+                found.append((Path(records[0]["worktree"]), wt))
+    return found
+
+
+def _evaluate_in_place(
+    removals: list[_Removal],
+    parsed: _Parsed,
+    cwd: Path,
+    forge: rv.ForgeLookup,
+    process_cwds: rv.ProcessCwds,
+    fetch: bool,
+) -> GuardDecision:
+    """Branch OVERWRITES (``branch -f/-M/-C``, ``checkout -B``, ``switch -C``) and recursive ``rm`` are
+    judged per command even inside a chain — they are everyday commands (`git fetch && git checkout -B
+    x origin/x`, `cd d && rm -rf build`) — but only while the directory they act from is knowable: a
+    `cd`/`pushd` anywhere in the command makes every relative target and every cwd-resolved repository
+    unknowable. Creating a branch that does not exist yet is not an overwrite and stays silent."""
+    cwd_moves = _changes_cwd(parsed)
+    lookup = _cached_forge(forge)
+    verdicts: list[rv.Verdict] = []
+    notes: list[str] = []
+    rm_paths: list[Path] = []
+    for removal in removals:
+        git_items = [i for i in removal.items if i.kind != "rm-path"]
+        if git_items:
+            if cwd_moves and not (removal.c_dirs and os.path.isabs(removal.c_dirs[0])):
+                raise _Deny(
+                    "a `cd`/`pushd` earlier in the same command changes the repository this branch overwrite acts on — "
+                    "run it as its own command or name the repository with `git -C <absolute dir>`"
+                )
+            eff = _effective_cwd(cwd, removal.c_dirs)
+            if not rv.is_git_repo(eff):
+                raise _Deny(f"{eff} is not inside a git repository")
+            verdicts.extend(_verdict_for(item, eff, lookup, process_cwds, frozenset(), fetch) for item in git_items)
+        for item in removal.items:
+            if item.kind == "rm-path":
+                rm_paths.extend(_rm_targets(item, cwd, cwd_moves))
+    verdicts = [v for v in verdicts if v.landed_by != rv.NEW_BRANCH]
+    refreshed: set[Path] = set()
+    for primary, wt in _worktrees_under(rm_paths, cwd):
+        if fetch and primary not in refreshed:
+            refreshed.add(primary)
+            notes.extend(rv.refresh_default_ref(primary))
+        verdicts.append(rv.worktree_verdict(primary, wt, forge=lookup, process_cwds=process_cwds))
+    if not verdicts:
+        return GuardDecision("pass")
+    return _decide(verdicts, notes)
 
 
 def _evaluate_segments(
@@ -982,6 +1348,8 @@ def _evaluate_segments(
     removals = [r for r in (_analyze_segment(seg) for seg in parsed.segments) if r is not None]
     if not removals:
         return GuardDecision("pass")
+    if all(r.in_place for r in removals):
+        return _evaluate_in_place(removals, parsed, cwd, forge, process_cwds, fetch)
     if len(parsed.segments) > 1 or parsed.grouped:
         raise _Deny(
             "a removal inside a chained / piped / grouped / backgrounded command is not evaluated — run each "
@@ -992,40 +1360,13 @@ def _evaluate_segments(
     if not rv.is_git_repo(eff):
         raise _Deny(f"{eff} is not inside a git repository")
     refresh_notes = rv.refresh_default_ref(eff) if fetch else []
-    cached: list[rv.PrRecord] | None = None
-
-    def cached_forge(repo: Path) -> list[rv.PrRecord]:
-        nonlocal cached
-        if cached is None:
-            cached = forge(repo)
-        return cached
-
+    lookup = _cached_forge(forge)
     # The branches this ONE push deletes on the remote: none of them may vouch for another (deleting
     # `a` and `b` together leaves nothing holding a commit that only they hold). A local branch or
     # worktree removal touches no remote ref, so the remote holders all stay.
     removing = frozenset(item.name for item in removal.items if item.kind == "remote-branch")
-    verdicts: list[rv.Verdict] = []
-    for item in removal.items:
-        verdicts.append(_verdict_for(item, eff, cached_forge, process_cwds, removing))
-    notes = "".join(f"\nnote: {n}" for n in (*refresh_notes, *(n for v in verdicts for n in v.notes)))
-    if all(v.safe for v in verdicts):
-        proofs = ", ".join(f"{v.kind} {v.target} ({v.landed_by})" for v in verdicts)
-        return GuardDecision(
-            "allow",
-            "every target is clean and proven landed on the default branch or held by another remote branch that "
-            f"stays: {proofs}{notes}",
-            tuple(verdicts),
-        )
-    body = "\n".join(v.render() for v in verdicts)
-    reason = (
-        "removal guard: DENY — this removal could lose work that is not on the default branch.\n"
-        f"{body}\n"
-        "Nothing was run. A removal is allowed only when the target is clean AND every commit on it is landed on "
-        "origin/<default>, proven (ancestor, merged PR with the same head, content no-op, or held by another remote "
-        "branch that stays) — `--force` never changes that.\n"
-        f"{_rescue_text(verdicts)}{notes}"
-    )
-    return GuardDecision("deny", reason, tuple(verdicts))
+    verdicts = [_verdict_for(item, eff, lookup, process_cwds, removing, fetch) for item in removal.items]
+    return _decide(verdicts, refresh_notes)
 
 
 def _log(decision: GuardDecision, command: str, cwd: Path) -> None:

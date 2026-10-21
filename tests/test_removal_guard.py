@@ -585,11 +585,21 @@ def test_ansi_c_unicode_escapes_are_decoded_before_the_check(sb):
 def test_the_mention_prefilter_covers_every_option_abbreviation_the_parsers_accept(sb):
     """One table (rg._LONG_OPTIONS) drives the parsers; the regex must not drift from it. `--remotes`
     only SUPPRESSES a deletion, so it never needs to reach the parsers on its own."""
+    shapes = {  # the command each overwrite/rm option is parsed in
+        "--force": "git branch {} a b",
+        "--move": "git branch {} a b",
+        "--copy": "git branch {} a b",
+        "--recursive": "rm {} dir",
+        "--force-create": "git switch {} a",
+    }
     for full, min_len in rg._LONG_OPTIONS.items():
         if full in ("--remotes", "--stdin", "--repo"):  # mode suppressor / update-ref-only / reached via `:`/--delete
             continue
         for n in range(min_len, len(full) + 1):
             prefix = full[:n]
+            if full in shapes:
+                assert rg.mentions_removal(shapes[full].format(prefix)), prefix
+                continue
             assert rg.mentions_removal(f"git push origin {prefix} x"), prefix
             if full == "--delete":
                 assert rg.mentions_removal(f"git branch {prefix} x"), prefix

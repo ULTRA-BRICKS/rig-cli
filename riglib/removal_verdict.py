@@ -85,6 +85,8 @@ from . import worktree_gc
 
 LANDING_REMOTE = "origin"
 PRESERVED = "preserved"  # the `landed_by` of proof 4
+FAST_FORWARD = "fast-forward"  # overwrite only: the old tip is an ancestor of the new start
+NEW_BRANCH = "new-branch"  # overwrite only: the branch does not exist yet
 _GIT_TIMEOUT_S = 30
 _NET_TIMEOUT_S = 30
 _PS_TIMEOUT_S = 10
@@ -150,6 +152,7 @@ class Verdict:
     landed_by: str | None = None
     notes: tuple[str, ...] = ()
     tip: str | None = None  # the commit judged (worktree HEAD / branch tip / remote tip), when known
+    overwrite: bool = False  # the branch is being RE-POINTED (git branch -f/-M/-C, checkout -B), not deleted
 
     def to_dict(self) -> dict:
         return {
@@ -164,10 +167,15 @@ class Verdict:
         }
 
     def render(self) -> str:
-        head = f"{'SAFE' if self.safe else 'UNSAFE'} to remove {self.kind} {self.target}"
+        verb = "overwrite" if self.overwrite else "remove"
+        head = f"{'SAFE' if self.safe else 'UNSAFE'} to {verb} {self.kind} {self.target}"
         lines = [head]
         if self.safe and self.landed_by == PRESERVED:
             lines.append("  its commits are held by another remote branch that stays (see the note)")
+        elif self.safe and self.landed_by == FAST_FORWARD:
+            lines.append("  the new start contains every commit the branch has now (a fast-forward)")
+        elif self.safe and self.landed_by == NEW_BRANCH:
+            lines.append("  the branch does not exist yet, so there is nothing to overwrite")
         elif self.safe and self.landed_by:
             lines.append(f"  landed on the default branch via: {self.landed_by}")
         lines.extend(f"  - [{r.code}] {r.message}" for r in self.reasons)
@@ -176,9 +184,14 @@ class Verdict:
 
 
 def _unsafe(
-    kind: TargetKind, target: str | Path, reasons: list[Reason], notes: list[str], tip: str | None = None
+    kind: TargetKind,
+    target: str | Path,
+    reasons: list[Reason],
+    notes: list[str],
+    tip: str | None = None,
+    overwrite: bool = False,
 ) -> Verdict:
-    return Verdict(kind, str(target), False, tuple(reasons), None, tuple(notes), tip)
+    return Verdict(kind, str(target), False, tuple(reasons), None, tuple(notes), tip, overwrite)
 
 
 def rescue_hint(kind: TargetKind, target: str, repo_name: str = "<repo>", tip: str | None = None) -> str:
@@ -865,6 +878,61 @@ def branch_verdict(repo_root: Path, branch: str, *, forge: ForgeLookup | None = 
     except _VERDICT_ERRORS as exc:
         reasons.append(Reason("verdict-error", f"could not complete the check: {exc}"))
     return _unsafe(kind, branch, reasons, notes, tip if _OID_RE.match(tip) else None)
+
+
+def overwrite_verdict(
+    repo_root: Path,
+    branch: str,
+    *,
+    start: str = "",
+    forge: ForgeLookup | None = None,
+    fetch: bool = False,
+) -> Verdict:
+    """Verdict for OVERWRITING the local branch ``branch`` — ``git branch -f``/``-M``/``-C``,
+    ``git checkout -B``, ``git switch -C``: its current tip stops being on that branch, so the old
+    commits survive only in the reflog unless the branch's work is safe elsewhere. Same proofs as a
+    deletion (:func:`branch_verdict` — landed on ``origin/<default>`` or held by another remote
+    branch that stays; the branch's own remote copy never counts) with three differences:
+
+    - a branch that does not exist yet has nothing to lose (SAFE, ``new-branch``) — even with no
+      resolvable default branch;
+    - a FAST-FORWARD loses nothing: when ``start`` (the revision the branch is re-pointed at;
+      anything git resolves, judged in ``repo_root``) contains the old tip, every commit stays
+      reachable from the branch. An unresolvable ``start`` just disables that rule;
+    - being the default branch, or checked out somewhere, is not a reason: git itself refuses to
+      force-update a branch checked out in ANOTHER worktree, and resetting the default branch loses
+      only what is not on ``origin/<default>`` — which the proofs judge.
+    """
+    forge = forge or default_forge_lookup
+    kind = "local-branch"
+    notes: list[str] = []
+    tip = ""
+    try:
+        bad = _check_ref_format(repo_root, branch)
+        if bad is not None:
+            return _unsafe(kind, branch, [Reason("invalid-branch-name", f"{branch!r}: {bad}")], notes, overwrite=True)
+        if run_git(repo_root, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}").returncode != 0:
+            return Verdict(kind, branch, True, (), NEW_BRANCH, (), None, True)
+        tip_res = run_git(repo_root, "rev-parse", "--verify", "-q", "--end-of-options", f"refs/heads/{branch}^{{commit}}")
+        tip = _out(tip_res)
+        if tip_res.returncode != 0 or not _OID_RE.match(tip):
+            return _unsafe(kind, branch, [Reason("unknown-branch", f"branch {branch!r} does not point at a commit")], notes, overwrite=True)
+        if start:  # `--end-of-options` below: a start that looks like an option is just an unresolvable revision
+            new_res = run_git(repo_root, "rev-parse", "--verify", "-q", "--end-of-options", f"{start}^{{commit}}")
+            new_tip = _out(new_res)
+            if new_res.returncode == 0 and _OID_RE.match(new_tip) and _is_ancestor(repo_root, tip, new_tip) is True:
+                return Verdict(kind, branch, True, (), FAST_FORWARD, (), tip, True)
+        default, default_reason = _default_after_refresh(repo_root, fetch, notes)
+        if default is None:
+            return _unsafe(kind, branch, [default_reason or Reason("no-default-ref", "default branch unresolved")], notes, tip, True)
+        own = _own_names(repo_root, branch, LANDING_REMOTE)
+        proof, why = _prove_landed(repo_root, tip, branch, default, forge, notes, remote=LANDING_REMOTE, own=own)
+        if proof is not None:
+            return Verdict(kind, branch, True, (), proof, tuple(notes), tip, True)
+        return _unsafe(kind, branch, why, notes, tip, True)
+    except _VERDICT_ERRORS as exc:
+        return _unsafe(kind, branch, [Reason("verdict-error", f"could not complete the check: {exc}")], notes, tip if _OID_RE.match(tip) else None, True)
+
 
 
 def remote_branch_verdict(

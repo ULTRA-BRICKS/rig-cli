@@ -308,6 +308,36 @@ def _same_link_dest(link_path: Path, current: Path, dest: Path) -> bool:
         return False
 
 
+RIG_PIN_PLACEHOLDER = "/ABSOLUTE/PATH/TO/rig"
+
+
+class RigPinError(ValueError):
+    """No absolute ``rig`` launcher could be found to pin into a hook descriptor (a ``ValueError`` so the
+    install action reports it; the drift check reports it too instead of reading clean)."""
+
+
+def pinned_rig_path() -> str:
+    """Absolute path of the ``rig`` launcher to pin into an agent-hook descriptor, replacing
+    :data:`RIG_PIN_PLACEHOLDER` in the descriptor's ``args``. A hook that shells out to rig (the
+    agent-tools ``block-unlanded-removal`` guard) must run THIS rig — the one that provisioned it —
+    never whatever ``rig`` its own PATH resolves, which a shadowing binary or a stale install could
+    answer for. The running launcher wins (``sys.argv[0]`` when it is an existing executable file
+    named ``rig``, made absolute but NOT symlink-resolved, so it names the stable launcher a user
+    runs); an embedding process (``python -m riglib``, a test runner) falls back to ``rig`` on PATH.
+    Neither found is an error, never a bare ``rig``: a pin that is not absolute pins nothing.
+    """
+    argv0 = os.path.abspath(sys.argv[0]) if sys.argv and sys.argv[0] else ""
+    if os.path.basename(argv0) == "rig" and os.path.isfile(argv0) and os.access(argv0, os.X_OK):
+        return argv0
+    found = shutil.which("rig")
+    if found:
+        return os.path.abspath(found)
+    raise RigPinError(
+        "cannot pin rig into the hook descriptor: this process was not started from a `rig` launcher "
+        "and no `rig` is on PATH"
+    )
+
+
 def build_hook_descriptor(action: Action) -> tuple[dict, str]:
     """Build the descriptor dict + the script's absolute cmd for an agent-hook action.
 
@@ -325,6 +355,10 @@ def build_hook_descriptor(action: Action) -> tuple[dict, str]:
     elif not os.path.isabs(cmd):
         cmd = str((Path(action.options["agent_tools_source"]) / cmd).resolve())
     spec["cmd"] = cmd
+    args = spec.get("args")
+    if isinstance(args, list) and RIG_PIN_PLACEHOLDER in args:
+        pin = pinned_rig_path()
+        spec["args"] = [pin if arg == RIG_PIN_PLACEHOLDER else arg for arg in args]
     on_error = action.options.get("on_error")
     if on_error:
         spec["on_error"] = on_error
@@ -404,7 +438,7 @@ def _do_install_agent_hook(action: Action, on_conflict: str) -> ActionResult:
     try:
         spec, cmd = build_hook_descriptor(action)
     except (OSError, ValueError) as exc:
-        return ActionResult(action, "error", f"bad descriptor json: {exc}")
+        return ActionResult(action, "error", f"bad descriptor: {exc}")
 
     # The descriptor's cmd points at a script INSIDE the agent-tools checkout. rig consumes
     # agent-tools READ-ONLY — never chmod (or otherwise mutate) the source. agent-tools

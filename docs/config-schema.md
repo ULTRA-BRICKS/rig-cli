@@ -368,7 +368,12 @@ agent_hooks:
 
 The install action always writes an **absolute** `cmd` (rewriting the
 `/ABSOLUTE/PATH/TO/...` placeholder to the script's real path in the agent-tools checkout),
-per the `agents-hooks/v1` contract.
+per the `agents-hooks/v1` contract. A descriptor whose `args` carries the exact element
+`/ABSOLUTE/PATH/TO/rig` (the agent-tools `block-unlanded-removal` hook does) gets it rewritten to the
+absolute path of the `rig` launcher that ran the apply (`sys.argv[0]` when it is an executable file
+named `rig`, else `rig` on PATH; neither → the install fails with an error naming the pin), so a hook
+that shells out to rig never resolves it through its own PATH. A moved or reinstalled launcher is
+reported by `rig status` as a modified descriptor and re-pinned by the next `rig apply`.
 
 When `harness.kind: codex` is active, rig defaults the descriptor target to `~/.codex/hooks`
 (or `$RIG_CODEX_HOME/hooks`) unless `agent_hooks.target` / `defaults.hooks_target` is set to a

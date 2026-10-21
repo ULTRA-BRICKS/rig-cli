@@ -843,7 +843,9 @@ def _add_worktree_guard_subparser(wsub: "argparse._SubParsersAction") -> None:
         help="PreToolUse hook backend: read a bash command on stdin, print one JSON allow/deny/pass decision",
         description="Reads a bash command from stdin and prints ONE JSON object "
         '{"decision": "pass"|"allow"|"deny", "reason": …, "targets": […]}. Recognizes `git worktree '
-        "remove`, `git branch -d/-D` and `git push <remote> --delete <name>` / `:<name>`; every "
+        "remove`, `git branch -d/-D`, `git push <remote> --delete <name>` / `:<name>`, and the "
+        "overwrites `git branch -f/-M/-C`, `git checkout -B`, `git switch -C` and `rm -r` of a linked "
+        "worktree (or a directory holding one); every "
         "target must be SAFE per `rig worktree verdict` for `allow`; anything it cannot parse with "
         "certainty (chains, subshells, variables, globs, wrappers, --git-dir …) is `deny`; not a "
         "removal is `pass`. Always exits 0 once a decision is printed — the hook treats any other "
@@ -864,8 +866,10 @@ def _add_worktree_gc_subparser(wsub: "argparse._SubParsersAction") -> None:
         description="List every worktree `git` knows about for a repo (any physical location — "
         "not just the standardized .worktrees/<name>), classify each as live/prunable/dirty/"
         "merged/closed/no-pr-stale/active, and remove only merged/closed/prunable ones (plus "
-        "no-pr-stale with --include-stale). Report-only unless --yes; --dry-run always forces a "
-        "report even with --yes, mirroring `rig apply --dry-run`.",
+        "no-pr-stale with --include-stale) — and only when the landed-removal verdict (`rig worktree "
+        "verdict`) says SAFE: clean, and every commit landed on origin/<default> or held by another "
+        "remote branch that stays; --yes/--include-stale never override it. Report-only unless "
+        "--yes; --dry-run always forces a report even with --yes, mirroring `rig apply --dry-run`.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit codes:\n"
         "  0    success (report printed; some repos may have had nothing to do)\n"
