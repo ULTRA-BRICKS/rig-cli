@@ -121,6 +121,24 @@ def _remove_any(p: Path) -> None:
         p.unlink()
 
 
+def _strip_exec_bits(path: Path) -> None:
+    """Make a moved-aside FILE backup non-executable (best effort).
+
+    A sibling ``<name>.rig-bak-<stamp>`` of an executable hook would otherwise keep running wherever a
+    directory of executables is dispatched (``~/.config/git/global-hooks.d/pre-commit``), so the outdated
+    rule it holds keeps overriding the replacement. Directories (skills, extensions) are left alone.
+
+    A failing chmod (a file the user does not own, renamed within a directory they can write) is swallowed:
+    the replacement must still be written, or the hook would vanish from the dispatch with nothing in its place.
+    """
+    if not path.is_file() or path.is_symlink():
+        return
+    try:
+        path.chmod(path.stat().st_mode & ~0o111)
+    except OSError:
+        pass
+
+
 def write_file(target: Path, content: str, on_conflict: str) -> WriteOutcome:
     """Write text to ``target`` honoring ``on_conflict``. Idempotent on identical bytes.
 
@@ -138,6 +156,7 @@ def write_file(target: Path, content: str, on_conflict: str) -> WriteOutcome:
             bak = _backup_path(target)
             # move (not copy2) so a directory-at-target is preserved intact and removed
             shutil.move(str(target), str(bak))
+            _strip_exec_bits(bak)
             target.write_text(content, encoding="utf-8")
             return WriteOutcome("backed_up", f"backed up prior → {bak}", backup=bak)
         # overwrite — remove whatever is there (file or dir) before writing

@@ -187,7 +187,9 @@ REPO-LOCAL (`./rig.yaml`): `subagents: {target: .claude/agents, all: false, item
   naming the file. Loud, not a silent skip.
 - Shared global dir pollution: extras scan gated on category-enabled; rig never deletes.
 - Repo-local conflict with a real existing `.claude/agents/<name>.md`: governed by
-  `on_conflict` (skip/backup/overwrite); default does not clobber without backup.
+  `on_conflict` (skip/backup/overwrite); default does not clobber without backup. A FILE moved
+  aside as `<name>.rig-bak-<stamp>` loses its executable bits (`fsutil.write_file`), so a backed-up
+  hook never runs from a directory of executables such as `global-hooks.d/pre-commit`.
 - `name` vs filename divergence: forbidden in catalog (validated) — no upside, only a
   config/runtime mismatch.
 - Duplicate `name` across global + repo-local: allowed; CC runtime precedence resolves it
