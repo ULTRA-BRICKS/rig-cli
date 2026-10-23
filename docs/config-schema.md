@@ -2814,35 +2814,51 @@ every key back. All three (apply, drift, verify) share one classifier (`riglib/g
 
 ## `profile`
 
-Where `rig profile` keeps this machine's **global config** in sync with your other machines: a
-**private** git repo (conventionally `https://git.hyperide.ai/<login>/.rig-profile`) holding one file,
-`config.yaml` — a copy of `~/.config/rig/config.yaml`. **GLOBAL layer only**, rejected from a repo
-`rig.yaml` like `git`. Written by `rig profile init`; see the README's
-[`rig profile`](../README.md#rig-profile--carry-your-global-config-between-machines) section for the
-workflow.
+Where `rig profile` keeps this machine's **global config** and portable files in sync with your
+other machines: a **private** git repo (conventionally `https://git.hyperide.ai/<login>/.rig-profile`)
+holding `config.yaml` (a copy of `~/.config/rig/config.yaml`) plus an allow-list of other files.
+**GLOBAL layer only**, rejected from a repo `rig.yaml` like `git`. Written by `rig profile init`; see
+the README's [`rig profile`](../README.md#rig-profile--carry-your-global-config-between-machines)
+section for the workflow.
 
 ```yaml
 profile:
   repo: https://git.hyperide.ai/alex/.rig-profile   # the PRIVATE profile repo
   # auto_sync: true                                  # default: `rig apply commit` syncs first
+  # files: {tmux: false}                             # stop syncing one file
 ```
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `repo` | string | — | the profile repo URL (https, ssh, or a local path). One line, no leading `-`. `rig profile init` records it and never rewrites an existing value (machines may spell one repo as ssh vs https). |
-| `auto_sync` | bool | `true` | `rig apply commit` runs `rig profile sync` BEFORE building its plan (a pull changes the very file the plan reads). Non-fatal: a network/push failure or a conflict prints a warning and the apply continues with the local file. A pull is announced as a warning, since the plan that runs is then built from a config you did not preview. A preview (`rig apply` / `apply info`) never syncs. |
+| `auto_sync` | bool | `true` | `rig apply commit` runs `rig profile sync` BEFORE building its plan (a pull changes the very file the plan reads). Non-fatal: a network/push failure or a conflict prints a warning and the apply continues with the local file. A pull is announced as a warning, since the plan that runs is then built from a config you did not preview. A preview (`rig apply` / `apply info`) never syncs. (`rig activate commit` syncs whenever `repo` is set.) |
+| `files` | map id → bool | all `true` | per-file switch for what travels besides `config.yaml`: `tmux`, `omp_config`, `omp_mcp`, `sysmon`. `false` stops syncing that file on every machine that shares the profile. `config` always syncs. |
 
-**The repo MUST be private.** The file travels in plaintext and `env.vars` (see [`env`](#env)) often
-holds API keys. Every push of a config carrying `env.vars` warns (loudly the first time on each
-machine, naming the keys, never the values), and a push is **refused** when the forge reports the repo
-as public to an anonymous API request (Forgejo/Gitea `/api/v1/repos/<owner>/<repo>`, GitHub
-`api.github.com/repos/…`; skipped with a note when that cannot be checked, e.g. offline or a local
-path). Write access to the repo is write access to this machine's global rig config — and, through
-the `git` block, its global git config — so guard it like your dotfiles.
+**The payload is an allow-list** (`riglib/profile_files.py`, one registry): `config.yaml`,
+`~/.tmux.conf` (user region), omp `config.yml`, omp `mcp.json` (masked), `sysmon.json`. Each file has
+a kind: `portable` (synced) or `secret-bearing` (never synced — `env.vars` values, the omp
+auth-broker token, `agent.db`, `.env`, `remote-host`, `ssh-control`, `rig.env.sh`).
+
+**Secrets never travel.** `env.vars` is withheld from the pushed config and kept locally on a pull;
+`mcp.json` is pushed with secret-looking values masked as `<rig:masked>` (a pull restores each from
+the local file and names the ones still missing); every pushed byte is scanned for secret patterns
+and a hit **refuses the push**, naming file, line and rule but never the value. A push is also
+**refused** when the forge reports the repo as public to an anonymous API request (Forgejo/Gitea
+`/api/v1/repos/<owner>/<repo>`, GitHub `api.github.com/repos/…`; skipped with a note when that cannot
+be checked, e.g. offline or a local path). Write access to the repo is write access to this machine's
+global rig config — and, through the `git` block, its global git config — so guard it like your
+dotfiles.
+
+**Machine values.** Home paths are stored as `{{rig:home}}/…`. `agent_tools_source`,
+`harness.settings_paths`, `harness_wrappers.real_bin`, `sysmon.python_bin`,
+`sysmon.reclaim.worktree_roots`, `tools.items.*.repo`, `tools.items.*.enabled` and any absolute path
+outside home are *machine values*: left out of the comparison, always local-first when a file is
+adopted, recorded per host in `machine/<host>.yaml`. An optional key nobody on this machine set is
+dropped on adoption; `tools.items.*.repo` (required) keeps the profile's value re-homed.
 
 **What lives where.** The checkout is `~/.config/rig/profile/repo/` (rig-owned: never edit it by
-hand); the last-synced snapshot hash is `~/.config/rig/profile/state.json`, **beside** the checkout,
-never committed. Both follow `$XDG_CONFIG_HOME`.
+hand); the last-synced snapshot hashes are `~/.config/rig/profile/state.json`, **beside** the
+checkout, never committed. Both follow `$XDG_CONFIG_HOME`.
 
 ---
 
@@ -3102,6 +3118,11 @@ tools:
     # a tool whose wrapper shells out to a Homebrew-installed binary declares that dependency —
     # rig installs the missing formula before running install.sh:
     mytool: { brew: [some-formula] }
+    # the same on Debian/Ubuntu; each OS honors its own list and skips the other:
+    other:  { brew: [tmux], apt: [tmux] }
+    # ctmux (wrapper over cmux with better tmux support) is first-class: rig clones it from
+    # https://github.com/alex-mextner/ctmux-cli to ~/xp/ctmux-cli by itself, on macOS and Ubuntu:
+    ctmux:  {}
 ```
 
 | Key | Type | Default | Meaning |
@@ -3110,9 +3131,11 @@ tools:
 | `target` | str | `~/.local/bin` | managed PATH dir each tool's `install.sh` symlinks its entry into |
 | `items.<name>` | map | — | one tool, keyed by its command name (the skill-blurb stem) |
 | `items.<name>.enabled` | bool | `true` | `false` = skip this one tool |
-| `items.<name>.repo` | str | `~/xp/<name>-cli` | the tool's checkout dir (holds its `install.sh`) |
+| `items.<name>.repo` | str | `~/xp/<name>-cli`, else `~/dev/<name>-cli` if that holds the `install.sh` | the tool's checkout dir (holds its `install.sh`) |
 | `items.<name>.bin_dir` | str | `target` | override the managed PATH dir for this one tool |
 | `items.<name>.brew` | list[str] | `[]` | Homebrew formula(e) the tool depends on at **runtime** |
+| `items.<name>.apt` | list[str] | `[]` (`ctmux`: `[tmux, fzf]`) | Debian/Ubuntu package(s) the tool depends on at **runtime**; installed only on a machine that has `apt-get` |
+| `items.<name>.clone` | str | — (`ctmux`: its GitHub URL) | git URL cloned into `repo` when the checkout is absent |
 
 **Idempotent + safe.** A tool already installed — its bin resolves (the managed symlink **or**
 anywhere on PATH, so a Homebrew `review` counts) **and** its skill blurb is advertised — is a
@@ -3129,11 +3152,31 @@ for that tool (not a silent skip or a crash) — a wrapper whose runtime depende
 isn't a working tool no matter how `install.sh` went. (Forgejo's `fj` needs no `tools` entry —
 the [`fj`](#fj) block installs it and its `fj ship` wrapper.)
 
+**Optional apt runtime dependency (`apt`).** The Debian/Ubuntu twin of `brew`, for the same reason.
+Before `install.sh`, on a machine that has `apt-get` and `dpkg-query`, rig lists the installed
+packages with ONE `dpkg-query` call and runs ONE `apt-get install -y <missing…>` (as root, or
+through `sudo -n`; rig never waits on a password prompt). On macOS or any machine without `apt-get`
+the list is **skipped with a note**, not an error, so one profile can carry `brew:` and `apt:` side
+by side. A missing package that rig cannot install (no root, no non-interactive sudo) is **not** an
+error: the tool's line carries `apt: WARN run \`sudo apt-get install -y …\``, `install.sh` still
+runs (a failure there repeats the line), and `rig status` keeps flagging the package. A package whose
+same-named command is already on `PATH` (Homebrew's `fzf`, say) counts as present. `ctmux` defaults to
+`apt: [tmux, fzf]`; an explicit `apt:` (even `[]`) replaces that default.
+
+**Clone source (`clone`) and first-class tools.** A tool whose `repo` directory does not exist yet
+is cloned (`git clone --depth 1`) from `items.<name>.clone` before anything else runs. An existing
+directory is never cloned over. `ctmux` is first-class: `ctmux: {}` is enough — its default clone
+URL is `https://github.com/alex-mextner/ctmux-cli`, its repo `~/xp/ctmux-cli`, it ships no skill
+blurb (a resolving `~/.local/bin/ctmux` counts as installed), and after `install.sh` rig runs
+`bash <repo>/install.sh --check` and fails the tool if that exits non-zero. The OS gate lives in
+ctmux's own `install.sh` (macOS and Linux), because rig has no per-OS filter on tool items.
+
 **Drift.** `rig status` flags (in the **GLOBAL** section) a declared tool whose bin doesn't resolve
 (**missing** — apply runs its `install.sh`) or that resolves but isn't advertised (**modified** —
 apply re-runs `install-skill`). A declared `brew` formula Homebrew does not report as installed is
 **also** flagged `missing`, independently of the bin/advertised state — one item per absent
-formula — and `rig apply` runs `brew install` to reconcile it.
+formula — and `rig apply` runs `brew install` to reconcile it. On an apt machine a declared `apt`
+package dpkg does not report installed is flagged the same way (`<tool>:<package>`).
 
 **Dry-run seam.** `RIG_TOOLS_DRY_RUN=1` reports what WOULD install without running any `install.sh`
 or `brew install` (used by the e2e suite so tests never shell out to a real tool installer or brew).

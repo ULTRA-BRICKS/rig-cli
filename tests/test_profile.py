@@ -323,18 +323,30 @@ def test_identity_falls_back_to_the_declared_git_block(world, tmp_path, monkeypa
     assert author == "Alex Ultra <a@example.com>"
 
 
-def test_env_vars_warn_loudly_on_first_push_then_remind(world):
+def test_env_vars_never_travel_and_stay_in_the_local_file(world):
     local = world.machine("a")
     _write(local, BASE_CONFIG + "env:\n  vars:\n    BRAVE_API_KEY: sk-not-a-real-key\n")
     profile.init(world.url, notify=world.notify)
-    first = world.warns()
-    assert "BRAVE_API_KEY" in first and "PLAINTEXT" in first and "MUST be private" in first
-    assert "sk-not-a-real-key" not in first
-    world.messages.clear()
-    local.write_text(local.read_text(encoding="utf-8") + "bun: {enabled: true}\n", encoding="utf-8")
-    assert profile.sync(notify=world.notify).result == "pushed"
-    again = world.warns()
-    assert "BRAVE_API_KEY" in again and "PLAINTEXT" not in again
+    remote = world.remote_file()
+    assert "BRAVE_API_KEY" not in remote and "sk-not-a-real-key" not in remote
+    assert "sk-not-a-real-key" in local.read_text(encoding="utf-8")  # the local file is untouched
+    infos = " ".join(t for lvl, t in world.messages if lvl == "info")
+    assert "BRAVE_API_KEY" in infos and "stay on this machine" in infos and "sk-not-a-real-key" not in infos
+    assert profile.sync(notify=world.notify).result == "in_sync"
+
+
+def test_a_pull_keeps_this_machines_own_env_vars(world):
+    a = world.machine("a")
+    _write(a, BASE_CONFIG)
+    profile.init(world.url, notify=world.notify)
+    b = world.machine("b")
+    profile.init(world.url, notify=world.notify)
+    b.write_text(b.read_text(encoding="utf-8") + "env:\n  vars:\n    MINE: only-on-b\n", encoding="utf-8")
+    assert profile.sync(notify=world.notify).result == "in_sync"  # env.vars is not part of what is compared
+    world.push_remote_edit(BASE_CONFIG + "bun: {enabled: true}\n")
+    assert profile.sync(notify=world.notify).result == "pulled"
+    doc = _load(b)
+    assert doc["bun"] == {"enabled": True} and doc["env"]["vars"] == {"MINE": "only-on-b"}
 
 
 def test_push_to_a_public_repo_is_refused(world, monkeypatch):
@@ -525,15 +537,13 @@ def test_repo_visibility_reads_the_anonymous_api(monkeypatch):
     assert len(seen) == before  # a local path never reaches the network
 
 
-def test_env_vars_are_not_pushed_to_a_forge_repo_not_verified_private(world, monkeypatch):
-    """Fail closed: plaintext env.vars go to a forge URL only when the forge proves it private."""
+def test_an_unverifiable_forge_is_noted_not_refused_because_no_secret_can_be_in_the_payload(world, monkeypatch):
     local = world.machine("a")
     _write(local, BASE_CONFIG + "env:\n  vars:\n    BRAVE_API_KEY: sk-not-a-real-key\n")
     monkeypatch.setattr(profile, "_parse_forge_url", lambda url: ("gitlab.com", "alex", ".rig-profile"))
-    with pytest.raises(profile.ProfileError, match="could not verify the repo is private") as exc:
-        profile.init(world.url, notify=world.notify)
-    assert "BRAVE_API_KEY" in str(exc.value) and "sk-not-a-real-key" not in str(exc.value)
-    assert world.remote_commits() == 0
+    assert profile.init(world.url, notify=world.notify).result == "pushed"
+    assert any("could not verify the repo is private" in t for _l, t in world.messages)
+    assert "sk-not-a-real-key" not in world.remote_file()
 
 
 def test_the_profile_checkout_skips_protect_main_and_secret_scan_only(world):

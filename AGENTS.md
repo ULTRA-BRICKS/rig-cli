@@ -143,6 +143,32 @@ bare `rig config-web` prints help, never launches.
   only. `rig profile` (`riglib/profile.py`) syncs `~/.config/rig/config.yaml` through a PRIVATE repo
   with a three-way compare (local / repo / last-sync snapshot) and never merges silently; tests use a
   local bare repo and a tmp `GIT_CONFIG_GLOBAL` — never a real remote or the real `~/.gitconfig`.
+- **What `rig profile` carries is ONE registry, `riglib/profile_files.py`.** An allow-list of portable
+  files (`config.yaml`, the user region of `~/.tmux.conf`, omp `config.yml`, masked omp `mcp.json`,
+  `sysmon.json`), each three-way compared on its own, plus `NEVER_SYNCED` (`env.vars` values, the omp
+  auth-broker token, `agent.db`, `.env`, `remote-host`, `ssh-control`, `rig.env.sh`). A new portable file
+  is one `FileSpec` there — never a special case in `profile.py`. **Secrets never travel:** `env.vars` is
+  withheld on push and kept locally on pull, `mcp.json` is masked, and `scan_secrets` runs over every
+  pushed byte and REFUSES the push (the finding names file/line/rule, never the value). Machine-specific
+  values (registered `MachineKey`s and absolute paths outside HOME) are excluded from comparisons, win
+  locally on adoption, and live per host in `machine/<host>.yaml`; HOME paths travel as `{{rig:home}}`.
+  Tests build fake credentials by concatenation so no literal pattern sits in the source.
+- **`rig activate` is the new-machine bootstrap, and a thin layer over the one engine.** Bare = preview
+  (mutates nothing, not even the profile); `commit` syncs the profile, writes ONLY missing `enabled`
+  switches into the global config (never overriding a key, a backup is kept), then runs the machine-level
+  plan through the SAME `plan.build` + `actions.run_plan` as `rig apply commit`. Probing and rendering live
+  in `riglib/activate.py`; an area is an id in `AREA_IDS` with the plan categories it owns — add a new
+  area there, with its probe and the reason shown when the machine cannot support it. Unsupported areas
+  are listed and skipped, never an error. User-scope hook dirs and bridges follow the GLOBAL config's
+  harness kinds as well as the repo's (`plan._kinds_with_global`, rig-cli#743).
+- **`tools.items.<name>` has `apt:` (apt machines only, skipped elsewhere) next to `brew:`, and `clone:`.**
+  A first-class tool (`riglib/tools.py::KNOWN_TOOLS`, today `ctmux`) needs only `{}`: default clone URL,
+  no skill blurb, verified with `install.sh --check`. apt probes live in `riglib/apt_packages.py` (one
+  `dpkg-query` call shared by apply and status; a package whose command is already on PATH counts as
+  present); rig never waits on a password — no root and no `sudo -n` is a WARN note naming the exact
+  `sudo apt-get install -y …` line, NOT an abort: the tool's own install.sh still runs and `rig status`
+  keeps flagging the package. `ctmux` defaults to `apt: [tmux, fzf]`; a tool's default `repo` is the
+  first of `~/xp/<name>-cli` / `~/dev/<name>-cli` that holds an install.sh (`tools.default_repo`).
 - **Harness hosting is one launcher, `rig harness` (`riglib/harness_*.py`); per-harness knowledge
   lives in ONE registry, `riglib/harness_kinds.py`.** Never add a second launcher/supervisor for
   one harness. The supervisor (`harness_host.py`) runs INSIDE the abduco session and is the ONLY

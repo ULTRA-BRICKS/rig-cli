@@ -2064,6 +2064,42 @@ def _strip_managed_block(conf_text: str) -> str:
     return "".join(out)
 
 
+def _is_rig_source_line(line: str) -> bool:
+    """True for a ``source-file [-q] <path>/rig.tmux.conf`` line — rig's import line, current or
+    stale (any generated_dir). A comment or a line that merely mentions the name is not one."""
+    s = line.strip()
+    if not s or s.startswith("#"):
+        return False
+    try:
+        tokens = shlex.split(s, comments=True)
+    except ValueError:
+        return False
+    return len(tokens) >= 2 and tokens[0] in ("source-file", "source") and Path(tokens[-1]).name == RIG_CONF_NAME
+
+
+def split_user_and_managed(conf_text: str) -> tuple[str, str]:
+    """Split ``~/.tmux.conf`` into ``(user_region, managed_lines)``.
+
+    ``managed_lines`` is everything rig GENERATES and re-splices on every apply — the sentinel-fenced
+    block (block mode) and the ``source-file …/rig.tmux.conf`` import line (import mode), both of
+    which carry machine-specific absolute paths. ``user_region`` is the rest, the part that is the
+    user's own and can travel to another machine (``rig profile``). Joining the two back in the
+    order ``user + managed`` is what rig itself keeps (the import line must be the LAST line).
+    """
+    user, managed, in_block = [], [], False
+    for line in conf_text.splitlines(keepends=True):
+        s = line.strip()
+        if s == BLOCK_BEGIN:
+            in_block = True
+        if in_block or _is_rig_source_line(line):
+            managed.append(line if line.endswith("\n") else line + "\n")
+        else:
+            user.append(line)
+        if s == BLOCK_END:
+            in_block = False
+    return "".join(user), "".join(managed)
+
+
 def has_inline_rig_settings(conf_text: str) -> bool:
     """True iff migrating ``conf_text`` would actually NEUTRALIZE a live user line — i.e. the
     user's own region still carries a rig-owned plugin/continuum/resurrect init or the Moshi

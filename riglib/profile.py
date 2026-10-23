@@ -1,35 +1,48 @@
-"""``rig profile`` — carry the GLOBAL config (``~/.config/rig/config.yaml``) between machines.
+"""``rig profile`` — carry the GLOBAL config and a declared set of portable files between machines.
 
 What it is
 ----------
-A private git repo (conventionally ``<forge>/<login>/.rig-profile``) holding exactly one file,
-``config.yaml`` — a copy of this machine's global rig config. ``rig profile init [URL]`` clones it
-into a rig-owned checkout (or seeds an empty remote with the local file); ``rig profile sync``
-moves changes BOTH ways; ``rig profile status`` says which side changed, without writing.
-``profile.auto_sync: true`` makes ``rig apply commit`` sync first (non-fatal).
+A private git repo (conventionally ``<forge>/<login>/.rig-profile``) holding a copy of this
+machine's global rig config and an ALLOW-LIST of other files (:data:`riglib.profile_files.FILES`):
+
+    ``config.yaml``            ← ``~/.config/rig/config.yaml``        (``env.vars`` withheld)
+    ``files/tmux.conf``        ← ``~/.tmux.conf``                     (the user region; rig's own block/import line stays)
+    ``files/omp/config.yml``   ← ``<omp agent dir>/config.yml``
+    ``files/omp/mcp.json``     ← ``<omp agent dir>/mcp.json``         (secrets MASKED)
+    ``files/sysmon.json``      ← ``~/.config/rig/sysmon/sysmon.json``
+    ``machine/<host>.yaml``    this machine's own values (the machine overlay)
+
+``rig profile init [URL]`` clones the repo into a rig-owned checkout (or seeds an empty remote with
+what this machine has); ``rig profile sync`` moves changes BOTH ways, file by file; ``rig profile
+status`` says which side of which file changed, without writing. ``profile.auto_sync: true`` makes
+``rig apply commit`` sync first (non-fatal). ``profile.files.<id>: false`` stops syncing one file.
 
 Layout (derived from :func:`riglib.config.global_config_path`, so ``$XDG_CONFIG_HOME`` is honored)::
 
-    ~/.config/rig/config.yaml          the live global config (the "local" side)
-    ~/.config/rig/profile/repo/        rig-owned git checkout; repo/config.yaml is the "remote" side
-    ~/.config/rig/profile/state.json   last-synced snapshot hash — BESIDE the checkout, never in it
+    ~/.config/rig/config.yaml          the live global config (the "local" side of ``config``)
+    ~/.config/rig/profile/repo/        rig-owned git checkout; the "remote" side of every file
+    ~/.config/rig/profile/state.json   last-synced snapshot hashes — BESIDE the checkout, never in it
 
-The three-way compare
----------------------
-``L`` = local file, ``R`` = ``config.yaml`` at the checkout's HEAD after a fast-forward to the
-remote (read from git, not the working tree), ``S`` = the hash recorded at the last successful
-sync. Hashes are over LF-normalized bytes (Windows ``core.autocrlf`` must not read as a change).
+The three-way compare (per file)
+--------------------------------
+``L`` = the local file in its portable form, ``R`` = the repo's copy at the remote branch (read from
+git, not the working tree), ``S`` = the hash recorded at the last successful sync of THAT file.
+Hashes are over LF-normalized bytes (Windows ``core.autocrlf`` must not read as a change) and leave
+out machine values (:mod:`riglib.profile_files`), so a machine with another ``agent_tools_source``
+never reads as changed.
 
 - ``L == R``                 → in sync (the snapshot is refreshed).
 - ``R`` missing              → push (seed the repo with the local file).
 - ``L`` missing              → pull (adopt the remote file; a deletion is never propagated).
 - ``R == S``, ``L != S``     → only local changed → copy into the repo, commit, push.
 - ``L == S``, ``R != S``     → only remote changed → back up the local file
-  (``config.yaml.rig-bak-<stamp>``, :func:`riglib.actions.fsutil.write_file`) and copy the repo's.
-- anything else (both changed, or no snapshot yet) → CONFLICT: nothing is written; the user picks
-  ``--take local`` / ``--take remote``. There is no silent merge.
+  (``<name>.rig-bak-<stamp>``, :func:`riglib.actions.fsutil.write_file`) and adopt the repo's —
+  keeping what only this machine has (env.vars, its own machine values, rig's tmux block).
+- anything else (both changed, or no snapshot yet) → CONFLICT for THAT file: it is not written; the
+  others still move. The user picks ``--take local`` / ``--take remote`` (``--only <id>`` narrows
+  it). There is no silent merge.
 
-Every file that crosses the boundary is validated with :func:`riglib.config.validate` first — a
+Every config that crosses the boundary is validated with :func:`riglib.config.validate` first — a
 broken or too-new config is never pushed nor adopted.
 
 Invariant: after any sync — success or failure — the checkout's HEAD equals the remote branch (a
@@ -37,25 +50,24 @@ failed push rolls the local commit back), so there are never unpushed commits to
 
 Security
 --------
-``env.vars`` (see ``rig env``) can hold API keys, and this file travels in plaintext. Every push
-of a config carrying ``env.vars`` warns (loudly the first time). A push is REFUSED when the forge
-reports the repo as public to an anonymous API request (:func:`repo_visibility`), and a config with
-``env.vars`` is pushed to a forge URL ONLY when that request proves the repo private (GitHub, or a
-Forgejo/Gitea host) — an unknown forge or an unreachable API refuses instead of guessing. The repo
-MUST be private. Commits use the machine's git identity (the ``git:`` area provisions it); if
+Secrets never travel (:data:`riglib.profile_files.NEVER_SYNCED`): ``env.vars`` is withheld from the
+pushed config and kept locally on a pull; ``mcp.json`` is pushed with secret-looking values masked;
+tokens, the credential database and remote-host state are not on the allow-list at all. On top of
+that every byte about to be pushed is scanned for secret patterns and the push is REFUSED on a hit
+(the message names file, line and rule, never the value). A push is also REFUSED when the forge
+reports the repo as public to an anonymous API request (:func:`repo_visibility`); the repo should
+be private regardless. Commits use the machine's git identity (the ``git:`` area provisions it); if
 there is none, the push fails naming ``git.config.user.name/email``. The checkout is rig's own
-clone of a one-file config repo with no PR flow, so two agent-tools global hooks are switched off
-in THIS checkout only, through the dispatcher's trusted per-repo opt-out (repo-local
-``hooks.skipGlobal`` — :func:`_prepare_checkout`): ``protect-main`` (no PR to open) and
-``secret-scan`` (the privacy rule above guards the secrets this repo exists to carry). Every
-other global hook still runs.
+clone of a config repo with no PR flow, so two agent-tools global hooks are switched off in THIS
+checkout only, through the dispatcher's trusted per-repo opt-out (repo-local ``hooks.skipGlobal`` —
+:func:`_prepare_checkout`): ``protect-main`` (no PR to open) and ``secret-scan`` (replaced by the
+payload scan above). Every other global hook still runs.
 
 Stdlib-only at import time; ``yaml`` is imported lazily through :mod:`riglib.config`.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -65,6 +77,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+
+from . import profile_files as pfiles
 
 PROFILE_FILE = "config.yaml"
 REPO_NAME = ".rig-profile"
@@ -130,11 +144,7 @@ def local_config_path() -> Path:
     return global_config_path()
 
 
-def digest(data: bytes | None) -> str | None:
-    """sha256 over LF-normalized bytes (a CRLF checkout must not read as a change); None = absent."""
-    if data is None:
-        return None
-    return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+digest = pfiles.digest
 
 
 def read_state() -> dict[str, Any]:
@@ -203,8 +213,8 @@ def _git_ok(args: list[str], **kw: Any) -> str:
 # Global git-hook fragments (agent-tools dispatcher ids) that don't apply to the profile checkout:
 # ``protect-main`` blocks direct pushes to main to force a PR, and a one-file config repo that rig
 # syncs has no PR to open. ``secret-scan`` would refuse the very thing this repo exists to carry —
-# ``env.vars`` API keys — so it is replaced here by :func:`_push_local`'s own rule: a config with
-# ``env.vars`` only ever goes to a repo the forge confirms is private.
+# ``env.vars`` API keys — and a config never carries those any more (:mod:`riglib.profile_files`
+# withholds them), so the push-time secret scan plus the forge privacy check replace it here.
 _SKIP_GLOBAL_HOOKS = ("protect-main", "secret-scan")
 
 
@@ -249,22 +259,28 @@ def _upstream_ref(repo: Path, branch: str) -> str | None:
     return ref if _git(["rev-parse", "--verify", "-q", ref], cwd=repo).returncode == 0 else None
 
 
-def _remote_file(repo: Path, branch: str) -> bytes | None:
-    """The REMOTE side: ``config.yaml`` on ``origin/<branch>``; None when the remote has no branch.
+def _remote_blob(repo: Path, branch: str, repo_path: str) -> bytes | None:
+    """The REMOTE side of one file: ``repo_path`` on ``origin/<branch>``; None when the remote has no
+    such branch or file.
 
     Never HEAD: a local commit with no upstream (a first push that failed half-way, a deleted
     remote branch) is exactly content the remote does NOT have — reading it as the remote side
     would turn "never pushed" into a silent "in sync".
     """
     upstream = _upstream_ref(repo, branch)
-    return _file_at(repo, upstream) if upstream else None
+    return _file_at(repo, upstream, repo_path) if upstream else None
 
 
-def _file_at(repo: Path, rev: str) -> bytes | None:
-    """``config.yaml`` as stored at ``rev`` (raw blob bytes), or None when absent / no such rev."""
+def _remote_file(repo: Path, branch: str) -> bytes | None:
+    """The remote ``config.yaml`` (see :func:`_remote_blob`)."""
+    return _remote_blob(repo, branch, PROFILE_FILE)
+
+
+def _file_at(repo: Path, rev: str, repo_path: str = PROFILE_FILE) -> bytes | None:
+    """``repo_path`` as stored at ``rev`` (raw blob bytes), or None when absent / no such rev."""
     try:
         res = subprocess.run(
-            ["git", "-C", str(repo), "show", f"{rev}:{PROFILE_FILE}"],
+            ["git", "-C", str(repo), "show", f"{rev}:{repo_path}"],
             capture_output=True, timeout=_LOCAL_TIMEOUT,
         )
     except (OSError, subprocess.SubprocessError):
@@ -335,10 +351,6 @@ def _validated(data: bytes, what: str) -> dict[str, Any]:
     return doc
 
 
-def env_var_names(doc: dict[str, Any]) -> list[str]:
-    env = doc.get("env")
-    names = env.get("vars") if isinstance(env, dict) else None
-    return sorted(str(k) for k in names) if isinstance(names, dict) else []
 
 
 # ── forge probes (both are seams tests monkeypatch) ──────────────────────────────────────────
@@ -492,27 +504,122 @@ def _identity_args(repo: Path, doc: dict[str, Any]) -> list[str]:
     return args
 
 
+
+
 # ── the two directions ───────────────────────────────────────────────────────────────────────
 Notify = Callable[[str, str], None]
 
 
-def _warn_env_vars(doc: dict[str, Any], url: str, first_push: bool, notify: Notify) -> None:
-    names = env_var_names(doc)
-    if not names:
+def _payload_error(exc: pfiles.PayloadError) -> ProfileError:
+    return ProfileError(exc.what, fix=exc.fix or "", code=EXIT_USAGE)
+
+
+def _snapshot(state: dict[str, Any], file_id: str) -> str | None:
+    """The digest recorded at the last successful sync of one file (config keeps the legacy key)."""
+    if file_id == "config":
+        return state.get("synced_sha256")
+    entry = (state.get("files") or {}).get(file_id)
+    return entry.get("synced_sha256") if isinstance(entry, dict) else None
+
+
+def _set_snapshot(state: dict[str, Any], file_id: str, value: str | None) -> None:
+    if file_id == "config":
+        state["synced_sha256"] = value
         return
-    if first_push:
-        notify("warn", f"WARNING: this config carries env.vars ({', '.join(names)}) — often API keys.")
-        notify("warn", f"  Their values are about to be pushed in PLAINTEXT to {url}.")
-        notify("warn", "  The profile repo MUST be private. Move secrets out of env.vars if it is not.")
+    files = state.setdefault("files", {})
+    files[file_id] = {"synced_sha256": value}
+
+
+def _enabled_specs(only: tuple[str, ...] | None = None) -> list[pfiles.FileSpec]:
+    """``config`` always, plus every other allow-listed file unless ``profile.files.<id>: false``."""
+    try:
+        block = _read_local_doc().get("profile")
+    except ProfileError:
+        block = None
+    toggles = block.get("files") if isinstance(block, dict) and isinstance(block.get("files"), dict) else {}
+    return [
+        spec for spec in pfiles.FILES
+        if (only is None or spec.id in only) and (spec.id == "config" or toggles.get(spec.id) is not False)
+    ]
+
+
+@dataclass
+class _Item:
+    """One allow-listed file's two sides and the decision between them."""
+
+    spec: pfiles.FileSpec
+    local_raw: bytes | None
+    prepared: pfiles.Prepared | None
+    remote: bytes | None
+    d_local: str | None
+    d_remote: str | None
+    snapshot: str | None
+    decision: str = "in_sync"  # in_sync | push | pull | conflict
+
+
+def _decide_item(spec: pfiles.FileSpec, repo: Path, branch: str, state: dict[str, Any], take: str | None) -> _Item:
+    path = spec.local()
+    local_raw = _read_bytes(path)
+    try:
+        prepared = pfiles.prepare(spec, local_raw) if local_raw is not None else None
+        remote = _remote_blob(repo, branch, spec.repo_path)
+        d_local = pfiles.view_digest(spec, prepared.data) if prepared else None
+        d_remote = pfiles.view_digest(spec, remote)
+    except pfiles.PayloadError as exc:
+        raise _payload_error(exc) from exc
+    snapshot = _snapshot(state, spec.id)
+    required = spec.id == "config"
+    if take == TAKE_LOCAL:
+        if local_raw is None and required:
+            raise ProfileError(f"--take local: {path} does not exist", code=EXIT_USAGE)
+        decision = "in_sync" if local_raw is None or d_local == d_remote else "push"
+    elif take == TAKE_REMOTE:
+        if remote is None and required:
+            raise ProfileError(f"--take remote: the profile repo has no {spec.repo_path}", code=EXIT_USAGE)
+        decision = "in_sync" if remote is None or d_local == d_remote else "pull"
     else:
-        notify("warn", f"note: pushing env.vars ({', '.join(names)}) to the profile repo")
+        decision = classify(d_local, d_remote, snapshot)
+    return _Item(spec, local_raw, prepared, remote, d_local, d_remote, snapshot, decision)
 
 
-def _push_local(
-    repo: Path, branch: str, url: str, local: bytes, state: dict[str, Any], *,
-    noninteractive: bool, notify: Notify,
-) -> Outcome:
-    doc = _validated(local, f"local config {local_config_path()}")
+def _collect(repo: Path, branch: str, state: dict[str, Any], take: str | None,
+             only: tuple[str, ...] | None = None) -> list[_Item]:
+    return [_decide_item(spec, repo, branch, state, take) for spec in _enabled_specs(only)]
+
+
+def _machine_values(items: list[_Item]) -> dict[str, list[pfiles.MachineValue]]:
+    return {it.spec.id: it.prepared.machine for it in items if it.prepared is not None}
+
+
+def _scan_or_refuse(payload: list[tuple[str, bytes]]) -> None:
+    findings: list[pfiles.Finding] = []
+    for name, data in payload:
+        findings.extend(pfiles.scan_secrets(name, data.decode("utf-8", errors="replace")))
+    if findings:
+        shown = "; ".join(f"{f.file} line {f.line} ({f.rule})" for f in findings[:6])
+        raise ProfileError(
+            f"refusing to push: {len(findings)} secret-looking value(s) in the profile payload — {shown}",
+            fix="remove the secret from that file (keep it in the environment / GNOME Keyring), or stop "
+            "syncing the file with `profile.files.<id>: false` in ~/.config/rig/config.yaml; nothing "
+            "was pushed and the local files are untouched",
+        )
+
+
+def _push_items(
+    repo: Path, branch: str, url: str, items: list[_Item], record: bytes | None, machine: str,
+    state: dict[str, Any], *, noninteractive: bool, notify: Notify,
+) -> str:
+    """Commit + push every item in ``items`` (and the machine overlay) as ONE commit. Returns the detail."""
+    payload: list[tuple[str, bytes]] = []
+    for it in items:
+        assert it.prepared is not None
+        if it.spec.id == "config":
+            _validated(it.prepared.data, f"local config {local_config_path()}")
+        payload.append((it.spec.repo_path, it.prepared.data))
+        for level, text in it.prepared.notes:
+            notify(level, text)
+    if record is not None:
+        payload.append((pfiles.record_repo_path(machine), record))
     visibility = repo_visibility(url)
     if visibility == "public":
         raise ProfileError(
@@ -520,77 +627,90 @@ def _push_local(
             fix="make the repo private on the forge (it holds your whole global config), then retry",
         )
     if visibility is None and _parse_forge_url(url) is not None:
-        secrets = env_var_names(doc)
-        if secrets:
-            # Fail closed: env.vars are pushed in plaintext, and nothing proved this repo private.
-            raise ProfileError(
-                f"refusing to push env.vars ({', '.join(secrets)}) to {url}: could not verify the repo "
-                "is private (rig checks through the GitHub or Forgejo API; this forge is unknown or "
-                "did not answer)",
-                fix="use a private repo on GitHub or a Forgejo host, retry when the forge is reachable, "
-                "or move the secrets out of env.vars",
-            )
         notify("info", "note: could not verify the repo is private (forge API unreachable or unknown) — make sure it is")
-    _warn_env_vars(doc, url, first_push=not state.get("pushed"), notify=notify)
-    identity = _identity_args(repo, doc)
+    _scan_or_refuse(payload)
+    identity = _identity_args(repo, _read_local_doc())
 
-    normalized = local.replace(b"\r\n", b"\n")
     _prepare_checkout(repo)  # before the commit: its pre-commit hooks read hooks.skipGlobal too
     before = _git(["rev-parse", "--verify", "-q", "HEAD"], cwd=repo).stdout.strip() or None
-    (repo / PROFILE_FILE).write_bytes(normalized)
-    _git_ok(["add", "--", PROFILE_FILE], cwd=repo)
+    for rel, data in payload:
+        target = repo / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data.replace(b"\r\n", b"\n"))
+    _git_ok(["add", "--", *(rel for rel, _data in payload)], cwd=repo)
     # nothing staged = HEAD already holds this content but the remote does not (a stray local
     # commit, or a remote branch deleted under us): no new commit — just push what HEAD has.
     if _git(["diff", "--cached", "--quiet"], cwd=repo).returncode != 0:
         host = socket.gethostname() or "unknown host"
-        commit = _git(identity + ["commit", "--quiet", "-m", f"rig profile: {PROFILE_FILE} from {host}"], cwd=repo)
+        names = ", ".join(rel for rel, _data in payload) if len(payload) > 1 or payload[0][0] != PROFILE_FILE else PROFILE_FILE
+        commit = _git(identity + ["commit", "--quiet", "-m", f"rig profile: {names} from {host}"], cwd=repo)
         if commit.returncode != 0:
-            _rollback(repo, before)
+            _rollback(repo, before, [rel for rel, _data in payload])
             tail = (commit.stderr or commit.stdout).strip()
             raise ProfileError(f"the profile commit failed (a pre-commit hook?): {tail[-400:]}")
     push = _git(["push", "--quiet", "-u", "origin", f"HEAD:refs/heads/{branch}"], cwd=repo,
                 timeout=_NETWORK_TIMEOUT, noninteractive=noninteractive)
     if push.returncode != 0:
-        _rollback(repo, before)
+        _rollback(repo, before, [rel for rel, _data in payload])
         tail = (push.stderr or "").strip().splitlines()
         raise ProfileError(
             f"push to {url} failed: {tail[-1] if tail else f'exit {push.returncode}'}",
-            fix="nothing was lost (the local file is untouched); fix access/network and re-run `rig profile sync`",
+            fix="nothing was lost (the local files are untouched); fix access/network and re-run `rig profile sync`",
         )
-    state.update({"repo": url, "branch": branch, "synced_sha256": digest(local), "synced_at": _now(), "pushed": True})
+    for it in items:
+        _set_snapshot(state, it.spec.id, it.d_local)
+    state.update({"repo": url, "branch": branch, "synced_at": _now(), "pushed": True})
     write_state(state)
-    return Outcome("pushed", f"pushed {local_config_path()} → {url} ({branch})")
+    if len(items) == 1 and items[0].spec.id == "config":
+        return f"pushed {local_config_path()} → {url} ({branch})"
+    return f"pushed {', '.join(it.spec.id for it in items) or 'machine record'} → {url} ({branch})"
 
 
-def _rollback(repo: Path, before: str | None) -> None:
+def _rollback(repo: Path, before: str | None, paths: list[str]) -> None:
     """Undo a local profile commit so HEAD equals the remote again (the no-unpushed invariant)."""
     if before is not None:
         _git(["reset", "--quiet", "--hard", before], cwd=repo)
         return
     _git(["update-ref", "-d", "HEAD"], cwd=repo)
-    _git(["rm", "--quiet", "--cached", "--ignore-unmatch", "--", PROFILE_FILE], cwd=repo)
-    try:
-        (repo / PROFILE_FILE).unlink()
-    except OSError:
-        pass
+    _git(["rm", "--quiet", "--cached", "--ignore-unmatch", "--", *paths], cwd=repo)
+    for rel in paths:
+        try:
+            (repo / rel).unlink()
+        except OSError:
+            pass
 
 
-def _pull_remote(remote: bytes, state: dict[str, Any], url: str, branch: str) -> Outcome:
+def _pull_item(it: _Item, record: list[pfiles.MachineValue], state: dict[str, Any], url: str,
+               notify: Notify) -> tuple[str, Path | None]:
+    """Adopt the remote side of one file; returns ``(detail, backup)``."""
+    import stat
+
     from .actions import fsutil
 
-    _validated(remote, f"remote profile config ({url})")
-    target = local_config_path()
-    text = remote.replace(b"\r\n", b"\n").decode("utf-8")
+    assert it.remote is not None
+    spec = it.spec
+    if spec.id == "config":
+        _validated(it.remote, f"remote profile config ({url})")
     try:
-        out = fsutil.write_file(target, text, "backup")
+        adopted = pfiles.adopt(spec, it.remote, it.local_raw, record)
+    except pfiles.PayloadError as exc:
+        raise _payload_error(exc) from exc
+    if spec.id == "config":
+        _validated(adopted.data, f"the adopted config for {spec.local()}")
+    target = spec.local()
+    try:
+        out = fsutil.write_file(target, adopted.data.decode("utf-8"), "backup")
+        if out.backup is not None:  # the replacement file inherits the old one's permissions (mcp.json is 0600)
+            os.chmod(target, stat.S_IMODE(out.backup.stat().st_mode))
     except OSError as exc:
         raise ProfileError(f"cannot write {target}: {exc}") from exc
-    state.update({"repo": url, "branch": branch, "synced_sha256": digest(remote), "synced_at": _now()})
-    write_state(state)
+    for level, text in adopted.notes:
+        notify(level, text)
+    _set_snapshot(state, spec.id, it.d_remote)
     detail = f"pulled {url} → {target}"
     if out.backup is not None:
         detail += f" (previous file backed up → {out.backup})"
-    return Outcome("pulled", detail, backup=out.backup)
+    return detail, out.backup
 
 
 def classify(local: str | None, remote: str | None, snapshot: str | None) -> str:
@@ -608,23 +728,31 @@ def classify(local: str | None, remote: str | None, snapshot: str | None) -> str
     return "conflict"
 
 
-def _conflict(repo: Path, snapshot: str | None) -> Outcome:
+def _conflict_outcome(repo: Path, conflicts: list[_Item]) -> Outcome:
+    snapshot = conflicts[0].snapshot
     why = "both changed since the last sync" if snapshot else "they differ and there is no sync record yet"
-    return Outcome(
-        "conflict",
-        f"the local config and the profile repo {why} — nothing was written",
-        code=EXIT_CONFLICT,
-        messages=[
-            ("info", f"  local:  {local_config_path()}"),
-            ("info", f"  remote: {repo / PROFILE_FILE}"),
-            ("info", "  resolve: merge by hand into the LOCAL file, then `rig profile sync --take local`"),
-            ("info", "           (or keep the remote: `rig profile sync --take remote` — the local file is backed up)"),
-        ],
-    )
+    ids = [it.spec.id for it in conflicts]
+    if ids == ["config"]:
+        detail = f"the local config and the profile repo {why} — nothing was written"
+    else:
+        detail = f"{', '.join(ids)}: the local file and the profile repo {why} — nothing was written for them"
+    messages = []
+    for it in conflicts:
+        messages.append(("info", f"  {it.spec.id}: local {it.spec.local()}  vs  remote {repo / it.spec.repo_path}"))
+    messages += [
+        ("info", "  resolve: merge by hand into the LOCAL file, then `rig profile sync --take local`"),
+        ("info", "           (or keep the remote: `rig profile sync --take remote` — the local file is backed up)"),
+    ]
+    return Outcome("conflict", detail, code=EXIT_CONFLICT, messages=messages)
 
 
-def sync(*, take: str | None = None, noninteractive: bool = False, notify: Notify | None = None) -> Outcome:
-    """One two-way sync. Raises :class:`ProfileError`; a conflict is an Outcome (code 3), not a raise."""
+def sync(
+    *, take: str | None = None, noninteractive: bool = False, notify: Notify | None = None,
+    only: tuple[str, ...] | None = None,
+) -> Outcome:
+    """One two-way sync of every allow-listed file. Raises :class:`ProfileError`; a conflict is an
+    Outcome (code 3), not a raise. Files that do not conflict still move; a conflicting one is left
+    untouched and named. ``only`` limits the run to those file ids."""
     say: Notify = notify or (lambda _level, _text: None)
     repo = checkout_dir()
     if not is_checkout(repo):
@@ -639,51 +767,80 @@ def sync(*, take: str | None = None, noninteractive: bool = False, notify: Notif
     branch = current_branch(repo)
     _converge_to_remote(repo, branch, force=take is not None)
 
-    local = _read_bytes(local_config_path())
-    remote = _remote_file(repo, branch)
-    d_local, d_remote = digest(local), digest(remote)
-    snapshot = state.get("synced_sha256")
+    items = _collect(repo, branch, state, take, only)
+    machine = pfiles.machine_name()
+    conflicts = [it for it in items if it.decision == "conflict"]
+    pulls = [it for it in items if it.decision == "pull"]
+    pushes = [it for it in items if it.decision == "push"]
+    record_remote = pfiles.parse_record(_remote_blob(repo, branch, pfiles.record_repo_path(machine)))
+    # a run limited with --only sees only some files: its machine values are not the whole record
+    record_local = pfiles.record_data(machine, _machine_values(items)) if only is None else None
+    record_dirty = record_local is not None and pfiles.parse_record(record_local) != record_remote
 
-    if take == TAKE_LOCAL:
-        if local is None:
-            raise ProfileError(f"--take local: {local_config_path()} does not exist", code=EXIT_USAGE)
-        decision = "in_sync" if d_local == d_remote else "push"
-    elif take == TAKE_REMOTE:
-        if remote is None:
-            raise ProfileError(f"--take remote: the profile repo has no {PROFILE_FILE}", code=EXIT_USAGE)
-        decision = "in_sync" if d_local == d_remote else "pull"
-    else:
-        decision = classify(d_local, d_remote, snapshot)
-
-    if decision == "in_sync":
-        if local is None:
-            return Outcome("nothing", "no config on either side — nothing to sync")
-        if snapshot != d_local or state.get("branch") != branch:
-            state.update({"synced_sha256": d_local, "synced_at": _now(), "branch": branch})
+    details: list[str] = []
+    messages: list[tuple[str, str]] = []
+    backup: Path | None = None
+    for it in pulls:
+        detail, bak = _pull_item(it, record_remote.get(it.spec.id, []), state, url, lambda lvl, txt: messages.append((lvl, txt)))
+        details.append(detail)
+        backup = backup or bak
+        if bak is not None and it.spec.id != "config":
+            messages.append(("info", f"  {it.spec.id}: previous file backed up → {bak}"))
+    if pulls:
+        state.update({"repo": url, "branch": branch, "synced_at": _now()})
+        write_state(state)
+    if pushes or (record_dirty and not conflicts and take != TAKE_REMOTE):
+        details.append(_push_items(
+            repo, branch, url, pushes, record_local if record_dirty else None, machine, state,
+            noninteractive=noninteractive, notify=say,
+        ))
+    for it in (i for i in items if i.decision == "in_sync" and i.d_local is not None):
+        if it.snapshot != it.d_local or state.get("branch") != branch:
+            _set_snapshot(state, it.spec.id, it.d_local)
+            state.update({"synced_at": _now(), "branch": branch})
             write_state(state)
-        return Outcome("in_sync", f"in sync with {url}")
-    if decision == "conflict":
-        return _conflict(repo, snapshot)
-    if decision == "push":
-        assert local is not None
-        return _push_local(repo, branch, url, local, state, noninteractive=noninteractive, notify=say)
-    assert remote is not None
-    return _pull_remote(remote, state, url, branch)
+
+    for level, text in messages:
+        say(level, text)
+    if conflicts:
+        out = _conflict_outcome(repo, conflicts)
+        out.messages = [("info", d) for d in details] + out.messages
+        return out
+    if pushes and pulls:
+        return Outcome("synced", "; ".join(details), backup=backup)
+    if pulls:
+        return Outcome("pulled", "; ".join(details), backup=backup)
+    if pushes or details:
+        return Outcome("pushed", "; ".join(details))
+    config = next((it for it in items if it.spec.id == "config"), None)
+    if config is not None and config.local_raw is None and config.remote is None:
+        return Outcome("nothing", "no config on either side — nothing to sync")
+    return Outcome("in_sync", f"in sync with {url}")
 
 
 # ── status (read-only) ───────────────────────────────────────────────────────────────────────
 @dataclass
-class Status:
-    url: str
-    checkout: Path
+class FileStatus:
+    id: str
+    path: Path
     local: str  # unchanged | changed | missing
     remote: str  # unchanged | changed | missing
     verdict: str  # in_sync | push | pull | conflict
+
+
+@dataclass
+class Status:
+    url: str
+    checkout: Path
+    local: str  # config.yaml — unchanged | changed | missing
+    remote: str  # config.yaml — unchanged | changed | missing
+    verdict: str  # in_sync | push | pull | both | conflict (worst over every file)
     synced_at: str | None
+    files: list[FileStatus] = field(default_factory=list)
 
 
 def status(*, fetch: bool = False) -> Status:
-    """Which side changed since the last sync. Writes nothing (``fetch`` only updates rig's refs)."""
+    """Which side changed since the last sync, per file. Writes nothing (``fetch`` only updates rig's refs)."""
     repo = checkout_dir()
     if not is_checkout(repo):
         raise ProfileError(
@@ -693,18 +850,30 @@ def status(*, fetch: bool = False) -> Status:
     if fetch:
         _fetch(repo, noninteractive=True)
     state = read_state()
-    snapshot = state.get("synced_sha256") if state.get("repo") == url else None
-    remote = _remote_file(repo, current_branch(repo))
-    local = _read_bytes(local_config_path())
-    d_local, d_remote = digest(local), digest(remote)
+    if state.get("repo") != url:
+        state = {"repo": url}
+    items = _collect(repo, current_branch(repo), state, None)
 
-    def _side(d: str | None) -> str:
+    def _side(d: str | None, snapshot: str | None) -> str:
         if d is None:
             return "missing"
         return "unchanged" if d == snapshot else "changed"
 
-    return Status(url, repo, _side(d_local), _side(d_remote), classify(d_local, d_remote, snapshot),
-                  state.get("synced_at"))
+    files = [
+        FileStatus(it.spec.id, it.spec.local(), _side(it.d_local, it.snapshot), _side(it.d_remote, it.snapshot),
+                   it.decision)
+        for it in items
+    ]
+    decisions = {it.decision for it in items}
+    if "conflict" in decisions:
+        verdict = "conflict"
+    elif {"push", "pull"} <= decisions:
+        verdict = "both"
+    else:
+        verdict = "push" if "push" in decisions else "pull" if "pull" in decisions else "in_sync"
+    config = files[0]
+    return Status(url, repo, config.local, config.remote, verdict, state.get("synced_at"), files)
+
 
 
 # ── init ───────────────────────────────────────────────────────────────────────────────────────
@@ -820,39 +989,66 @@ def init(
     local = _read_bytes(local_config_path())
 
     if remote is None:
-        # empty remote (or no config.yaml yet): seed it with this machine's config
+        # empty remote (or no config.yaml yet): seed it with this machine's config and files
         record_profile_block(url, auto_sync, say)
         return sync(take=TAKE_LOCAL, notify=say)
     if local is None:
-        adopted = sync(take=TAKE_REMOTE, notify=say)
-        if record_profile_block(url, auto_sync, say):
-            pushed = sync(notify=say)
-            adopted.messages.append(("info", pushed.detail))
-        return adopted
-    if digest(local) == digest(remote):
+        # a new machine: adopt the remote config first, then let the ordinary three-way compare move
+        # every other file (a file this machine already has is a conflict, never silently replaced)
+        adopted = sync(take=TAKE_REMOTE, only=("config",), notify=say)
+        record_profile_block(url, auto_sync, say)
+        return _combine(adopted, sync(notify=say))
+    config = pfiles.spec_by_id("config")
+    try:
+        same = pfiles.view_digest(config, pfiles.prepare(config, local).data) == pfiles.view_digest(config, remote)
+    except pfiles.PayloadError as exc:
+        raise _payload_error(exc) from exc
+    if same:
         state = read_state()
-        state.update({"repo": url, "branch": current_branch(repo), "synced_sha256": digest(local),
-                      "synced_at": _now()})
+        state.update({"repo": url, "branch": current_branch(repo), "synced_sha256": pfiles.view_digest(
+            config, pfiles.prepare(config, local).data), "synced_at": _now()})
         write_state(state)
-        if record_profile_block(url, auto_sync, say):
-            return sync(notify=say)
-        return Outcome("in_sync", f"in sync with {url}")
-    # both sides exist and differ: do not guess, do not touch the local file
+        record_profile_block(url, auto_sync, say)
+    # both sides exist: sync moves what is safe and names what differs — never touching a conflicting file
     return sync(notify=say)
 
 
+def _combine(first: Outcome, second: Outcome) -> Outcome:
+    """``first`` followed by ``second``: the worse exit code wins, and what ``second`` did is appended."""
+    if second.result in ("in_sync", "nothing"):
+        return first
+    first.messages.append(("info", second.detail))
+    first.messages.extend(second.messages)
+    first.code = max(first.code, second.code)
+    if second.result == "conflict":
+        first.result = "conflict"
+        first.detail = f"{first.detail}; {second.detail}"
+    return first
+
+
 # ── auto_sync (called by `rig apply commit`) ─────────────────────────────────────────────────
-def auto_sync_enabled() -> bool:
-    """True when the global config names a profile repo and does not opt out with
-    ``auto_sync: false`` — a machine that has a profile keeps it in sync by default."""
+def _profile_block() -> dict[str, Any]:
+    """The ``profile:`` block of the global config; ``{}`` when the file/block is absent or unreadable."""
     from .config import ConfigError, read_yaml_file
 
     path = local_config_path()
     if not path.is_file():
-        return False
+        return {}
     try:
         doc = read_yaml_file(path)
     except ConfigError:
-        return False
+        return {}
     block = doc.get("profile")
-    return isinstance(block, dict) and bool(block.get("repo")) and block.get("auto_sync", True) is not False
+    return block if isinstance(block, dict) else {}
+
+
+def configured() -> bool:
+    """True when the global config names a profile repo (``profile.repo``)."""
+    return bool(_profile_block().get("repo"))
+
+
+def auto_sync_enabled() -> bool:
+    """True when the global config names a profile repo and does not opt out with
+    ``auto_sync: false`` — a machine that has a profile keeps it in sync by default."""
+    block = _profile_block()
+    return bool(block.get("repo")) and block.get("auto_sync", True) is not False

@@ -5392,3 +5392,42 @@ def test_self_merge_leaves_malformed_permissions_deny_untouched(fake_agent_tools
     perms = json.loads(_user_settings().read_text(encoding="utf-8"))["permissions"]
     assert perms["deny"] == "oops"
     assert perms["allow"] == ["Bash(docker:*)"]
+
+
+def test_omp_hooks_dir_is_written_and_drifts_when_a_repo_pins_another_primary_kind(
+    fake_agent_tools, tmp_path, monkeypatch
+):
+    """rig-cli#743 with REAL files: a repo rig.yaml pinning ``harness.kind: claude-code`` over a
+    global ``omp`` primary still gets ``~/.omp/agent/hooks`` written by apply, and a stale
+    descriptor there is reported by status."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("PI_CODING_AGENT_DIR", raising=False)
+    monkeypatch.delenv("PI_CONFIG_DIR", raising=False)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = LoadedConfig(
+        data={
+            "agent_tools_source": str(fake_agent_tools),
+            "skills": {"enabled": False},
+            "agent_hooks": {"all": True},
+            "ci": {"enabled": False},
+            "mcp": {"enabled": False},
+            "git_hooks": {"dispatcher": {"enabled": False}},
+            "harness": {"kind": "claude-code", "hook_bridge": {"enabled": False}},
+        },
+        repo_root=repo,
+        global_data={"harness": {"kind": "omp"}},
+    )
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="cli")
+    run_plan(plan)
+    omp_descriptor = home / ".omp" / "agent" / "hooks" / "block-no-verify.pre-bash.json"
+    assert omp_descriptor.is_file()
+    assert not [i for i in detect(plan).items if i.category == "agent_hooks" and i.direction != "extra"]
+
+    spec = json.loads(omp_descriptor.read_text())
+    spec["cmd"] = "/stale/hand/copy"
+    omp_descriptor.write_text(json.dumps(spec), encoding="utf-8")
+    assert any(i.direction == "modified" and i.category == "agent_hooks" for i in detect(plan).items)
+    omp_descriptor.unlink()
+    assert any(i.direction == "missing" and i.category == "agent_hooks" for i in detect(plan).items)

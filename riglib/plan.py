@@ -260,20 +260,67 @@ def _resolve_custom_agent_hooks_target(config: LoadedConfig) -> Path:
     return _resolve_target(config, "agent_hooks")
 
 
+def _kinds_in_block(h: dict[str, Any], default_primary: str | None) -> list[str]:
+    """Primary + additive kinds of ONE ``harness`` block, in order, dropping non-strings.
+
+    Reads a block that may not have passed validation (the global layer under a repo override is
+    validated only as part of the merged block), so ``kinds`` is trusted only when it is a list.
+    """
+    extra = h.get("kinds")
+    out: list[str] = []
+    for kind in [h.get("kind") or default_primary, *(extra if isinstance(extra, list) else [])]:
+        if isinstance(kind, str) and kind and kind not in out:
+            out.append(kind)
+    return out
+
+
+def _global_harness_kinds(config: LoadedConfig) -> list[str]:
+    """Primary + additive harness kinds the GLOBAL config declares (``[]`` when it has no harness block).
+
+    A global block that names no ``kind`` still has the default primary (``claude-code``), exactly
+    like the effective config's own resolution.
+
+    The user-scope descriptor dirs (``~/.claude/hooks``, ``~/.omp/agent/hooks`` …) and their hook
+    bridges belong to the harnesses installed on the MACHINE: a repo ``rig.yaml`` pinning another
+    ``harness.kind`` must not make ``apply`` stop maintaining what a machine harness keeps
+    reading (rig-cli#743).
+    """
+    h = config.global_data.get("harness")
+    if not isinstance(h, dict) or not h or h.get("enabled") is False:
+        return []
+    return _kinds_in_block(h, _DEFAULT_HARNESS_KIND)
+
+
+def _kinds_with_global(config: LoadedConfig) -> list[str]:
+    """The effective config's kinds first, then any kind only the global config declares.
+
+    A repo that switches its harness off (``harness.enabled: false``) opts out of all of it, the
+    machine kinds included.
+    """
+    out = list(_configured_harness_kinds(config))
+    effective = config.data.get("harness")
+    if isinstance(effective, dict) and effective.get("enabled") is False:
+        return out
+    out.extend(kind for kind in _global_harness_kinds(config) if kind not in out)
+    return out
+
+
 def _resolve_agent_hooks_targets(config: LoadedConfig) -> list[Path]:
     """Resolve every agent-hook descriptor dir rig should maintain.
 
     ``agent_hooks.target`` (or a non-legacy ``defaults.hooks_target``) is an explicit single
     target and keeps the historical behavior. Otherwise rig installs descriptors into every
-    configured harness kind that has a known descriptor directory, so a Claude-primary machine
-    can also keep Codex hooks live via ``harness.kinds: [codex]``.
+    configured harness kind that has a known descriptor directory — the effective config's kinds
+    first, then any kind only the global config declares — so a Claude-primary machine can also
+    keep Codex hooks live via ``harness.kinds: [codex]``, and an omp machine keeps
+    ``~/.omp/agent/hooks`` current from inside a repo that pins ``harness.kind: claude-code``.
     """
     if _has_custom_hooks_target(config) or _has_custom_hooks_default(config):
         return [_resolve_custom_agent_hooks_target(config)]
 
     out: list[Path] = []
     seen: set[Path] = set()
-    for kind in _configured_harness_kinds(config):
+    for kind in _kinds_with_global(config):
         raw = _agent_hooks_target_for_kind(kind)
         if raw is None:
             continue
@@ -294,7 +341,7 @@ def _additional_hook_targets_enabled(config: LoadedConfig) -> bool:
 
 def _hook_bridge_kinds(config: LoadedConfig) -> list[str]:
     """Harness kinds whose bridge can see installed descriptors."""
-    return _configured_harness_kinds(config)
+    return _kinds_with_global(config)
 
 
 def _same_dir(a: Path, b: Path) -> bool:
@@ -326,14 +373,7 @@ def _configured_harness_kinds(config: LoadedConfig) -> list[str]:
     h = config.data.get("harness")
     if not isinstance(h, dict) or not h:
         return [_DEFAULT_HARNESS_KIND]
-    primary = str(h.get("kind") or _DEFAULT_HARNESS_KIND)
-    out: list[str] = []
-    for kind in [primary, *(h.get("kinds") or [])]:
-        if not isinstance(kind, str):
-            continue
-        if kind not in out:
-            out.append(kind)
-    return out or [_DEFAULT_HARNESS_KIND]
+    return _kinds_in_block(h, _DEFAULT_HARNESS_KIND) or [_DEFAULT_HARNESS_KIND]
 
 
 def _resolve_harness_skill_dir(config: LoadedConfig) -> Path | None:

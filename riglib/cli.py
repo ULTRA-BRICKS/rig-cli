@@ -313,6 +313,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="list every planned action (default: a per-carrier summary for a large plan)",
     )
 
+    acp = sub.add_parser(
+        "activate",
+        help="turn on everything this machine can run (preview by default; `activate commit` executes)",
+        description="One command for a new or reinstalled machine: sync the profile (shared config + "
+        "tmux/omp/sysmon files), probe what this machine supports, switch on the opt-in areas the "
+        "config does not mention yet (harness, tmux, harness wrappers, the first-class ctmux tool), "
+        "then apply the machine-level plan — skills, agent hooks (omp included), git hooks, tmux, "
+        "omp config, harness wrappers, sysmon, tools. PREVIEW-BY-DEFAULT like `rig apply`: a bare "
+        "`rig activate` mutates nothing; `rig activate commit` executes. Idempotent. Areas the "
+        "machine cannot support are listed with the reason and skipped; they never fail the run. "
+        "Existing config keys are never overridden.",
+    )
+    acp.add_argument(
+        "mode", nargs="?", choices=("info", "commit"), default=None,
+        help="info: preview, write nothing (default). commit: sync the profile, write the enable "
+        "switches, apply the plan.",
+    )
+    acp.add_argument("--dry-run", action="store_true", help="force preview even under `commit`")
+    acp.add_argument(
+        "--only", metavar="AREAS",
+        help="comma-separated areas to limit the run to (default: all): "
+        "skills, agent_hooks, git_hooks, harness, tmux, harness_wrappers, sysmon, models, tg_ctl, "
+        "tcc_watch, tgctl_reaper, spotlight, tools, global",
+    )
+    acp.add_argument("--json", action="store_true", help="preview as JSON (areas, config changes); not with commit")
+    acp.add_argument("-v", "--verbose", action="store_true", help="show already-in-sync (no-op) actions")
+    acp.add_argument("--notes", action="store_true", help="expand every informational note")
+    acp.add_argument("--plan", action="store_true", help="list every planned action")
+
     st = sub.add_parser(
         "status",
         help="report drift between config and disk, grouped by layer and managed area",
@@ -452,19 +481,31 @@ def _add_config_parser(sub: "argparse._SubParsersAction") -> None:
     )
 
 
-def _add_profile_parser(sub: "argparse._SubParsersAction") -> None:
-    """`rig profile init|sync|status` — sync the GLOBAL config through a private git repo.
+def profile_file_ids() -> tuple[str, ...]:
+    """The allow-listed file ids (``rig profile sync --only``)."""
+    from .profile_files import file_ids
 
-    The engine (three-way compare, clone/seed, push/pull, visibility + env.vars guards) lives in
-    :mod:`riglib.profile`; this only declares the surface.
+    return file_ids()
+
+
+def _add_profile_parser(sub: "argparse._SubParsersAction") -> None:
+    """`rig profile init|sync|status` — sync the GLOBAL config and portable files through a private git repo.
+
+    The engine (three-way compare per file, clone/seed, push/pull, visibility + secret guards) lives
+    in :mod:`riglib.profile`, the allow-list and transforms in :mod:`riglib.profile_files`; this
+    only declares the surface.
     """
     pp = sub.add_parser(
         "profile",
-        help="sync ~/.config/rig/config.yaml through a PRIVATE git repo, both ways (init/sync/status)",
-        description="Carry the GLOBAL rig config between machines through a private git repo "
-        "(<forge>/<login>/.rig-profile) holding config.yaml. `init` clones it (or seeds an empty "
-        "one), `sync` moves changes both ways and refuses when both sides changed, `status` says "
-        "which side changed without writing. The repo MUST be private: env.vars can hold API keys.",
+        help="sync config.yaml + tmux/omp/sysmon config through a PRIVATE git repo, both ways (init/sync/status)",
+        description="Carry the GLOBAL rig config and a declared allow-list of portable files "
+        "(~/.tmux.conf user region, omp config.yml, omp mcp.json with secrets masked, sysmon.json) "
+        "between machines through a private git repo (<forge>/<login>/.rig-profile). `init` clones "
+        "it (or seeds an empty one), `sync` moves changes both ways per file and refuses a file "
+        "when both sides changed, `status` says which side changed without writing. Secrets never "
+        "travel: env.vars, tokens and credential databases stay on the machine, and a "
+        "secret-looking value in a payload refuses the push. Machine-specific values stay per "
+        "machine (machine/<host>.yaml in the repo).",
     )
     pp.set_defaults(_profile_parser=pp)
     psub = pp.add_subparsers(dest="profile_command", metavar="<init|sync|status>")
@@ -500,6 +541,10 @@ def _add_profile_parser(sub: "argparse._SubParsersAction") -> None:
         "--take", choices=("local", "remote"),
         help="resolve a conflict: local = push this machine's file; remote = adopt the repo's "
         "(the local file is backed up first)",
+    )
+    ps.add_argument(
+        "--only", action="append", metavar="ID", choices=profile_file_ids(),
+        help="limit the run to one file (repeatable): " + ", ".join(profile_file_ids()),
     )
 
     pst = psub.add_parser("status", help="show which side changed since the last sync (writes nothing)")
@@ -951,6 +996,7 @@ def main(argv: list[str] | None = None) -> int:
     handlers = {
         "init": cmd_setup,  # init = the canonical onboarding command (the front door)
         "apply": cmd_apply,
+        "activate": cmd_activate,
         "status": cmd_status,
         "doctor": cmd_doctor,
         "export": cmd_export,
@@ -1208,11 +1254,12 @@ def _print_hook_bridge_coverage_gaps(plan) -> None:
 
 
 def _print_plan(
-    plan, *, full: bool = False, preview: bool = False, expand_notes: bool = False
+    plan, *, full: bool = False, preview: bool = False, expand_notes: bool = False,
+    preview_of: str = "rig apply",
 ) -> None:
     # `preview=True` marks the plan as NOT applied (the `rig init` scaffold/no-TUI paths): the
-    # plan is what `rig apply` WOULD do, so it must never read as completed work.
-    label = _dim("   — PREVIEW of `rig apply` (not applied)") if preview else ""
+    # plan is what ``preview_of`` WOULD do, so it must never read as completed work.
+    label = _dim(f"   — PREVIEW of `{preview_of}` (not applied)") if preview else ""
     print(_bold(f"\nPlan: {len(plan)} action(s)  [on_conflict={plan.on_conflict}]") + label)
     if full or len(plan.actions) <= _PLAN_INLINE_MAX:
         for a in plan.actions:
@@ -2189,6 +2236,96 @@ def cmd_apply(args: argparse.Namespace) -> int:
                 print(_dim("  tracked_files: not landing (outside --only); add tracked_files to --only to land"))
         else:
             rc = max(rc, _tracked_files_commit(tracked))
+    return rc
+
+
+def _activate_profile_line() -> str:
+    """One read-only line about the profile for the `rig activate` preview."""
+    from . import profile
+
+    if not profile.configured():
+        return "profile: not configured — `rig profile init` brings your shared config, tmux and omp files"
+    try:
+        st = profile.status()
+    except profile.ProfileError as exc:
+        return f"profile: configured but not usable yet ({exc.what})"
+    return f"profile: {st.url} — {st.verdict.replace('_', ' ')}; `rig activate commit` syncs it first"
+
+
+def cmd_activate(args: argparse.Namespace) -> int:
+    """`rig activate [info|commit]` — thin orchestration; probing + rendering live in :mod:`riglib.activate`."""
+    import json
+
+    from . import activate
+    from .actions import fsutil
+    from .catalog import CatalogError
+    from .config import ConfigError, global_config_path, read_yaml_file, validate
+    from .plan import PlanError
+    from .state import SetupState
+
+    commit = args.mode == "commit" and not args.dry_run
+    if args.json and commit:
+        print(_err("error: --json is preview-only (it cannot be combined with `commit`)"), file=sys.stderr)
+        return 2
+    only = None
+    if args.only:
+        only = frozenset(part.strip() for part in args.only.split(",") if part.strip())
+        unknown = sorted(only - set(activate.AREA_IDS))
+        if unknown:
+            print(_err(f"error: unknown area(s) for --only: {', '.join(unknown)}"), file=sys.stderr)
+            print(_dim(f"  valid: {', '.join(activate.AREA_IDS)}"), file=sys.stderr)
+            return 2
+    gpath = global_config_path()
+    home = str(Path.home())
+
+    def read_global() -> dict:
+        return read_yaml_file(gpath) if gpath.is_file() else {}
+
+    def machine_plan(overrides: dict | None):
+        plan, _loaded, _env = _load_plan(home, None, layer_overrides=overrides, include_repo=False)
+        return plan
+
+    try:
+        if commit:
+            _apply_auto_sync_profile(force=True)
+        act = activate.build_activation(read_global(), only=only)
+        if not commit:
+            plan = machine_plan({gpath.resolve(): act.doc})
+            plan.actions = [a for a in plan.actions if a.category in act.included]
+            if args.json:
+                print(json.dumps({**act.to_dict(), "mode": "info", "actions": len(plan.actions),
+                                  "profile": _activate_profile_line()}, indent=2))
+                return 0
+            print(_bold("rig activate — PREVIEW (nothing was changed)"))
+            print(_activate_profile_line())
+            print("areas:")
+            for line in activate.render(act, preview=True):
+                print(line)
+            print()
+            _print_plan(plan, full=args.plan, preview=True, expand_notes=args.notes, preview_of="rig activate")
+            print()
+            print(f"  run {_bold('rig activate commit')} to execute this (preview only — nothing applied)")
+            return 0
+        if act.config_changes:
+            validate(act.doc)
+            out = fsutil.write_file(gpath, SetupState.from_dict(act.doc).to_yaml(), "backup")
+            if out.backup is not None:
+                print(_dim(f"previous global config backed up → {out.backup}"))
+        plan = machine_plan(None)
+        plan.actions = [a for a in plan.actions if a.category in act.included]
+    except (ConfigError, CatalogError, PlanError) as exc:
+        print(_err_block(exc))
+        return 2
+
+    print(_bold("rig activate — applying"))
+    for line in activate.render(act, preview=False):
+        print(line)
+    rc = _apply_commit(plan, args)
+    if act.unsupported:
+        print()
+        print(_warn("could not activate on this machine:"))
+        for area in act.unsupported:
+            print(f"  ✗ {area.id}: {area.detail}")
     return rc
 
 
@@ -3831,7 +3968,7 @@ def _profile_notify(level: str, text: str) -> None:
 
 
 def _print_profile_outcome(outcome) -> int:
-    style = {"pushed": _ok, "pulled": _ok, "in_sync": _ok, "nothing": _dim}.get(outcome.result, _err)
+    style = {"pushed": _ok, "pulled": _ok, "synced": _ok, "in_sync": _ok, "nothing": _dim}.get(outcome.result, _err)
     prefix = "profile: CONFLICT — " if outcome.result == "conflict" else "profile: "
     print(style(prefix + outcome.detail))
     for level, text in outcome.messages:
@@ -3849,12 +3986,13 @@ def _print_profile_error(exc) -> int:
 def cmd_profile(args: argparse.Namespace) -> int:
     """`rig profile init|sync|status` — thin dispatch; the engine is :mod:`riglib.profile`."""
     from . import profile
+    from .profile_files import NEVER_SYNCED
 
     command = getattr(args, "profile_command", None)
     if not command:
         print(_err("error: `rig profile` needs a subcommand: init, sync, or status"), file=sys.stderr)
         print(_dim("  rig profile init [URL]         # clone (or seed) the private profile repo"), file=sys.stderr)
-        print(_dim("  rig profile sync [--take …]    # push/pull ~/.config/rig/config.yaml"), file=sys.stderr)
+        print(_dim("  rig profile sync [--take …]    # push/pull config.yaml + tmux/omp/sysmon files"), file=sys.stderr)
         print(_dim("  rig profile status [--fetch]   # which side changed (writes nothing)"), file=sys.stderr)
         return 2
     try:
@@ -3863,7 +4001,9 @@ def cmd_profile(args: argparse.Namespace) -> int:
                 profile.init(args.url, host=args.host, auto_sync=args.auto_sync, notify=_profile_notify)
             )
         if command == "sync":
-            return _print_profile_outcome(profile.sync(take=args.take, notify=_profile_notify))
+            return _print_profile_outcome(
+                profile.sync(take=args.take, only=tuple(args.only) if args.only else None, notify=_profile_notify)
+            )
         st = profile.status(fetch=args.fetch)
     except profile.ProfileError as exc:
         return _print_profile_error(exc)
@@ -3871,28 +4011,31 @@ def cmd_profile(args: argparse.Namespace) -> int:
         "in_sync": _ok("in sync"),
         "push": _warn("local changed — `rig profile sync` pushes it"),
         "pull": _warn("remote changed — `rig profile sync` pulls it (local file backed up)"),
-        "conflict": _err("CONFLICT — both changed; resolve with `rig profile sync --take local|remote`"),
+        "both": _warn("some files changed locally, others remotely — `rig profile sync` moves each way"),
+        "conflict": _err("CONFLICT — both changed; resolve with `rig profile sync --take local|remote [--only ID]`"),
     }
     print(f"profile: {st.url}")
     print(_dim(f"  checkout: {st.checkout}"))
-    print(f"  local  ({profile.local_config_path()}): {st.local}")
-    print(f"  remote ({profile.PROFILE_FILE} in the repo): {st.remote}")
+    for item in st.files:
+        print(f"  {item.id:<11} {item.path}  local {item.local}, remote {item.remote} → {item.verdict}")
     print(f"  last sync: {st.synced_at or 'never'}")
     print(f"  state: {verdicts[st.verdict]}")
     if not args.fetch:
         print(_dim("  (compared against the last-fetched remote; --fetch to refresh)"))
+    print(_dim("  never synced (secrets): " + ", ".join(entry.name for entry in NEVER_SYNCED)))
     return 0 if st.verdict == "in_sync" else profile.EXIT_CONFLICT
 
 
-def _apply_auto_sync_profile() -> None:
+def _apply_auto_sync_profile(*, force: bool = False) -> None:
     """`profile.auto_sync: true` → sync the global config before `rig apply commit` builds its plan.
 
     Non-fatal by contract: any failure (network, push refused, conflict, not initialized) prints a
-    warning and the apply continues with the LOCAL file as it is on disk.
+    warning and the apply continues with the LOCAL file as it is on disk. ``force`` (``rig activate
+    commit``) syncs whenever ``profile.repo`` is configured, even with ``auto_sync: false``.
     """
     from . import profile
 
-    if not profile.auto_sync_enabled():
+    if not (profile.configured() if force else profile.auto_sync_enabled()):
         return
     try:
         outcome = profile.sync(noninteractive=True, notify=_profile_notify)
@@ -3909,7 +4052,7 @@ def _apply_auto_sync_profile() -> None:
         print(_warn(f"profile auto_sync: {outcome.detail} — applying the local config"), file=sys.stderr)
         print(_dim("  resolve with `rig profile sync --take local|remote`"), file=sys.stderr)
         return
-    if outcome.result == "pulled":
+    if outcome.result in ("pulled", "synced"):
         # the plan about to run is built from a config the user has not previewed — say so loudly
         print(_warn(f"profile auto_sync: {outcome.detail}"))
         print(_warn("  the plan below is built from the PULLED config (preview: `rig apply`)"))

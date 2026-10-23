@@ -45,6 +45,15 @@ Invariants
   installs any missing formula (``brew install <formula>``) BEFORE running install.sh; a tool
   that declares none is completely unaffected. Absent ``brew`` on PATH is a clear, actionable
   error for that tool, never a silent skip or a crash.
+- **Optional apt runtime dependency.** ``tools.items.<name>.apt`` (default ``[]``) is the Debian/
+  Ubuntu twin of ``brew``: packages installed with ``apt-get install`` BEFORE install.sh, ONLY on a
+  machine that has ``apt-get`` (on macOS / a brew-only box the list is skipped, not an error — one
+  profile serves both). Without root it needs a non-interactive ``sudo``; without either the missing
+  packages are reported as the exact ``sudo apt-get install -y …`` to run, and the tool's own
+  install.sh still runs (never an abort). A package whose command is already on PATH counts as present.
+- **Optional clone source.** ``tools.items.<name>.clone`` (a git URL) lets rig clone the repo to
+  ``repo`` when it is absent, so a brand-new machine needs no manual checkout. A few tools are
+  first-class (:data:`KNOWN_TOOLS`) and carry their own default URL, e.g. ``ctmux``.
 
 This is a per-MACHINE concern (the tool ecosystem on this dev box), so the ``tools:`` block
 belongs in the GLOBAL layer (``~/.config/rig/config.yaml``), like ``harness``/``tmux``/
@@ -79,9 +88,49 @@ INSTALL_SCRIPT = "install.sh"
 DEPLOY_SCRIPT = "scripts/deploy.sh"
 
 
+@dataclass(frozen=True)
+class KnownTool:
+    """Built-in defaults of a first-class tool, so ``tools.items.<name>: {}`` is enough.
+
+    ``clone`` is the default git URL used when the repo is absent. ``advertise`` False means the
+    tool ships no ``install-skill`` blurb, so a resolving bin alone counts as installed. ``check``
+    True runs ``bash <repo>/install.sh --check`` after the install and fails the tool when it exits
+    non-zero (the script's own health verdict: bin linked, its runtime present).
+    """
+
+    clone: str
+    advertise: bool = True
+    check: bool = False
+    apt: tuple[str, ...] = ()
+
+
+KNOWN_TOOLS: dict[str, KnownTool] = {
+    # ctmux: a wrapper over cmux with better tmux support. Shell only, no build step; its
+    # install.sh gates the OS itself (macOS and Linux) and owns --check.
+    "ctmux": KnownTool(
+        clone="https://github.com/alex-mextner/ctmux-cli", advertise=False, check=True,
+        apt=("tmux", "fzf"),
+    ),
+}
+
+
 def _expand(path: str) -> Path:
     """Expand ``~`` and env vars and resolve to an absolute path (no disk access)."""
     return expand_user_path(path)
+
+
+# Where a tool's checkout is looked for when ``repo`` is not given, in order. ``~/xp`` is the
+# documented layout (and where rig clones to); ``~/dev`` is the other common one.
+DEFAULT_REPO_ROOTS = ("~/xp", "~/dev")
+
+
+def default_repo(name: str) -> Path:
+    """The checkout of tool ``name`` when ``repo`` is unset: the first root holding its install.sh.
+
+    Falls back to ``~/xp/<name>-cli`` (where a clone lands) when no root has one yet.
+    """
+    candidates = [_expand(f"{root}/{name}-cli") for root in DEFAULT_REPO_ROOTS]
+    return next((c for c in candidates if (c / INSTALL_SCRIPT).is_file()), candidates[0])
 
 
 @dataclass(frozen=True)
@@ -94,12 +143,20 @@ class ToolSpec:
     ``brew_formulae`` is the tool's declared Homebrew RUNTIME dependencies (``tools.items.<name>
     .brew``, default empty) — a package the tool's wrapper shells out to but that its own
     ``install.sh`` does not install; rig installs any missing formula before running install.sh.
+    ``apt_packages`` is the Debian/Ubuntu twin (``tools.items.<name>.apt``), applied only on an
+    apt machine. ``clone_url`` is where rig clones ``repo`` from when it is absent. ``advertise``
+    False means the tool ships no skill blurb (nothing to advertise); ``check`` True verifies the
+    install with ``install.sh --check`` (both come from :data:`KNOWN_TOOLS`).
     """
 
     name: str
     repo: Path
     bin_dir: Path
     brew_formulae: tuple[str, ...] = field(default_factory=tuple)
+    apt_packages: tuple[str, ...] = field(default_factory=tuple)
+    clone_url: str | None = None
+    advertise: bool = True
+    check: bool = False
 
     @property
     def install_script(self) -> Path:
@@ -149,12 +206,13 @@ def resolve_tool_specs(block: dict | None) -> list[ToolSpec]:
     the loader never injects it into the runtime dict, so a missing ``enabled`` must be read as OFF
     here — a truthy check, NOT ``is False`` — or a user who lists items but omits ``enabled`` would
     get a surprise clone+install on the next apply.) Each ``items.<name>`` entry becomes a
-    :class:`ToolSpec`; an item with ``enabled: false`` is skipped. ``repo`` defaults to
-    ``~/xp/<name>-cli`` (the common layout) so a bare ``tg: {}`` works; ``tools.target`` (or a
+    :class:`ToolSpec`; an item with ``enabled: false`` is skipped. ``repo`` defaults to the first of
+    ``~/xp/<name>-cli`` / ``~/dev/<name>-cli`` holding an ``install.sh`` (else ``~/xp/<name>-cli``,
+    :func:`default_repo`) so a bare ``tg: {}`` works; ``tools.target`` (or a
     per-item ``bin_dir``) overrides the managed PATH dir. ``brew`` (a list of formula names, default
     ``[]``) becomes ``brew_formulae`` — absent/malformed reads as no declared dependency, matching
     every other array leaf's defensive coercion in this codebase (see ``_string_list`` in
-    ``project_tools.py``/``lint_policy.py``). Effect-free — paths are expanded, not stat'd.
+    ``project_tools.py``/``lint_policy.py``). Reads the disk only to find the default checkout.
     """
     if not block or not block.get("enabled"):
         return []
@@ -165,15 +223,26 @@ def resolve_tool_specs(block: dict | None) -> list[ToolSpec]:
         spec = raw if isinstance(raw, dict) else {}
         if spec.get("enabled") is False:
             continue
-        repo = _expand(str(spec.get("repo") or f"~/xp/{name}-cli"))
+        known = KNOWN_TOOLS.get(str(name))
+        repo = _expand(str(spec["repo"])) if spec.get("repo") else default_repo(str(name))
         bin_dir = _expand(str(spec["bin_dir"])) if spec.get("bin_dir") else default_bin
-        brew_formulae = _brew_formulae(spec.get("brew"))
-        specs.append(ToolSpec(name=str(name), repo=repo, bin_dir=bin_dir, brew_formulae=brew_formulae))
+        brew_formulae = _package_names(spec.get("brew"))
+        apt_packages = (
+            _package_names(spec["apt"]) if isinstance(spec.get("apt"), list) else (known.apt if known else ())
+        )
+        clone = spec.get("clone") or (known.clone if known else None)
+        specs.append(
+            ToolSpec(
+                name=str(name), repo=repo, bin_dir=bin_dir, brew_formulae=brew_formulae,
+                apt_packages=apt_packages, clone_url=str(clone) if clone else None,
+                advertise=known.advertise if known else True, check=known.check if known else False,
+            )
+        )
     return specs
 
 
-def _brew_formulae(value: object) -> tuple[str, ...]:
-    """Coerce a ``brew:`` leaf value into a tuple of formula names.
+def _package_names(value: object) -> tuple[str, ...]:
+    """Coerce a ``brew:`` / ``apt:`` leaf value into a tuple of package names.
 
     The schema already enforces ``array[string]``; this defensive coercion mirrors the
     ``_string_list`` precedent in ``project_tools.py``/``lint_policy.py`` (a non-list or
@@ -200,7 +269,7 @@ def tool_status(spec: ToolSpec) -> ToolStatus:
     """
     repo_present = spec.install_script.is_file()
     bin_resolves = _bin_resolves(spec)
-    advertised = spec.blurb_file.is_file()
+    advertised = spec.blurb_file.is_file() or not spec.advertise
     return ToolStatus(repo_present=repo_present, bin_resolves=bin_resolves, advertised=advertised)
 
 
@@ -244,6 +313,10 @@ def plan_from_action_options(options: dict) -> ToolPlan:
             repo=Path(s["repo"]),
             bin_dir=Path(s["bin_dir"]),
             brew_formulae=tuple(s.get("brew") or ()),
+            apt_packages=tuple(s.get("apt") or ()),
+            clone_url=s.get("clone"),
+            advertise=bool(s.get("advertise", True)),
+            check=bool(s.get("check", False)),
         )
         for s in options.get("specs", [])
     ]
@@ -257,4 +330,8 @@ def spec_to_option(spec: ToolSpec) -> dict[str, object]:
         "repo": str(spec.repo),
         "bin_dir": str(spec.bin_dir),
         "brew": list(spec.brew_formulae),
+        "apt": list(spec.apt_packages),
+        "clone": spec.clone_url,
+        "advertise": spec.advertise,
+        "check": spec.check,
     }

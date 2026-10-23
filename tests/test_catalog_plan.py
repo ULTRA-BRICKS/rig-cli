@@ -1606,3 +1606,132 @@ def test_plan_codex_agent_hooks_preserve_custom_default_target(fake_agent_tools,
     assert hook_actions
     assert {a.target for a in hook_actions} == {custom}
     assert resolve_category_target(cfg, "agent_hooks") == custom
+
+
+def test_plan_hooks_reach_the_global_omp_dir_when_a_repo_pins_another_primary_kind(
+    fake_agent_tools, tmp_path, monkeypatch
+):
+    """rig-cli#743: the user-scope hook dirs belong to the MACHINE's harnesses (the global config).
+
+    A repo rig.yaml that pins ``harness.kind: claude-code`` replaces the global primary ``omp``;
+    ``apply commit`` run from that repo then left ``~/.omp/agent/hooks`` on a stale descriptor
+    while omp kept reading it. The global layer's kinds are always part of the fan-out.
+    """
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("PI_CODING_AGENT_DIR", raising=False)
+    monkeypatch.delenv("PI_CONFIG_DIR", raising=False)
+    cat = Catalog.scan(str(fake_agent_tools))
+    cfg = LoadedConfig(
+        data={
+            "skills": {"enabled": False},
+            "agent_hooks": {"all": True},
+            "ci": {"enabled": False},
+            "mcp": {"enabled": False},
+            "harness": {"kind": "claude-code", "kinds": ["codex"]},
+        },
+        repo_root=tmp_path,
+        global_data={"harness": {"kind": "omp", "kinds": ["codex"]}},
+    )
+    plan = build(cfg, cat, project_type="unknown")
+    hook_targets = {a.target for a in plan.actions if a.kind == "install_agent_hook"}
+    assert hook_targets == {
+        home / ".claude" / "hooks",
+        home / ".codex" / "hooks",
+        home / ".omp" / "agent" / "hooks",
+    }
+
+
+def test_plan_hooks_without_a_global_harness_keep_the_repo_kinds(fake_agent_tools, tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    cat = Catalog.scan(str(fake_agent_tools))
+    cfg = _cfg(
+        {
+            "skills": {"enabled": False},
+            "agent_hooks": {"all": True},
+            "ci": {"enabled": False},
+            "mcp": {"enabled": False},
+            "harness": {"kind": "claude-code"},
+        },
+        tmp_path,
+    )
+    plan = build(cfg, cat, project_type="unknown")
+    assert {a.target for a in plan.actions if a.kind == "install_agent_hook"} == {home / ".claude" / "hooks"}
+
+
+def _pinned_repo_cfg(tmp_path, global_harness, **extra):
+    return LoadedConfig(
+        data={
+            "skills": {"enabled": False},
+            "agent_hooks": {"all": True},
+            "ci": {"enabled": False},
+            "mcp": {"enabled": False},
+            "harness": {"kind": "claude-code"},
+            **extra,
+        },
+        repo_root=tmp_path,
+        global_data={"harness": global_harness},
+    )
+
+
+@pytest.mark.parametrize("bad_kinds", [5, True, "codex", {"a": 1}])
+def test_plan_ignores_a_malformed_global_kinds_value(fake_agent_tools, tmp_path, monkeypatch, bad_kinds):
+    """The global layer under a repo override is validated only inside the merged block, so a
+    scalar ``kinds`` must neither crash the plan nor be unpacked character by character."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    cfg = _pinned_repo_cfg(tmp_path, {"kind": "omp", "kinds": bad_kinds})
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert {a.target for a in plan.actions if a.kind == "install_agent_hook"} == {
+        home / ".claude" / "hooks",
+        home / ".omp" / "agent" / "hooks",
+    }
+
+
+def test_plan_machine_kinds_do_not_override_an_explicit_hooks_target(fake_agent_tools, tmp_path):
+    custom = tmp_path / "custom-hooks"
+    cfg = _pinned_repo_cfg(tmp_path, {"kind": "omp"}, agent_hooks={"all": True, "target": str(custom)})
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert {a.target for a in plan.actions if a.kind == "install_agent_hook"} == {custom}
+
+
+def test_plan_disabled_global_harness_adds_no_machine_kinds(fake_agent_tools, tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    cfg = _pinned_repo_cfg(tmp_path, {"enabled": False, "kind": "omp"})
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert {a.target for a in plan.actions if a.kind == "install_agent_hook"} == {home / ".claude" / "hooks"}
+
+
+def test_plan_registers_the_omp_bridge_for_a_global_omp_kind_under_a_repo_pin(
+    fake_agent_tools, tmp_path, monkeypatch
+):
+    """Descriptors without the bridge extension would be inert: omp reads them through it."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    cfg = _pinned_repo_cfg(tmp_path, {"kind": "omp"})
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert {a.options["kind"] for a in plan.actions if a.kind == "register_hook_bridge"} >= {"claude-code", "omp"}
+
+
+def test_plan_a_repo_that_disables_its_harness_opts_out_of_machine_kinds(fake_agent_tools, tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    cfg = _pinned_repo_cfg(tmp_path, {"kind": "omp"})
+    cfg.data["harness"] = {"enabled": False}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert {a.target for a in plan.actions if a.kind == "install_agent_hook"} == {home / ".claude" / "hooks"}
+
+
+def test_plan_a_kindless_global_harness_block_still_counts_the_default_claude_kind(
+    fake_agent_tools, tmp_path, monkeypatch
+):
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    cfg = _pinned_repo_cfg(tmp_path, {"auto_mode": True})
+    cfg.data["harness"] = {"kind": "omp"}
+    plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
+    assert {a.target for a in plan.actions if a.kind == "install_agent_hook"} == {
+        home / ".omp" / "agent" / "hooks",
+        home / ".claude" / "hooks",
+    }

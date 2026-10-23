@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .actions import fsutil
-from . import ecosystem_readme
+from . import apt_packages, ecosystem_readme
 from .actions.runner import (
     ECOSYSTEM_README_BEGIN_MARKER,
     ECOSYSTEM_README_END_MARKER,
@@ -3687,6 +3687,22 @@ def _check_tools(action: Action, report: DriftReport) -> None:
                     f"installed (`brew list --formula` does not report it) — {remedy}",
                 )
             )
+    apt_specs = [spec for spec in plan.specs if spec.apt_packages]
+    if apt_specs and apt_packages.is_apt_system():
+        have = apt_packages.installed_snapshot()
+        for spec in apt_specs:
+            for package in apt_packages.missing(spec.apt_packages, have):
+                remedy = (
+                    f"run `{apt_packages.manual_command([package])}` (apply installs it only as root or "
+                    f"through `sudo -n`, otherwise it just reports this line)"
+                )
+                report.items.append(
+                    DriftItem(
+                        "missing", "tools", f"{spec.name}:{package}", spec.repo,
+                        f"tool '{spec.name}' declares apt package '{package}' but dpkg does not report "
+                        f"it installed — {remedy}",
+                    )
+                )
 
 
 def _check_tg_ctl(action: Action, report: DriftReport) -> None:

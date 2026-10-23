@@ -1138,6 +1138,14 @@ _PROFILE_BLOCK = Block(
             "false turns it off on every machine that shares this profile",
             default=True,
         ),
+        "files": Leaf(
+            "object",
+            "per-file switches for what `rig profile` carries besides config.yaml: tmux, omp_config, "
+            "omp_mcp, sysmon (each true by default; false stops syncing that file on this machine and "
+            "every machine that shares the profile). config.yaml itself always syncs.",
+            additional_properties_type="boolean",
+            property_names_pattern="^(tmux|omp_config|omp_mcp|sysmon)$",
+        ),
     },
     schema_extra={"x-rig-global-only": True},
 )
@@ -1277,7 +1285,8 @@ _TOOLS_ITEM_BLOCK = Block(
     doc="one declared tool: the repo whose install.sh rig runs, plus optional overrides.",
     leaves={
         "enabled": Leaf("boolean", "install this tool (default true)", default=True),
-        "repo": Leaf("string", "the tool's checkout dir (holds install.sh); default ~/xp/<name>-cli"),
+        "repo": Leaf("string", "the tool's checkout dir (holds install.sh); default ~/xp/<name>-cli, "
+                     "or ~/dev/<name>-cli when only that one holds an install.sh"),
         "bin_dir": Leaf("string", "override the managed PATH dir for this one tool"),
         "brew": Leaf(
             "array",
@@ -1287,6 +1296,23 @@ _TOOLS_ITEM_BLOCK = Block(
             "closed with an actionable error if `brew` itself is not on PATH. Default [] — no "
             "package dependency declared, the existing behavior for every tool that omits this key.",
             items_type="string",
+        ),
+        "apt": Leaf(
+            "array",
+            "Debian/Ubuntu packages this tool depends on at RUNTIME, the apt twin of `brew`: rig "
+            "runs `apt-get install` for the missing ones before install.sh, ONLY on a machine that "
+            "has apt-get (skipped on macOS / brew-only boxes, so one profile serves both). Needs "
+            "root or a non-interactive sudo; without either the tool is NOT aborted: install.sh "
+            "still runs and the exact `sudo apt-get install -y …` to run by hand is reported. A "
+            "package whose command is already on PATH counts as present. `rig status` flags a "
+            "declared-but-absent package as drift. Default [] (`ctmux`: tmux, fzf).",
+            items_type="string",
+        ),
+        "clone": Leaf(
+            "string",
+            "git URL rig clones into `repo` when it is absent (a fresh machine needs no manual "
+            "checkout). First-class tools carry a default: `ctmux` clones "
+            "https://github.com/alex-mextner/ctmux-cli to ~/xp/ctmux-cli.",
         ),
     },
 )

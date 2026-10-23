@@ -3249,6 +3249,22 @@ def _validate_profile(p: dict[str, Any]) -> None:
         return
     _reject_unknown_keys(p, "profile")
     _check_bool(p, "auto_sync", "profile.auto_sync")
+    files = p.get("files")
+    if files is not None:
+        from .profile_files import file_ids
+
+        switchable = [fid for fid in file_ids() if fid != "config"]
+        if not isinstance(files, dict):
+            raise ConfigError("profile.files must be a mapping of file id to bool", schema_path="profile.files")
+        for fid, value in files.items():
+            if fid not in switchable:
+                raise ConfigError(
+                    f"unknown profile.files key {fid!r} (expected one of: {', '.join(switchable)})",
+                    schema_path="profile.files",
+                )
+            if not isinstance(value, bool):
+                raise ConfigError(f"profile.files.{fid} must be a bool, got {value!r}",
+                                  schema_path=f"profile.files.{fid}")
     repo = p.get("repo")
     if repo is None:
         return
@@ -3710,8 +3726,8 @@ def _validate_tools(t: dict[str, Any]) -> None:
     opts in by listing tools under ``items``. Fail-closed, consistent with every other block, on:
     a non-mapping block, an unknown FIXED key (typo guard — the open ``items`` map keeps arbitrary
     tool NAMES valid), a non-bool ``enabled``, a non-string ``target``, a non-mapping ``items`` or
-    item, and a bad per-item ``enabled``/``repo``/``bin_dir``/``brew`` type (``brew`` is a list of
-    Homebrew formula names, checked with :func:`_check_str_list`).
+    item, and a bad per-item ``enabled``/``repo``/``bin_dir``/``brew``/``apt``/``clone`` type
+    (``brew``/``apt`` are lists of package names, checked with :func:`_check_str_list`).
     """
     if not isinstance(t, dict):
         raise ConfigError("tools must be a mapping", schema_path="tools")
@@ -3730,7 +3746,7 @@ def _validate_tools(t: dict[str, Any]) -> None:
 # The keys a tools.items.<name> entry accepts. Explicit set (mirrors LINTER_ITEM_KEYS) so the
 # validator rejects a per-item typo — _reject_unknown_keys can't, since block_child_keys only
 # walks .nested, never an open_map_item block.
-_TOOLS_ITEM_KEYS = {"enabled", "repo", "bin_dir", "brew"}
+_TOOLS_ITEM_KEYS = {"enabled", "repo", "bin_dir", "brew", "apt", "clone"}
 
 
 def _validate_tools_item(name: str, spec: Any) -> None:
@@ -3748,6 +3764,14 @@ def _validate_tools_item(name: str, spec: Any) -> None:
     _check_str(spec, "repo", f"{path}.repo")
     _check_str(spec, "bin_dir", f"{path}.bin_dir")
     _check_str_list(spec, "brew", f"{path}.brew")
+    _check_str_list(spec, "apt", f"{path}.apt")
+    _check_str(spec, "clone", f"{path}.clone")
+    clone = spec.get("clone")
+    if isinstance(clone, str) and (not clone.strip() or clone.startswith("-") or any(c in clone for c in "\r\n\x00")):
+        raise ConfigError(
+            f"{path}.clone must be a one-line git URL that does not start with '-', got {clone!r}",
+            schema_path=f"{path}.clone",
+        )
 
 
 # The keys the tg_ctl block accepts. Listed once so the validator rejects a typo (fail-closed,

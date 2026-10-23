@@ -6142,6 +6142,10 @@ def _do_provision_tools(action: Action, on_conflict: str) -> ActionResult:
     return _tools_result(action, installed, skipped, errors)
 
 
+# Prefix of the `_ensure_apt_packages` note meaning "packages still missing, rig could not elevate".
+_APT_PENDING_PREFIX = "apt: WARN"
+
+
 def _provision_one_tool(spec: object, dry: bool) -> tuple[str, str]:
     """Provision one tool: ensure its Homebrew deps, keep its checkout fresh, then install if needed.
 
@@ -6168,23 +6172,37 @@ def _provision_one_tool(spec: object, dry: bool) -> tuple[str, str]:
     from .. import tools as toolsmod
 
     assert isinstance(spec, toolsmod.ToolSpec)
+    clone_error, clone_note = _ensure_tool_checkout(spec, dry)
+    if clone_error:
+        return "error", clone_error
     st = toolsmod.tool_status(spec)
     if not st.repo_present:
+        if dry and clone_note:
+            return "installed", _with_note(f"{spec.name} (dry-run — would run {spec.install_script})", clone_note)
         return "error", f"{spec.name}: no install.sh at {spec.install_script} (repo missing?)"
+    apt_error, apt_note, apt_changed = _ensure_apt_packages(spec, dry)
+    if apt_error:
+        return "error", apt_error
     brew_error, brew_note, brew_changed = _ensure_brew_formulae(spec, dry)
     if brew_error:
         return "error", brew_error
     deploy_note = _maybe_deploy_tool(spec, dry)
-    note = _combine_notes(brew_note, deploy_note)
+    note = _combine_notes(clone_note, apt_note, brew_note, deploy_note)
     if st.installed:
-        status = "installed" if brew_changed else "skipped"
+        status = "installed" if (brew_changed or apt_changed or clone_note) else "skipped"
         return status, _with_note(f"{spec.name} already installed ({spec.managed_bin})", note)
     if dry:
         return "installed", _with_note(f"{spec.name} (dry-run — would run {spec.install_script})", note)
     rc, out = _run_tool_install(spec)
+    pending = f" ({apt_note})" if apt_note.startswith(_APT_PENDING_PREFIX) else ""
     if rc != 0:
         tail = out.strip().splitlines()[-1] if out.strip() else "(no output)"
-        return "error", f"{spec.name}: install.sh exited {rc} — {tail}"
+        return "error", f"{spec.name}: install.sh exited {rc} — {tail}{pending}"
+    if spec.check:
+        check_rc, check_out = _run_tool_check(spec)
+        if check_rc != 0:
+            tail = check_out.strip().splitlines()[-1] if check_out.strip() else "(no output)"
+            return "error", f"{spec.name}: install.sh --check exited {check_rc} — {tail}{pending}"
     return "installed", _with_note(f"{spec.name} installed via {spec.install_script.name}", note)
 
 
@@ -6321,6 +6339,81 @@ def _run_brew_install(brew: str, formulae: list[str]) -> tuple[int, str]:
         return 1, f"could not run brew install {joined}: {exc}"
 
 
+def _ensure_apt_packages(spec: object, dry: bool) -> tuple[str, str, bool]:
+    """Ensure every apt package ``spec`` declares (``apt_packages``) is installed — apt machines only.
+
+    Returns ``(error, note, changed)`` exactly like :func:`_ensure_brew_formulae`. On a machine
+    without ``apt-get`` (macOS, a brew-only box) the list is SKIPPED with a note, never an error:
+    one profile carries both ``brew:`` and ``apt:`` and each OS honors its own. A missing package
+    that rig cannot install (no root, no non-interactive sudo) is NOT an error: the note carries the
+    exact command to run by hand and the tool's own install.sh still runs (user-level failover).
+    Read-only under ``RIG_TOOLS_DRY_RUN`` (the probe runs, nothing is installed).
+    """
+    from .. import apt_packages
+    from .. import tools as toolsmod
+
+    assert isinstance(spec, toolsmod.ToolSpec)
+    if not spec.apt_packages:
+        return "", "", False
+    if not apt_packages.is_apt_system():
+        return "", "apt: skipped (no apt-get on this machine)", False
+    installed = apt_packages.installed_snapshot()
+    missing = apt_packages.missing(spec.apt_packages, installed)
+    if not missing:
+        return "", f"apt: {', '.join(spec.apt_packages)} already installed", False
+    if dry:
+        return "", f"apt: would install {', '.join(missing)} (dry-run)", False
+    argv = apt_packages.install_command(missing)
+    if argv is None:
+        # No root and no non-interactive sudo: NOT fatal. The tool's own install.sh still runs
+        # (it installs user-level and reports what it cannot do) and the exact remainder is
+        # reported for the user to run by hand; `rig status` keeps flagging it until it is done.
+        return "", f"{_APT_PENDING_PREFIX} run `{apt_packages.manual_command(missing)}` (no root, no sudo -n)", False
+    rc, out = _run_apt_install(argv)
+    if rc != 0:
+        tail = out.strip().splitlines()[-1] if out.strip() else "(no output)"
+        return f"{spec.name}: apt-get install {' '.join(missing)} exited {rc} — {tail}", "", False
+    return "", f"apt: installed {', '.join(missing)}", True
+
+
+def _run_apt_install(argv: list[str]) -> tuple[int, str]:
+    """Run one ``apt-get install`` argv non-interactively under the tool-install timeout; never raises."""
+    timeout_s = _tool_install_timeout_s()
+    env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout_s, env=env)
+        return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+    except subprocess.TimeoutExpired:
+        return 1, f"apt-get install timed out after {timeout_s}s"
+    except OSError as exc:
+        return 1, f"could not run apt-get install: {exc}"
+
+
+def _ensure_tool_checkout(spec: object, dry: bool) -> tuple[str, str]:
+    """Clone ``spec.clone_url`` into ``spec.repo`` when the checkout is absent. Returns ``(error, note)``.
+
+    Only acts when ``repo`` does not exist at all and a clone source is known; an existing
+    directory (even a broken one) is never touched — the caller's missing-install.sh guard reports
+    it. Dry-run only notes what would be cloned.
+    """
+    from .. import tools as toolsmod
+
+    assert isinstance(spec, toolsmod.ToolSpec)
+    if spec.repo.exists() or not spec.clone_url:
+        return "", ""
+    if dry:
+        return "", f"would clone {spec.clone_url} → {spec.repo} (dry-run)"
+    spec.repo.parent.mkdir(parents=True, exist_ok=True)
+    rc = _git_clone(spec.clone_url, spec.repo)
+    if rc != 0:
+        return (
+            f"{spec.name}: could not clone {spec.clone_url} to {spec.repo} (git exit {rc}) — check the "
+            f"network / git, or clone it by hand",
+            "",
+        )
+    return "", f"cloned {spec.clone_url}"
+
+
 def _combine_notes(*parts: str) -> str:
     """Join non-empty notes with '; ' for a single bracketed suffix via :func:`_with_note`."""
     return "; ".join(p for p in parts if p)
@@ -6358,18 +6451,27 @@ def _run_tool_deploy(spec: object) -> tuple[int, str]:
     return _run_tool_bash_script(spec.deploy_script, spec.repo, "deploy.sh")
 
 
-def _run_tool_bash_script(script: Path, cwd: Path, label: str) -> tuple[int, str]:
-    """Run ``bash <script>`` in ``cwd`` under the tool-install timeout. Returns ``(rc, combined)``.
+def _run_tool_check(spec: object) -> tuple[int, str]:
+    """Run ``bash <repo>/install.sh --check`` — the tool's own verdict that its install is healthy."""
+    from .. import tools as toolsmod
 
-    The shared core of :func:`_run_tool_install` (``install.sh``) and :func:`_run_tool_deploy`
-    (``scripts/deploy.sh``): identical invocation (bash + captured output + the
-    ``RIG_TOOL_INSTALL_TIMEOUT_S`` budget). Never raises — a timeout or spawn failure is reported as
-    a non-zero rc with a ``label``-tagged message, so a hung/broken script can't wedge or crash apply.
+    assert isinstance(spec, toolsmod.ToolSpec)
+    return _run_tool_bash_script(spec.install_script, spec.repo, "install.sh --check", "--check")
+
+
+def _run_tool_bash_script(script: Path, cwd: Path, label: str, *args: str) -> tuple[int, str]:
+    """Run ``bash <script> [args…]`` in ``cwd`` under the tool-install timeout. Returns ``(rc, combined)``.
+
+    The shared core of :func:`_run_tool_install` (``install.sh``), :func:`_run_tool_check`
+    (``install.sh --check``) and :func:`_run_tool_deploy` (``scripts/deploy.sh``): identical
+    invocation (bash + captured output + the ``RIG_TOOL_INSTALL_TIMEOUT_S`` budget). Never raises —
+    a timeout or spawn failure is reported as a non-zero rc with a ``label``-tagged message, so a
+    hung/broken script can't wedge or crash apply.
     """
     timeout_s = _tool_install_timeout_s()
     try:
         proc = subprocess.run(
-            ["bash", str(script)],
+            ["bash", str(script), *args],
             cwd=str(cwd),
             capture_output=True,
             text=True,

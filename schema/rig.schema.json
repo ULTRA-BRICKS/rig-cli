@@ -1698,6 +1698,16 @@
           "type": "boolean",
           "description": "`rig apply commit` runs `rig profile sync` first (a failure warns and applies the local file); false turns it off on every machine that shares this profile",
           "default": true
+        },
+        "files": {
+          "type": "object",
+          "description": "per-file switches for what `rig profile` carries besides config.yaml: tmux, omp_config, omp_mcp, sysmon (each true by default; false stops syncing that file on this machine and every machine that shares the profile). config.yaml itself always syncs.",
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "propertyNames": {
+            "pattern": "^(tmux|omp_config|omp_mcp|sysmon)$"
+          }
         }
       },
       "additionalProperties": false,
@@ -1731,7 +1741,7 @@
               },
               "repo": {
                 "type": "string",
-                "description": "the tool's checkout dir (holds install.sh); default ~/xp/<name>-cli"
+                "description": "the tool's checkout dir (holds install.sh); default ~/xp/<name>-cli, or ~/dev/<name>-cli when only that one holds an install.sh"
               },
               "bin_dir": {
                 "type": "string",
@@ -1743,6 +1753,17 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "apt": {
+                "type": "array",
+                "description": "Debian/Ubuntu packages this tool depends on at RUNTIME, the apt twin of `brew`: rig runs `apt-get install` for the missing ones before install.sh, ONLY on a machine that has apt-get (skipped on macOS / brew-only boxes, so one profile serves both). Needs root or a non-interactive sudo; without either the tool is NOT aborted: install.sh still runs and the exact `sudo apt-get install -y …` to run by hand is reported. A package whose command is already on PATH counts as present. `rig status` flags a declared-but-absent package as drift. Default [] (`ctmux`: tmux, fzf).",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "clone": {
+                "type": "string",
+                "description": "git URL rig clones into `repo` when it is absent (a fresh machine needs no manual checkout). First-class tools carry a default: `ctmux` clones https://github.com/alex-mextner/ctmux-cli to ~/xp/ctmux-cli."
               }
             },
             "additionalProperties": false

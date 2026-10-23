@@ -33,3 +33,18 @@ The preferred order is:
 3. otherwise keep ownership metadata out-of-band in Rig state/status and identify the target there.
 
 This is deliberately capability-driven rather than extension-driven: Rig may add in-band metadata only when it can prove the target tool accepts that metadata without changing semantics. A future per-tool carrier capability can opt strict JSON formats into a known-safe metadata field; the generic JSON writer remains conservative.
+
+## Files carried by `rig profile`
+
+`rig profile` adds a fourth, cross-machine class on top of the three above. Every file it syncs is on
+the allow-list in `riglib/profile_files.py` and is `portable`; everything else rig or omp keeps is
+`secret-bearing` and never leaves the machine.
+
+| Class | Files | Rule |
+| --- | --- | --- |
+| `portable` | `~/.config/rig/config.yaml`, the user region of `~/.tmux.conf`, omp `config.yml`, omp `mcp.json` (masked), `sysmon.json` | synced three-way per file; machine values and rig's own managed region stay local |
+| `secret-bearing` | `env.vars` values, `~/.omp/auth-broker.token`, omp `agent.db` / `.env`, `~/.omp/remote-host`, `~/.omp/ssh-control`, `~/.config/rig/env/rig.env.sh` | NEVER synced; a secret-looking value in a payload refuses the push |
+
+`~/.tmux.conf` is split by `tmux.split_user_and_managed`: the sentinel block (block mode) and the
+`source-file …/rig.tmux.conf` import line (import mode) are marker-managed and stay on the machine;
+the rest is the user's and travels.

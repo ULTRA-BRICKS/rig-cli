@@ -146,7 +146,8 @@ into `~/.local/bin` is recognised by its pinned sha256 and moved; any other file
 | `rig setup` | **The interactive configuration wizard.** In a terminal it shows what is enabled across every reconciled area, lets you change any option (with an inline hint per option) in the local `rig.yaml` AND the global `~/.config/rig/config.yaml`, then applies. Non-interactive (piped / no TTY) it prints usage for `init`/`apply`/`config get\|set`. |
 | `rig config get\|set` | **The headless counterpart to the wizard.** `get` reads one nested key. `set <dot.path> <value>` is **preview-by-default**: it validates the prospective config entirely in memory, shows the config change + resulting reconcile plan, and writes nothing. Add **`--commit`** to write the change and execute that same validated plan; `--no-apply` is the explicit legacy write-only mode. `--global` targets `~/.config/rig/config.yaml`. |
 | `rig env list\|set\|del` | **Machine-wide `env.vars` keys** (search API keys, `COLORTERM`, …). Always writes `~/.config/rig/config.yaml` (the same path as `rig config set --global env.vars.KEY`). `set`/`del` write + reconcile by default so `~/.config/rig/env/rig.env.sh` updates; omit VALUE to read stdin (keeps the secret out of argv/history). `list` **masks** values (`***` + last 4); `--show` prints them in full. **Both files are plaintext** — this is not a secret store. |
-| `rig profile init\|sync\|status` | **Carry your global config between machines** through a **private** git repo (`<forge>/<login>/.rig-profile`) holding `~/.config/rig/config.yaml`. `init [URL]` clones it (or seeds an empty repo with this machine's file and pushes) and records `profile.repo`; without a URL it uses `profile.repo`, else `https://<host>/<fj login>/.rig-profile` when `fj whoami` knows the login. `sync` is two-way: only local changed → commit + push; only remote changed → pull (the local file is backed up first); both changed → **refused**, nothing written — pick a side with `--take local\|remote`. `status [--fetch]` says which side changed, writing nothing (exit `3` when not in sync). Once a profile is set up, `rig apply commit` syncs it first on every machine (non-fatal; `profile.auto_sync: false` turns that off). Pushes warn about `env.vars` secrets and are refused to a repo the forge reports as public. See [below](#rig-profile--carry-your-global-config-between-machines). |
+| `rig profile init\|sync\|status` | **Carry your global config AND your tmux / omp / sysmon setup between machines** through a **private** git repo (`<forge>/<login>/.rig-profile`). Besides `config.yaml` it moves a declared allow-list of portable files — `~/.tmux.conf` (your region only; rig's own block / import line stays on the machine), omp `config.yml`, omp `mcp.json` (secrets **masked**), `sysmon.json` — each three-way compared on its own. `init [URL]` clones it (or seeds an empty repo and pushes); `sync` is two-way per file: only local changed → commit + push; only remote changed → pull (the local file is backed up first); both changed → **that file is refused**, the others still move — pick a side with `--take local\|remote [--only ID]`. `status [--fetch]` lists every file's state, writing nothing (exit `3` when not in sync). **Secrets never travel** (`env.vars`, tokens, credential databases) and a secret-looking value in a payload refuses the push; machine-specific values (`agent_tools_source`, tool checkout paths, absolute paths) stay per machine in `machine/<host>.yaml`. Once a profile is set up, `rig apply commit` syncs it first on every machine (non-fatal; `profile.auto_sync: false` turns that off). See [below](#rig-profile--carry-your-global-config-between-machines). |
+| `rig activate` | **Turn on everything this machine can run** — for a new or reinstalled machine. Preview-by-default like `rig apply`: a bare `rig activate` mutates nothing; **`rig activate commit`** syncs the profile, probes the machine (harnesses, tmux, abduco, git, systemd/launchd), switches on the opt-in areas the config does not mention yet (harness, tmux, harness wrappers, the first-class `ctmux` tool — never overriding a key you set), and applies the machine-level plan: skills, agent hooks (omp's `~/.omp/agent/hooks` included), git hooks, tmux, omp config, harness wrappers, sysmon, tools. Idempotent. What the machine cannot support is listed with the reason (`✗ tmux: tmux is not installed`) and skipped; it never fails the run. `--only tmux,tools` limits it, `--json` previews machine-readably. See [below](#rig-activate--set-up-a-machine-in-one-command). |
 | `rig config-web` | **A machine-wide web console** — one browser tab per rig-managed repo (discovered from the repository registry) plus a Global tab for `~/.config/rig/config.yaml` alone. Each tab renders every area with its live effective value, tagged with the layer an edit lands in, next to a **drift panel** (the same two-way engine `rig status` uses). An edit routes to the **owning layer** and is written by the **same engine** as `rig config set`/the wizard (fail-closed validation) — then the page offers an **interactive apply**: a plan preview (mirrors `rig apply info`, each action tagged with what kind of change it is — creates a file, installs a hook, changes a permission, etc.), confirm-or-skip individual actions, then live per-phase progress as the **same shared engine** (`plan.build` + `run_plan`) `rig apply`/`rig init` use actually applies them. A stale preview (config changed since you looked) is refused rather than silently applied; only one apply runs at a time. Lifecycle is the shared `agenttools-service` manager: `run` (foreground) / `start` (background daemon) / `status` / `stop` / `enable` (install launchd-macOS / systemd-`--user`-Linux autostart + start) / `disable`. Binds `127.0.0.1` only, with a same-origin (CSRF) + Host (DNS-rebinding) guard on every mutating/compute-triggering request. A bare `rig config-web` prints help, never launches. `--port`, `-C <repo>`. **The lifecycle verbs need the `agenttools-service` lib** (an agent-tools nested lib, not on PyPI): `uv pip install --python <rig's interpreter> -e <agent-tools>/lib/agenttools_daemon -e <agent-tools>/lib/agenttools_service` (the `--python` target makes the libs land where rig imports them; the error message prints the exact interpreter path). Without it, `rig --help` and every other command still work; a lifecycle verb fails closed with that install hint. |
 | `rig evolve` | **Project evolution portal.** Serve a local browser UI with a git activity histogram, proportional file treemap, clickable selection, and provider health. The first slice is file-level and read-only; symbol/LSP/provider overlays build on the same API. Lifecycle uses the shared `agenttools-service` verbs: `run` / `start` / `status` / `stop` / `enable` / `disable`. A bare `rig evolve` prints help, never launches. `--port`, `-C <repo>`. |
 | `rig install-skill` | Register the `rig` agent skill so skills-directory harnesses auto-discover it (currently Claude Code and Codex). |
@@ -328,25 +329,49 @@ because keys like `core.sshCommand` run code. Details:
 
 ### `rig profile` — carry your global config between machines
 
-Your global config lives in one file, so it can travel through one **private** git repo:
+Your global config — and the tmux / omp / sysmon files next to it — travel through one **private** git repo:
 
 ```bash
 fj repo create .rig-profile --private          # once, on the forge (rig does not create repos)
 rig profile init https://git.hyperide.ai/<login>/.rig-profile   # machine A: seeds the empty repo
 rig profile init https://git.hyperide.ai/<login>/.rig-profile   # machine B: adopts it
 rig profile sync                                # after a change on either side
-rig profile status --fetch                      # which side changed? (writes nothing)
+rig profile status --fetch                      # which side of which file changed? (writes nothing)
 ```
 
-- **Two-way, never a silent merge.** rig compares the local file, the repo's copy, and the snapshot
-  of the last sync. Only local changed → commit + push. Only the repo changed → pull, after backing
-  the local file up as `config.yaml.rig-bak-<stamp>`. Both changed → refused with both paths printed;
-  merge by hand into the local file and `rig profile sync --take local`, or keep the repo's with
-  `--take remote`. Both files are validated before they cross, so a broken config is never pushed or
-  adopted.
-- **The repo must be private.** `env.vars` (`rig env`) often holds API keys and the file is plaintext.
-  Every push of a config with `env.vars` warns (naming the keys), and a push is refused when the forge
-  reports the repo as public to an anonymous API request.
+What travels (the allow-list — nothing else ever does):
+
+| id | local file | in the repo |
+| --- | --- | --- |
+| `config` | `~/.config/rig/config.yaml` | `config.yaml` (`env.vars` withheld) |
+| `tmux` | `~/.tmux.conf` | `files/tmux.conf` — your region only; rig's managed block / `source-file …/rig.tmux.conf` line stays on the machine |
+| `omp_config` | `~/.omp/agent/config.yml` | `files/omp/config.yml` |
+| `omp_mcp` | `~/.omp/agent/mcp.json` | `files/omp/mcp.json` — every secret-looking value replaced by `<rig:masked>` |
+| `sysmon` | `~/.config/rig/sysmon/sysmon.json` | `files/sysmon.json` (rig regenerates it from `sysmon:`; it travels so a machine that has not applied yet already has the runtime) |
+
+`profile.files.<id>: false` (ids `tmux`, `omp_config`, `omp_mcp`, `sysmon`) stops syncing one file.
+
+- **Two-way, never a silent merge — per file.** rig compares the local file, the repo's copy, and
+  the snapshot of the last sync. Only local changed → commit + push. Only the repo changed → pull,
+  after backing the local file up as `<name>.rig-bak-<stamp>`. Both changed → **that file** is
+  refused with both paths printed (the other files still move); merge by hand into the local file
+  and `rig profile sync --take local --only <id>`, or keep the repo's with `--take remote`. Configs
+  are validated before they cross, so a broken config is never pushed or adopted.
+- **Secrets never travel.** `env.vars` stays in the local file (withheld on push, kept on pull);
+  the omp auth-broker token, `agent.db`, `.env`, `remote-host`, `ssh-control` and `rig.env.sh` are not
+  on the allow-list at all (`rig profile status` prints the list). `mcp.json` is pushed masked and a
+  pull restores each masked value from the local file, naming the ones this machine must still fill
+  in. On top of that every byte about to be pushed is scanned for secret patterns (private keys, API
+  tokens, bearer tokens, URL credentials, `key: value` pairs): a hit **refuses the whole push** and
+  names file, line and rule — never the value.
+- **One profile, several machines.** Home paths are stored as `{{rig:home}}/…` and expanded locally.
+  Machine values — `agent_tools_source`, `tools.items.*.repo`, `tools.items.*.enabled`,
+  `harness.settings_paths`, `harness_wrappers.real_bin`, `sysmon.python_bin`, any absolute path outside
+  home — are ignored when sides are compared, always win locally, and are recorded per host in
+  `machine/<host>.yaml` (so a reinstalled machine gets them back). `RIG_PROFILE_MACHINE` overrides
+  the host name.
+- **The repo should be private.** A push is refused when the forge reports it public to an anonymous
+  API request.
 - **Commits use this machine's git identity** — provision it with the `git:` block above. With none,
   the push fails and names `git.config.user.name` / `user.email`.
 - **Every machine with a profile keeps it in sync:** `rig apply commit` syncs before it builds the
@@ -359,6 +384,36 @@ rig profile status --fetch                      # which side changed? (writes no
   which does not keep YAML comments. The agent-tools `protect-main` pre-push hook is switched off in
   the profile checkout only (`git config hooks.skipGlobal protect-main` there — a one-file config repo
   has no PR flow); every other repo keeps it, and the secret scan still runs on profile commits.
+
+
+### `rig activate` — set up a machine in one command
+
+```bash
+rig activate            # preview: probes the machine, mutates nothing
+rig activate commit     # profile sync → enable switches → apply the machine-level plan
+```
+
+`rig init` and `rig setup` write a config; `rig apply` reconciles one. A new machine needs the
+profile pulled **and** everything it can run switched on. `rig activate commit` does, in order:
+
+1. `rig profile sync` when `profile.repo` is set (a conflict warns and the local files are used);
+2. probes this machine — installed harnesses (omp, claude, codex, opencode), `tmux`, `abduco`, `git`,
+   systemd `--user` / launchd;
+3. writes the opt-in switches the config does not mention yet into `~/.config/rig/config.yaml` — a
+   `harness` block (the detected kinds), `tmux.enabled`, `harness_wrappers.enabled`, and the
+   first-class `ctmux` tool — so the choice is visible and travels with the profile. **An existing
+   key is never overridden**: an explicit `tmux: {enabled: false}` stays false. The previous file is
+   backed up;
+4. builds the machine-level plan from the global config alone (no repo layer) and runs it with the
+   same executor as `rig apply commit`: skills, agent hooks for every configured harness (omp's
+   `~/.omp/agent/hooks` and its bridge included, rig-cli#743), git hooks, tmux, omp config, harness
+   wrappers, sysmon, the model schedule, tools (ctmux is cloned from
+   `https://github.com/alex-mextner/ctmux-cli`, on macOS and Ubuntu).
+
+Areas the machine cannot run are printed with the reason — `✗ sysmon: no service manager`, `✗ tmux:
+tmux is not installed` — and skipped; the exit code stays `0` unless an action actually failed (`1`)
+or the config / agent-tools checkout is unusable (`2`). Idempotent. `--only skills,tmux` limits the
+run to those areas, `--json` (preview only) prints the areas and config changes for scripts.
 
 ### Autonomous mode — global agent operating policy
 
