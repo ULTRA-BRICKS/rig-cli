@@ -7,7 +7,7 @@ the baseline-vs-fixed table is `python3 tests/omp_ticket_e2e/run_matrix.py` (see
 
 What it asserts (the FIXED variant only — the baseline is evidence, not a gate): in every scenario
 the real agents produce the guard-intended behaviour in at least RIG_OMP_TICKET_E2E_MIN of
-RIG_OMP_TICKET_E2E_N trials (default 3 of 3 for A/B/C/D; LLM variance is the reason this is not a
+RIG_OMP_TICKET_E2E_N trials (default 3 of 3 for A-E; LLM variance is the reason this is not a
 required PR check).
 """
 
@@ -32,7 +32,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.mark.parametrize("scenario", ["A", "B", "C", "D"])
+@pytest.mark.parametrize("scenario", ["A", "B", "C", "D", "E"])
 def test_fixed_guard_leads_real_agents_to_a_ticketed_commit(scenario: str, tmp_path: Path) -> None:
     trials = int(os.environ.get("RIG_OMP_TICKET_E2E_N", "3"))
     need = int(os.environ.get("RIG_OMP_TICKET_E2E_MIN", str(trials)))

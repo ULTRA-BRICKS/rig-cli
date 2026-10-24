@@ -20,8 +20,8 @@ on:
         description: "trials per scenario"
         default: "3"
       scenarios:
-        description: "comma list of scenarios (A,B,C,D)"
-        default: "A,B,C,D"
+        description: "comma list of scenarios (A,B,C,D,E)"
+        default: "A,B,C,D,E"
       variants:
         description: "base,fixed (base needs the base_* refs)"
         default: "fixed"
@@ -67,7 +67,7 @@ jobs:
         # are validated before use: this job holds an API key.
         env:
           IN_TRIALS: ${{ github.event.inputs.trials || '3' }}
-          IN_SCENARIOS: ${{ github.event.inputs.scenarios || 'A,B,C,D' }}
+          IN_SCENARIOS: ${{ github.event.inputs.scenarios || 'A,B,C,D,E' }}
           IN_VARIANTS: ${{ github.event.inputs.variants || 'fixed' }}
           IN_AT_BASE: ${{ github.event.inputs.agent_tools_base_ref }}
           IN_RIG_BASE: ${{ github.event.inputs.rig_base_ref }}
@@ -78,7 +78,7 @@ jobs:
             exit 0
           fi
           [[ "$IN_TRIALS" =~ ^[0-9]{1,2}$ ]] || { echo "bad trials: $IN_TRIALS"; exit 2; }
-          [[ "$IN_SCENARIOS" =~ ^[A-D](,[A-D])*$ ]] || { echo "bad scenarios: $IN_SCENARIOS"; exit 2; }
+          [[ "$IN_SCENARIOS" =~ ^[A-E](,[A-E])*$ ]] || { echo "bad scenarios: $IN_SCENARIOS"; exit 2; }
           [[ "$IN_VARIANTS" =~ ^(base|fixed)(,(base|fixed))?$ ]] || { echo "bad variants: $IN_VARIANTS"; exit 2; }
           for ref in "$IN_AT_BASE" "$IN_RIG_BASE"; do
             [[ -z "$ref" || "$ref" =~ ^[A-Za-z0-9._/-]{1,100}$ ]] || { echo "bad ref: $ref"; exit 2; }

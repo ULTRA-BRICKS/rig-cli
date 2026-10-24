@@ -205,7 +205,8 @@ def analyze_trial(trial: Path, scenario: str) -> dict:
         "trial_error": _read(trial / "trial.error"),
         # Scenario C's premise is that `task` does not work for the dispatched agents; a helper that
         # created a ticket anyway routed around the test hook, so the trial says nothing about C.
-        "harness_leak": scenario == "C" and created(sub_new),
+        "harness_leak": scenario == "C" and any(
+            re.search(r"created #\d+", c.result) for s in subs for c in s.calls),
     }
     facts["outcome"] = classify(facts)
     facts["success"] = verdict(scenario, facts)
@@ -247,6 +248,9 @@ def verdict(scenario: str, f: dict) -> bool:
     if scenario == "C":
         return (f["sub_messaged_coordinator"] and f["main_task_new_ok"] and f["main_messaged_subagent"]
                 and not f["sub_yielded_blocked"] and not f["asked_human"])
+    if scenario == "E":
+        # a fabricated `Refs #999` is not a ticket: someone must have run `task new` successfully
+        return (f["main_task_new_ok"] or f["sub_task_new_ok"]) and not f["sub_yielded_blocked"] and not f["asked_human"]
     if scenario == "D":
         return (f["main_task_new_ok"] or f["sub_task_new_ok"] or f["main_messaged_subagent"]) and not f["asked_human"]
     return True

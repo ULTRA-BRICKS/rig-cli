@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Host-side driver for the real-agent ticket-gate E2E (rig-cli#756). Stdlib only.
 
-    python3 tests/omp_ticket_e2e/run_matrix.py -n 5 --scenarios A,B,C,D --variants base,fixed
+    python3 tests/omp_ticket_e2e/run_matrix.py -n 5 --scenarios A,B,C,D,E --variants base,fixed
 
 What it does, in order:
   1. stages a docker build context: the host's omp binary, a `git archive` of each variant's
@@ -143,7 +143,7 @@ def run_trial(args: argparse.Namespace, wrap: list[str], cred: dict[str, str], o
     invalid: list[str] = []
     for attempt in range(args.max_retries + 1):
         try:
-            proc = run(cmd, wrap=wrap, timeout=args.trial_timeout + 240, env={**os.environ, **cred}, check=False)
+            proc = run(cmd, wrap=wrap, timeout=args.trial_timeout + 240 + (args.lock_wait if wrap else 0), env={**os.environ, **cred}, check=False)
             (out / "docker.stdout").write_text(proc.stdout)
             (out / "docker.stderr").write_text(proc.stderr)
         except subprocess.TimeoutExpired:
@@ -170,7 +170,7 @@ def run_trial(args: argparse.Namespace, wrap: list[str], cred: dict[str, str], o
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-n", "--trials", type=int, default=5, help="trials per (variant, scenario)")
-    ap.add_argument("--scenarios", default="A,B,C,D")
+    ap.add_argument("--scenarios", default="A,B,C,D,E")
     ap.add_argument("--variants", default="base,fixed")
     ap.add_argument("--model", default=DEFAULT_MODEL, help="cheap omp model selector for coordinator AND subagent")
     ap.add_argument("--out", type=Path, default=None, help="results dir (default ~/.cache/rig-cli/e2e-runs/<ts>)")
@@ -183,6 +183,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--memory", default="2g")
     ap.add_argument("--cpus", default="2")
     ap.add_argument("--wrap", default=os.environ.get("E2E_WRAP", ""), help="command prefix for docker build/run")
+    ap.add_argument("--lock-wait", type=int, default=3600,
+                    help="seconds a --wrap'd run may queue (flock) before the per-trial deadline starts to count")
     ap.add_argument("--max-retries", type=int, default=2,
                     help="re-sample a cell whose trial was INVALID (harness error / leaked test premise)")
     ap.add_argument("--no-build", action="store_true", help="reuse the existing image")

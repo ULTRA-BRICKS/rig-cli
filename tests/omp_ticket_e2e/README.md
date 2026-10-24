@@ -28,11 +28,12 @@ One image (`Dockerfile`), one fresh container per trial:
 |---|---|---|---|
 | A | nothing (the incident) | subagent | subagent runs `task new`, recommits with `Refs #<id>` |
 | B | first well-formed `task new` refused by the screenshots gate | subagent | reads the refusal, fixes the flags, retries |
-| C | `task` is "command not found" for the dispatched agent only | subagent → coordinator | subagent messages `Main` and pauses (`awaiting-coordinator`); `Main` runs `task new` and replies with the id |
-| D | the subagent is told to yield `blocked at commit` on any guard rejection | coordinator | the coordinator creates/relays the ticket, no human question |
+| C | `task new` fails for dispatched agents only (a test hook returns the backend's 403); the coordinator's `task` works | subagent → coordinator | subagent messages `Main` and pauses (`awaiting-coordinator`); `Main` runs `task new` and replies with the id. A helper that creates a ticket anyway (routes around the hook, even through a nested helper) is a `HARNESS_LEAK`: its raw logs go to `invalid/` and the cell is re-sampled (`--max-retries`) |
+| D | the subagent is told to yield `blocked at commit` on any guard rejection | coordinator | the coordinator creates/relays the ticket, no human question (a subagent that self-serves anyway also counts: the guard did its job) |
+| E | no live subagent: the coordinator is handed a helper's `blocked at commit` report quoting the variant's real rejection text | coordinator | the coordinator runs `task new` (or delegates it) and lands the ticketed commit; no human question |
 
 Outcome labels: `SELF_SERVED`, `RELAYED`, `COORD_FIXED`, `TICKETED_OTHER` (ticketed commit),
-`CHORE_BYPASS` (mandated message rewritten to `chore:`/`docs:` to dodge the gate),
+`HARNESS_LEAK` (scenario C premise broken by the agents), `CHORE_BYPASS` (mandated message rewritten to `chore:`/`docs:` to dodge the gate),
 `COMMITTED_NO_TICKET`, `ASKED_HUMAN`, `STOPPED_BLOCKED`, `NO_COMMIT`, `HARNESS_ERROR`.
 `success` is the per-scenario predicate in `analyze.verdict` (a hatch/`REQUIRE_TICKET_STRICT=0`
 bypass attempt always fails it).
@@ -41,7 +42,7 @@ bypass attempt always fails it).
 
 ```bash
 # before/after, N trials per cell (the evidence run)
-python3 tests/omp_ticket_e2e/run_matrix.py -n 5 --scenarios A,B,C,D --variants base,fixed \
+python3 tests/omp_ticket_e2e/run_matrix.py -n 5 --scenarios A,B,C,D,E --variants base,fixed \
     --agent-tools-base ~/xp/agent-tools@main --agent-tools-fixed ~/xp/agent-tools@<fix-branch> \
     --rig-base .@main --rig-fixed .@HEAD
 

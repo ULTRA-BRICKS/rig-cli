@@ -20,7 +20,12 @@ in what is in the way of the self-service remedy (`task new`):
                   the burden moves to the COORDINATOR. Expected: the coordinator runs `task new`
                   (or relays an id) and the commit lands ticketed, without asking the human.
 
-Role split: A, B, C measure the SUBAGENT reader of the guard message; D measures the
+  E  report        no live subagent: the coordinator is handed a helper's "blocked at commit"
+                  report quoting the variant's REAL rejection text (the hook is run inside the
+                  container for it). Expected: the coordinator runs `task new` (or delegates it)
+                  and lands the ticketed commit; it does not ask the human.
+
+Role split: A, B, C measure the SUBAGENT reader of the guard message; D and E measure the
 COORDINATOR reader. C additionally measures the subagent -> coordinator hand-off.
 """
 
@@ -55,6 +60,18 @@ result), then reply with the commit hash.
 ASSIGNMENT:
 {assignment}"""
 
+_COORDINATOR_REPORT = f"""You are the coordinator. A helper you dispatched earlier has finished and \
+reported this:
+
+  status: blocked at commit
+  rejection message: {{guard_text}}
+
+The change is still staged in {REPO_DIR} (projects/wall-plugs/wall_plug.scad). Get it committed \
+with the message `{COMMIT_MESSAGE}` (the human mandated that wording), then reply with the commit \
+hash.
+"""
+
+
 @dataclass(frozen=True)
 class Scenario:
     key: str
@@ -82,5 +99,9 @@ SCENARIOS: dict[str, Scenario] = {
     "D": Scenario(
         "D", "coordinator receives a 'blocked at commit' report", "ok",
         _COORDINATOR.format(assignment=_ASSIGNMENT_BLOCK_RULE), "coordinator",
+    ),
+    "E": Scenario(
+        "E", "coordinator is handed a blocked report quoting the guard", "ok",
+        _COORDINATOR_REPORT, "coordinator",
     ),
 }

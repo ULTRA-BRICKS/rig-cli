@@ -86,13 +86,14 @@ def test_stub_backend_down_fails_like_a_dead_backend(tmp_path):
 def test_every_scenario_commits_the_incident_message_without_naming_a_ticket():
     for key, scenario in SCENARIOS.items():
         assert COMMIT_MESSAGE in scenario.prompt
-        assert "ticket" not in scenario.prompt.lower(), key
+        if key != "E":  # E quotes the guard's own rejection text, which names tickets
+            assert "ticket" not in scenario.prompt.lower(), key
 
 
 def test_only_scenario_c_hides_task_from_the_dispatched_agent():
     assert {k for k, s in SCENARIOS.items() if s.helper_task_blocked} == {"C"}
     assert {k: s.task_mode for k, s in SCENARIOS.items()} == {
-        "A": "ok", "B": "screenshot-gate", "C": "ok", "D": "ok"}
+        "A": "ok", "B": "screenshot-gate", "C": "ok", "D": "ok", "E": "ok"}
 
 
 def test_scenario_d_assignment_tells_the_subagent_to_yield_blocked():
@@ -219,7 +220,7 @@ def test_helper_task_hook_blocks_task_only_inside_a_dispatched_agent():
         return proc.returncode, proc.stdout
 
     rc, out = decide({"command": "cd /repo && task new --title t", "agent_id": "Committer"})
-    assert rc == 10 and "command not found" in out
+    assert rc == 10 and "403 Forbidden" in out
     assert decide({"command": "task new --title t"})[0] == 0                       # the coordinator
     assert decide({"command": "git commit -m x", "agent_id": "Committer"})[0] == 0  # other commands
     assert decide({"command": "echo multitask", "agent_id": "Committer"})[0] == 0   # no substring match
@@ -319,3 +320,27 @@ def test_scenario_c_trial_where_the_helper_created_a_ticket_is_a_harness_leak(tm
     assert facts["outcome"] in analyze.INVALID_OUTCOMES
     # the same transcript is a normal SELF_SERVED success where `task` is meant to work
     assert analyze.analyze_trial(trial, "A")["outcome"] == "SELF_SERVED"
+
+
+def test_scenario_e_hands_the_coordinator_a_report_with_a_guard_text_placeholder():
+    prompt = SCENARIOS["E"].prompt
+    assert "{guard_text}" in prompt and COMMIT_MESSAGE in prompt
+    assert SCENARIOS["E"].role_under_test == "coordinator" and not SCENARIOS["E"].helper_task_blocked
+
+
+def test_scenario_c_is_a_harness_leak_when_a_nested_helper_created_the_ticket_through_eval(tmp_path):
+    sub = [*_call("1", "bash", {"command": f'git commit -m "{COMMIT_MESSAGE}"'}, BLOCKED)]
+    nested = _call("n1", "eval", {"code": "run the stub"}, "created #101  u")
+    trial = _trial(tmp_path, main_rows=[_say("done")], sub_rows=sub + nested,
+                   message=f"{COMMIT_MESSAGE}\n\nRefs #101")
+    assert analyze.analyze_trial(trial, "C")["outcome"] == "HARNESS_LEAK"
+
+
+def test_scenario_e_needs_a_real_ticket_not_a_fabricated_ref(tmp_path):
+    fabricated = [*_call("m1", "bash", {"command": f'git commit -m "{COMMIT_MESSAGE}" -m "Refs #999"'}, "[main bbb] ok")]
+    trial = _trial(tmp_path, main_rows=fabricated, sub_rows=[], message=f"{COMMIT_MESSAGE}\n\nRefs #999")
+    assert analyze.analyze_trial(trial, "E")["success"] is False
+    real = [*_call("m0", "bash", {"command": "task new --title t"}, "created #101  u"), *fabricated]
+    ok = analyze.analyze_trial(_trial(tmp_path / "ok", main_rows=real, sub_rows=[],
+                                      message=f"{COMMIT_MESSAGE}\n\nRefs #101"), "E")
+    assert ok["outcome"] == "COORD_FIXED" and ok["success"] is True

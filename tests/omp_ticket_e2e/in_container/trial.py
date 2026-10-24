@@ -143,12 +143,29 @@ def rig_apply() -> int:
     return 0
 
 
+def guard_text() -> str:
+    """The variant's REAL rejection text for the incident commit, as a dispatched helper sees it
+    (scenario E hands this to the coordinator as the helper's report)."""
+    hook = VARDIR / "agent-tools" / "agent-hooks" / "require-ticket-before-commit" / "require_ticket_before_commit.py"
+    event = {"harness": "omp", "cwd": str(REPO), "args": {
+        "command": 'git commit -m "wall-plugs: flat-head spiral plug mod, M3 bore, 50 mm"'}}
+    env = {**os.environ, "RIG_AGENT_ID": "Committer",
+           "PI_SESSION_FILE": "/x/2026-10-24T00-00-00-000Z_00000000-0000-0000-0000-000000000000/Committer.jsonl"}
+    proc = subprocess.run([sys.executable, str(hook)], input=json.dumps(event), capture_output=True,
+                          text=True, env=env, cwd=REPO)
+    return json.loads(proc.stdout)["message"]
+
+
 def run_agent() -> None:
+    prompt = os.environ["E2E_PROMPT"]
+    if "{guard_text}" in prompt:
+        prompt = prompt.replace("{guard_text}", guard_text())
+    (OUT / "prompt.txt").write_text(prompt)
     log(f"omp run: model={MODEL} timeout={TIMEOUT}s")
     try:
         with (OUT / "omp.stdout").open("w") as so, (OUT / "omp.stderr").open("w") as se:
             proc = subprocess.run(
-                ["omp", "--model", MODEL, "--thinking", "off", "-p", os.environ["E2E_PROMPT"]],
+                ["omp", "--model", MODEL, "--thinking", "off", "-p", prompt],
                 cwd=REPO, stdout=so, stderr=se, timeout=TIMEOUT)
         code = proc.returncode
     except subprocess.TimeoutExpired:
