@@ -340,6 +340,7 @@ def test_block_tells_a_helper_to_run_the_guards_remedy_and_never_yield_blocked()
 def test_block_tells_the_orchestrator_to_supply_the_missing_thing_to_a_waiting_helper():
     text = _block_lines()
     assert "write agent://<helper>" in text
+    assert "do not forward the block to the user" in text
     assert "Only you escalate to the human" in text
 
 

@@ -7377,7 +7377,7 @@ def orchestrator_block_text() -> str:
         "# After a successful `gh ship` of a load-bearing feature, merge is not done: (1) turn it on in settings if it has a config knob, (2) `rig apply commit` on this machine, (3) prove it WORKS on this machine (command output, Telegram, deny text — SHA/on-disk is not a proof), (4) re-check the original user quote is solved.",
         "# A helper yield is not done — do not tick the todo until the original ask is live-proven; wake parked helpers via hub send.",
         "# A guard block names its own remedy: run it (a ticket gate: `task new ...`, then commit with `Refs #<id>`). Helper: if you truly cannot, `write agent://<parent>` what is missing and what you tried, then yield status `awaiting-coordinator` — never `blocked`, never the human.",
-        "# Orchestrator: a helper that messages you, or yields `awaiting-coordinator` / `blocked at …`, is waiting for YOU — supply the missing thing (`task new`), reply `write agent://<helper>`, `wait` for its final report. Only you escalate to the human.",
+        "# Orchestrator: a helper that messages you, or yields `awaiting-coordinator` / `blocked at …`, is waiting for YOU — do not forward the block to the user: run the remedy the guard names (`task new …`) yourself, reply `write agent://<helper>` with the result, `wait` for its final report. Only you escalate to the human, after the remedy failed.",
         ORCHESTRATOR_END_MARKER,
     ])
 

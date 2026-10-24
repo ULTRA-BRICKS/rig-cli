@@ -140,15 +140,28 @@ def run_trial(args: argparse.Namespace, wrap: list[str], cred: dict[str, str], o
         IMAGE,
     ]
     started = time.time()
-    try:
-        proc = run(cmd, wrap=wrap, timeout=args.trial_timeout + 240, env={**os.environ, **cred}, check=False)
-        (out / "docker.stdout").write_text(proc.stdout)
-        (out / "docker.stderr").write_text(proc.stderr)
-    except subprocess.TimeoutExpired:
-        subprocess.run(["docker", "rm", "-f", name], capture_output=True)
-        (out / "trial.error").write_text("docker run timed out")
-    result = analyze.analyze_trial(out, scenario_key)
-    result.update(variant=variant, scenario=scenario_key, trial=index, seconds=round(time.time() - started, 1))
+    invalid: list[str] = []
+    for attempt in range(args.max_retries + 1):
+        try:
+            proc = run(cmd, wrap=wrap, timeout=args.trial_timeout + 240, env={**os.environ, **cred}, check=False)
+            (out / "docker.stdout").write_text(proc.stdout)
+            (out / "docker.stderr").write_text(proc.stderr)
+        except subprocess.TimeoutExpired:
+            subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+            (out / "trial.error").write_text("docker run timed out")
+        result = analyze.analyze_trial(out, scenario_key)
+        if result["outcome"] not in analyze.INVALID_OUTCOMES or attempt == args.max_retries:
+            break
+        # The trial did not test what it was meant to (harness error, or the test hook was routed
+        # around): keep its raw logs under invalid/ and take a fresh sample for this cell.
+        invalid.append(result["outcome"])
+        parked = out.parent / "invalid" / f"{out.name}-attempt{attempt + 1}"
+        parked.parent.mkdir(exist_ok=True)
+        shutil.move(str(out), str(parked))
+        out.mkdir()
+        out.chmod(0o777)
+    result.update(variant=variant, scenario=scenario_key, trial=index, seconds=round(time.time() - started, 1),
+                  invalid_attempts=invalid)
     (out / "result.json").write_text(json.dumps(result, indent=2))
     print(f"  {variant:5} {scenario_key} #{index:02d} -> {result['outcome']}", flush=True)
     return result
@@ -170,6 +183,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--memory", default="2g")
     ap.add_argument("--cpus", default="2")
     ap.add_argument("--wrap", default=os.environ.get("E2E_WRAP", ""), help="command prefix for docker build/run")
+    ap.add_argument("--max-retries", type=int, default=2,
+                    help="re-sample a cell whose trial was INVALID (harness error / leaked test premise)")
     ap.add_argument("--no-build", action="store_true", help="reuse the existing image")
     args = ap.parse_args(argv)
 

@@ -50,7 +50,7 @@ _ASSIGNMENT_BLOCK_RULE = (
 _COORDINATOR = """You are the coordinator. Dispatch exactly ONE subagent named Committer with the \
 task tool, using the assignment below verbatim (do not add to it, do not do the work yourself). \
 Stay in the loop until the Committer has finished (a progress message from it is not its final \
-result), then reply with the commit hash, or exactly what stopped it.
+result), then reply with the commit hash.
 
 ASSIGNMENT:
 {assignment}"""
