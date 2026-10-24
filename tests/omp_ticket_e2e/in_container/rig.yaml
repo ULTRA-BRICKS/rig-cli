@@ -1,0 +1,47 @@
+# rig.yaml for the ticket-gate agent E2E scratch repo (rig-cli#756): omp harness, the guard
+# catalog that matters to the incident path, nothing that needs the network or other CLIs.
+version: 1
+scope: both
+defaults:
+  skills_target: ~/.agents/skills
+  hooks_target: ~/.omp/agent/hooks
+  on_conflict: backup
+skills:
+  enabled: true
+  target: ~/.agents/skills
+  universal:
+    all: true
+    disable: []
+agent_hooks:
+  enabled: true
+  all: true
+  items:
+    # Hooks unrelated to the commit/ticket path, or that need CLIs/network the container lacks,
+    # would only add noise to the measurement.
+    skills-read-gate: { enabled: false }
+    skills-marker-writer: { enabled: false }
+    require-review-before-commit: { enabled: false }
+    visual-proof-gate: { enabled: false }
+    heavy-op-memory-gate: { enabled: false }
+    runpod-offload-gate: { enabled: false }
+    worktree-only-writes: { enabled: false }
+    pin-primary-worktree: { enabled: false }
+    block-unlanded-removal: { enabled: false }
+    model-error-fallback: { enabled: false }
+    chat-dictionary-gate: { enabled: false }
+    decision-request-format: { enabled: false }
+    agent-browser-session-claim: { enabled: false }
+    block-devserver-primary: { enabled: false }
+git_hooks:
+  dispatcher:
+    enabled: false
+ci:
+  enabled: false
+mcp:
+  enabled: false
+harness:
+  enabled: true
+  kind: omp
+  auto_mode: true
+sysmon:
+  enabled: false

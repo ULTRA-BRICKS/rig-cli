@@ -315,3 +315,34 @@ def test_block_is_at_most_12_lines(tmp_path):
     auto = _managed_block(text, AUTO_BEGIN, AUTO_END)
     assert len(orch.splitlines()) <= 12
     assert len(auto.splitlines()) <= 12
+
+
+# ── guard-block ladder (rig-cli#756) ───────────────────────────────────────────────────────────
+# Incident 2026-10-24: a subagent hit a guard block, did not run the remedy the block named
+# (`task new`), and yielded "blocked at commit"; its coordinator then asked the human. Subagents
+# read this block through the repo's AGENTS.md, so it carries the ladder both roles need.
+
+
+def _block_lines() -> str:
+    from riglib.actions.runner import orchestrator_block_text
+
+    return orchestrator_block_text()
+
+
+def test_block_tells_a_helper_to_run_the_guards_remedy_and_never_yield_blocked():
+    text = _block_lines()
+    assert "task new" in text and "Refs #<id>" in text
+    assert "write agent://<parent>" in text
+    assert "awaiting-coordinator" in text
+    assert "never `blocked`" in text and "never the human" in text
+
+
+def test_block_tells_the_orchestrator_to_supply_the_missing_thing_to_a_waiting_helper():
+    text = _block_lines()
+    assert "write agent://<helper>" in text
+    assert "Only you escalate to the human" in text
+
+
+def test_block_never_teaches_the_forbidden_closing_keywords():
+    text = _block_lines()
+    assert "Closes" not in text and "Fixes" not in text

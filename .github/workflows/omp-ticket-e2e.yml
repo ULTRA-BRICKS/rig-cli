@@ -1,0 +1,112 @@
+# Real-agent ticket-gate E2E (rig-cli#756): do REAL omp agents self-serve a ticket when the
+# require-ticket guard blocks their commit?
+#
+# OPT-IN, NIGHTLY — never a PR gate. It needs an LLM credential (secret ANTHROPIC_API_KEY),
+# spends a few cents of a cheap model, and LLM variance makes a hard per-PR gate flaky. Without
+# the secret the job exits 0 with a visible warning instead of failing. Run it by hand with
+# workflow_dispatch (inputs: trials, scenarios), or locally: tests/omp_ticket_e2e/README.md.
+#
+# The matrix runs the `fixed` variant (this checkout + the agent-tools default branch) and also
+# the `base` variant (the same repos at the pre-fix commits you name) so the artifact carries the
+# before/after table; the nightly default is fixed-only to keep the spend down.
+name: omp-ticket-e2e
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      trials:
+        description: "trials per scenario"
+        default: "3"
+      scenarios:
+        description: "comma list of scenarios (A,B,C,D)"
+        default: "A,B,C,D"
+      variants:
+        description: "base,fixed (base needs the base_* refs)"
+        default: "fixed"
+      agent_tools_base_ref:
+        description: "agent-tools ref for the base variant (pre-fix commit)"
+        default: ""
+      rig_base_ref:
+        description: "rig-cli ref for the base variant (pre-fix commit)"
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  omp-ticket-e2e:
+    name: real omp agents vs the require-ticket guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Checkout rig-cli (full history, the base variant is a git archive of a ref)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Checkout agent-tools (full history)
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository_owner }}/agent-tools
+          path: agent-tools
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the omp binary the container will run
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/lib/omp"
+          curl -fsSL https://omp.sh/install | PI_INSTALL_DIR="$HOME/.local/lib/omp" sh -s -- --binary
+          test -x "$HOME/.local/lib/omp/omp"
+      - name: Run the matrix (skips LOUDLY without ANTHROPIC_API_KEY)
+        # dispatch inputs reach the shell ONLY through env (never `${{ }}` inside the script), and
+        # are validated before use: this job holds an API key.
+        env:
+          IN_TRIALS: ${{ github.event.inputs.trials || '3' }}
+          IN_SCENARIOS: ${{ github.event.inputs.scenarios || 'A,B,C,D' }}
+          IN_VARIANTS: ${{ github.event.inputs.variants || 'fixed' }}
+          IN_AT_BASE: ${{ github.event.inputs.agent_tools_base_ref }}
+          IN_RIG_BASE: ${{ github.event.inputs.rig_base_ref }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
+            echo "::warning title=omp-ticket-e2e skipped::secret ANTHROPIC_API_KEY is not set; no real agent was run"
+            exit 0
+          fi
+          [[ "$IN_TRIALS" =~ ^[0-9]{1,2}$ ]] || { echo "bad trials: $IN_TRIALS"; exit 2; }
+          [[ "$IN_SCENARIOS" =~ ^[A-D](,[A-D])*$ ]] || { echo "bad scenarios: $IN_SCENARIOS"; exit 2; }
+          [[ "$IN_VARIANTS" =~ ^(base|fixed)(,(base|fixed))?$ ]] || { echo "bad variants: $IN_VARIANTS"; exit 2; }
+          for ref in "$IN_AT_BASE" "$IN_RIG_BASE"; do
+            [[ -z "$ref" || "$ref" =~ ^[A-Za-z0-9._/-]{1,100}$ ]] || { echo "bad ref: $ref"; exit 2; }
+          done
+          ARGS=(-n "$IN_TRIALS" --scenarios "$IN_SCENARIOS" --variants "$IN_VARIANTS" --out "$RUNNER_TEMP/e2e-out"
+                --agent-tools-fixed "$GITHUB_WORKSPACE/agent-tools@HEAD" --rig-fixed "$GITHUB_WORKSPACE@HEAD")
+          [[ -n "$IN_AT_BASE" ]] && ARGS+=(--agent-tools-base "$GITHUB_WORKSPACE/agent-tools@$IN_AT_BASE")
+          [[ -n "$IN_RIG_BASE" ]] && ARGS+=(--rig-base "$GITHUB_WORKSPACE@$IN_RIG_BASE")
+          python3 tests/omp_ticket_e2e/run_matrix.py "${ARGS[@]}"
+          cat "$RUNNER_TEMP/e2e-out/results.md" >> "$GITHUB_STEP_SUMMARY"
+          # the nightly signal: every fixed-variant scenario must meet its success rate
+          python3 - <<'PY'
+          import json, os, sys
+          out = os.path.join(os.environ["RUNNER_TEMP"], "e2e-out", "results.json")
+          results = json.load(open(out))["results"]
+          bad = []
+          for sc in sorted({r["scenario"] for r in results}):
+              fixed = [r for r in results if r["scenario"] == sc and r["variant"] == "fixed"]
+              if fixed and sum(r["success"] for r in fixed) < len(fixed) - 1:
+                  bad.append(f"{sc}: {sum(r['success'] for r in fixed)}/{len(fixed)}")
+          if bad:
+              print("fixed variant below threshold (allowed: one miss per scenario): " + ", ".join(bad))
+              sys.exit(1)
+          PY
+      - name: Upload raw transcripts and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omp-ticket-e2e-raw
+          path: ${{ runner.temp }}/e2e-out
+          if-no-files-found: ignore
