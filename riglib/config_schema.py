@@ -340,18 +340,21 @@ _AGENT_HOOKS_BLOCK = Block(
         # time). They live here so the strict validator/schema accept them per-repo.
         "worktree_only": Leaf(
             "boolean",
-            "enforce the worktree-only workflow: gates TWO hooks. worktree-only-writes DENIES an "
+            "enforce the worktree-only workflow: gates THREE hooks. worktree-only-writes DENIES an "
             "Edit/Write while the checkout sits on the default branch (main/master); "
             "pin-primary-worktree DENIES a git checkout/switch that would move the repo's PRIMARY "
-            "worktree onto anything but the default branch. Opt-IN, default OFF — a repo that "
-            "works directly on main (e.g. 3d-cli) leaves it off and is never blocked. No "
+            "worktree onto anything but the default branch, and a git commit/cherry-pick/merge/"
+            "rebase/revert/am on the primary checkout's default branch; block-devserver-primary "
+            "DENIES a dev-server launch there. ON by default: every repo with a rig.yaml is "
+            "enforced unless it sets worktree_only: false (a repo that legitimately works "
+            "directly on main); a directory with no rig.yaml is never blocked. No "
             "self-service env bypass — each hook has its OWN hatch var: a deliberate one-off "
             "Edit/Write on main is requested via "
             "RIG_HATCH_REQUEST_WORKTREE_ONLY_WRITES=\"<justification>\"; a one-off git checkout/"
             "switch in the primary checkout via "
             "RIG_HATCH_REQUEST_PIN_PRIMARY_WORKTREE=\"<justification>\" (both: tg approval, "
-            "deny-by-default; bare 1 rejected). (Alex tg#5742, tg#6462/tg#6477.)",
-            default=False,
+            "deny-by-default; bare 1 rejected). (Alex tg#5742, tg#6462/tg#6477; default flipped agent-tools#1012.)",
+            default=True,
         ),
         "orchestrator_only": Leaf(
             "boolean",

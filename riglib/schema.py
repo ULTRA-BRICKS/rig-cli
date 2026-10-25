@@ -254,13 +254,16 @@ AREAS: tuple[Area, ...] = (
                  "intercept dangerous tool calls (block-no-verify, block-secrets-write, …) before they land."),
             _opt("agent_hooks.all", KIND_BOOL, True,
                  "Install ALL guard hooks (vs cherry-picking via items). Recommended on."),
-            _opt("agent_hooks.worktree_only", KIND_BOOL, False,
-                 "Opt-IN: enforce the worktree-only workflow. Gates TWO hooks: worktree-only-writes "
+            _opt("agent_hooks.worktree_only", KIND_BOOL, True,
+                 "ON by default (false opts a repo out): enforce the worktree-only workflow. Gates THREE hooks: worktree-only-writes "
                  "denies an Edit/Write while the checkout sits on the default branch (main/master); "
                  "pin-primary-worktree denies a git checkout/switch that would move the repo's "
-                 "PRIMARY worktree onto anything but the default branch — authoring happens in a "
-                 "feature-branch worktree instead. Off by default so a repo that legitimately works "
-                 "on main (e.g. 3d-cli) is never blocked. No self-service env bypass — each hook has "
+                 "PRIMARY worktree onto anything but the default branch, and a git commit/"
+                 "cherry-pick/merge/rebase/revert/am on the primary checkout's default branch; "
+                 "block-devserver-primary denies a dev-server launch there — authoring happens in "
+                 "a feature-branch worktree instead. Every repo with a rig.yaml is enforced unless "
+                 "it sets worktree_only: false (a repo that legitimately works on main); a "
+                 "directory with no rig.yaml is never blocked. No self-service env bypass — each hook has "
                  "its OWN hatch var: a deliberate one-off Edit/Write on main is requested via "
                  "RIG_HATCH_REQUEST_WORKTREE_ONLY_WRITES=\"<justification>\"; a one-off git checkout/"
                  "switch in the primary checkout via "

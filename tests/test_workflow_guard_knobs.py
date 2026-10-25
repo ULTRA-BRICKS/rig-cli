@@ -1,6 +1,6 @@
 """Contract tests for the per-repo harness workflow-guard knobs (Alex tg#5742 / tg#5743).
 
-`agent_hooks.worktree_only` (opt-IN, default off) and `agent_hooks.orchestrator_only`
+`agent_hooks.worktree_only` (opt-OUT, default on) and `agent_hooks.orchestrator_only`
 (opt-OUT, default on) are RUNTIME behaviour knobs read by the agent-hooks from the committed
 rig.yaml at fire time. rig-cli's job is only to (1) let the strict validator + published schema
 ACCEPT them per-repo, and (2) keep the managed PreToolUse matcher set that carries bash,
@@ -29,7 +29,7 @@ def _agent_hooks_schema_props() -> dict:
 def test_schema_exposes_both_knobs_with_correct_defaults():
     props = _agent_hooks_schema_props()
     assert props["worktree_only"]["type"] == "boolean"
-    assert props["worktree_only"]["default"] is False  # opt-IN — a repo is never blocked by default
+    assert props["worktree_only"]["default"] is True  # ON by default; false opts out (agent-tools#1012)
     assert props["orchestrator_only"]["type"] == "boolean"
     assert props["orchestrator_only"]["default"] is True  # opt-OUT — no behaviour change by default
 
@@ -131,7 +131,7 @@ def test_wizard_registry_exposes_both_knobs_with_correct_defaults():
     # could drift to different values and this test would still pass.
     config_schema_props = _agent_hooks_schema_props()
     assert worktree_opt.default == config_schema_props["worktree_only"]["default"]
-    assert worktree_opt.default is False  # opt-IN
+    assert worktree_opt.default is True  # ON by default; false opts out
     assert orchestrator_opt.default == config_schema_props["orchestrator_only"]["default"]
     assert orchestrator_opt.default is True  # opt-OUT
     assert worktree_opt.hint and orchestrator_opt.hint
@@ -240,7 +240,7 @@ def test_wizard_can_toggle_both_knobs():
     assert schema.coerce(orchestrator_opt, "no") is False
     # absent from a config -> falls back to the registry default (agent_hooks is not a
     # block-presence-gated category, so this is the documented default, not a forced False).
-    assert schema.effective_value(worktree_opt, {}) is False
+    assert schema.effective_value(worktree_opt, {}) is True
     assert schema.effective_value(orchestrator_opt, {}) is True
     assert schema.effective_value(worktree_opt, {"agent_hooks": {"worktree_only": True}}) is True
     assert (
