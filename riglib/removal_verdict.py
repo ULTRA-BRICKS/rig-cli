@@ -1,5 +1,5 @@
-"""Landed-removal verdict — "is deleting this worktree / local branch / remote branch guaranteed to
-lose nothing?"
+"""Landed-removal verdict — "is deleting this worktree / local branch / remote branch / scratch ref
+guaranteed to lose nothing?"
 
 ONE function family answers that for every entry point (``rig worktree remove``/``verdict``, the
 PreToolUse removal guard in :mod:`riglib.removal_guard`): the answer is SAFE only when every
@@ -55,6 +55,17 @@ unsafe signal: they are checked FIRST and named first in every denial. When noth
 file-by-file comparison with the default branch (:mod:`riglib.removal_content`) is attached as ``evidence`` so
 the denial can say what exists only on the branch — it explains, it never proves.
 
+**Scratch refs.** A ref outside ``refs/heads``, ``refs/tags`` and ``refs/remotes`` (``refs/rigaudit/main``, an
+audit agent's marker) is judged by :func:`scratch_ref_verdict` with the same landing proofs on the commit it
+names (the PR proof by head commit only, there being no branch name) plus one more, ``held-by-ref``: a LOCAL
+BRANCH that stays contains the commit. Only a branch can vouch, because a branch is the one kind of ref whose
+removal AND re-pointing this engine judges: not a tag (``git tag -d`` is not guarded, so a tag made on the
+spot would launder the commit), not another scratch ref (it can be moved onto the default branch unjudged, or
+vanish with its worktree or the next prefetch), not a remote-tracking ref (the ``preserved`` proof confirms
+those live), and not a branch the same command also removes. A symbolic scratch ref is judged as the ref it
+points at, which is what git deletes. The stash is never judged landed: ``refs/stash`` holds every older
+entry only in its reflog, which is never relied on.
+
 Whether the target's OWN branch was pushed is irrelevant (the branch ref is what deletion removes;
 a same-named or tracked remote branch never counts) and the reflog is never relied on. A forge
 outage only removes proof 2, an unreachable remote only proof 5; proofs 1, 3 and 4 are local.
@@ -101,6 +112,7 @@ from . import worktree_gc
 
 LANDING_REMOTE = "origin"
 PRESERVED = "preserved"  # the `landed_by` of proof 5
+HELD_BY_REF = "held-by-ref"  # the `landed_by` of a scratch ref another local ref also holds
 SQUASH_MERGED = "squash-merged"  # the `landed_by` of proof 4
 FAST_FORWARD = "fast-forward"  # overwrite only: the old tip is an ancestor of the new start
 NEW_BRANCH = "new-branch"  # overwrite only: the branch does not exist yet
@@ -125,7 +137,7 @@ _IN_PROGRESS_MARKERS = (
 )
 
 
-TargetKind = Literal["worktree", "local-branch", "remote-branch"]
+TargetKind = Literal["worktree", "local-branch", "remote-branch", "scratch-ref"]
 
 
 class ForgeUnavailable(Exception):
@@ -198,6 +210,8 @@ class Verdict:
             lines.append("  its commits are held by another remote branch that stays (see the note)")
         elif self.safe and self.landed_by == SQUASH_MERGED:
             lines.append("  the squash commit on the default branch carries the diff of every commit of the branch")
+        elif self.safe and self.landed_by == HELD_BY_REF:
+            lines.append("  its commit is also held by a local branch that stays (see the note)")
         elif self.safe and self.landed_by == FAST_FORWARD:
             lines.append("  the new start contains every commit the branch has now (a fast-forward)")
         elif self.safe and self.landed_by == NEW_BRANCH:
@@ -232,23 +246,29 @@ def _stamp_repo(verdict_fn: Callable[..., Verdict]) -> Callable[..., Verdict]:
     return wrapper
 
 
-def rescue_hint(kind: TargetKind, target: str, repo_name: str = "<repo>", tip: str | None = None) -> str:
-    """The sanctioned rescue for work you really mean to drop — ONE wording for every refusal. The
-    route it names is the ``preserved`` proof: the commits must sit on a branch of the SAME remote
-    that the removal leaves in place (a remote-branch target is ``<remote>/<branch>``). ``tip`` is the
-    commit the verdict judged: it makes the archive name unique per commit (a reused branch name must
-    never tempt a force-push over an earlier archive) and, for a remote branch, is pushed by sha since
-    the tracking ref can be stale or absent."""
+def rescue_hint(kind: TargetKind, target: str, *, tip: str | None = None) -> str:
+    """How to KEEP work you are not sure about — ONE wording for every refusal. The route it names is
+    the ``preserved`` proof: the commits must sit on a branch of the SAME remote that the removal leaves
+    in place (a remote-branch target is ``<remote>/<branch>``). ``tip`` is the commit the verdict judged:
+    it makes the archive name unique per commit (a reused branch name must never tempt a force-push over
+    an earlier archive) and, for a remote branch, is pushed by sha since the tracking ref can be stale or
+    absent. No backup file is ever suggested: work that really is obsolete goes through
+    ``rig worktree discard``."""
     keep = "and retry (a commit held by another remote branch that stays counts as preserved)"
-    suffix = tip[:8] if tip else "<ts>"
+    suffix = tip[:8] if tip else "<sha8>"
     if kind == "worktree":
         name = Path(target).name or "wt"
         return (
-            f"rescue its content first, running both commands from inside {target}: "
-            f"`git add -A && git diff --binary HEAD > ~/.cache/{repo_name}-recovery/{name}-<ts>.patch`, "
-            "then push the commits to a branch that is not being deleted — "
-            f"`git push {LANDING_REMOTE} HEAD:refs/heads/archive/{name}-{suffix}` — {keep} once the tree is clean "
-            "(commit what the patch holds, or discard it)"
+            f"push the commits to a branch that is not being deleted, running the command from inside {target} — "
+            f"`git push {LANDING_REMOTE} HEAD:refs/heads/archive/{name}-{suffix}` — {keep}"
+        )
+    if kind == "scratch-ref":
+        name = target.rsplit("/", 1)[-1]
+        return (
+            "give the commit a branch of its own that stays — "
+            f"`git branch archive/{name}-{suffix} {tip or target}` (or push it: "
+            f"`git push {LANDING_REMOTE} {tip or target}:refs/heads/archive/{name}-{suffix}`) — and retry "
+            "(a commit held by another local branch that stays counts as held)"
         )
     remote, _, branch = target.partition("/") if kind == "remote-branch" else (LANDING_REMOTE, "", target)
     source = tip if kind == "remote-branch" and tip else target
@@ -318,6 +338,14 @@ def local_branch_exists(repo: Path, name: str) -> bool:
         return run_git(repo, "show-ref", "--verify", "--quiet", f"refs/heads/{name}").returncode == 0
     except GitFailure:
         return False
+
+
+def is_scratch_ref(name: str) -> bool:
+    """True for a full ref name outside ``refs/heads/``, ``refs/tags/`` and ``refs/remotes/`` — the refs
+    that have no verdict kind of their own (``refs/rigaudit/main``, ``refs/stash``, ``refs/notes/…``). The
+    namespaces are compared case-insensitively: on a case-insensitive filesystem ``refs/Heads/main`` IS the
+    branch ``main``."""
+    return name.startswith("refs/") and not name.casefold().startswith(("refs/heads/", "refs/tags/", "refs/remotes/"))
 
 
 def same_path(a: str | Path, b: str | Path) -> bool:
@@ -1108,6 +1136,87 @@ def branch_verdict(repo_root: Path, branch: str, *, forge: ForgeLookup | None = 
     except _VERDICT_ERRORS as exc:
         reasons.append(Reason("verdict-error", f"could not complete the check: {exc}"))
     return _unsafe(kind, branch, reasons, notes, tip if _OID_RE.match(tip) else None, evidence=evidence)
+
+
+def _prove_held_by_ref(repo: Path, tip: str, removing: frozenset[str], notes: list[str]) -> tuple[str | None, list[str]]:
+    """The ``held-by-ref`` proof of a scratch ref: ``("held-by-ref", [])`` — the holder named in ``notes`` — or
+    ``(None, why_not)``. A holder is a LOCAL BRANCH that contains ``tip`` and is not in ``removing`` (the
+    branches the same command also removes): a branch is the one kind of ref whose removal AND re-pointing
+    this engine judges. Never a tag (``git tag -d`` is not guarded), never another scratch ref (it can be
+    moved to the default branch unjudged, or vanish with its worktree or its next prefetch), never a
+    remote-tracking ref (stale ones prove nothing: the ``preserved`` proof confirms those live)."""
+    listed = run_git(repo, "for-each-ref", f"--contains={tip}", "--format=%(refname)", "refs/heads")
+    if listed.returncode != 0:
+        return None, [f"could not list the branches that contain it ({_err(listed)})"]
+    for name in os.fsdecode(listed.stdout).splitlines():
+        if name and name not in removing:
+            notes.append(f"the commit is also held by {name}, which stays")
+            return HELD_BY_REF, []
+    return None, ["no local branch holds it"]
+
+
+@_stamp_repo
+def scratch_ref_verdict(
+    repo_root: Path,
+    ref: str,
+    *,
+    forge: ForgeLookup | None = None,
+    fetch: bool = False,
+    removing: frozenset[str] = frozenset(),
+) -> Verdict:
+    """Verdict for deleting the SCRATCH ref ``ref`` (``git update-ref -d``): the commit it names must be an
+    ancestor of the default branch, held by a local branch that stays (``held-by-ref``;
+    ``removing`` is every full branch name the same command also deletes, none of which may vouch), or proven by
+    the usual landing proofs. A symbolic ref is judged as the ref it points at, which is what git deletes. The
+    stash is refused: older stash entries live only in its reflog."""
+    forge = forge or default_forge_lookup
+    kind = "scratch-ref"
+    notes: list[str] = []
+    tip = ""
+    evidence: content.Evidence | None = None
+    try:
+        if not is_scratch_ref(ref):
+            return _unsafe(
+                kind, ref, [Reason("not-a-scratch-ref", f"{ref!r} is not a ref outside refs/heads, refs/tags and refs/remotes")], notes
+            )
+        if run_git(repo_root, "check-ref-format", ref).returncode != 0:
+            return _unsafe(kind, ref, [Reason("invalid-ref-name", f"{ref!r}: git rejects it as a ref name")], notes)
+        shown = run_git(repo_root, "show-ref", "--verify", ref)
+        oid = _out(shown).partition(" ")[0]
+        if shown.returncode != 0 or not _OID_RE.match(oid):
+            return _unsafe(kind, ref, [Reason("unknown-ref", f"no ref {ref!r}")], notes)
+        deleted = ref
+        if run_git(repo_root, "symbolic-ref", "-q", ref).returncode == 0:
+            deleted = _out(run_git(repo_root, "rev-parse", "--symbolic-full-name", ref))
+            if not is_scratch_ref(deleted):
+                return _unsafe(
+                    kind, ref, [Reason("symbolic-ref", f"{ref} is a symbolic ref to {deleted or 'another ref'}: git deletes THAT ref when you delete this one, and it is no scratch ref")], notes
+                )
+            notes.append(f"{ref} is a symbolic ref: deleting it deletes {deleted}")
+        if deleted.casefold() == "refs/stash":
+            return _unsafe(
+                kind, ref, [Reason("stash", "refs/stash is the stash list: deleting it drops EVERY stash entry, and the older ones exist nowhere else")], notes
+            )
+        tip_res = run_git(repo_root, "rev-parse", "--verify", "-q", "--end-of-options", f"{oid}^{{commit}}")
+        tip = _out(tip_res)
+        if tip_res.returncode != 0 or not _OID_RE.match(tip):
+            tip = ""
+            return _unsafe(kind, ref, [Reason("not-a-commit", f"{ref!r} names {oid[:12]}, which is not a commit; only commits can be judged")], notes)
+        default, default_reason = _default_after_refresh(repo_root, fetch, notes)
+        if default is None:
+            return _unsafe(kind, ref, [default_reason or Reason("no-default-ref", "default branch unresolved")], notes, tip)
+        if _is_ancestor(repo_root, tip, default.sha) is True:
+            return Verdict(kind, ref, True, (), "ancestor", tuple(notes), tip)
+        proof, held_why = _prove_held_by_ref(repo_root, tip, removing, notes)
+        if proof is not None:
+            return Verdict(kind, ref, True, (), proof, tuple(notes), tip)
+        proof, why, evidence = _prove_landed(repo_root, tip, None, default, forge, notes, remote=LANDING_REMOTE)
+        if proof is not None:
+            return Verdict(kind, ref, True, (), proof, tuple(notes), tip, evidence=evidence)
+        reasons = [Reason(r.code, f"{r.message}; held-by-ref proof: {held_why[0]}") for r in why]
+    except _VERDICT_ERRORS as exc:
+        reasons = [Reason("verdict-error", f"could not complete the check: {exc}")]
+    return _unsafe(kind, ref, reasons, notes, tip if _OID_RE.match(tip) else None, evidence=evidence)
 
 
 @_stamp_repo

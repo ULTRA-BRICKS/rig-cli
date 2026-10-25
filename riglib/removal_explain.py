@@ -53,6 +53,11 @@ _FIX = {
     "remote-lookup-failed": "retry when the remote is reachable",
     "no-default-ref": "run `git fetch origin` (and `git remote set-head origin -a`) so the default branch can be resolved",
     "verdict-error": "retry; the check itself failed (fail closed)",
+    "unknown-ref": "check the name (`git for-each-ref`)",
+    "invalid-ref-name": "use a full ref name such as refs/rigaudit/main",
+    "not-a-scratch-ref": "a branch is named by its branch name, a tag is deleted with `git tag -d`",
+    "symbolic-ref": "name the ref it points at; if that is a branch use `git branch -D`, a tag `git tag -d`",
+    "not-a-commit": "the ref points at something that is not a commit; the owner can delete it with `git update-ref -d <ref>`",
 }
 
 
@@ -73,6 +78,17 @@ def discard_command(verdict: rv.Verdict) -> str:
     return f'rig worktree discard -C {repo} {_quote(verdict.target)} --reason "<why this work is obsolete>"'
 
 
+def verdict_command(verdict: rv.Verdict) -> str:
+    """The exact ``rig worktree verdict`` invocation that re-reads this target from anywhere: it names the
+    repository the verdict was computed in, so it works from a different cwd (a worktree of another repository,
+    a scratch directory) where the bare target would not resolve."""
+    repo = _repo_arg(verdict)
+    if verdict.kind == "remote-branch":
+        remote, _, branch = verdict.target.partition("/")
+        return f"rig worktree verdict -C {repo} --remote {_quote(remote)} {_quote(branch)}"
+    return f"rig worktree verdict -C {repo} {_quote(verdict.target)}"
+
+
 def owner_command(verdict: rv.Verdict) -> str:
     """The plain git command the owner can run in their OWN terminal (the guard only watches agents)."""
     repo = _repo_arg(verdict)
@@ -81,6 +97,8 @@ def owner_command(verdict: rv.Verdict) -> str:
         return f"git -C {repo} push {_quote(remote)} --delete {_quote(branch)}"
     if verdict.kind == "worktree":
         return f"git -C {repo} worktree remove --force {_quote(verdict.target)}"
+    if verdict.kind == "scratch-ref":
+        return f"git -C {repo} update-ref -d {_quote(verdict.target)}"
     return f"git -C {repo} branch -D {_quote(verdict.target)}"
 
 
@@ -155,9 +173,9 @@ def _found(verdict: rv.Verdict) -> list[str]:
 def _why(verdict: rv.Verdict) -> str:
     if approvable(verdict):
         return (
-            "  Deleting a branch or worktree cannot be undone. I say yes only when I can PROVE the work is already "
+            "  Deleting a branch, worktree or ref cannot be undone. I say yes only when I can PROVE the work is already "
             "on the default branch: its merged pull request covers every commit, or one commit there carries the "
-            "diff of the whole branch, or another remote branch keeps it. Here none of that held."
+            "diff of the whole branch, or another branch that stays keeps it. Here none of that held."
         )
     return (
         "  Each point above is a case where deleting could destroy something that exists nowhere else. "
@@ -171,10 +189,9 @@ def _steps(verdict: rv.Verdict) -> list[str]:
         steps = [f"Fix that first: {fix}." for fix in dict.fromkeys(fixes)] or [
             "Fix what the points above name, then run the same command again."
         ]
-        steps.append(f"Look at the details any time: `rig worktree verdict {_quote(verdict.target)}`.")
+        steps.append(f"Look at the details any time: `{verdict_command(verdict)}`.")
         return steps
-    repo_name = verdict.repo.rstrip("/").rsplit("/", 1)[-1] if verdict.repo else "<repo>"
-    keep = rv.rescue_hint(verdict.kind, verdict.target, repo_name, verdict.tip)
+    keep = rv.rescue_hint(verdict.kind, verdict.target, tip=verdict.tip)
     return [
         "The work MATTERS (or you are not sure): land it. Open a pull request from it, get it merged, then run the "
         f"same command again. To keep the commits without merging: {keep}.",
@@ -187,7 +204,7 @@ def _steps(verdict: rv.Verdict) -> list[str]:
         "this step - not with --force, an environment variable or another command.",
         "The OWNER can always delete it from their own terminal (this guard only watches agent tool calls):\n"
         f"       {owner_command(verdict)}",
-        f"To re-read the details any time: `rig worktree verdict {_quote(verdict.target)}`.",
+        f"To re-read the details any time: `{verdict_command(verdict)}`.",
     ]
 
 

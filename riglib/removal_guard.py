@@ -19,7 +19,9 @@ worktree path, ``push --mirror/--prune`` — is DENIED
 with the reason, never guessed. Words inside quotes and heredoc bodies that merely MENTION a removal
 (a commit message, a PR body, an ``echo``) are data, not commands, and pass. ``git update-ref -d
 refs/heads/<b>`` (or ``HEAD``, an empty new value, ``--stdin``) deletes a branch with no per-target
-verdict, so it is denied with a pointer to ``git branch -D`` rather than judged.
+verdict, so it is denied with a pointer to ``git branch -D`` rather than judged. ``git update-ref -d
+refs/<ns>/<name>`` of a SCRATCH ref (outside ``refs/heads``, ``refs/tags`` and ``refs/remotes``, e.g.
+``refs/rigaudit/main``) is judged by :func:`riglib.removal_verdict.scratch_ref_verdict`.
 
 Two more shapes lose work without being a deletion and are judged by the same verdict
 (rig-cli#740). **Overwriting a local branch** — ``git branch -f``/``-M``/``-C`` (and ``-m``/``-c`` with
@@ -819,9 +821,10 @@ def _parse_push_delete(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal |
 def _parse_update_ref(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal | None:
     """``git update-ref`` deletes any ref with no landed check — ``-d``, an empty new value, or
     ``--stdin`` commands — so a branch (``refs/heads/…``), ``HEAD`` (which follows its symref) or an
-    unknowable target is refused (use ``git branch -D <name>`` so the verdict judges it). Setting a
-    branch to a new value overwrites it like ``git branch -f`` and is judged as an overwrite. Tags,
-    remote-tracking refs and other namespaces pass (``update-ref HEAD <x>`` moves the CURRENT branch and
+    unknowable target is refused (use ``git branch -D <name>`` so the verdict judges it). Deleting a scratch
+    ref (``refs/<ns>/…`` outside heads, tags and remotes) is judged like a branch removal. Setting a
+    branch to a new value overwrites it like ``git branch -f`` and is judged as an overwrite. Tags and
+    remote-tracking refs pass (``update-ref HEAD <x>`` moves the CURRENT branch and
     is not judged: a known gap)."""
     positionals, flags = _split_args(args, frozenset({"-m"}), short_value_letters="m")
     _deny_dynamic_flags(flags, "git update-ref")
@@ -850,6 +853,8 @@ def _parse_update_ref(args: list[_Word], c_dirs: tuple[str, ...]) -> _Removal | 
             f"`git update-ref` deleting {ref.text!r} removes a branch with no landed-work check — "
             "use `git branch -D <name>` so the removal is verified"
         )
+    if rv.is_scratch_ref(ref.text):
+        return _Removal((_Item("scratch-ref", ref.text),), c_dirs)
     return None
 
 
@@ -1134,6 +1139,8 @@ def _verdict_for(
         return rv.overwrite_verdict(eff, item.name, start=item.start, forge=forge, fetch=fetch)
     if item.kind == "local-branch":
         return rv.branch_verdict(eff, item.name, forge=forge)
+    if item.kind == "scratch-ref":
+        return rv.scratch_ref_verdict(eff, item.name, forge=forge)
     return rv.remote_branch_verdict(eff, item.remote, item.name, forge=forge, removing=removing)
 
 
@@ -1158,7 +1165,7 @@ def _decide(verdicts: list[rv.Verdict], refresh_notes: list[str]) -> GuardDecisi
         return GuardDecision(
             "allow",
             "every target is clean and proven landed on the default branch or held by another remote branch that "
-            f"stays: {proofs}{notes}",
+            f"stays (a scratch ref: or by a local branch that stays): {proofs}{notes}",
             tuple(verdicts),
         )
     return GuardDecision("deny", explain_denial(verdicts, notes), tuple(verdicts))

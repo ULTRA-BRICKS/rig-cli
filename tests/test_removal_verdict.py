@@ -897,7 +897,7 @@ def test_a_holder_on_another_remote_preserves_a_branch_of_that_remote(sb):
     git(sb.primary, "fetch", "-q", "upstream")
     v = rv.remote_branch_verdict(sb.primary, "upstream", "sup", forge=FakeForge())
     assert v.safe and v.landed_by == "preserved" and any("upstream/archive/keep" in n for n in v.notes)
-    assert "git push upstream upstream/sup:refs/heads/archive/sup-<ts>" in rv.rescue_hint("remote-branch", "upstream/sup")
+    assert "git push upstream upstream/sup:refs/heads/archive/sup-<sha8>" in rv.rescue_hint("remote-branch", "upstream/sup")
     # the judged tip is pushed by sha (the tracking ref can be stale or absent) to a name unique per commit
     assert f"git push upstream {tip}:refs/heads/archive/sup-{tip[:8]}" in rv.rescue_hint(
         "remote-branch", "upstream/sup", tip=tip

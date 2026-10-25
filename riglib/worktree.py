@@ -521,6 +521,14 @@ def _resolve_branch_to_delete(repo_root: Path, target: Path) -> tuple[str | None
         )
 
 
+def checked_out_branch(repo_root: Path, path: Path) -> str | None:
+    """The branch ``remove_judged`` would delete together with the worktree at ``path``, or ``None`` when the
+    worktree is detached — or when the lookup cannot be trusted, in which case ``remove_judged`` refuses and
+    deletes nothing."""
+    branch, error = _resolve_branch_to_delete(repo_root, path)
+    return None if error is not None else branch
+
+
 def _not_a_worktree(arg: str) -> WorktreeResult:
     return WorktreeResult(
         "error",
@@ -713,6 +721,60 @@ def remove_judged(repo_root: Path, path: Path, verdict: rv.Verdict, *, force: bo
     )
 
 
+def _git_ok(repo_root: Path, *args: str) -> bool:
+    try:
+        return rv.run_git(repo_root, *args).returncode == 0
+    except rv.GitFailure:
+        return False
+
+
+def explain_unresolved_target(repo_root: Path, target: str, cwd: Path | None = None) -> str:
+    """What ``target`` is when it is not a worktree, a local branch or a scratch ref, and the command to run
+    instead — so an agent that gets this message never has to guess or go looking for a way around the guard."""
+    if _git_ok(repo_root, "show-ref", "--verify", "--quiet", target if target.startswith("refs/tags/") else f"refs/tags/{target}"):
+        name = target.removeprefix("refs/tags/")
+        return (
+            f"{target!r} is a tag: a label, not work that can be lost, so it has no verdict. Delete it with "
+            f"`git tag -d {name}` (the removal guard does not watch tags); the commit it names survives only if a "
+            f"branch holds it - `git branch -a --contains {name}` shows that."
+        )
+    tracking = target.removeprefix("refs/remotes/")
+    if (target.startswith("refs/remotes/") or "/" in target) and _git_ok(
+        repo_root, "show-ref", "--verify", "--quiet", f"refs/remotes/{tracking}"
+    ):
+        remote, _, branch = tracking.partition("/")
+        return (
+            f"{target!r} is a remote-tracking ref: the local copy of branch {branch!r} on remote {remote!r}. Deleting "
+            "that copy loses nothing (`git fetch --prune` brings back whatever the remote still has). To judge or "
+            f"delete the branch ON the remote use `rig worktree verdict --remote {remote} {branch}` or "
+            f"`rig worktree discard --remote {remote} {branch} --reason \"<why>\"`."
+        )
+    if target.startswith("refs/") and not target.startswith("refs/heads/"):
+        return (
+            f"no ref {target!r} exists in {repo_root}. `git for-each-ref` lists every ref; a scratch ref is a full "
+            "name outside refs/heads, refs/tags and refs/remotes (for example refs/rigaudit/main)."
+        )
+    shown = Path(target) if Path(target).is_absolute() else (cwd or repo_root) / target
+    if shown.is_dir():
+        if (shown / ".git").exists():
+            hint = (
+                f"it is a checkout of another repository or of one of its worktrees: run the command for that "
+                f"repository with `-C {shown}` (a worktree is then named by its path, a branch by its name)"
+            )
+        else:
+            hint = (
+                "git tracks nothing there, so there is no commit to judge; if it is the leftover of a removed "
+                "worktree, `git worktree prune` clears the stale registration, and the directory itself is yours to "
+                "delete after looking at what it holds"
+            )
+        return f"{target!r} is a directory, but no worktree of {repo_root} is registered there: {hint}."
+    return (
+        f"{target!r} is not a registered worktree (a path or a name from `git worktree list`), a local branch "
+        "(`git branch --list`) or a scratch ref (a full name such as refs/rigaudit/main, see `git for-each-ref`). "
+        "For a branch on a remote add `--remote <name>`."
+    )
+
+
 def judge_target(
     repo_root: Path,
     target: str,
@@ -722,11 +784,15 @@ def judge_target(
     fetch: bool = True,
     forge: rv.ForgeLookup | None = None,
     process_cwds: rv.ProcessCwds = rv.all_process_cwds,
+    removing: frozenset[str] = frozenset(),
 ) -> tuple[rv.Verdict | None, WorktreeResult | None]:
     """The landed-removal verdict for whatever ``target`` names — one resolution shared by ``rig worktree
     verdict`` and ``rig worktree discard``. With ``remote`` it is the branch ``target`` on that remote;
-    otherwise a registered worktree (path or name, :func:`resolve_target`), else a local branch. Returns
-    ``(verdict, None)`` or ``(None, error_result)`` when the target is neither."""
+    otherwise a registered worktree (path or name, :func:`resolve_target`), else a scratch ref (a full
+    ``refs/<ns>/…`` name that exists outside heads, tags and remotes; ``removing`` is every full ref name the same
+    command deletes, none of which may vouch for another), else a local branch (also by its full ``refs/heads/``
+    name). Returns ``(verdict, None)`` or, for anything else, ``(None, error_result)`` whose message says what
+    the target is and what to run instead."""
     if remote is not None:
         return rv.remote_branch_verdict(repo_root, remote, target, forge=forge, fetch=fetch), None
     path, resolve_error = resolve_target(repo_root, target, cwd=cwd)
@@ -734,11 +800,14 @@ def judge_target(
         return rv.worktree_verdict(repo_root, path, forge=forge, process_cwds=process_cwds, fetch=fetch), None
     if resolve_error is not None and not resolve_error.not_found:
         return None, resolve_error
-    if not rv.local_branch_exists(repo_root, target):
-        return None, WorktreeResult(
-            "error",
-            f"{target!r} is neither a registered worktree nor a local branch",
-            exit_code=errors.EXIT_CONFIG,
-            not_found=True,
-        )
-    return rv.branch_verdict(repo_root, target, forge=forge, fetch=fetch), None
+    if rv.is_scratch_ref(target) and _git_ok(repo_root, "show-ref", "--verify", "--quiet", target):
+        return rv.scratch_ref_verdict(repo_root, target, forge=forge, fetch=fetch, removing=removing), None
+    branch = target.removeprefix("refs/heads/")
+    if rv.local_branch_exists(repo_root, branch):
+        return rv.branch_verdict(repo_root, branch, forge=forge, fetch=fetch), None
+    return None, WorktreeResult(
+        "error",
+        explain_unresolved_target(repo_root, target, cwd),
+        exit_code=errors.EXIT_CONFIG,
+        not_found=True,
+    )

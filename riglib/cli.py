@@ -848,9 +848,11 @@ def _add_worktree_remove_subparser(wsub: "argparse._SubParsersAction") -> None:
 def _add_worktree_verdict_subparser(wsub: "argparse._SubParsersAction") -> None:
     wv = wsub.add_parser(
         "verdict",
-        help="read-only: is removing this worktree / local branch / remote branch guaranteed to lose nothing?",
+        help="read-only: is removing this worktree / local branch / remote branch / scratch ref guaranteed to lose nothing?",
         description="Print the landed-removal verdict (SAFE / UNSAFE with reasons) for a worktree, a "
-        "local branch, or — with --remote — a remote branch. SAFE only when the worktree is clean "
+        "local branch, a scratch ref (a full name outside refs/heads, refs/tags and refs/remotes, e.g. "
+        "refs/rigaudit/main: SAFE when its commit is landed or also held by a local branch that "
+        "stays), or — with --remote — a remote branch. SAFE only when the worktree is clean "
         "(staged, unstaged and untracked all count; no merge/rebase/cherry-pick in progress; no "
         "process with it as cwd; not the primary checkout or default branch) AND every commit "
         "unique to it is LANDED on origin/<default> or still held by a branch that survives the "
@@ -870,12 +872,12 @@ def _add_worktree_verdict_subparser(wsub: "argparse._SubParsersAction") -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit codes:\n"
         "  0    SAFE\n"
-        "  2    <target> is not (or ambiguously) a worktree or branch of this repo\n"
+        "  2    <target> is not (or ambiguously) a worktree, branch or scratch ref of this repo (the message says what it is)\n"
         "  6    not a git repository\n"
         "  10   UNSAFE\n"
         "  127  git is not installed",
     )
-    wv.add_argument("target", help="worktree path or name, or a branch name")
+    wv.add_argument("target", help="worktree path or name, a branch name, or a full scratch ref name")
     wv.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
     wv.add_argument(
         "--remote", nargs="?", const="origin", default=None, metavar="NAME",
@@ -892,7 +894,7 @@ def _add_worktree_discard_subparser(wsub: "argparse._SubParsersAction") -> None:
     wd = wsub.add_parser(
         "discard",
         help="drop work the landing proofs cannot clear — only with the owner's Telegram approval",
-        description="The sanctioned way to delete worktrees / local branches / remote branches whose work is NOT "
+        description="The sanctioned way to delete worktrees / local branches / scratch refs / remote branches whose work is NOT "
         "merged and is stale or obsolete (for example a PR closed as superseded) - the rare hard case, not a "
         "routine confirmation. Each target is judged by the same verdict as `rig worktree verdict`; a SAFE one "
         "is simply removed. An UNSAFE one is refused unless every reason is `not-landed` (uncommitted files, a "
@@ -909,14 +911,14 @@ def _add_worktree_discard_subparser(wsub: "argparse._SubParsersAction") -> None:
         epilog="exit codes:\n"
         "  0    deleted (approved, or already proven landed)\n"
         "  1    a deletion failed after the approval (see the message)\n"
-        "  2    <target> is not (or ambiguously) a worktree or branch, or --reason is missing/too short\n"
+        "  2    <target> is not (or ambiguously) a worktree, branch or scratch ref, or --reason is missing/too short\n"
         "  6    not a git repository\n"
         "  10   refused: not approvable, or the owner denied / did not answer (nothing was deleted)\n"
         "  127  git is not installed",
     )
     wd.add_argument(
         "targets", nargs="+", metavar="target",
-        help="worktree path or name, or a branch name (with --remote: the remote branch); several = ONE approval",
+        help="worktree path or name, a branch name, or a full scratch ref name (with --remote: the remote branch); several = ONE approval",
     )
     wd.add_argument("--reason", required=True, help="why the owner should approve dropping it (>= 8 characters)")
     wd.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
@@ -1603,8 +1605,8 @@ def _cmd_worktree_remove(args: argparse.Namespace) -> int:
 
 
 def _cmd_worktree_verdict(args: argparse.Namespace) -> int:
-    """Read-only landed-removal verdict for a worktree, a local branch, or (``--remote``) a remote
-    branch. Exit 0 = SAFE, 10 = UNSAFE, 2 = target is neither a worktree nor a local branch."""
+    """Read-only landed-removal verdict for a worktree, a local branch, a scratch ref or (``--remote``) a
+    remote branch. Exit 0 = SAFE, 10 = UNSAFE, 2 = target is none of those (the message says what it is)."""
     from . import errors as errors_module
     from . import removal_explain
     from . import worktree as worktree_mod

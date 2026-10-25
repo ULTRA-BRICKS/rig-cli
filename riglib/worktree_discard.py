@@ -18,7 +18,8 @@ path for that decision, without any bypass; it is not a routine confirmation:
    exist only on the branch, the last commit's date and the exact tip. Deny-by-default — an unavailable
    ``tg-ctl``, a timeout, a denial and an unparseable reply all refuse;
 4. every tip judged is re-checked, then the target is deleted: a worktree and its branch
-   (:func:`riglib.worktree.remove_judged`), a local branch (``git branch -D``), or a remote branch
+   (:func:`riglib.worktree.remove_judged`), a local branch (``git branch -D``), a scratch ref such as
+   ``refs/rigaudit/main`` (``git update-ref -d <ref> <oid>`` — it refuses if the ref moved), or a remote branch
    (``git push --force-with-lease=<ref>:<tip> <remote> --delete <branch>`` — it refuses if the branch moved).
    There is NO backup: git's reflog is the way back.
 
@@ -38,6 +39,7 @@ it owns; confining those writes is the job of the write hooks (``worktree-only-w
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import json
 import os
 import stat
@@ -130,7 +132,11 @@ def request_owner_approval(justification: str, context: dict[str, str], cwd: str
         late = hatch.request_hatch_approval(HOOK_ID, context, cwd=cwd, env=ambient)
         if late.approved:
             return Approval(True, late.reason)
-        result = hatch.request_hatch_approval(HOOK_ID, context, cwd=cwd, env={**ambient, env_var: justification})
+        # critical=True: no client-side or daemon-side ~115 s deadline (agent-tools#754, tg-cli#403), so the card stays
+        # a LIVE request for a phone user; the late-approval probe above stays a plain bounded ask.
+        # An older helper (before agent-tools#754) has no such parameter: it keeps the bounded ask.
+        extra = {"critical": True} if "critical" in inspect.signature(hatch.request_hatch_approval).parameters else {}
+        result = hatch.request_hatch_approval(HOOK_ID, context, cwd=cwd, env={**ambient, env_var: justification}, **extra)
     except Exception as exc:  # noqa: BLE001 — an approval that cannot be obtained is a refusal
         return Approval(False, f"the owner's approval could not be requested: {exc}")
     return Approval(bool(result.approved), str(result.reason))
@@ -265,6 +271,16 @@ def _delete(repo_root: Path, verdict: rv.Verdict, *, remote: str | None) -> tupl
             if deleted.returncode != 0:
                 return False, f"git branch -D failed: {deleted.stderr.decode('utf-8', 'replace').strip()}"
             return True, f"deleted local branch {verdict.target}"
+        if verdict.kind == "scratch-ref":
+            shown = _git(repo_root, "show-ref", "--verify", verdict.target)
+            oid = shown.stdout.decode().partition(" ")[0].strip()
+            peeled = _git(repo_root, "rev-parse", "--verify", "-q", f"{oid}^{{commit}}") if oid else None
+            if peeled is None or peeled.returncode != 0 or peeled.stdout.decode().strip() != verdict.tip:
+                return False, f"{verdict.target} moved after it was judged; nothing was deleted - run the command again"
+            deleted = _git(repo_root, "update-ref", "-d", verdict.target, oid)
+            if deleted.returncode != 0:
+                return False, f"git update-ref -d failed: {deleted.stderr.decode('utf-8', 'replace').strip()}"
+            return True, f"deleted scratch ref {verdict.target}"
         name = verdict.target.partition("/")[2]
         pushed = _git(
             repo_root, "push", f"--force-with-lease=refs/heads/{name}:{verdict.tip}", remote or "origin", "--delete", name,
@@ -315,17 +331,39 @@ def discard(
     whole batch and, on approval, delete them. Nothing is deleted unless every target can be (a refused or
     unapprovable one stops the batch before the owner is asked). See the module docstring for the contract."""
     if not targets:
-        return DiscardResult("error", "name at least one worktree or branch to discard", errors.EXIT_CONFIG)
-    verdicts: list[rv.Verdict] = []
-    for target in targets:
+        return DiscardResult("error", "name at least one worktree, branch or scratch ref to discard", errors.EXIT_CONFIG)
+
+    def judge(target: str, removing: frozenset[str]) -> tuple[rv.Verdict | None, DiscardResult | None]:
         verdict, error = worktree.judge_target(
-            repo_root, target, remote=remote, cwd=cwd, fetch=fetch, forge=forge, process_cwds=process_cwds
+            repo_root, target, remote=remote, cwd=cwd, fetch=fetch, forge=forge, process_cwds=process_cwds, removing=removing
         )
         if verdict is None:
-            return DiscardResult(
+            return None, DiscardResult(
                 "error", error.message if error else f"cannot resolve {target!r}", error.exit_code if error else errors.EXIT_CONFIG
             )
+        return verdict, None
+
+    # Nothing this ONE command deletes may vouch for a scratch ref it also deletes: the other scratch refs, then
+    # (once the targets are resolved) the local branches and the branches of the worktrees.
+    removing = frozenset(t for t in targets if rv.is_scratch_ref(t))
+    verdicts: list[rv.Verdict] = []
+    for target in targets:
+        verdict, failed = judge(target, removing)
+        if verdict is None:
+            return failed
         verdicts.append(verdict)
+    doomed = removing | {f"refs/heads/{v.target}" for v in verdicts if v.kind == "local-branch"}
+    for v in verdicts:
+        branch = worktree.checked_out_branch(repo_root, Path(v.target)) if v.kind == "worktree" else None
+        if branch:
+            doomed |= {f"refs/heads/{branch}"}
+    if doomed != removing:
+        for index, v in enumerate(verdicts):
+            if v.kind == "scratch-ref":
+                again, failed = judge(targets[index], doomed)
+                if again is None:
+                    return failed
+                verdicts[index] = again
     unsafe = [v for v in verdicts if not v.safe]
     labels = ", ".join(f"{v.kind} {v.target}" for v in verdicts)
     stuck = [v for v in unsafe if not removal_explain.approvable(v)]
@@ -356,7 +394,8 @@ def discard(
                 "refused",
                 f"The owner did not approve dropping {', '.join(f'{v.kind} {v.target}' for v in unsafe)}, so nothing "
                 f"was deleted ({approval.detail}).\n"
-                "If the answer was late or never came, run the same command again - a late approval is picked up. "
+                "If the owner denied it, nothing more happens. If the answer is still pending (the card was sent and has not "
+                "been tapped), it stays valid: after the tap run the SAME command again and it goes through. "
                 "If the work matters, land it instead (see `rig worktree verdict`).",
                 errors.EXIT_REMOVAL_UNSAFE,
                 tuple(verdicts),

@@ -283,11 +283,11 @@ FAKE_HATCH = textwrap.dedent(
     def hatch_env_var(hook_id):
         return "RIG_HATCH_REQUEST_" + hook_id.upper().replace("-", "_")
 
-    def request_hatch_approval(hook_id, context, *, cwd, env=None, **kwargs):
+    def request_hatch_approval(hook_id, context, *, cwd, env=None, critical=False):
         var = hatch_env_var(hook_id)
         raw = (env or {}).get(var)
         with open(os.environ["FAKE_HATCH_LOG"], "a") as fh:
-            fh.write(json.dumps({"hook": hook_id, "var": var, "raw": raw, "cwd": cwd, "ctx": context}) + "\\n")
+            fh.write(json.dumps({"hook": hook_id, "var": var, "raw": raw, "cwd": cwd, "ctx": context, "critical": bool(critical)}) + "\\n")
         if raw is None:
             return SimpleNamespace(approved=False, reason="not requested", requested=False)
         return SimpleNamespace(approved=%s, reason="fake owner says " + ("yes" if %s else "no"), requested=True)
@@ -402,3 +402,35 @@ def test_the_judged_tip_is_the_remote_tip_not_a_stale_tracking_ref(sb, home):
     assert res.status == "discarded", res.message
     assert owner.calls[0][1]["tip"] == live_tip
     assert "live" not in heads(sb)
+
+
+def test_no_trace_of_a_recovery_pack_is_left_in_code_docs_or_help(sb):
+    """The owner dropped the recovery pack (rig-cli#757): no bundle, no patch file under the cache dir, in any
+    wording an agent could read - every riglib module, the README, AGENTS.md and the docs, or --help."""
+    root = Path(__file__).resolve().parent.parent
+    files = [root / "README.md", root / "AGENTS.md", *sorted((root / "riglib").glob("*.py")), *sorted((root / "docs").glob("*.md"))]
+    assert len(files) > 20
+    texts = {str(path.relative_to(root)): path.read_text(encoding="utf-8") for path in files}
+    for sub in ("remove", "verdict", "discard", "guard"):
+        texts[f"rig worktree {sub} --help"] = rig(sub, "--help", cwd=sb.primary).stdout
+    for name, text in texts.items():
+        for trace in ("git bundle", "-recovery/", "diff --binary", "recovery pack"):
+            assert trace not in text, f"{name} still mentions {trace!r}"
+
+
+def test_the_real_ask_is_critical_so_a_phone_user_is_not_cut_off_at_115_seconds(tmp_path, monkeypatch, hatch_log):
+    """The late-approval probe (variable unset) is a plain ask; the real ask is `critical`, so neither this process
+    nor the tg-ctl daemon drops it after ~115 s and a late tap lands on a live request."""
+    tools = fake_tools(tmp_path / "tools", approve=True)
+    monkeypatch.setattr(catalog, "DEFAULT_SOURCE_CANDIDATES", (str(tools),))
+    assert worktree_discard.request_owner_approval(REASON, {"tip": "abc"}, str(tmp_path)).approved
+    calls = [json.loads(line) for line in hatch_log.read_text().splitlines()]
+    assert [(c["raw"] is None, c["critical"]) for c in calls] == [(True, False), (False, True)]
+
+
+def test_a_hatch_helper_without_the_critical_parameter_still_gets_a_bounded_ask(tmp_path, monkeypatch, hatch_log):
+    tools = fake_tools(tmp_path / "tools", approve=True)
+    init = tools / "lib" / "agenttools_hatch_escalation" / "__init__.py"
+    init.write_text(init.read_text().replace("env=None, critical=False):", "env=None):").replace("bool(critical)", "False"))
+    monkeypatch.setattr(catalog, "DEFAULT_SOURCE_CANDIDATES", (str(tools),))
+    assert worktree_discard.request_owner_approval(REASON, {"tip": "abc"}, str(tmp_path)).approved

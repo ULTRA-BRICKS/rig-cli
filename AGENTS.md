@@ -271,10 +271,10 @@ create`/`remove`/`gc` rows for the user-facing contract.
   worktree remove` alone leaves the branch behind) — but ONLY when the **landed-removal verdict**
   says SAFE (below); accepts a worktree anywhere git knows it; `--force` never overrides the
   verdict (it only unlocks a locked worktree).
-- **`rig worktree verdict <path|name|branch> [--remote [NAME]] [--json]`** — read-only: "is deleting
+- **`rig worktree verdict <path|name|branch|scratch-ref> [--remote [NAME]] [--json]`** — read-only: "is deleting
   this guaranteed to lose nothing?" Exit 0 SAFE / 10 UNSAFE; UNSAFE prints the plain-language
   explanation (below), `--json` adds the file-by-file `evidence`.
-- **`rig worktree discard <path|name|branch> --reason "<why>" [--remote [NAME]]`** — the ONE
+- **`rig worktree discard <path|name|branch|scratch-ref> --reason "<why>" [--remote [NAME]]`** — the ONE
   sanctioned way to drop work the proofs cannot clear: owner approval on Telegram (the agent-tools
   hatch helper, hook id `rig-worktree-discard`), batch-wise, no backup, only for NOT merged AND stale/obsolete
   work. See "Dropping obsolete work" below.
@@ -326,18 +326,38 @@ a second fetcher; an outage only removes the PR proof. Tests use REAL git (tmp b
 worktrees, `tests/removal_helpers.py`) and a fake forge; every data-loss shape has a negative test
 and mutation-checking the engine (break a condition → a test must fail) is part of changing it.
 
+**Scratch refs (rig-cli#768).** A full ref name outside `refs/heads`, `refs/tags` and `refs/remotes` (an
+audit agent's `refs/rigaudit/main`) is a fourth target kind, `scratch-ref`, judged by
+`removal_verdict.scratch_ref_verdict` — the same engine, never a second check. SAFE when the commit it
+names is an ancestor of `origin/<default>`, or `held-by-ref` (a LOCAL BRANCH contains it. Only a branch can
+vouch: its removal AND re-pointing are judged, unlike a TAG (`git tag -d` is not guarded, so a tag made on the
+spot would launder the commit) or another scratch ref (movable onto the default branch unjudged, gone with its
+worktree or the next prefetch); never a remote-tracking ref — proof 5 confirms those live — or a branch the
+SAME command also removes: `discard` builds that set from the resolved verdicts, including the branch of a
+worktree it removes), or by the usual proofs 2–5 applied to the commit (the PR by head
+commit only). A symbolic scratch ref is judged as the ref it points at — that is what `update-ref -d` deletes.
+Known gap: a branch is a holder at the moment of the check, and moving the CURRENT branch (`reset --hard`, `commit --amend`, `update-ref HEAD`) is not judged, so a holder can later be moved away unseen — the same trust the `preserved` proof puts in a remote branch.
+`refs/stash` is never judged landed: its older entries exist only in the reflog, which is never relied on;
+a ref naming a non-commit cannot be judged. The guard judges `git update-ref -d refs/<ns>/<name>` (it
+used to pass); a tag or a remote-tracking ref still passes. `worktree.judge_target` resolves a target in the
+order worktree, scratch ref (exact full name), local branch (also `refs/heads/<b>`), and otherwise returns
+`explain_unresolved_target`'s message — a tag, a remote-tracking ref, an unknown name or a directory that is no
+registered worktree is told what it is and the command to run (never a bare "neither a registered
+worktree nor a branch"). Every denial's re-read command is `verdict_command` — `rig worktree verdict -C <repo>
+<target>` — so it also works from another directory (agent-tools#1017).
+
 The guard parses conservatively: ONE simple command with literal targets is judged; chains,
 subshells, substitutions, wrappers (`bash -c`/`eval`/`xargs`/`sudo`/`env`), assignment prefixes,
 variables/globs/braces/`~` in a target, a git/`worktree` subcommand or a flag assembled from an
 expansion (`git $S -D x`, `git branch -$L x`, a bare `$FLAG` among `git branch`'s arguments),
-`--git-dir`/`-c`/`--work-tree`, symlinked/unknown paths, `push --mirror/--prune` and `git update-ref -d` of a branch / `HEAD` / `--stdin` are DENIED,
+`--git-dir`/`-c`/`--work-tree`, symlinked/unknown paths, `push --mirror/--prune` and `git update-ref -d` of a branch / `HEAD` / `--stdin` are DENIED (`update-ref -d` of a scratch ref is judged, see above),
 never guessed; `$'-D'` is decoded, `${IFS}`/`$VAR` splitting is normalized away before the check,
 and long options match by any unambiguous prefix (`--d`, `--del`). Known gap: a `git push` whose
 `--delete`/`:name` arrives whole inside a variable (`git push origin "$D" x`) is not caught. Quoted/heredoc text that only mentions a removal
 passes. There is NO bypass flag — `--force` does not change a verdict and no env var skips it; work
-you really mean to drop goes through `rig worktree discard` (owner approval) or is kept first (`git add -A
-&& git diff --binary HEAD > ~/.cache/<repo>-recovery/<wt>-<ts>.patch` plus pushing the commits to a branch that stays,
-`archive/<name>`). Every allow/deny is
+you really mean to drop goes through `rig worktree discard` (owner approval) or is kept first by pushing the
+commits to a branch that stays (`archive/<name>-<sha8>`). No backup file is ever suggested or written: git's
+reflog is the way back. Every allow/deny is
 appended to `~/.cache/rig/removal-guard.jsonl`. `rig worktree gc` keeps its own CLASSIFIER but not
 its own removal decision: every removal (dry-run plan and `--yes` execution alike) goes through the
 same verdict via `worktree_gc._RemovalGate` — a nominee the verdict calls UNSAFE is reported `kept —
@@ -352,7 +372,7 @@ the `removal_content.Evidence` — never a second computation: WHAT I FOUND (the
 file-by-file count of "already on main / differs where main has newer changes / only on the branch", the
 missing lines quoted, and PR leads: the PRs opened from the branch and the merged PRs that changed the
 same files — leads, never proof), WHY I STOPPED, and a numbered WHAT TO DO: land it (or keep the
-commits on `archive/<name>`), `rig worktree discard <target> --reason "…"` for obsolete work, and the
+commits on `archive/<name>-<sha8>`), `rig worktree discard <target> --reason "…"` for obsolete work, and the
 plain `git` command the OWNER can run in their own terminal (the guard only watches agent tool calls).
 The discard route is offered only when every reason is `not-landed`; a dirty tree, a running process,
 the default branch or a branch checked out elsewhere get "fix that first". A command the guard cannot
@@ -370,7 +390,7 @@ table, Recommendation, Where to look) and covers ONE batch: several targets in o
 target that an approval cannot settle stops the batch before anybody is asked. There is NO backup (the reflog
 is the way back) and this is the rare hard case — NOT merged AND stale/obsolete — never a routine confirmation.
 Then it re-checks the judged tip and deletes (`remove_judged` for a worktree, `branch -D` after a tip
-check, `push --force-with-lease=<ref>:<tip> --delete` for a remote branch). There is no `--force`; the
+check, `update-ref -d <ref> <oid>` for a scratch ref, `push --force-with-lease=<ref>:<tip> --delete` for a remote branch). There is no `--force`; the
 hatch helper is loaded ONLY from the fixed `catalog.DEFAULT_SOURCE_CANDIDATES` (never
 `RIG_AGENT_TOOLS_SOURCE`, never the working tree) and only if its file is owned by this user or root
 and not group/world-writable, so a repository, a fake `RIG_AGENT_TOOLS_SOURCE` or another account cannot

@@ -187,7 +187,9 @@ def test_denies_unlanded_worktree_with_rescue_instructions(sb):
     d = decide(sb, f"git worktree remove --force {wt}")
     assert d.decision == "deny"
     assert "not-landed" in d.reason
-    assert "git diff --binary HEAD" in d.reason and "-recovery/" in d.reason
+    # no recovery pack: nothing here tells the agent to write a backup file (git's reflog is the way back)
+    for backup in ("recovery", "git diff --binary", ".patch", "bundle"):
+        assert backup not in d.reason
     assert "git push origin HEAD:refs/heads/" in d.reason
     assert "rig worktree verdict" in d.reason
 
@@ -640,9 +642,9 @@ def test_the_guard_fails_closed_on_a_deleted_cwd_instead_of_raising(sb, tmp_path
     assert d.decision == "deny"
 
 
-def test_update_ref_delete_of_a_non_branch_ref_passes(sb):
+def test_update_ref_delete_of_a_tag_or_remote_tracking_ref_passes(sb):
     assert decide(sb, "git update-ref -d refs/tags/v1").decision == "pass"
-    assert decide(sb, "git update-ref -d refs/stash").decision == "pass"
+    assert decide(sb, "git update-ref -d refs/remotes/origin/gone").decision == "pass"
 
 
 def test_update_ref_that_does_not_touch_branches_passes(sb):
