@@ -466,18 +466,23 @@ def test_internal_error_fails_closed(sb, monkeypatch):
     assert d.decision == "deny" and "boom" in d.reason
 
 
-def test_forge_failure_is_fail_closed_for_a_squash_merged_branch(sb):
-    from removal_helpers import forge_down
+def test_forge_failure_is_fail_closed_when_only_the_pr_can_vouch_for_the_branch(sb):
+    """The squash edited the branch's content on the way in, so no commit carries the branch's diff: only the merged
+    PR (a forge fact) can say it landed. With the forge down the guard denies; with the PR it allows."""
+    from removal_helpers import FakeForge, forge_down, pr
 
     wt = sb.worktree("ff")
-    sb.commit(wt, "a.txt", "a\n", "feat a")
-    sb.commit(wt, "b.txt", "b\n", "feat b")
-    sb.land_squash("ff")
-    sb.advance_main("a.txt", "diverged\n")
+    tip = sb.commit(wt, "a.txt", "a\n", "feat a")
+    sb._integrator_branch("ff")
+    git(sb.integrator, "merge", "-q", "--squash", "_incoming/ff")
+    (sb.integrator / "a.txt").write_text("a, reworded by the maintainer while squashing\n", encoding="utf-8")
+    git(sb.integrator, "commit", "-q", "-am", "squash ff")
+    git(sb.integrator, "push", "-q", "origin", "main")
+    merge = git(sb.integrator, "rev-parse", "HEAD")
     sb.fetch()
     git(sb.primary, "worktree", "remove", "--force", str(wt))
-    d = decide(sb, "git branch -D ff", forge=forge_down())
-    assert d.decision == "deny"
+    assert decide(sb, "git branch -D ff", forge=forge_down()).decision == "deny"
+    assert decide(sb, "git branch -D ff", forge=FakeForge([pr("ff", head_oid=tip, merge_oid=merge)])).decision == "allow"
 
 
 def test_decision_serializes_for_the_cli(sb):
@@ -774,3 +779,61 @@ def test_the_rescue_names_an_archive_branch_unique_to_the_commit(sb):
     assert d.decision == "deny"
     assert f"git push origin HEAD:refs/heads/archive/work-{tip[:8]}" in d.reason
     assert f"inside {wt}" in d.reason
+
+
+# ── the denial explains itself (rig-cli#757) ─────────────────────────────────────
+def test_the_deny_text_has_found_why_and_numbered_steps(sb):
+    wt = sb.worktree("work")
+    sb.commit(wt, "a.txt", "a\n", "feat: unmerged work")
+    d = decide(sb, f"git worktree remove {wt}")
+    assert d.decision == "deny"
+    for heading in ("WHAT I FOUND", "WHY I STOPPED", "WHAT TO DO"):
+        assert heading in d.reason
+    assert "1 commit(s)" in d.reason and "feat: unmerged work" in d.reason and "a.txt" in d.reason
+    assert "  1. " in d.reason and "  2. " in d.reason and "  3. " in d.reason
+    assert "rig worktree discard" in d.reason and "--reason" in d.reason
+    assert f"git -C {sb.primary} worktree remove --force {wt}" in d.reason  # what the owner can run themselves
+    assert "Do NOT look for another way" in d.reason
+
+
+def test_a_dirty_worktree_is_told_to_commit_not_to_ask_for_a_discard(sb):
+    wt = sb.worktree("dirty")
+    (wt / "scratch.txt").write_text("uncommitted\n")
+    d = decide(sb, f"git worktree remove {wt}")
+    assert d.decision == "deny" and "Fix that first" in d.reason and "rig worktree discard" not in d.reason
+
+
+def test_an_unparseable_removal_gets_a_how_to_not_just_a_refusal(sb):
+    d = decide(sb, "git branch -D a && git branch -D b")
+    assert d.decision == "deny"
+    assert "WHAT TO DO" in d.reason and "git -C /abs/repo branch -D <name>" in d.reason
+    assert "rig worktree discard" in d.reason
+
+
+def test_the_discard_command_itself_is_not_a_git_removal(sb):
+    """The approval lives inside `rig worktree discard`; the guard must not try to judge (or block) it."""
+    unlanded = sb.worktree("old")
+    sb.commit(unlanded, "o.txt", "o\n", "feat: old")
+    assert decide(sb, 'rig worktree discard old --reason "obsolete, superseded by the merged PR"').decision == "pass"
+
+
+def test_a_squash_merged_branch_that_main_has_since_edited_around_is_allowed(sb):
+    """The false denial that started rig-cli#757: two commits squashed under another PR, main moved on next to them."""
+    sb.commit(sb.primary, "doc.md", "".join(f"line {i:02d} is a long distinctive sentence\n" for i in range(1, 15)), "docs: base")
+    git(sb.primary, "push", "-q", "origin", "main")
+    wt = sb.worktree("squashed")
+    text = (wt / "doc.md").read_text()
+    anchor = "line 05 is a long distinctive sentence\n"
+    sb.commit(wt, "doc.md", text.replace(anchor, anchor + "ADDED one by the branch\n"), "feat: one")
+    sb.commit(wt, "doc.md", text.replace(anchor, anchor + "ADDED one by the branch\nADDED two by the branch\n"), "feat: two")
+    sb.land_squash("squashed")
+    git(sb.integrator, "fetch", "-q", "origin")
+    git(sb.integrator, "checkout", "-q", "-B", "main", "origin/main")
+    path = sb.integrator / "doc.md"
+    path.write_text(path.read_text().replace("line 06 is", "line 06 was rewritten, and is"), encoding="utf-8")
+    git(sb.integrator, "commit", "-q", "-am", "docs: main edits the next line")
+    git(sb.integrator, "push", "-q", "origin", "main")
+    sb.fetch()
+    d = decide(sb, f"git worktree remove --force {wt}")
+    assert d.decision == "allow", d.reason
+    assert d.verdicts[0].landed_by == "squash-merged"

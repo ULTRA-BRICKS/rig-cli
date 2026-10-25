@@ -18,19 +18,27 @@ protected — "ignored-only files are allowed" is a deliberate rule, and ``git w
 --force`` deletes them.
 
 **Landed.** Every commit unique to the branch/HEAD is on ``origin/<default>`` (the default branch is
-RESOLVED from ``refs/remotes/origin/HEAD``, never hardcoded) or is still held by a branch that
-survives the removal. That means ANY of, tried in this order, each proven rather than assumed:
+RESOLVED from ``refs/remotes/origin/HEAD``, never hardcoded) or is still held by a branch that survives the
+removal. That means ANY of, tried in this order, each proven rather than assumed:
 
 1. ``ancestor`` — the tip is an ancestor of ``origin/<default>``;
-2. ``pr-merged`` — the forge has a MERGED (not merely closed) PR for the head branch whose base is
-   the default branch, whose merge/squash commit is an ancestor of ``origin/<default>``, AND the
-   tip equals the PR's recorded head oid or is an ancestor of it — a commit made AFTER the PR head
-   is therefore NOT covered;
+2. ``pr-merged`` — the MERGED PR comes first. It is found by head branch name or head commit, and — when the
+   branch was squash-merged from another name — by the ``#N`` that a default-branch commit message cites
+   together with this branch's commit subjects/shas. The PR's merge/squash commit must be an ancestor of
+   ``origin/<default>``. Then the PR says which commits it contained: the tip equal to / an ancestor of the PR's
+   head is landed; a tip that DESCENDS from the head holds NEW commits made after the merge (unlanded work,
+   named in the denial); a tip whose history was REWRITTEN after the merge (an interactive rebase) is old when
+   ``git cherry`` finds a patch-id twin of every commit in the PR's head, and unlanded where it finds none;
 3. ``content-noop`` / ``cherry`` — ``git merge-tree --write-tree origin/<default> <tip>`` yields
    the very tree ``origin/<default>`` already has (merging would change nothing), or ``git cherry``
    shows only ``-`` lines (every commit has a patch-id twin upstream — a rebase merge; refused when
    the branch contains merge commits, which ``git cherry`` skips);
-4. ``preserved`` — the tip is reachable from ANOTHER branch of the same remote (``origin`` for a
+4. ``squash-merged`` — with no usable PR: :mod:`riglib.removal_squash` finds the commit on ``origin/<default>``
+   whose message names the branch's commits (else any commit that changed the same files) and compares the
+   DIFF OF THE WHOLE BATCH of the branch's commits with that commit's diff — never the latest state of the
+   touched files on the default branch, which a later commit would break. A binary file, a link, a mode
+   change or more than 300 files that differ is never proven;
+5. ``preserved`` — the tip is reachable from ANOTHER branch of the same remote (``origin`` for a
    worktree or local branch) that the removal leaves in place: a PR closed as superseded, whose
    commits were pushed to an ``archive/*`` or follow-up branch, loses nothing when its own branch
    goes. The holder must still exist on the remote at the very commit the local tracking ref shows
@@ -42,9 +50,14 @@ survives the removal. That means ANY of, tried in this order, each proven rather
    branch or worktree removal touches no remote ref, so every remote holder stays). The verdict
    names the holder in ``notes``.
 
+Uncommitted files (staged, unstaged, untracked) and a stash made on the branch are the simplest and clearest
+unsafe signal: they are checked FIRST and named first in every denial. When nothing proves the work landed, the
+file-by-file comparison with the default branch (:mod:`riglib.removal_content`) is attached as ``evidence`` so
+the denial can say what exists only on the branch — it explains, it never proves.
+
 Whether the target's OWN branch was pushed is irrelevant (the branch ref is what deletion removes;
-a same-named or tracked remote branch never counts) and a stash or the reflog is never relied on. A forge
-outage only removes proof 2, an unreachable remote only proof 4; proofs 1 and 3 are local.
+a same-named or tracked remote branch never counts) and the reflog is never relied on. A forge
+outage only removes proof 2, an unreachable remote only proof 5; proofs 1, 3 and 4 are local.
 
 A caller about to mutate re-checks the tip and cleanliness it was promised with
 (:func:`changed_since`): verdict and delete are separate steps, so this narrows — never closes — the
@@ -62,29 +75,33 @@ process of ANOTHER user is never inspected. The forge's PR list is capped by the
 (``worktree_gc._GH_PAGE_LIMIT``); a PR older than that simply reads as "no PR" and falls through to
 the local proofs. Landed content that a later upstream commit deliberately reverted still counts as
 landed — the question asked is whether the work reached the default branch, not whether it stayed.
-Proof 4 is judged per command: two sessions that each delete the only other holder of the same
+Proof 5 is judged per command: two sessions that each delete the only other holder of the same
 commits at the same instant can both pass, and a holder deleted later is judged on its own (it is
 then the target, and its commits must be landed or held elsewhere). A holder is trusted at the
 moment of the check: a LATER non-deleting rewrite of it (a force-push, a rebase) is not a removal
 and this guard never sees it, which is why the rescue names a fresh ``archive/<name>-<sha>`` branch
-rather than a working branch. Proof 4 costs one ``git ls-remote`` per target that has a candidate
+rather than a working branch. Proof 5 costs one ``git ls-remote`` per target that has a candidate
 holder, so a very large batch can exhaust the hook's 120 s budget (then it is denied, fail closed):
 split it.
 """
 
 from __future__ import annotations
 
+import functools
 import os
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Literal
 
+from . import removal_content as content
+from . import removal_squash as squash
 from . import worktree_gc
 
 LANDING_REMOTE = "origin"
-PRESERVED = "preserved"  # the `landed_by` of proof 4
+PRESERVED = "preserved"  # the `landed_by` of proof 5
+SQUASH_MERGED = "squash-merged"  # the `landed_by` of proof 4
 FAST_FORWARD = "fast-forward"  # overwrite only: the old tip is an ancestor of the new start
 NEW_BRANCH = "new-branch"  # overwrite only: the branch does not exist yet
 _GIT_TIMEOUT_S = 30
@@ -143,7 +160,10 @@ class Reason:
 class Verdict:
     """SAFE/UNSAFE for one removal target. ``reasons`` explains an UNSAFE (empty when SAFE);
     ``landed_by`` names the proof that held; ``notes`` carries non-fatal observations (a failed
-    refresh fetch, a forge outage that was routed around)."""
+    refresh fetch, a forge outage that was routed around). ``evidence`` is the file-by-file comparison
+    with the default branch whenever the content proof ran (see :mod:`riglib.removal_content`);
+    ``repo`` is the primary checkout the verdict was computed in (the explanation names commands
+    that must run there)."""
 
     kind: TargetKind
     target: str
@@ -153,6 +173,8 @@ class Verdict:
     notes: tuple[str, ...] = ()
     tip: str | None = None  # the commit judged (worktree HEAD / branch tip / remote tip), when known
     overwrite: bool = False  # the branch is being RE-POINTED (git branch -f/-M/-C, checkout -B), not deleted
+    evidence: content.Evidence | None = None
+    repo: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -164,6 +186,8 @@ class Verdict:
             "landed_by": self.landed_by,
             "reasons": [{"code": r.code, "message": r.message} for r in self.reasons],
             "notes": list(self.notes),
+            "evidence": self.evidence.to_dict() if self.evidence is not None else None,
+            "repo": self.repo,
         }
 
     def render(self) -> str:
@@ -172,6 +196,8 @@ class Verdict:
         lines = [head]
         if self.safe and self.landed_by == PRESERVED:
             lines.append("  its commits are held by another remote branch that stays (see the note)")
+        elif self.safe and self.landed_by == SQUASH_MERGED:
+            lines.append("  the squash commit on the default branch carries the diff of every commit of the branch")
         elif self.safe and self.landed_by == FAST_FORWARD:
             lines.append("  the new start contains every commit the branch has now (a fast-forward)")
         elif self.safe and self.landed_by == NEW_BRANCH:
@@ -190,8 +216,20 @@ def _unsafe(
     notes: list[str],
     tip: str | None = None,
     overwrite: bool = False,
+    *,
+    evidence: content.Evidence | None = None,
 ) -> Verdict:
-    return Verdict(kind, str(target), False, tuple(reasons), None, tuple(notes), tip, overwrite)
+    return Verdict(kind, str(target), False, tuple(reasons), None, tuple(notes), tip, overwrite, evidence)
+
+
+def _stamp_repo(verdict_fn: Callable[..., Verdict]) -> Callable[..., Verdict]:
+    """Record the primary checkout a public verdict was computed in (its first argument) on the result."""
+
+    @functools.wraps(verdict_fn)
+    def wrapper(repo_root: Path, *args, **kwargs) -> Verdict:
+        return replace(verdict_fn(repo_root, *args, **kwargs), repo=str(repo_root))
+
+    return wrapper
 
 
 def rescue_hint(kind: TargetKind, target: str, repo_name: str = "<repo>", tip: str | None = None) -> str:
@@ -232,10 +270,12 @@ def _git_env() -> dict[str, str]:
     return {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0", "LC_ALL": "C"}
 
 
-def run_git(cwd: Path, *args: str, timeout: int = _GIT_TIMEOUT_S) -> subprocess.CompletedProcess[bytes]:
+def run_git(
+    cwd: Path, *args: str, timeout: int = _GIT_TIMEOUT_S, stdin: bytes | None = None
+) -> subprocess.CompletedProcess[bytes]:
     try:
         return subprocess.run(
-            ["git", "-C", str(cwd), *args], capture_output=True, timeout=timeout, env=_git_env()
+            ["git", "-C", str(cwd), *args], input=stdin, capture_output=True, timeout=timeout, env=_git_env()
         )
     except subprocess.TimeoutExpired as exc:
         raise GitFailure(f"`git {' '.join(args[:2])}` timed out after {timeout}s") from exc
@@ -388,6 +428,15 @@ def refresh_default_ref(repo_root: Path) -> list[str]:
     return notes
 
 
+def default_branch_sha(repo_root: Path) -> str | None:
+    """The commit ``origin/<default>`` points at (the default branch resolved from ``origin/HEAD``), or ``None``."""
+    try:
+        default, _ = _resolve_default(repo_root)
+    except GitFailure:
+        return None
+    return default.sha if default is not None else None
+
+
 # ── landed proofs ────────────────────────────────────────────────────────────────
 def _unique_commit_count(repo: Path, default: _Default, tip: str) -> int | None:
     res = run_git(repo, "rev-list", "--count", f"{default.sha}..{tip}")
@@ -395,16 +444,40 @@ def _unique_commit_count(repo: Path, default: _Default, tip: str) -> int | None:
     return int(out) if res.returncode == 0 and out.isdigit() else None
 
 
+def _commit_lines(repo: Path, rev_range: str, limit: int = 5) -> list[str]:
+    res = run_git(repo, "log", f"--max-count={limit}", "--format=%h %s", rev_range)
+    return [ln for ln in os.fsdecode(res.stdout).splitlines() if ln] if res.returncode == 0 else []
+
+
 def _prove_pr_merged(
-    repo: Path, tip: str, branch: str | None, default: _Default, forge: ForgeLookup, notes: list[str]
+    repo: Path,
+    tip: str,
+    branch: str | None,
+    default: _Default,
+    base: str | None,
+    forge: ForgeLookup,
+    notes: list[str],
+    leads: list[str],
 ) -> tuple[str | None, list[str]]:
-    """Proof 2. Returns ``("pr-merged", [])`` or ``(None, why_not)``."""
+    """Proof 2 — the merged PR first. Found by head branch / head commit, else by the ``#N`` a default-branch
+    commit cites together with this branch's commit subjects (a squash merge from another branch name). Its
+    recorded head says which commits it contained: ``tip`` equal to or below it is landed; a tip that goes on
+    past it holds NEW commits (named in ``leads`` and the reason); a REWRITTEN history is old when ``git cherry``
+    finds a twin of every commit. Returns ``("pr-merged", [])`` or ``(None, why_not)``."""
     try:
         records = forge(repo)
     except Exception as exc:  # noqa: BLE001 — ANY forge failure just removes this one proof
         notes.append(f"forge lookup failed ({exc}); relying on local proofs only")
         return None, [f"the forge could not be queried ({exc})"]
     candidates = [r for r in records if (branch is not None and r.head_ref == branch) or (r.head_oid and r.head_oid == tip)]
+    if not candidates and base is not None:
+        try:
+            cited = {n for n, _sha, _subject in squash.pr_numbers_cited_for(lambda *a: run_git(repo, *a), default.sha, base, tip)}
+        except squash.SquashError:
+            cited = set()
+        candidates = [r for r in records if r.number in cited and r.state == "MERGED"]
+        if candidates:
+            notes.append("the pull request was found by the number a squash commit on the default branch cites")
     if not candidates:
         return None, ["no pull request found for this branch/commit"]
     why: list[str] = []
@@ -428,13 +501,29 @@ def _prove_pr_merged(
                 f"(run `git fetch {LANDING_REMOTE}` if it merged just now)"
             )
             continue
-        if tip != r.head_oid and _is_ancestor(repo, tip, r.head_oid) is not True:
-            why.append(
-                f"{label} merged head {r.head_oid[:12]}, but the commit {tip[:12]} is not that head or one of its "
-                "ancestors — it holds work made after the PR head"
-            )
+        if tip == r.head_oid or _is_ancestor(repo, tip, r.head_oid) is True:
+            return "pr-merged", []
+        if _is_ancestor(repo, r.head_oid, tip) is True:
+            newer = _commit_lines(repo, f"{r.head_oid}..{tip}")
+            why.append(f"{label} merged head {r.head_oid[:12]}, but commit(s) were made AFTER it: " + "; ".join(newer))
+            leads.append(f"{label} is merged, but these commits came after it and are NOT on {default.ref}: " + "; ".join(newer))
             continue
-        return "pr-merged", []
+        if run_git(repo, "cat-file", "-e", f"{r.head_oid}^{{commit}}").returncode != 0:
+            why.append(f"{label}'s head {r.head_oid[:12]} is not available locally to compare (`git fetch {LANDING_REMOTE}`)")
+            continue
+        merges = run_git(repo, "rev-list", "--merges", "--count", f"{r.head_oid}..{tip}")
+        if merges.returncode != 0 or _out(merges) != "0":
+            why.append(f"{label}: the history was rewritten after the merge and contains merge commits, which cannot be compared")
+            continue
+        cherry = run_git(repo, "cherry", r.head_oid, tip)
+        rows = [ln for ln in os.fsdecode(cherry.stdout).splitlines() if ln.strip()] if cherry.returncode == 0 else []
+        if cherry.returncode == 0 and all(ln.startswith("-") for ln in rows):
+            notes.append(f"{label} merged an earlier version; the branch history was rewritten since, with nothing new in it")
+            return "pr-merged", []
+        fresh = [ln[2:10] for ln in rows if ln.startswith("+")]
+        why.append(f"{label} was merged, but the branch was rewritten and {len(fresh)} commit(s) in it have no twin in the PR")
+        if fresh:
+            leads.append(f"{label} is merged, but the rewritten branch holds commits it never had: {', '.join(fresh)}")
     return None, why
 
 
@@ -487,7 +576,7 @@ def _own_names(repo: Path, branch: str | None, remote: str) -> frozenset[str]:
 def _prove_preserved(
     repo: Path, tip: str, remote: str, own: frozenset[str], removing: frozenset[str], notes: list[str]
 ) -> tuple[str | None, list[str]]:
-    """Proof 4. Returns ``("preserved", [])`` — the holder named in ``notes`` — or ``(None, why_not)``.
+    """Proof 5. Returns ``("preserved", [])`` — the holder named in ``notes`` — or ``(None, why_not)``.
 
     One cheap local call lists the ``<remote>`` tracking refs that contain ``tip``; only then does
     ``git ls-remote`` confirm that a holder still exists on the remote at that very commit, because
@@ -533,6 +622,103 @@ def _prove_preserved(
     return None, [f"{named} hold(s) it only in the local tracking refs; the remote's branch is not at the commit they show (`git fetch {remote} --prune`)"]
 
 
+def _branch_pr_numbers(repo: Path, branch: str | None, tip: str, forge: ForgeLookup) -> frozenset[int]:
+    """The numbers of the PRs that were opened from this branch (any state); empty when the forge is down."""
+    try:
+        records = forge(repo)
+    except Exception:  # noqa: BLE001 — a forge outage only removes this hint
+        return frozenset()
+    return frozenset(
+        r.number for r in records if (branch is not None and r.head_ref == branch) or (r.head_oid and r.head_oid == tip)
+    )
+
+
+def _prove_squash(
+    repo: Path, tip: str, branch: str | None, default: _Default, base: str | None, forge: ForgeLookup, notes: list[str]
+) -> tuple[str | None, list[str]]:
+    """Proof 4 — find the commit on the default branch that carries the DIFF OF THE WHOLE BATCH of the branch's
+    commits (:mod:`riglib.removal_squash`). Returns ``("squash-merged", [])`` or ``(None, why_not)``."""
+    if base is None:
+        return None, [f"the branch and {default.ref} share no history"]
+    try:
+        found, why = squash.find_squash(
+            lambda *args: run_git(repo, *args), default.sha, base, tip, _branch_pr_numbers(repo, branch, tip, forge)
+        )
+    except squash.SquashError as exc:
+        return None, [f"the comparison with a squash commit could not run ({exc})"]
+    if found is None:
+        return None, [why]
+    notes.append(
+        f"the whole branch is in commit {found.sha[:12]} ({found.subject}) on {default.ref}: its diff carries the "
+        f"diff of every commit of the branch ({found.how})"
+    )
+    return SQUASH_MERGED, []
+
+
+def _memo_forge(forge: ForgeLookup) -> ForgeLookup:
+    """One forge lookup per verdict, however many proofs and explanations read it (a failure is cached too)."""
+    cache: list[tuple[list[PrRecord] | None, Exception | None]] = []
+
+    def lookup(repo: Path) -> list[PrRecord]:
+        if not cache:
+            try:
+                cache.append((forge(repo), None))
+            except Exception as exc:  # noqa: BLE001 — re-raised to every reader below
+                cache.append((None, exc))
+        records, error = cache[0]
+        if error is not None:
+            raise error
+        return records or []
+
+    return lookup
+
+
+_RELATED_SCAN_LIMIT = 300  # merged PRs whose changed files are compared with the branch's
+
+
+def _related_prs(
+    repo: Path, branch: str | None, tip: str, default: _Default, evidence: content.Evidence, forge: ForgeLookup
+) -> tuple[str, ...]:
+    """Plain-language leads for the explanation — NEVER a proof: the PRs that were opened from this
+    branch, and the merged PRs that changed the same files after it forked (a likely successor)."""
+    try:
+        records = forge(repo)
+    except Exception:  # noqa: BLE001 — a forge outage only removes the leads
+        return ()
+    leads = [
+        f"PR #{r.number} ({r.state.lower()}) was opened from this branch"
+        for r in records
+        if (branch is not None and r.head_ref == branch) or (r.head_oid and r.head_oid == tip)
+    ]
+    paths = {f.path for f in evidence.files}
+    scored: list[tuple[int, int]] = []
+    merged = [r for r in records if r.state == "MERGED" and r.base_ref == default.name]
+    for r in merged[:_RELATED_SCAN_LIMIT]:
+        merge = r.merge_commit_oid
+        if not merge or not _OID_RE.match(merge) or merge == evidence.base:
+            continue
+        if _is_ancestor(repo, evidence.base, merge) is not True or _is_ancestor(repo, merge, default.sha) is not True:
+            continue
+        res = run_git(repo, "diff", "--name-only", "-z", "--no-renames", f"{merge}^1", merge)
+        if res.returncode != 0:
+            continue
+        changed = {os.fsdecode(p) for p in res.stdout.split(b"\0") if p}
+        if paths & changed:
+            scored.append((len(paths & changed), r.number))
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    leads.extend(
+        f"merged PR #{number} changed {hit} of the {len(paths)} file(s) this branch changes — a likely successor"
+        for hit, number in scored[:3]
+    )
+    return tuple(leads)
+
+
+def _merge_base(repo: Path, default: _Default, tip: str) -> str | None:
+    res = run_git(repo, "merge-base", default.sha, tip)
+    out = _out(res)
+    return out if res.returncode == 0 and _OID_RE.match(out) else None
+
+
 def _prove_landed(
     repo: Path,
     tip: str,
@@ -544,36 +730,53 @@ def _prove_landed(
     remote: str,
     own: frozenset[str] = frozenset(),
     removing: frozenset[str] = frozenset(),
-) -> tuple[str | None, list[Reason]]:
-    """``(proof, [])`` when landed, else ``(None, [not-landed reason])``. Proofs run in the
-    documented order and the first that holds wins (so a forge outage or a remote lookup is only
-    consulted when the cheap local proofs fail). ``remote`` is where proof 4 looks for holders and
-    ``own`` the target's own remote copy and ``removing`` the branch names the same push deletes there
-    (see :func:`_prove_preserved`)."""
+) -> tuple[str | None, list[Reason], content.Evidence | None]:
+    """``(proof, [], None)`` when landed, else ``(None, [not-landed reason], evidence)`` — ``evidence`` is the
+    file-by-file comparison that EXPLAINS an unproven branch (``None`` when it could not run). Proofs run in the
+    documented order and the first that holds wins (so a forge outage or a remote lookup is only consulted when
+    the cheap local proofs fail). ``remote`` is where proof 5 looks for holders and ``own`` the target's own
+    remote copy and ``removing`` the branch names the same push deletes there (see :func:`_prove_preserved`)."""
+    forge = _memo_forge(forge)
     try:
         anc = _is_ancestor(repo, tip, default.sha)
     except GitFailure as exc:
-        return None, [Reason("not-landed", f"could not check ancestry: {exc}")]
+        return None, [Reason("not-landed", f"could not check ancestry: {exc}")], None
     if anc is True:
-        return "ancestor", []
+        return "ancestor", [], None
     details: list[str] = []
+    leads: list[str] = []
     if anc is None:
         details.append(f"commit {tip[:12]} could not be compared with {default.ref}")
+    evidence: content.Evidence | None = None
+
+    def run(*args: str) -> subprocess.CompletedProcess[bytes]:
+        return run_git(repo, *args)
+
     try:
-        proof, why = _prove_pr_merged(repo, tip, branch, default, forge, notes)
+        base = _merge_base(repo, default, tip)
+        proof, why = _prove_pr_merged(repo, tip, branch, default, base, forge, notes, leads)
         if proof is not None:
-            return proof, []
+            return proof, [], None
         details.extend(f"PR proof: {w}" for w in why)
         proof, why = _prove_content(repo, tip, default)
         if proof is not None:
-            return proof, []
+            return proof, [], None
         details.extend(f"content proof: {w}" for w in why)
+        proof, why = _prove_squash(repo, tip, branch, default, base, forge, notes)
+        if proof is not None:
+            return proof, [], None
+        details.extend(f"squash proof: {w}" for w in why)
         proof, why = _prove_preserved(repo, tip, remote, own, removing, notes)
         if proof is not None:
-            return proof, []
+            return proof, [], None
         details.extend(f"preserved proof: {w}" for w in why)
     except GitFailure as exc:
-        return None, [Reason("not-landed", f"could not run a landing proof: {exc}")]
+        return None, [Reason("not-landed", f"could not run a landing proof: {exc}")], None
+    try:
+        evidence = content.analyze(run, default.sha, default.ref, tip)
+        evidence = replace(evidence, related=(*leads, *_related_prs(repo, branch, tip, default, evidence, forge)))
+    except (content.ContentError, GitFailure) as exc:
+        details.append(f"the file-by-file comparison with {default.ref} could not run ({exc})")
     try:
         count = _unique_commit_count(repo, default, tip)
     except GitFailure:
@@ -585,7 +788,7 @@ def _prove_landed(
             f"{unique} at {tip[:12]} are not proven to be on {default.ref} or held by another {remote} branch "
             "that stays: " + "; ".join(details),
         )
-    ]
+    ], evidence
 
 
 # ── worktree facts ───────────────────────────────────────────────────────────────
@@ -660,6 +863,27 @@ def _operations_in_progress(wt: Path) -> list[str]:
     if res.returncode != 0 or len(paths) != len(_IN_PROGRESS_MARKERS):
         raise GitFailure(f"git rev-parse --git-path failed in {wt}: {_err(res)}")
     return [m for m, p in zip(_IN_PROGRESS_MARKERS, paths) if (Path(p) if os.path.isabs(p) else wt / p).exists()]
+
+
+def _stash_reasons(repo: Path, branch: str | None) -> list[Reason]:
+    """Stash entries made ON ``branch`` (git words them ``WIP on <branch>:`` / ``On <branch>:``). A stash lives in
+    no branch, so deleting the branch or its worktree leaves it behind pointing at work nobody will look for."""
+    if branch is None:
+        return []
+    try:
+        res = run_git(repo, "stash", "list", "--format=%gd%x1f%gs")
+    except GitFailure as exc:
+        return [Reason("status-failed", f"`git stash list` could not run: {exc}")]
+    if res.returncode != 0:
+        return [Reason("status-failed", f"`git stash list` failed: {_err(res)}")]
+    mine = [
+        ref
+        for ref, _, subject in (ln.partition("\x1f") for ln in os.fsdecode(res.stdout).splitlines())
+        if subject.startswith((f"WIP on {branch}:", f"On {branch}:"))
+    ]
+    if not mine:
+        return []
+    return [Reason("stash", f"{len(mine)} stash entr{'y' if len(mine) == 1 else 'ies'} made on {branch!r} ({', '.join(mine[:5])}): a stash belongs to no branch and is kept nowhere else")]
 
 
 def _dirty_reasons(wt: Path) -> list[Reason]:
@@ -783,6 +1007,7 @@ def changed_since(worktree_path: Path, tip: str | None) -> str | None:
 
 
 # ── public verdicts ──────────────────────────────────────────────────────────────
+@_stamp_repo
 def worktree_verdict(
     repo_root: Path,
     worktree_path: Path,
@@ -797,6 +1022,7 @@ def worktree_verdict(
     reasons: list[Reason] = []
     notes: list[str] = []
     head = ""
+    evidence: content.Evidence | None = None
     try:
         records = _worktree_records(repo_root)
         default, default_reason = _default_after_refresh(repo_root, fetch, notes)
@@ -834,18 +1060,20 @@ def worktree_verdict(
             elif live:
                 reasons.append(Reason("live-process", "a running process has this worktree (or a subdirectory) as its cwd"))
 
+        reasons.extend(_stash_reasons(repo_root, branch))
         if default is not None and _OID_RE.match(head):
             own = _own_names(repo_root, branch, LANDING_REMOTE)
-            proof, why = _prove_landed(repo_root, head, branch, default, forge, notes, remote=LANDING_REMOTE, own=own)
+            proof, why, evidence = _prove_landed(repo_root, head, branch, default, forge, notes, remote=LANDING_REMOTE, own=own)
             if proof is None:
                 reasons.extend(why)
             elif not reasons:
-                return Verdict(kind, str(target), True, (), proof, tuple(notes), head)
+                return Verdict(kind, str(target), True, (), proof, tuple(notes), head, evidence=evidence)
     except _VERDICT_ERRORS as exc:
         reasons.append(Reason("verdict-error", f"could not complete the check: {exc}"))
-    return _unsafe(kind, target, reasons, notes, head if _OID_RE.match(head) else None)
+    return _unsafe(kind, target, reasons, notes, head if _OID_RE.match(head) else None, evidence=evidence)
 
 
+@_stamp_repo
 def branch_verdict(repo_root: Path, branch: str, *, forge: ForgeLookup | None = None, fetch: bool = False) -> Verdict:
     """Verdict for deleting the LOCAL branch ``branch`` (``git branch -D``)."""
     forge = forge or default_forge_lookup
@@ -853,6 +1081,7 @@ def branch_verdict(repo_root: Path, branch: str, *, forge: ForgeLookup | None = 
     reasons: list[Reason] = []
     notes: list[str] = []
     tip = ""
+    evidence: content.Evidence | None = None
     try:
         bad = _check_ref_format(repo_root, branch)
         if bad is not None:
@@ -869,17 +1098,19 @@ def branch_verdict(repo_root: Path, branch: str, *, forge: ForgeLookup | None = 
         for rec in _worktree_records(repo_root):
             if rec.get("branch") == f"refs/heads/{branch}":
                 reasons.append(Reason("branch-checked-out", f"branch {branch!r} is checked out in {rec.get('worktree')}"))
+        reasons.extend(_stash_reasons(repo_root, branch))
         own = _own_names(repo_root, branch, LANDING_REMOTE)
-        proof, why = _prove_landed(repo_root, tip, branch, default, forge, notes, remote=LANDING_REMOTE, own=own)
+        proof, why, evidence = _prove_landed(repo_root, tip, branch, default, forge, notes, remote=LANDING_REMOTE, own=own)
         if proof is None:
             reasons.extend(why)
         elif not reasons:
-            return Verdict(kind, branch, True, (), proof, tuple(notes), tip)
+            return Verdict(kind, branch, True, (), proof, tuple(notes), tip, evidence=evidence)
     except _VERDICT_ERRORS as exc:
         reasons.append(Reason("verdict-error", f"could not complete the check: {exc}"))
-    return _unsafe(kind, branch, reasons, notes, tip if _OID_RE.match(tip) else None)
+    return _unsafe(kind, branch, reasons, notes, tip if _OID_RE.match(tip) else None, evidence=evidence)
 
 
+@_stamp_repo
 def overwrite_verdict(
     repo_root: Path,
     branch: str,
@@ -926,15 +1157,16 @@ def overwrite_verdict(
         if default is None:
             return _unsafe(kind, branch, [default_reason or Reason("no-default-ref", "default branch unresolved")], notes, tip, True)
         own = _own_names(repo_root, branch, LANDING_REMOTE)
-        proof, why = _prove_landed(repo_root, tip, branch, default, forge, notes, remote=LANDING_REMOTE, own=own)
+        proof, why, evidence = _prove_landed(repo_root, tip, branch, default, forge, notes, remote=LANDING_REMOTE, own=own)
         if proof is not None:
-            return Verdict(kind, branch, True, (), proof, tuple(notes), tip, True)
-        return _unsafe(kind, branch, why, notes, tip, True)
+            return Verdict(kind, branch, True, (), proof, tuple(notes), tip, True, evidence)
+        return _unsafe(kind, branch, why, notes, tip, True, evidence=evidence)
     except _VERDICT_ERRORS as exc:
         return _unsafe(kind, branch, [Reason("verdict-error", f"could not complete the check: {exc}")], notes, tip if _OID_RE.match(tip) else None, True)
 
 
 
+@_stamp_repo
 def remote_branch_verdict(
     repo_root: Path,
     remote: str,
@@ -985,12 +1217,12 @@ def remote_branch_verdict(
                     [Reason("not-landed", f"the remote tip {tip[:12]} is not available locally to check ({_err(got)})")],
                     notes,
                 )
-        proof, why = _prove_landed(
+        proof, why, evidence = _prove_landed(
             repo_root, tip, branch, default, forge, notes, remote=remote, own=frozenset({branch}), removing=removing
         )
         if proof is not None:
-            return Verdict(kind, target, True, (), proof, tuple(notes), tip)
-        return _unsafe(kind, target, why, notes, tip)
+            return Verdict(kind, target, True, (), proof, tuple(notes), tip, evidence=evidence)
+        return _unsafe(kind, target, why, notes, tip, evidence=evidence)
     except _VERDICT_ERRORS as exc:
         return _unsafe(kind, target, [Reason("verdict-error", f"could not complete the check: {exc}")], notes)
 

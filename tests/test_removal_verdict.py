@@ -267,8 +267,7 @@ def test_pr_merged_into_a_non_default_base_is_unsafe(sb):
     wt = sb.worktree("base")
     sb.commit(wt, "a.txt", "a\n", "feat a")
     tip = sb.commit(wt, "b.txt", "b\n", "feat b")  # 2 commits: a squash has no patch-id twin
-    squash = sb.land_squash("base")
-    sb.advance_main("a.txt", "diverged\n")  # content proof cannot apply either
+    squash = sb.land_squash("base", edit=("b.txt", "edited in the squash\n"))  # the whole-batch proof cannot apply either
     sb.fetch()
     v = wt_verdict(sb, wt, FakeForge([pr("base", head_oid=tip, merge_oid=squash, base="release-1")]))
     assert not v.safe
@@ -278,8 +277,7 @@ def test_pr_record_without_head_oid_is_not_trusted(sb):
     wt = sb.worktree("nohead")
     sb.commit(wt, "a.txt", "a\n", "feat a")
     sb.commit(wt, "b.txt", "b\n", "feat b")
-    squash = sb.land_squash("nohead")
-    sb.advance_main("a.txt", "diverged\n")
+    squash = sb.land_squash("nohead", edit=("b.txt", "edited in the squash\n"))
     sb.fetch()
     v = wt_verdict(sb, wt, FakeForge([pr("nohead", head_oid=None, merge_oid=squash)]))
     assert not v.safe

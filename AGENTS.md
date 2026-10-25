@@ -272,7 +272,12 @@ create`/`remove`/`gc` rows for the user-facing contract.
   says SAFE (below); accepts a worktree anywhere git knows it; `--force` never overrides the
   verdict (it only unlocks a locked worktree).
 - **`rig worktree verdict <path|name|branch> [--remote [NAME]] [--json]`** — read-only: "is deleting
-  this guaranteed to lose nothing?" Exit 0 SAFE / 10 UNSAFE.
+  this guaranteed to lose nothing?" Exit 0 SAFE / 10 UNSAFE; UNSAFE prints the plain-language
+  explanation (below), `--json` adds the file-by-file `evidence`.
+- **`rig worktree discard <path|name|branch> --reason "<why>" [--remote [NAME]]`** — the ONE
+  sanctioned way to drop work the proofs cannot clear: owner approval on Telegram (the agent-tools
+  hatch helper, hook id `rig-worktree-discard`), batch-wise, no backup, only for NOT merged AND stale/obsolete
+  work. See "Dropping obsolete work" below.
 - **`rig worktree guard`** — the PreToolUse backend (bash command on stdin → one JSON
   `pass|allow|deny`) behind the agent-tools `block-unlanded-removal` hook.
 - **`rig worktree gc`** — the reconciler for everything ALREADY on disk (including worktrees that
@@ -292,9 +297,18 @@ progress; no process with it as cwd; no other worktree or ignored git repo insid
 primary checkout / default branch / a branch checked out elsewhere; other ignored files are NOT
 protected, by rule) AND every commit unique to the branch/HEAD is LANDED on `origin/<default>` (resolved
 from `origin/HEAD`) or still held by a branch that survives the removal, proven in order: ancestor of
-`origin/<default>`; a MERGED PR (not merely closed) whose merge commit is on `origin/<default>` and whose
-recorded head equals — or descends from — the tip (commits made after the PR head are NOT covered);
-`git merge-tree --write-tree` no-op or `git cherry` all-`-`; **`preserved`** — the tip is reachable
+`origin/<default>`; the MERGED PR first (found by head branch/head commit, else by the `#N` that a
+default-branch commit cites together with the branch's commit subjects; its merge commit must be on
+`origin/<default>`): a tip at or below the PR's recorded head is landed, a tip that descends from the head
+holds NEW commits (named in the denial), a history rewritten after the merge is old when `git cherry` finds
+a twin of every commit; `git merge-tree --write-tree` no-op or `git cherry` all-`-`; **`squash-merged`**
+(`riglib/removal_squash.py`) — no usable PR: the commit on `origin/<default>` whose message names the
+branch's commits (else any that changed the same files) carries the DIFF OF THE WHOLE BATCH
+(`merge-base..tip`) — every change block of every file, a block under 20 characters only as a whole
+identical block — never the latest state of the touched files; a binary file, a link, a mode change or more
+than 300 files that differ is NEVER proven (`riglib/removal_content.py` only EXPLAINS an unproven branch);
+uncommitted files and a stash made on the branch are the first, clearest unsafe signal and are named first;
+**`preserved`** — the tip is reachable
 from ANOTHER branch of the same remote (`origin` for a worktree / local branch), confirmed live with
 `git ls-remote` (a stale tracking ref of a deleted or moved branch proves nothing, an unreachable remote
 proves nothing). That is the route for a PR closed as superseded: push the commits to a branch that
@@ -320,9 +334,10 @@ expansion (`git $S -D x`, `git branch -$L x`, a bare `$FLAG` among `git branch`'
 never guessed; `$'-D'` is decoded, `${IFS}`/`$VAR` splitting is normalized away before the check,
 and long options match by any unambiguous prefix (`--d`, `--del`). Known gap: a `git push` whose
 `--delete`/`:name` arrives whole inside a variable (`git push origin "$D" x`) is not caught. Quoted/heredoc text that only mentions a removal
-passes. There is NO bypass flag — `--force` does not change a verdict and no env var skips it; the
-sanctioned rescue for work you really mean to drop is `git add -A && git diff --binary HEAD >
-~/.cache/<repo>-recovery/<wt>-<ts>.patch` plus pushing the commits to a branch that stays (`archive/<name>`). Every allow/deny is
+passes. There is NO bypass flag — `--force` does not change a verdict and no env var skips it; work
+you really mean to drop goes through `rig worktree discard` (owner approval) or is kept first (`git add -A
+&& git diff --binary HEAD > ~/.cache/<repo>-recovery/<wt>-<ts>.patch` plus pushing the commits to a branch that stays,
+`archive/<name>`). Every allow/deny is
 appended to `~/.cache/rig/removal-guard.jsonl`. `rig worktree gc` keeps its own CLASSIFIER but not
 its own removal decision: every removal (dry-run plan and `--yes` execution alike) goes through the
 same verdict via `worktree_gc._RemovalGate` — a nominee the verdict calls UNSAFE is reported `kept —
@@ -330,6 +345,41 @@ removal verdict UNSAFE — <reasons>`, and the branch gc deletes must still sit 
 judged (the worktree may have been re-pointed since planning). `--yes`/`--include-stale` widen what gc
 nominates, never what the verdict accepts. The gate refreshes `origin/<default>` once per run and asks
 the forge at most once per run.
+
+**Denials explain themselves (rig-cli#757).** `riglib/removal_explain.py` is the ONE wording of every
+refusal (the guard, `rig worktree remove`, `rig worktree verdict`), built from the verdict's reasons and
+the `removal_content.Evidence` — never a second computation: WHAT I FOUND (the unlanded commits, a
+file-by-file count of "already on main / differs where main has newer changes / only on the branch", the
+missing lines quoted, and PR leads: the PRs opened from the branch and the merged PRs that changed the
+same files — leads, never proof), WHY I STOPPED, and a numbered WHAT TO DO: land it (or keep the
+commits on `archive/<name>`), `rig worktree discard <target> --reason "…"` for obsolete work, and the
+plain `git` command the OWNER can run in their own terminal (the guard only watches agent tool calls).
+The discard route is offered only when every reason is `not-landed`; a dirty tree, a running process,
+the default branch or a branch checked out elsewhere get "fix that first". A command the guard cannot
+parse gets `explain_unparsed`: why, plus how to rerun it as one plain command. The technical
+`[not-landed] …` lines follow the friendly part so logs and tests keep the codes.
+
+**Dropping obsolete work — `rig worktree discard` (rig-cli#757).** `riglib/worktree_discard.py`. The
+target is judged by the same verdict; SAFE is simply removed. UNSAFE is refused (exit 10) unless EVERY
+reason is `not-landed`. Otherwise the OWNER is asked on Telegram through
+`agenttools_hatch_escalation` (hook id `rig-worktree-discard`; `RIG_HATCH_REQUEST_RIG_WORKTREE_DISCARD`
+is set from `--reason`): the card carries the findings, the reason and the exact commit; deny-by-default
+(no answer, no `tg-ctl`, a denial, an unparseable reply all refuse; a late approval is picked up first by
+asking with the variable unset). The card is in decision-request shape (Context with file:line, Glossary, Options
+table, Recommendation, Where to look) and covers ONE batch: several targets in one command are one tap; one
+target that an approval cannot settle stops the batch before anybody is asked. There is NO backup (the reflog
+is the way back) and this is the rare hard case — NOT merged AND stale/obsolete — never a routine confirmation.
+Then it re-checks the judged tip and deletes (`remove_judged` for a worktree, `branch -D` after a tip
+check, `push --force-with-lease=<ref>:<tip> --delete` for a remote branch). There is no `--force`; the
+hatch helper is loaded ONLY from the fixed `catalog.DEFAULT_SOURCE_CANDIDATES` (never
+`RIG_AGENT_TOOLS_SOURCE`, never the working tree) and only if its file is owned by this user or root
+and not group/world-writable, so a repository, a fake `RIG_AGENT_TOOLS_SOURCE` or another account cannot
+swap in an approver that says yes. Known limit (the hatch helper's own trust model, same as its `tg-ctl`
+lookup): an agent running as THIS user with unconfined writes can overwrite a user-owned file of the
+agent-tools checkout like any other file it owns — confining those writes is the job of the write hooks
+(`worktree-only-writes`, `no-shell-file-edit`). Every attempt is
+logged to `~/.cache/rig/removal-guard.jsonl`. Tests inject the approver; the loader tests run the real
+path against a fake agent-tools checkout.
 
 **Overwrites and `rm -r` (rig-cli#740).** Re-pointing a branch loses its old tip as surely as deleting
 it, so the guard also judges `git branch -f|-M|-C` (and `-m`/`-c` combined with `-f`/`--force`),

@@ -61,7 +61,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import errors, removal_verdict as rv, worktree_gc
+from . import errors, removal_explain, removal_verdict as rv, worktree_gc
 from .actions.runner import reconcile_worktrees_exclude
 from .config import WORKTREES_DIR_NAME
 
@@ -658,15 +658,18 @@ def remove(
     if not verdict.safe:
         return WorktreeResult(
             "error",
-            f"{verdict.render()}\n"
-            f"refusing to remove {path}: it could hold work that is not on the default branch. "
-            "`--force` does not override this; land it (merge the PR), or "
-            f"{rv.rescue_hint('worktree', str(path), tip=verdict.tip)}.",
+            removal_explain.explain_denial([verdict]),
             path=path,
             exit_code=errors.EXIT_REMOVAL_UNSAFE,
             verdict=verdict,
         )
+    return remove_judged(repo_root, path, verdict, force=force)
 
+
+def remove_judged(repo_root: Path, path: Path, verdict: rv.Verdict, *, force: bool = False) -> WorktreeResult:
+    """Tear down ``path`` AND its branch after ``verdict`` (for exactly this worktree) has been accepted —
+    SAFE for :func:`remove`, or an UNSAFE one the owner approved for ``rig worktree discard``. Re-checks
+    that the tip and cleanliness it judged are unchanged first, so nothing that arrived since is deleted."""
     branch_name, lookup_error = _resolve_branch_to_delete(repo_root, path)
     if lookup_error is not None:
         return lookup_error
@@ -699,11 +702,43 @@ def remove(
     if branch_error is not None:
         return branch_error
 
+    how = f"landed via {verdict.landed_by}" if verdict.landed_by else "discarded with the owner's approval"
     return WorktreeResult(
         "removed",
-        f"removed worktree at {path} and branch {branch_name} (landed via {verdict.landed_by})",
+        f"removed worktree at {path} and branch {branch_name} ({how})",
         path=path,
         branch=branch_name,
         exit_code=0,
         verdict=verdict,
     )
+
+
+def judge_target(
+    repo_root: Path,
+    target: str,
+    *,
+    remote: str | None = None,
+    cwd: Path | None = None,
+    fetch: bool = True,
+    forge: rv.ForgeLookup | None = None,
+    process_cwds: rv.ProcessCwds = rv.all_process_cwds,
+) -> tuple[rv.Verdict | None, WorktreeResult | None]:
+    """The landed-removal verdict for whatever ``target`` names — one resolution shared by ``rig worktree
+    verdict`` and ``rig worktree discard``. With ``remote`` it is the branch ``target`` on that remote;
+    otherwise a registered worktree (path or name, :func:`resolve_target`), else a local branch. Returns
+    ``(verdict, None)`` or ``(None, error_result)`` when the target is neither."""
+    if remote is not None:
+        return rv.remote_branch_verdict(repo_root, remote, target, forge=forge, fetch=fetch), None
+    path, resolve_error = resolve_target(repo_root, target, cwd=cwd)
+    if path is not None:
+        return rv.worktree_verdict(repo_root, path, forge=forge, process_cwds=process_cwds, fetch=fetch), None
+    if resolve_error is not None and not resolve_error.not_found:
+        return None, resolve_error
+    if not rv.local_branch_exists(repo_root, target):
+        return None, WorktreeResult(
+            "error",
+            f"{target!r} is neither a registered worktree nor a local branch",
+            exit_code=errors.EXIT_CONFIG,
+            not_found=True,
+        )
+    return rv.branch_verdict(repo_root, target, forge=forge, fetch=fetch), None

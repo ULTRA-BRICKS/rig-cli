@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Default locations to look for an agent-tools checkout when config does not pin one.
-_DEFAULT_SOURCE_CANDIDATES = (
+DEFAULT_SOURCE_CANDIDATES = (
     "~/xp/agent-tools",
     "~/work/agent-tools",
     "~/agent-tools",
@@ -86,7 +86,7 @@ def resolve_source(configured: str | None) -> Path:
     if env:
         return resolve_source(env)
 
-    for cand in _DEFAULT_SOURCE_CANDIDATES:
+    for cand in DEFAULT_SOURCE_CANDIDATES:
         p = Path(os.path.expanduser(cand)).resolve()
         if _looks_like_agent_tools(p):
             return p
@@ -94,7 +94,7 @@ def resolve_source(configured: str | None) -> Path:
     raise CatalogError(
         "could not locate an agent-tools checkout. Set agent_tools_source in rig.yaml, "
         "or RIG_AGENT_TOOLS_SOURCE, or clone it to one of: "
-        + ", ".join(_DEFAULT_SOURCE_CANDIDATES)
+        + ", ".join(DEFAULT_SOURCE_CANDIDATES)
     )
 
 

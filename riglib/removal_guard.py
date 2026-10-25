@@ -5,7 +5,8 @@ removal to ``rig worktree guard`` (this module). The guard recognizes exactly th
 ``git worktree remove [--force] <path>``, ``git branch -d|-D <name>…``, and ``git push <remote>
 --delete <name>…`` / ``git push <remote> :<name>`` — and runs the landed-removal verdict
 (:mod:`riglib.removal_verdict`) on EVERY target: all SAFE → ``allow`` (logged), any UNSAFE → ``deny``
-with the reasons and the sanctioned rescue, anything that is not a removal → ``pass`` (the hook
+with a plain-language explanation (:mod:`riglib.removal_explain`: what was found, why it stops, what to do),
+anything that is not a removal → ``pass`` (the hook
 stays silent). ``--force`` / ``-f`` never changes the answer: it only silences git's own dirty-tree
 check, which is exactly what the verdict exists to make unnecessary.
 
@@ -61,6 +62,7 @@ from typing import Literal
 
 from . import removal_verdict as rv
 from . import worktree_gc
+from .removal_explain import explain_denial, explain_unparsed
 
 _MENTION_RE = re.compile(
     r"worktree\s+(?:remove|rm)\b"
@@ -1123,28 +1125,6 @@ def _worktree_target(eff: Path, raw: str) -> Path:
     return written
 
 
-def _rescue_text(verdicts: list[rv.Verdict]) -> str:
-    lines = [
-        "Sanctioned ways forward:",
-        "  - Land it first (merge the PR / push + merge the branch), then retry. Inspect any target with `rig worktree verdict <path|branch>`.",
-    ]
-    unsafe = next((v for v in verdicts if not v.safe), None)
-    if unsafe is not None:
-        repo = _repo_name(Path(unsafe.target)) if unsafe.kind == "worktree" else "<repo>"
-        hint = rv.rescue_hint(unsafe.kind, unsafe.target, repo, unsafe.tip)
-        lines.append(f"  - To discard {unsafe.kind} {unsafe.target} on purpose, {hint}.")
-    return "\n".join(lines)
-
-
-def _repo_name(path: Path) -> str:
-    """The repo's directory name (`git worktree list` always reports the PRIMARY checkout first)."""
-    try:
-        records = worktree_gc.worktree_records(path if path.exists() else path.parent)
-        return Path(records[0]["worktree"]).name
-    except (worktree_gc.WorktreeGcError, KeyError, IndexError, OSError):
-        return "repo"
-
-
 def _verdict_for(
     item: _Item, eff: Path, forge: rv.ForgeLookup, process_cwds: rv.ProcessCwds, removing: frozenset[str], fetch: bool
 ) -> rv.Verdict:
@@ -1181,16 +1161,7 @@ def _decide(verdicts: list[rv.Verdict], refresh_notes: list[str]) -> GuardDecisi
             f"stays: {proofs}{notes}",
             tuple(verdicts),
         )
-    body = "\n".join(v.render() for v in verdicts)
-    reason = (
-        "removal guard: DENY — this removal/overwrite could lose work that is not on the default branch.\n"
-        f"{body}\n"
-        "Nothing was run. A removal or overwrite is allowed only when the target is clean AND every commit on it is "
-        "landed on origin/<default>, proven (ancestor, merged PR with the same head, content no-op, or held by "
-        "another remote branch that stays) — `--force` never changes that.\n"
-        f"{_rescue_text(verdicts)}{notes}"
-    )
-    return GuardDecision("deny", reason, tuple(verdicts))
+    return GuardDecision("deny", explain_denial(verdicts, notes), tuple(verdicts))
 
 
 # ── rm -r of a worktree ──────────────────────────────────────────────────────────
@@ -1413,14 +1384,9 @@ def evaluate_command(
             raise _Deny(f"the command could not be parsed ({exc}) and mentions a removal") from exc
         decision = _evaluate_segments(parsed, base_cwd, forge, process_cwds, fetch)
     except _Deny as exc:
-        decision = GuardDecision(
-            "deny",
-            f"removal guard: DENY — {exc}\nNothing was run. Rewrite it as ONE plain command with literal targets "
-            "(`git worktree remove <path>`, `git branch -D <name>`, `git push <remote> --delete <name>`); each "
-            "target is then checked: clean and fully landed on the default branch, or refused.",
-        )
+        decision = GuardDecision("deny", explain_unparsed(str(exc)))
     except Exception as exc:  # noqa: BLE001 — fail CLOSED on any internal error
-        decision = GuardDecision("deny", f"removal guard: DENY — internal error while checking ({exc!r}); failing closed")
+        decision = GuardDecision("deny", explain_unparsed(f"internal error while checking ({exc!r}); failing closed"))
     if decision.decision != "pass":
         _log(decision, command, Path(cwd))
     return decision

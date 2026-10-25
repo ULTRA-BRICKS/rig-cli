@@ -100,9 +100,14 @@ class Sandbox:
         git(self.integrator, "push", "-q", "origin", "main")
         return git(self.integrator, "rev-parse", "HEAD")
 
-    def land_squash(self, branch: str) -> str:
+    def land_squash(self, branch: str, *, edit: tuple[str, str] | None = None) -> str:
+        """Squash-merge ``branch``; ``edit=(path, text)`` changes one file in the squash commit, so the
+        commit is NOT the branch's whole-batch diff (a reviewer-edited squash)."""
         self._integrator_branch(branch)
         git(self.integrator, "merge", "-q", "--squash", f"_incoming/{branch}")
+        if edit is not None:
+            (self.integrator / edit[0]).write_text(edit[1])
+            git(self.integrator, "add", edit[0])
         git(self.integrator, "commit", "-q", "-m", f"squash {branch}")
         git(self.integrator, "push", "-q", "origin", "main")
         return git(self.integrator, "rev-parse", "HEAD")

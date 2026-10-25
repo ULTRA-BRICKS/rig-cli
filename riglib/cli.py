@@ -764,13 +764,14 @@ def _add_worktree_parser(sub: "argparse._SubParsersAction") -> None:
 
     wp = sub.add_parser(
         "worktree",
-        help="create/remove/verdict/guard/gc a standardized agent worktree under .worktrees/",
+        help="create/remove/verdict/discard/guard/gc a standardized agent worktree under .worktrees/",
     )
     wp.set_defaults(_worktree_parser=wp)
-    wsub = wp.add_subparsers(dest="worktree_command", metavar="<create|remove|verdict|guard|gc>")
+    wsub = wp.add_subparsers(dest="worktree_command", metavar="<create|remove|verdict|discard|guard|gc>")
     _add_worktree_create_subparser(wsub)
     _add_worktree_remove_subparser(wsub)
     _add_worktree_verdict_subparser(wsub)
+    _add_worktree_discard_subparser(wsub)
     _add_worktree_guard_subparser(wsub)
     _add_worktree_gc_subparser(wsub)
 
@@ -811,7 +812,8 @@ def _add_worktree_remove_subparser(wsub: "argparse._SubParsersAction") -> None:
         description="The inverse of `rig worktree create`, but ONLY when removal provably loses "
         "nothing: it first runs the landed-removal verdict (see `rig worktree verdict`) — the tree "
         "must be clean and every commit on it landed on origin/<default> (ancestor, merged PR "
-        "with the same head, a content no-op, or held by another remote branch that stays) — and refuses with exit 10 otherwise. `--force` "
+        "with the same head, a content no-op, every change already on origin/<default> after a squash or "
+        "rebase merge, or held by another remote branch that stays) — and refuses with exit 10 otherwise. `--force` "
         "never overrides that verdict; it only lets git unlock a LOCKED worktree. The target is "
         "a worktree path anywhere git knows it, or a name (.worktrees/<name>, else a unique "
         "branch / directory name). Then runs `git worktree remove --force` and `git branch -D` "
@@ -853,12 +855,16 @@ def _add_worktree_verdict_subparser(wsub: "argparse._SubParsersAction") -> None:
         "process with it as cwd; not the primary checkout or default branch) AND every commit "
         "unique to it is LANDED on origin/<default> or still held by a branch that survives the "
         "removal, proven in order: (1) tip is an ancestor of "
-        "origin/<default>; (2) a MERGED PR for the head branch whose merge commit is on "
-        "origin/<default> and whose recorded head is the tip or a descendant of it; (3) `git "
-        "merge-tree` shows merging would be a no-op, or `git cherry` shows only `-` lines; (4) the "
+        "origin/<default>; (2) the MERGED PR (by head branch, head commit, or the #N a squash commit on "
+        "origin/<default> cites): a tip at or below its head is landed, a tip with commits made AFTER the PR "
+        "head holds new work, a history rewritten after the merge is old when `git cherry` finds a twin of every "
+        "commit; (3) `git merge-tree` shows merging would be a no-op, or `git cherry` shows only `-` lines; (4) "
+        "squash-merged: one commit on origin/<default> (its message names the branch's commits, else it changed "
+        "the same files) whose DIFF carries the diff of the whole batch of the branch's commits (a binary file, "
+        "a mode change or a link that differs never counts); (5) the "
         "tip is reachable from ANOTHER branch of the same remote (e.g. an archive/* branch), "
         "confirmed live with `git ls-remote` — the verdict names it; the target's own branch never "
-        "counts. Pushing the target's own branch is irrelevant; a stash or the reflog is never relied on. Every error, timeout, missing "
+        "counts. Pushing the target's own branch is irrelevant; the reflog is never relied on, and a stash made on the branch blocks removal. Every error, timeout, missing "
         "tool or ambiguity is UNSAFE. The same engine gates `rig worktree remove` and the "
         "PreToolUse removal guard.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -877,6 +883,48 @@ def _add_worktree_verdict_subparser(wsub: "argparse._SubParsersAction") -> None:
     )
     wv.add_argument("--json", action="store_true", help="machine-readable output")
     wv.add_argument(
+        "--no-fetch", action="store_true",
+        help="do not refresh origin/<default> before judging (default: best-effort `git fetch`)",
+    )
+
+
+def _add_worktree_discard_subparser(wsub: "argparse._SubParsersAction") -> None:
+    wd = wsub.add_parser(
+        "discard",
+        help="drop work the landing proofs cannot clear — only with the owner's Telegram approval",
+        description="The sanctioned way to delete worktrees / local branches / remote branches whose work is NOT "
+        "merged and is stale or obsolete (for example a PR closed as superseded) - the rare hard case, not a "
+        "routine confirmation. Each target is judged by the same verdict as `rig worktree verdict`; a SAFE one "
+        "is simply removed. An UNSAFE one is refused unless every reason is `not-landed` (uncommitted files, a "
+        "stash, a running process, the default branch are never approvable - fix those first). Otherwise the "
+        "OWNER is asked on Telegram ONCE for the whole batch (name several targets to get one tap; agent-tools "
+        "hatch hook id rig-worktree-discard, variable RIG_HATCH_REQUEST_RIG_WORKTREE_DISCARD, set from "
+        "--reason) with a decision card: the findings per target, your reason and the exact commits; "
+        "deny-by-default (no answer, no tg-ctl, a denial all refuse). On approval each tip is re-checked and "
+        "the target deleted (a remote branch with a lease on the judged tip); there is no backup - git's reflog "
+        "is the way back. There is no --force and no environment variable that skips the approval. Write "
+        "--reason as the decision the owner must make: what the work was and what replaced it. Run it again "
+        "after a late tap - a late approval is picked up.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="exit codes:\n"
+        "  0    deleted (approved, or already proven landed)\n"
+        "  1    a deletion failed after the approval (see the message)\n"
+        "  2    <target> is not (or ambiguously) a worktree or branch, or --reason is missing/too short\n"
+        "  6    not a git repository\n"
+        "  10   refused: not approvable, or the owner denied / did not answer (nothing was deleted)\n"
+        "  127  git is not installed",
+    )
+    wd.add_argument(
+        "targets", nargs="+", metavar="target",
+        help="worktree path or name, or a branch name (with --remote: the remote branch); several = ONE approval",
+    )
+    wd.add_argument("--reason", required=True, help="why the owner should approve dropping it (>= 8 characters)")
+    wd.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
+    wd.add_argument(
+        "--remote", nargs="?", const="origin", default=None, metavar="NAME",
+        help="the target is a branch on this remote (default remote: origin)",
+    )
+    wd.add_argument(
         "--no-fetch", action="store_true",
         help="do not refresh origin/<default> before judging (default: best-effort `git fetch`)",
     )
@@ -1384,6 +1432,8 @@ def cmd_worktree(args: argparse.Namespace) -> int:
         return _cmd_worktree_remove(args)
     if args.worktree_command == "verdict":
         return _cmd_worktree_verdict(args)
+    if args.worktree_command == "discard":
+        return _cmd_worktree_discard(args)
     if args.worktree_command == "guard":
         return _cmd_worktree_guard(args)
     if args.worktree_command == "gc":
@@ -1556,34 +1606,46 @@ def _cmd_worktree_verdict(args: argparse.Namespace) -> int:
     """Read-only landed-removal verdict for a worktree, a local branch, or (``--remote``) a remote
     branch. Exit 0 = SAFE, 10 = UNSAFE, 2 = target is neither a worktree nor a local branch."""
     from . import errors as errors_module
-    from . import removal_verdict
+    from . import removal_explain
     from . import worktree as worktree_mod
 
     env, exit_code = _resolve_worktree_repo_env(args.cwd)
     if env is None:
         return exit_code
 
-    fetch = not args.no_fetch
-    if args.remote is not None:
-        verdict = removal_verdict.remote_branch_verdict(env.repo_root, args.remote, args.target, fetch=fetch)
-    else:
-        path, resolve_error = worktree_mod.resolve_target(env.repo_root, args.target, cwd=_process_cwd_or_none())
-        if path is not None:
-            verdict = removal_verdict.worktree_verdict(env.repo_root, path, fetch=fetch)
-        elif resolve_error is not None and not resolve_error.not_found:
-            print(_err(f"error: {resolve_error.message}"))
-            return resolve_error.exit_code
-        elif not removal_verdict.local_branch_exists(env.repo_root, args.target):
-            print(_err(f"error: {args.target!r} is neither a registered worktree nor a local branch"))
-            return errors_module.EXIT_CONFIG
-        else:
-            verdict = removal_verdict.branch_verdict(env.repo_root, args.target, fetch=fetch)
+    verdict, error = worktree_mod.judge_target(
+        env.repo_root, args.target, remote=args.remote, cwd=_process_cwd_or_none(), fetch=not args.no_fetch
+    )
+    if verdict is None:
+        print(_err(f"error: {error.message if error else f'cannot resolve {args.target!r}'}"))
+        return error.exit_code if error else errors_module.EXIT_CONFIG
 
     if args.json:
         print(json.dumps(verdict.to_dict()))
-    else:
+    elif verdict.safe:
         print(verdict.render())
+    else:
+        print(removal_explain.explain_denial([verdict]))
     return 0 if verdict.safe else errors_module.EXIT_REMOVAL_UNSAFE
+
+
+def _cmd_worktree_discard(args: argparse.Namespace) -> int:
+    """The owner-approved drop of work the landing proofs cannot clear (see :mod:`riglib.worktree_discard`)."""
+    from . import worktree_discard
+
+    env, exit_code = _resolve_worktree_repo_env(args.cwd)
+    if env is None:
+        return exit_code
+
+    result = worktree_discard.discard(
+        env.repo_root, args.targets, reason=args.reason, remote=args.remote,
+        cwd=_process_cwd_or_none(), fetch=not args.no_fetch,
+    )
+    if result.status == "discarded":
+        print(_ok(result.message))
+    else:
+        print(_err(result.message) if result.status == "error" else result.message)
+    return result.exit_code
 
 
 def _cmd_worktree_guard(args: argparse.Namespace) -> int:

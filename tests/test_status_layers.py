@@ -289,7 +289,7 @@ def test_status_non_git_dir_without_resolvable_catalog(tmp_path, capsys, monkeyp
     monkeypatch.delenv("RIG_AGENT_TOOLS_SOURCE", raising=False)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "no-global"))
     # point every default candidate at empties so resolve_source finds no checkout anywhere
-    monkeypatch.setattr(catalog, "_DEFAULT_SOURCE_CANDIDATES", (str(tmp_path / "nope"),))
+    monkeypatch.setattr(catalog, "DEFAULT_SOURCE_CANDIDATES", (str(tmp_path / "nope"),))
     plain = tmp_path / "not-a-repo"
     plain.mkdir()
     rc = main(["status", "-C", str(plain)])
