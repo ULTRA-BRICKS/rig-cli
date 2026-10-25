@@ -57,6 +57,12 @@ _HATCH_MODULE = "agenttools_hatch_escalation"
 _GIT_TIMEOUT_S = 60
 _PUSH_TIMEOUT_S = 300
 _SHOWN_FILES = 12
+# Telegram refuses a message over 4096 characters, and a refused card is a silent "no" to the agent. The card's
+# keys + values are fitted to this budget (the rest of the message is the hatch's own header and markup).
+_CARD_BUDGET = 3300
+_ELLIPSIS = " ..."
+_CARD_ELASTIC = ("commits", "files", "leads", "findings")
+_CARD_FLOOR = 100  # three targets of floor-sized evidence still leave room under Telegram's 4096
 
 
 @dataclass(frozen=True)
@@ -165,11 +171,11 @@ def _decision_sections(verdicts: Sequence[rv.Verdict]) -> dict[str, str]:
 
 def approval_context(verdicts: Sequence[rv.Verdict]) -> dict[str, str]:
     """What the Telegram card shows the owner for ONE batch: the decision sections plus the facts of every target
-    (prefixed ``t1``, ``t2``… when there are several)."""
+    (prefixed ``t1``, ``t2``… when there are several), fitted to what Telegram accepts."""
     context = _decision_sections(verdicts)
     if len(verdicts) == 1:
         context.update(_approval_facts(verdicts[0]))
-        return context
+        return _fit_card(context)
     context["operation"] = "discard work that is NOT merged and is stale/obsolete: ONE decision for the whole batch"
     context["command"] = "rig worktree discard " + " ".join(v.target for v in verdicts)
     for index, verdict in enumerate(verdicts, start=1):
@@ -177,6 +183,20 @@ def approval_context(verdicts: Sequence[rv.Verdict]) -> dict[str, str]:
         facts.pop("operation", None)
         facts.pop("command", None)
         context.update({f"t{index} {key}": value for key, value in facts.items()})
+    return _fit_card(context)
+
+
+def _fit_card(context: dict[str, str]) -> dict[str, str]:
+    """Shorten the longest evidence field until the card fits ``_CARD_BUDGET``. Deterministic (a late approval is
+    matched to the same operation by a hash of the card), and only the lists of commits/files/leads shrink: the
+    target, tip, reason and decision sections are never cut."""
+    elastic = [key for key in context if key.rsplit(" ", 1)[-1] in _CARD_ELASTIC]
+    while sum(len(k) + len(v) for k, v in context.items()) > _CARD_BUDGET:
+        key = max(elastic, key=lambda k: len(context[k]), default=None)
+        if key is None or len(context[key]) <= _CARD_FLOOR:
+            break
+        keep = max(_CARD_FLOOR, len(context[key]) * 2 // 3)
+        context[key] = context[key][: keep - len(_ELLIPSIS)].rstrip() + _ELLIPSIS
     return context
 
 

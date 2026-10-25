@@ -113,6 +113,31 @@ def test_the_card_has_the_decision_request_sections(sb, home):
     assert "| Option | Pros | Cons |" in context["3 Options"]
 
 
+def big_branch(sb: Sandbox, name: str) -> None:
+    wt = sb.worktree(name)
+    for i in range(30):
+        subject = f"feat: {name} change number {i} with a rather long subject line"
+        sb.commit(wt, f"{'deep/' * 6}module_with_a_long_name_{i}.txt", f"{name} {i}\n", subject)  # per-name: no shared tip
+    sb.push(wt, name)
+    git(sb.primary, "worktree", "remove", "--force", str(wt))
+    sb.fetch()
+
+
+@pytest.mark.parametrize("names", [["big"], ["big-a", "big-b", "big-c"]])
+def test_a_big_branch_still_gets_a_card_that_fits_telegram(sb, home, names):
+    for name in names:
+        big_branch(sb, name)
+    owner = Owner(True)
+    res = discard(
+        sb.primary, names, reason=REASON, fetch=False, forge=FakeForge(), process_cwds=no_processes, approver=owner
+    )
+    context = owner.calls[0][1]
+    assert res.status == "discarded", res.message
+    assert sum(len(k) + len(v) for k, v in context.items()) <= 3300
+    assert any(v.endswith(" ...") for k, v in context.items() if k.endswith("files"))
+    assert all(name in context["target" if len(names) == 1 else f"t{n} target"] for n, name in enumerate(names, 1))
+
+
 def test_an_approved_remote_branch_is_deleted_with_a_lease_on_the_judged_tip(sb, home):
     unlanded_branch(sb, "remote-old")
     git(sb.primary, "branch", "-D", "remote-old")
