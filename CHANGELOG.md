@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.71.0
+
+### Added
+- Default-on `instructions` category: rig provisions the canonical "actionable problem reports" policy (what was already tried and
+  observed, the remedy already started, the next verification or the exact blocking dependency) as a marker-delimited block in the
+  global guide of every effective and machine harness kind (Claude `CLAUDE.md` incl. `~/.claude-accounts/*` and explicit
+  `settings_paths`, Codex `AGENTS.md`, OMP `RULES.md` so task subagents see it, and the other registered kinds; OpenCode reuses the
+  Claude guide it also reads while its own `AGENTS.md` does not exist yet, unless `OPENCODE_DISABLE_CLAUDE_CODE*` is set). It no
+  longer depends on a home `AGENTS.md`, permission provisioning or a repo guide. There is no separate toggle: `harness.enabled: false`
+  stops rig managing it together with the rest of the harness block (blocks already written stay in place).
+  `rig apply info --only instructions` previews and `rig apply commit --only instructions` applies it; `rig status` reports missing,
+  stale or malformed blocks; global config-web and `rig activate` use the same actions.
+- Reporting, advisory-permission and repo-guide splices share a resolved-target kernel lock (`riglib/instruction_files.py`), so
+  concurrent writers keep each other's blocks. The reporting writer additionally replaces atomically, preserves user text and other
+  managed blocks, and aborts on an intervening edit or a hard-linked target.
+- A policy-only `rig activate` of the harness area (empty or just-prepared guide directories) is not evidence of an installed client,
+  so it does not enable that harness's auto mode on the next run.
+
 ## 0.70.0
 
 ### Added

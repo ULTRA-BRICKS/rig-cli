@@ -93,7 +93,12 @@ class Probe:
         return self.darwin or (self.platform.startswith("linux") and self.systemd_user())
 
     def detected_harnesses(self) -> list[str]:
-        return [kind for kind, binary, home in HARNESSES if self.which(binary) or self.exists(home)]
+        from .problem_reporting import only_reporting_policy
+
+        return [
+            kind for kind, binary, home in HARNESSES
+            if self.which(binary) or (self.exists(home) and not only_reporting_policy(kind, home))
+        ]
 
 
 @dataclass
@@ -255,21 +260,22 @@ def _service_areas(probe: Probe, want: Callable[[str], bool], add: Callable[...,
 
 
 def _harness(doc: dict[str, Any], probe: Probe, changes: list[str], add: Callable[..., None]) -> None:
-    title = "harness config (auto-mode, permissions, omp config, bridges)"
+    title = "harness config (auto-mode, permissions, global instructions, omp config, bridges)"
     if "harness" in doc:
-        add("harness", title, ACTIVATE, "as declared in the config", "harness", "permissions")
+        add("harness", title, ACTIVATE, "as declared in the config", "harness", "permissions", "instructions")
         return
     found = probe.detected_harnesses()
     if not found:
-        add("harness", title, UNSUPPORTED, "no coding-agent harness found (looked for omp, claude, codex, opencode)",
-            "harness", "permissions")
+        add("harness", "global agent instructions (default Claude)", ACTIVATE,
+            "no coding-agent harness found; prepare default reporting instructions only (loaded when the client is installed)",
+            "instructions")
         return
     block: dict[str, Any] = {"enabled": True, "kind": found[0], "auto_mode": True}
     if found[1:]:
         block["kinds"] = found[1:]
     doc["harness"] = block
     changes.append(f"harness: kind {found[0]}" + (f", kinds {', '.join(found[1:])}" if found[1:] else ""))
-    add("harness", title, ACTIVATE, f"detected: {', '.join(found)}", "harness", "permissions")
+    add("harness", title, ACTIVATE, f"detected: {', '.join(found)}", "harness", "permissions", "instructions")
 
 
 def _tools(doc: dict[str, Any], probe: Probe, changes: list[str], add: Callable[..., None]) -> None:

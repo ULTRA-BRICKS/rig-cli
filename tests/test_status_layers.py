@@ -99,7 +99,8 @@ def test_status_non_git_dir_ignores_local_rigyaml_repo_layer(
         # ship_delegator off: default-on it would flag GLOBAL ship_env (machine env file) drift
         # even outside git (by design — apply reconciles that file there too), and this test is
         # about the repo layer being ignored, not about ship.
-        "permissions: {enabled: false}\nship_delegator: {enabled: false}\n",
+        "permissions: {enabled: false}\nship_delegator: {enabled: false}\n"
+        "harness: {enabled: false}\n",  # leave global reporting instructions out of this layer test
         encoding="utf-8",
     )
     monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
@@ -174,7 +175,7 @@ def test_status_non_git_dir_still_flags_machine_env_file_drift(
         "skills: {enabled: false}\nagent_hooks: {enabled: false}\nmcp: {enabled: false}\n"
         "git_hooks: {dispatcher: {enabled: false}}\nmodels: {enabled: false}\n"
         "tmux: {enabled: false}\ngitignore: {enabled: false}\ntg_ctl: {enabled: false}\n"
-        "permissions: {enabled: false}\n",  # ship_delegator stays default-ON
+        "permissions: {enabled: false}\nharness: {enabled: false}\n",  # ship_delegator stays default-ON
         encoding="utf-8",
     )
 
@@ -260,6 +261,7 @@ def test_status_non_git_explicit_repo_only_config_says_repo_declarations_are_na(
         # even outside git (by design — apply reconciles that file there too), and this test is
         # about repo declarations rendering N/A, not about ship.
         "permissions: {enabled: false}\nship_delegator: {enabled: false}\n"
+        "harness: {enabled: false}\n"
         "ci: {enabled: true, all: false, items: {codeql: {enabled: true}}}\n",
         encoding="utf-8",
     )
@@ -477,7 +479,7 @@ def test_status_clean_repo_exits_zero(tmp_path, capsys, fake_agent_tools, monkey
         "skills: {enabled: false}\nagent_hooks: {enabled: false}\nmcp: {enabled: false}\n"
         "git_hooks: {dispatcher: {enabled: false}}\nci: {enabled: false}\n"
         "agents_md: {enabled: false}\nship_delegator: {enabled: false}\n"
-        "gitignore: {enabled: false}\npermissions: {enabled: false}\n",
+        "gitignore: {enabled: false}\npermissions: {enabled: false}\nharness: {enabled: false}\n",
         encoding="utf-8",
     )
     rc = main(["status", "-C", str(repo)])

@@ -500,6 +500,26 @@ def test_real_smoke_fast_self_skips_without_agent_tools(tmp_path):
     assert "running pytest" not in out
 
 
+def test_fast_smoke_clean_fixture_disables_default_instructions(tmp_path, fake_agent_tools):
+    # Exercise the actual shell fixture in the default hermetic suite. Catalog-present
+    # smoke used to be opt-in only, hiding omissions when new default-on areas were added.
+    env = _isolated_env(tmp_path / "smoke-home")
+    env["RIG_AGENT_TOOLS_SOURCE"] = str(fake_agent_tools)
+    result = subprocess.run(
+        ["bash", str(SMOKE), "--fast"],
+        env=env, capture_output=True, text=True, timeout=60,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "removed slot → 3-part error + exit 4" in output
+    assert "clean sample → exit 0" in output
+    assert "non-git dir → no 'should be committed', repo layer N/A" in output
+    assert "dry-run-plans the FULL real catalog" in output
+    assert "smoke OK (--fast)" in output
+    assert "installed skills + CI + dispatcher" not in output
+    assert "running pytest" not in output
+
+
 def test_real_smoke_help_prints_only_the_comment_block():
     # --help must print the leading doc comment and STOP at the first non-comment line — it must
     # NOT leak shell implementation lines (the `set -euo pipefail` / `FAST=0` / `for arg` parser).

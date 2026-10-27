@@ -64,6 +64,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 from .paths import expand_user_path
 
@@ -276,6 +277,61 @@ def instruction_file_for(kind: str) -> str | None:
     if kind == "pi":
         return pi_user_path("AGENTS.md")
     return HARNESS_INSTRUCTION_FILES.get(kind)
+
+
+# Global guidance is independent of HOW a harness discovers callable skills. Keep the old
+# instruction-file family above for skill-discovery notes and permission-policy capability;
+# every supported client also has a global context file for rig's common requirements.
+# OMP: github.com/can1357/oh-my-pi/blob/main/docs/context-files.md. Task helpers discard
+# AGENTS.md context but retain RULES.md, so a requirement for EVERY agent belongs in RULES.md.
+# OpenCode: opencode.ai/docs/rules/ (global rules, XDG-aware through expand_user_path).
+HARNESS_GLOBAL_INSTRUCTION_FILES: dict[str, str] = {
+    "claude-code": "~/.claude/CLAUDE.md",
+    "opencode": "~/.config/opencode/AGENTS.md",
+}
+
+
+def _instruction_path_present(path: Path) -> bool:
+    """Keep broken aliases and unreadable files visible to the policy conflict resolver."""
+    try:
+        return path.is_symlink() or path.exists()
+    except OSError:
+        return True
+
+
+def global_instruction_targets(
+    kind: str, harness: dict[str, Any], repo_root: Path,
+) -> list[tuple[str, Path]]:
+    """Global instruction targets, including the shared Claude account-dir registry.
+
+    A repo-local settings_path does not replace a global instruction file. Explicit user-scope
+    settings_path/settings_paths and discovered Claude account dirs share the directory registry;
+    instruction identities, rather than settings aliases, determine deduplication.
+    The ambient CLAUDE_CONFIG_DIR is deliberately not consulted, as with other plan writers.
+    """
+    from .claude_config_dirs import fan_out_instruction_files, fan_out_item
+
+    raw = omp_user_path("RULES.md") if kind == "omp" else (
+        HARNESS_GLOBAL_INSTRUCTION_FILES.get(kind) or instruction_file_for(kind)
+    )
+    if raw is None:
+        return []
+    target = expand_user_path(raw)
+    if not target.is_absolute():
+        target = (repo_root / target).resolve()
+    if kind == "opencode" and not _instruction_path_present(target):
+        # A new native file would shadow OpenCode's existing Claude fallback and silently
+        # remove user guidance from context. Update the file it already reads instead.
+        disabled = any(os.environ.get(flag) == "1" for flag in (
+            "OPENCODE_DISABLE_CLAUDE_CODE", "OPENCODE_DISABLE_CLAUDE_CODE_PROMPT",
+        ))
+        fallback = expand_user_path(HARNESS_GLOBAL_INSTRUCTION_FILES["claude-code"])
+        if not disabled and _instruction_path_present(fallback):
+            target = fallback
+    if kind != "claude-code":
+        return [(kind, target)]
+    instructions = fan_out_instruction_files(target, harness, repo_root)
+    return [(fan_out_item(kind, item), item.path) for item in instructions]
 
 
 def is_known_kind(kind: str) -> bool:

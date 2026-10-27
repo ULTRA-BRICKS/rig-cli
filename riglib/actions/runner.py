@@ -3394,6 +3394,14 @@ def _do_provision_instruction_policy(action: Action, on_conflict: str) -> Action
     preserved), collapse duplicates to one, no-op a current block; ``skip`` leaves a stale
     block untouched; unbalanced/misordered markers are a hard error rig refuses to guess at.
     """
+    from ..instruction_files import instruction_file_lock
+
+    with instruction_file_lock(action.target):
+        return _provision_instruction_policy_locked(action, on_conflict)
+
+
+def _provision_instruction_policy_locked(action: Action, on_conflict: str) -> ActionResult:
+    """Read and write under the same lock used by the global reporting-policy writer."""
     desired = instruction_policy_block_text(action)
     path = action.target
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -7422,12 +7430,24 @@ def _splice_agents_md_block(
     label: str,
 ) -> ActionResult:
     """Idempotent marker splice into the canonical guide — never creates the file."""
+    from ..instruction_files import instruction_file_lock
+
     path = _agents_md_splice_target(action.target)
     if path is None:
         return ActionResult(
             action, "skipped",
             f"{label}: no AGENTS.md/CLAUDE.md yet (symlink action owns creation)",
         )
+    with instruction_file_lock(path):
+        return _splice_agents_md_block_locked(
+            action, on_conflict, path=path, desired=desired, begin=begin, end=end, label=label,
+        )
+
+
+def _splice_agents_md_block_locked(
+    action: Action, on_conflict: str, *, path: Path, desired: str, begin: str, end: str, label: str,
+) -> ActionResult:
+    """A native global guide may alias this canonical repo/home file; share its lock."""
     try:
         with path.open(encoding="utf-8", newline="") as fh:
             content = fh.read()
@@ -7454,6 +7474,12 @@ def _splice_agents_md_block(
     status = "backed_up" if backup_note else "updated"
     verb = "appended block to" if state == "create" else "reconciled block in"
     return ActionResult(action, status, f"{label}: {verb} {path}{backup_note}")
+
+
+def _do_provision_problem_reporting(action: Action, on_conflict: str) -> ActionResult:
+    from ..problem_reporting import apply
+
+    return apply(action, on_conflict)
 
 
 def _do_provision_agents_orchestrator(action: Action, on_conflict: str) -> ActionResult:
@@ -10427,6 +10453,7 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "provision_harness_approval": _do_provision_harness_approval,
     "provision_omp_web_search": _do_provision_omp_web_search,
     "provision_instruction_policy": _do_provision_instruction_policy,
+    "provision_problem_reporting": _do_provision_problem_reporting,
     "provision_pi_extension": _do_provision_pi_extension,
     "register_hook_bridge": _do_register_hook_bridge,
     "provision_omp_idle_ttl": _do_provision_omp_idle_ttl,

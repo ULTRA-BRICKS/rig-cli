@@ -69,9 +69,11 @@ _HARNESS_KIND_CHOICES: tuple[str, ...] = tuple(
 # (``config._GLOBAL_LAYER_ONLY_BLOCKS``), so this routing is their write-side twin.
 # Routing a GLOBAL-only value into a committed repo rig.yaml is the footgun this map prevents.
 # A category absent here defaults to REPO (the conservative "it lives in the committed file").
+# `instructions` is a derived action category with no separate config block: the Global
+# plan/drift panels must include the canonical policy for the configured/default harnesses.
 _GLOBAL_ONLY_CATEGORIES = {
     "gitignore", "spotlight", "bun", "git", "profile", "tg_ctl", "tcc_watch", "tgctl_reaper", "sysmon", "tmux", "mode",
-    "tracked_files", "harness_wrappers",
+    "tracked_files", "harness_wrappers", "instructions",
 }
 
 

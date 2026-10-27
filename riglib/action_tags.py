@@ -170,6 +170,10 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "provision_instruction_policy", "permission_guard", AUDIENCE_AGENT,
         "Writes an instruction-following policy key into the harness config.",
     ),
+    "provision_problem_reporting": _tag(
+        "provision_problem_reporting", "edits_file", AUDIENCE_AGENT,
+        "Reconciles rig's problem-reporting requirement in each harness's global instruction file.",
+    ),
     "provision_pi_extension": _tag(
         "provision_pi_extension", "installs_hook", AUDIENCE_AGENT,
         "Installs pi's permission-guard extension plus the rig-written deny/ask policy file it "

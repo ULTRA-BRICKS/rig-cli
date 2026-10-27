@@ -94,7 +94,8 @@ def test_what_the_machine_lacks_is_listed_with_the_reason_and_excluded():
     areas = _by_id(act)
     reasons = {a.id: a.detail for a in act.unsupported}
     assert "git is not installed" in reasons["git_hooks"] and "git is not installed" in reasons["tools"]
-    assert "no coding-agent harness found" in reasons["harness"]
+    assert "no coding-agent harness found" in areas["harness"].detail
+    assert areas["harness"].status == activate.ACTIVATE  # global instructions need no installed binary
     assert "tmux is not installed" in reasons["tmux"]
     assert "abduco" in reasons["harness_wrappers"]
     assert "no service manager" in reasons["sysmon"] and "no service manager" in reasons["models"]
@@ -102,7 +103,7 @@ def test_what_the_machine_lacks_is_listed_with_the_reason_and_excluded():
     assert areas["skills"].status == activate.ACTIVATE
     assert act.config_changes == []  # nothing to switch on: no harness, tmux or abduco here
     assert not ({"harness", "tmux", "sysmon", "tools", "git_hooks"} & act.included)
-    assert {"skills", "agent_hooks", "env"} <= act.included
+    assert {"skills", "agent_hooks", "env", "instructions"} <= act.included
 
 
 def test_the_lint_check_machine_area_owns_the_analyzer_and_hook_category():

@@ -702,6 +702,61 @@ harness:
 | `web_search.enabled` | bool | `true` | when omp is a configured harness kind, merge `providers.webSearchExclude` into `~/.omp/agent/config.yml` (or the `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` override). `false` skips the write |
 | `web_search.exclude` | list[str] | `[perplexity]` | provider ids omp `web_search` must never use, even as fallbacks. Additive merge — names already on disk stay. An explicit empty list is the opt-out. Default excludes Perplexity because its anonymous/cookie path returns a Sign-up wall without an account (rig-cli#447) |
 
+**Global problem-reporting instructions.** Every configured harness (effective repo kinds plus
+the machine's global kinds) receives rig's canonical reporting requirement by default. A
+problem or blocker report must include the specific actions already attempted and observed
+results, the independent remedy already started, and the next concrete step/verification
+point. If work truly cannot continue, name the exact dependency and why it blocks the next
+action. A bare problem description or "under observation" is insufficient.
+
+The canonical source is `riglib/problem_reporting.py`; a manually maintained home `AGENTS.md`
+is not required. Provisioning is independent of `permissions.enabled` and repo-local
+`agents_md.enabled`; `harness.enabled: false` leaves the client instruction files untouched.
+
+| Harness | Global instruction target |
+| --- | --- |
+| Claude Code | `~/.claude/CLAUDE.md`, plus `CLAUDE.md` in the directory selected by an explicit user-scope Claude `settings_path`, in registered user-scope `settings_paths`, and in discovered account directories; `discover_config_dirs` is honored |
+| Codex | `~/.codex/AGENTS.md`, honoring `RIG_CODEX_HOME` |
+| OMP | `~/.omp/agent/RULES.md`, honoring `PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR` |
+| OpenCode | `~/.config/opencode/AGENTS.md`, honoring `XDG_CONFIG_HOME`; when absent, preserve an existing `~/.claude/CLAUDE.md` fallback by updating that file instead |
+| Pi | `~/.pi/agent/AGENTS.md`, honoring `PI_CODING_AGENT_DIR` |
+| CommandCode | `~/.commandcode/AGENTS.md` |
+
+OMP uses `RULES.md` because its task subagents drop `AGENTS.md` but retain rules, as described
+in its [context-file documentation](https://github.com/can1357/oh-my-pi/blob/main/docs/context-files.md).
+OpenCode's target is its documented [global rules file](https://opencode.ai/docs/rules/).
+Rig honors `OPENCODE_DISABLE_CLAUDE_CODE=1` and `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT=1`
+when selecting the fallback; native files and broken native aliases are never silently bypassed.
+Client discovery settings still apply; for example, an OMP configuration that disables the
+native context provider will not load its native rules file.
+
+Claude instruction targets are deduplicated by the instruction file, independently of settings
+aliases: accounts sharing `settings.json` can still have separate `CLAUDE.md` files. Relative
+settings paths and extra instruction targets inside the current repository are project scope
+and are excluded from this global action. The Global config-web plan and drift panels include
+the same `instructions` actions. With no client installed, `rig activate` can prepare the
+default Claude instruction file without enabling or claiming an installed harness.
+A directory containing only rig's managed reporting policy, or an empty directory chain left
+by preparation or a failed write, is excluded from client detection. Repeating activation
+does not turn that preparation into an auto-mode enrollment; an executable or real client
+configuration remains installation evidence.
+
+Preview with `rig apply info --only instructions`; apply with
+`rig apply commit --only instructions`. The managed block is appended or updated without
+replacing user-owned instructions. Updates honor `on_conflict`, malformed markers fail
+explicitly, and a repeated apply leaves current files unchanged. Writes use a temporary file
+and atomic replacement, retaining existing symlink aliases and permissions. An intervening
+content edit or alias change detected before replacement is reported as a conflict; re-run
+apply against the latest content. Reporting, advisory permission, and canonical repo-guide
+splices also share a kernel lock for the resolved file across their complete read/update/write
+transaction, including writes through different aliases. Locks live under
+`$XDG_STATE_HOME/rig/instruction-locks` (default `~/.local/state/rig/instruction-locks`),
+outside client directories, and release on failure or process exit. A hard-linked file
+requiring an update is left intact with
+an explicit error rather than silently splitting its aliases. `rig status` reports missing
+or stale blocks under **global agent instructions**. Existing sessions may need to reload
+their client context before consuming updated instructions.
+
 **What gets written, per harness kind.** The auto intent is a pinned `mode:` the PRIMARY kind
 knows (auto: claude-code `auto` / `bypassPermissions` / `dontAsk`, codex `auto_review`, opencode
 `allow`, omp `yolo`; interactive: claude-code `default` / `acceptEdits` / `plan`, codex `user`,

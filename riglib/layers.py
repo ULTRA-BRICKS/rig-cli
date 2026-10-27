@@ -34,6 +34,7 @@ _CATEGORY_LAYER = {
     "harness": GLOBAL,
     "harness_wrappers": GLOBAL,
     "permissions": GLOBAL,
+    "instructions": GLOBAL,
     "mode": GLOBAL,
     "models": GLOBAL,
     "git_hooks": GLOBAL,

@@ -53,6 +53,9 @@ def _isolate_home(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
     # And XDG_DATA_HOME: rig keeps the real fj it downloads under it (riglib.fj.fj_store_root).
     monkeypatch.setenv("XDG_DATA_HOME", str(home / ".local" / "share"))
+    # Instruction-file writer locks live in rig state, outside harness discovery dirs.
+    # Keep them in the temporary HOME even when the caller has a host state override.
+    monkeypatch.setenv("XDG_STATE_HOME", str(home / ".local" / "state"))
     # Codex provisioning honors RIG_CODEX_HOME instead of ambient CODEX_HOME. Clear any host value
     # suite-wide so default-path assertions stay deterministic; override inline where needed.
     # Ambient CODEX_HOME is ignored by design, so it needs no suite-wide clear.

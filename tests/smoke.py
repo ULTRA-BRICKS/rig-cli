@@ -97,6 +97,7 @@ tgctl_reaper: { enabled: false }
 sysmon: { enabled: false }
 permissions: { enabled: false }
 lint_checks: { enabled: false }
+harness: { enabled: false }
 """
 
 

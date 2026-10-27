@@ -1222,6 +1222,7 @@ _CATEGORY_LABELS = {
     "mcp": "MCP",
     "harness": "harness",
     "permissions": "permissions",
+    "instructions": "global agent instructions",
     "agents_md": "agents.md",
     "ship_delegator": "ship gate",
     "ship_env": "ship env (machine)",

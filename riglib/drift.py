@@ -574,6 +574,8 @@ def detect(
             _check_omp_web_search(action, report)
         elif action.kind == "provision_instruction_policy":
             _check_instruction_policy(action, report)
+        elif action.kind == "provision_problem_reporting":
+            _check_problem_reporting(action, report)
         elif action.kind == "provision_pi_extension":
             _check_pi_extension(action, report)
         elif action.kind == "register_hook_bridge":
@@ -2887,6 +2889,15 @@ def _check_omp_web_search(action: Action, report: DriftReport) -> None:
                       f"providers.webSearchExclude missing {', '.join(missing)} (apply adds them)")
         )
 
+
+
+def _check_problem_reporting(action: Action, report: DriftReport) -> None:
+    from .problem_reporting import resolve
+
+    result = resolve(action.target)
+    if result.state != "ok":
+        direction = "missing" if result.state in {"create_file", "create"} else "modified"
+        report.items.append(DriftItem(direction, action.category, action.item, action.target, result.detail))
 
 
 def _check_instruction_policy(action: Action, report: DriftReport) -> None:

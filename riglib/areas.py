@@ -74,6 +74,7 @@ AREAS: tuple[Area, ...] = (
     Area("harness", "harness auto-mode + hook bridge", GLOBAL, ("harness",)),
     Area("harness_wrappers", "harness launcher wrappers (rig harness exec)", GLOBAL, ("harness_wrappers",)),
     Area("permissions", "harness permissions (allow / deny / ask)", GLOBAL, ("permissions",)),
+    Area("instructions", "global agent instructions (problem reports)", GLOBAL, ("instructions",)),
     Area("mode", "agent operating mode", GLOBAL, ("mode",)),
     Area("tmux", "tmux config", GLOBAL, ("tmux",)),
     Area("env", "shell environment variables", GLOBAL, ("env",)),

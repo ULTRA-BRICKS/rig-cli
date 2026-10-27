@@ -602,7 +602,7 @@ def test_plan_disabled_category(fake_agent_tools, tmp_path):
     cat = Catalog.scan(str(fake_agent_tools))
     # agents_md, the ship_delegator, every github sub-block (ruleset/merge/ghas/actions/browser),
     # the global-excludes block, tg_ctl, tcc_watch, tgctl_reaper, sysmon, and the permission allowlist are
-    # default-ON, so turn them
+    # default-ON, as are the harness's global reporting instructions, so turn them
     # off too to assert a truly empty plan.
     cfg = _cfg(
         {
@@ -626,6 +626,7 @@ def test_plan_disabled_category(fake_agent_tools, tmp_path):
             "sysmon": {"enabled": False},
             "permissions": {"enabled": False},
             "lint_checks": {"enabled": False},  # default-ON: analyzer install (+ hook/workflow)
+            "harness": {"enabled": False},  # default-ON: global instruction files
         },
         tmp_path,
     )

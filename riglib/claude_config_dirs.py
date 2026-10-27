@@ -18,6 +18,10 @@ repo-local ``.claude/settings.json`` is PROJECT scope, which Claude Code reads r
 ``CLAUDE_CONFIG_DIR``, so duplicating it into account dirs would be wrong. Discovery is
 filesystem-only (deterministic plans, stable config-web fingerprints); the ambient
 ``CLAUDE_CONFIG_DIR`` is consulted by ``rig doctor`` alone (:func:`doctor_config_dirs`).
+
+Global guide provisioning uses :func:`fan_out_instruction_files` over the same directory
+candidates, but deduplicates CLAUDE.md identities AFTER converting from settings paths.
+Sharing settings.json does not imply that two accounts share their instructions.
 """
 
 from __future__ import annotations
@@ -185,6 +189,65 @@ def managed_settings_files(home: Path | None = None) -> list[Path]:
     """
     primary = primary_config_dir(home) / SETTINGS_FILENAME
     return [t.path for t in fan_out_settings(primary, None, home)]
+
+
+def instruction_settings_paths(harness: dict[str, Any]) -> list[str]:
+    """Explicit user-scope settings files whose directories also need global guides.
+
+    The singular override belongs to the primary harness only. Match the writer's file/
+    directory convention, then exclude relative project paths before any repo anchoring.
+    """
+    from .paths import expand_user_path
+
+    raw_paths = harness.get("settings_paths")
+    paths = list(raw_paths) if isinstance(raw_paths, list) else []
+    primary = harness.get("settings_path")
+    if harness.get("kind", "claude-code") == "claude-code" and isinstance(primary, str) and primary:
+        path = expand_user_path(primary)
+        if not path.suffix:
+            path = path / SETTINGS_FILENAME
+        paths.insert(0, str(path))
+    return [
+        str(expand_user_path(entry)) for entry in paths
+        if isinstance(entry, str) and entry and expand_user_path(entry).is_absolute()
+    ]
+
+
+def fan_out_instruction_files(
+    primary: Path, harness: dict[str, Any], repo_root: Path,
+) -> list[SettingsTarget]:
+    """Global guides for primary + registered/discovered Claude config dirs.
+
+    Convert settings paths to instruction paths BEFORE deduplication: two accounts can
+    share settings.json through a symlink while loading independent CLAUDE.md files.
+    Relative settings paths belong to a project, as do instruction targets inside the
+    current repo. Neither is a global-guide write. A HOME-anchored global plan is not a repo.
+    """
+    global_harness = dict(harness)
+    global_harness["settings_paths"] = instruction_settings_paths(harness)
+    candidates = [SettingsTarget(primary, None)] + [
+        SettingsTarget(item.path.with_name(primary.name), item.label, item.origin)
+        for item in _candidate_targets(global_harness, None)
+    ]
+    root = repo_root.resolve()
+    is_repo_scope = root != Path.home().resolve()
+    targets: list[SettingsTarget] = []
+    seen: set[Path] = set()
+    labels: set[str | None] = set()
+    for candidate in candidates:
+        try:
+            identity = candidate.path.resolve()
+        except (OSError, RuntimeError):
+            identity = candidate.path.absolute()  # retain the conflict for apply/drift
+        if candidate.origin != ORIGIN_PRIMARY and is_repo_scope and identity.is_relative_to(root):
+            continue
+        if identity in seen:
+            continue
+        seen.add(identity)
+        label = candidate.label if candidate.label not in labels else str(candidate.path)
+        labels.add(label)
+        targets.append(SettingsTarget(candidate.path, label, candidate.origin))
+    return targets
 
 
 def fan_out_item(kind: str, target: SettingsTarget) -> str:

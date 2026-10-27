@@ -1015,8 +1015,9 @@ def test_cmd_doctor_probe_exit_codes(tmp_path, monkeypatch, capsys):
 
 
 def test_policy_survives_harness_area_enabled(fake_agent_tools, tmp_path, monkeypatch):
-    """With the harness area ENABLED (not just permissions), nothing else targets the
-    instruction files — the advisory block is the only writer (no apply-order flapping)."""
+    """Permission and reporting blocks share a file without overwriting or flapping."""
+    from riglib.plan import InstallPlan
+
     home = tmp_path / "home"
     _pin_home(monkeypatch, home)
     repo = tmp_path / "repo"; repo.mkdir(exist_ok=True)
@@ -1026,7 +1027,14 @@ def test_policy_survives_harness_area_enabled(fake_agent_tools, tmp_path, monkey
         plan = build(cfg, Catalog.scan(str(fake_agent_tools)), project_type="unknown")
         target = _policy_path(home, kind)
         writers = [a for a in plan.actions if a.target == target]
-        assert [a.kind for a in writers] == ["provision_instruction_policy"], kind
+        policy_plan = InstallPlan(actions=writers)
+        assert not run_plan(policy_plan).errors
+        content = target.read_text()
+        assert "advisory policy" in content and "DENY:" in content
+        assert "actions already attempted" in content
+        assert not detect(policy_plan).items
+        assert run_plan(policy_plan).changed == 0
+        assert target.read_text() == content
 
 
 # ── pinned codex, marker lifecycle, registry-derived interlock ─────────────────────

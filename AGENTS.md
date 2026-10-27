@@ -136,6 +136,21 @@ bare `rig config-web` prints help, never launches.
   new harness as one entry there — never scatter the path across plan/config/schema. The config
   schema ACCEPTS every kind in that registry; the runner/drift for skill links are
   harness-agnostic (they act on resolved targets).
+- **Global problem-reporting instructions are owned by rig.** `riglib/problem_reporting.py`
+  is the canonical requirement: every problem report includes attempted actions with observed
+  results, the independent remedy already started, and the concrete next step/verification
+  point or exact blocking dependency. `plan._build_global_instructions` provisions it by
+  default for the effective and machine harness kinds through
+  `harness_skills.global_instruction_targets`; it does not depend on a home `AGENTS.md`,
+  permission provisioning, or repo-local `agents_md`. Claude uses the shared account-dir
+  fan-out, deduplicated by instruction-file identity even when settings are aliased; OMP uses
+  `RULES.md` because task subagents discard `AGENTS.md` context. The
+  `instructions` category supports a targeted preview/apply, and apply/drift share one
+  managed-block resolver that preserves user text and reports malformed markers. Global
+  config-web uses the same actions. Atomic writes check for intervening edits and refuse to
+  split hard links; user-scope provisioning excludes project settings paths. Reporting,
+  advisory permission, and canonical repo-guide splices share a resolved-target kernel lock
+  (`riglib/instruction_files.py`) across their complete read/reconcile/write transaction.
 - **`git` and `profile` are GLOBAL-layer-only, enforced at LOAD time** (`config._GLOBAL_LAYER_ONLY_BLOCKS`,
   like `mode`): a repo `rig.yaml` or `--config` layer carrying either is rejected, because
   `git.config` writes `git config --global` (code-executing keys such as `core.sshCommand`) and
