@@ -62,6 +62,7 @@ from .harness_mode import (
     unknown_mode_kind_note,
     unknown_mode_note,
 )
+from .paths import expand_path as _expand_path
 from .paths import expand_user_path as _expand_user_path
 from .plugin_skills import resolve_plugin_skills
 from .provenance import KNOWN_CATEGORIES, known_names_from_config
@@ -192,10 +193,7 @@ def _expand(path_str: str, repo_root: Path) -> Path:
     #    installs where XDG-aware tools (the dispatcher runner) actually look;
     #  - ``$VAR``/``${VAR}`` and ``~`` are expanded;
     #  - a relative remainder is anchored at the repo root.
-    p = _expand_user_path(path_str)
-    if not p.is_absolute():
-        p = (repo_root / p).resolve()
-    return p
+    return _expand_path(path_str, repo_root)
 
 
 def _resolve_target(config: LoadedConfig, category: str) -> Path:
@@ -1070,6 +1068,9 @@ def build(
 
     # ── linters (per-repo linter/formatter config files) ──────────────────────────
     _build_linters(config, catalog, plan)
+
+    # ── lint_checks (cccc complexity + file-line gate; independent of linters.*) ───
+    _build_lint_checks(config, catalog, plan)
 
     # ── project_tools (Haft / Serena / Sverklo repo integrations) ─────────────────
     _build_project_tools(config, plan)
@@ -2910,6 +2911,119 @@ def _build_linters(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) ->
                 source=catalog.source, target=config.repo_root,
                 options={"source_rel": source_rel, "target_rel": "tools/oxlint/anti-slop"},
             ))
+
+
+def _build_lint_checks(config: LoadedConfig, catalog: Catalog, plan: InstallPlan) -> None:
+    """Plan the ``rig lint check`` activation: pinned analyzer, pre-commit hook, CI workflow.
+
+    Default **ON** and deliberately NOT inside :func:`_build_linters`: the check has no dependency
+    on Oxc, Biome or ``linters.enabled`` — a Biome-only repo, a repo with no linter and
+    ``linters.enabled: false`` all get it. The analyzer and the hook are MACHINE-wide artifacts
+    (category ``lint_checks_machine``, GLOBAL layer, visible to ``rig status`` outside a repo): the
+    hook follows the GLOBAL layer's switch (:func:`lint_checks_artifacts.lint_checks_intent`), never
+    one repo's ``rig.yaml``, which would otherwise write a hook that blocks every OTHER repo; the
+    per-machine, harmless analyzer is installed whenever any layer (global or this repo) runs
+    complexity. A repo's ``lint_checks.enabled: false`` / ``complexity.enabled: false`` only reaches
+    the repo's own workflow (category ``lint_checks``, REPO layer).
+    """
+    from . import cccc_install, lint_checks_artifacts as arts
+
+    intent = arts.lint_checks_intent(config)
+    # The CLI itself is a consumer even when automated hooks and CI are disabled.
+    # `rig apply commit` must satisfy the install hint printed by a manual lint check.
+    if intent.install_analyzer:
+        plan.actions.append(
+            Action(
+                kind="install_cccc", category="lint_checks_machine", item="cccc", source=catalog.source,
+                target=cccc_install.managed_binary_path(), options={"version": cccc_install.PINNED_VERSION},
+            )
+        )
+    if intent.machine_enabled:
+        # the analyzer action is appended FIRST: the hook handler runs after it and refuses to write the
+        # machine-wide hook unless that analyzer verified (see riglib.actions.lint_checks)
+        _plan_lint_check_hook(config, catalog, plan, needs_analyzer=intent.needs_analyzer)
+    if intent.repo.enabled:
+        _plan_lint_check_workflow(config, catalog, plan, with_analyzer=intent.workflow_with_analyzer)
+
+
+def _lint_check_hook_blocker(disp_cfg: Any, needs_analyzer: bool) -> str | None:
+    """Why the pre-commit fragment must NOT be planned (an explicit plan note), or None to plan it.
+
+    Two blockers beyond the dispatcher/fragment switches: a platform with no pinned analyzer (the
+    hook would block every commit on a machine that can never have the analyzer; irrelevant when
+    complexity is disabled) and an unpinnable ``rig`` (a bare name pins nothing). A merely PENDING
+    install keeps the hook in the plan, but the apply handler writes it only once the analyzer
+    verified, so a failed download never leaves a newly enabled hook that blocks every commit.
+    """
+    from . import cccc_install, lint_checks_artifacts as arts
+
+    if not (isinstance(disp_cfg, dict) and disp_cfg.get("enabled")):
+        return (
+            "pre-commit hook NOT installed — git_hooks.dispatcher.enabled is false, so nothing "
+            "would run `rig lint check --staged` on commit (CI and `rig lint check` still work)"
+        )
+    if arts.hook_fragment_disabled(disp_cfg):
+        return "pre-commit hook disabled by git_hooks.dispatcher.fragments.lint-check.enabled: false"
+    if not needs_analyzer:
+        return None
+    try:
+        cccc_install.pin_for()
+    except cccc_install.UnsupportedPlatform as exc:
+        return f"pre-commit hook NOT installed — it would block every commit on a machine that can never have the analyzer: {exc}"
+    return None
+
+
+def _plan_lint_check_hook(config: LoadedConfig, catalog: Catalog, plan: InstallPlan, *, needs_analyzer: bool) -> None:
+    from . import lint_checks_artifacts as arts
+    from .actions.runner import RigPinError, pinned_rig_path
+
+    gh = config.category("git_hooks")
+    disp_cfg = gh.get("dispatcher", {}) if isinstance(gh, dict) else {}
+    blocker = _lint_check_hook_blocker(disp_cfg, needs_analyzer)
+    if blocker is not None:
+        plan.notes.append(f"lint_checks: {blocker}")
+        return
+    try:
+        rig_bin = pinned_rig_path()
+    except RigPinError as exc:
+        plan.notes.append(f"lint_checks: pre-commit hook NOT installed — {exc}")
+        return
+    plan.actions.append(
+        Action(
+            kind="install_lint_check_hook", category="lint_checks_machine", item="pre-commit-hook",
+            source=catalog.source, target=arts.hook_fragment_path(arts.resolve_dispatcher_dir(disp_cfg, config.repo_root)),
+            options={"rig_bin": rig_bin, "needs_analyzer": needs_analyzer},
+        )
+    )
+
+
+def _plan_lint_check_workflow(config: LoadedConfig, catalog: Catalog, plan: InstallPlan, *, with_analyzer: bool) -> None:
+    from . import lint_checks_artifacts as arts, lint_checks_ci
+
+    ci = config.category("ci")
+    ci_target = ci.get("target", config.defaults.get("ci_target", ".github/workflows"))
+    if ci.get("enabled") is False or ci_target != ".github/workflows":
+        plan.notes.append(
+            "lint_checks: CI workflow not written — ci.enabled is false or ci.target is not `.github/workflows` "
+            "(GitHub only runs workflows from there)"
+        )
+        return
+    rig_source = lint_checks_ci.rig_source(config.data)
+    if rig_source is None:
+        plan.notes.append(
+            "lint_checks: CI workflow not written — no immutable rig install source is configured, and a "
+            "pin that does not resolve would leave the job permanently red. Set "
+            f"`lint_checks.ci.{lint_checks_ci.KEY}: {lint_checks_ci.EXAMPLE}` (a full commit sha of rig-cli "
+            "that has `rig lint check`) in rig.yaml or the global config"
+        )
+        return
+    plan.actions.append(
+        Action(
+            kind="install_lint_check_workflow", category="lint_checks", item="ci-workflow",
+            source=catalog.source, target=config.repo_root,
+            options={"rel_path": arts.WORKFLOW_REL, "rig_source": rig_source, "with_analyzer": with_analyzer},
+        )
+    )
 
 
 def _build_global_excludes(config: LoadedConfig, plan: InstallPlan) -> None:

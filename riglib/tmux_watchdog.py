@@ -9,6 +9,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import re
 import signal
 import stat
 import subprocess
@@ -21,6 +22,11 @@ from .omp_recovery import ServerIdentity, ServerPlan, plan_server_recovery
 DEFAULT_COOLDOWN_SECONDS = 60
 FORENSIC_LOG_MAX_BYTES = 1_000_000
 _HELD_LOCKS: dict[str, int] = {}
+# Linux lsof appends the socket type to a unix socket's NAME ("/path/s type=STREAM");
+# its table output also adds the state ("type=STREAM (LISTEN)"), which -F n does not print
+# today, so the state is tolerated defensively. macOS prints the bare path. Only this
+# trailing trailer is lsof's, never part of the path.
+_LSOF_TYPE_SUFFIX = re.compile(r" type=[A-Z]+(?: \([A-Z_]+\))?$")
 
 
 class InspectionUnavailable(RuntimeError):
@@ -263,6 +269,16 @@ def preserve_crash_reports(home: Path | None = None) -> None:
         pass
 
 
+def _lsof_name_readings(name: str) -> tuple[str, ...]:
+    """The field as printed and, when lsof appended a trailer, the path without it.
+
+    Both are tried: macOS prints the bare path, so a socket genuinely named "x type=STREAM"
+    has nothing to strip, and an ambiguous name must block rather than authorize a server.
+    """
+    bare = _LSOF_TYPE_SUFFIX.sub("", name)
+    return (name,) if bare == name else (name, bare)
+
+
 def socket_owner_pids(socket_path: Path, lsof_bin: str = "lsof") -> set[int]:
     """Find live tmux owners even when the socket name was unlinked from the filesystem.
 
@@ -290,7 +306,7 @@ def socket_owner_pids(socket_path: Path, lsof_bin: str = "lsof") -> set[int]:
         if line.startswith("p"):
             pid = int(line[1:]) if line[1:].isdigit() else None
         elif line.startswith("n/") and pid is not None:
-            if Path(line[1:]).resolve() == target:
+            if any(Path(name).resolve() == target for name in _lsof_name_readings(line[1:])):
                 owners.add(pid)
     return owners
 

@@ -207,6 +207,21 @@ def _pane_text(run, addr: str) -> str:
     return run(["tmux", "capture-pane", "-p", "-J", "-t", addr]).stdout
 
 
+def _wait_for_restored_pane_text(run, addr: str, argv_log: Path, *, timeout_s=15, sleep=time.sleep, clock=time.time) -> str:
+    """Poll until the fake omp has logged its argv AND the pane is back on its normal screen,
+    then return the pane text. abduco attaches on tmux's ALTERNATE screen and the fake omp writes
+    ``argv_log`` while it is still attached, so capturing as soon as the file exists reads the
+    blank alternate screen instead of the typed command line (the intermittent empty-pane CI
+    failure, rig-cli#772). Bounded by ``timeout_s``; on expiry the pane is captured anyway so the
+    caller's assertions fail with the real pane text."""
+    deadline = clock() + timeout_s
+    while clock() < deadline:
+        if argv_log.exists() and run(["tmux", "display-message", "-p", "-t", addr, "#{alternate_on}"]).stdout.strip() == "0":
+            break
+        sleep(0.2)
+    return _pane_text(run, addr)
+
+
 @pytest.fixture
 def tmux_env(tmp_path, monkeypatch):
     """A throwaway HOME + a private tmux socket + a PATH shim, with teardown that kills the
@@ -605,10 +620,7 @@ def test_omp_restore_resumes_by_exact_path_when_no_orphan_is_live(tmux_env):
 
         r = run(["bash", str(gen / "omp-restore.sh")])
         assert r.returncode == 0, f"omp-restore failed: {r.stderr}"
-        deadline = time.time() + 15
-        while time.time() < deadline and not argv_log.exists():
-            time.sleep(0.2)
-        text = _pane_text(run, addr)
+        text = _wait_for_restored_pane_text(run, addr, argv_log)
         assert "rig harness run omp --host-id omp-recover-" in text, text
         assert argv_log.exists(), f"omp was never launched in the restored pane:\n{text}"
         assert argv_log.read_text(encoding="utf-8").splitlines() == ["--resume", str(sf)]

@@ -246,6 +246,11 @@ def owned_relpath(target: Path, repo_root: Path, paths: tuple[str, ...]) -> str 
 # Actions whose ``target`` is a DIRECTORY and that write a fixed file inside it.
 _ACTION_FILES: dict[str, tuple[str, ...]] = {
     "provision_ship_task_prefix": (".ship-config",),  # target = repo root (runner/drift use target/.ship-config)
+    # target = repo root; the one rig-owned workflow. A literal here keeps this module free of the lint_checks
+    # import chain; tests/test_lint_checks_plan.py pins it to lint_checks_artifacts.WORKFLOW_REL. The sibling
+    # install_lint_check_hook writes under the global dispatcher dir, never inside a repo, so it can
+    # never be a tracked-owned file and needs no entry.
+    "install_lint_check_workflow": (".github/workflows/rig-lint-check.yml",),
 }
 
 

@@ -244,6 +244,7 @@ tg_ctl:    { enabled: false }
 tmux:      { enabled: false }
 sysmon:    { enabled: false }
 gitignore: { enabled: false }
+lint_checks: { enabled: false }  # this repo's own gate off; the machine-wide analyzer follows the GLOBAL layer (see the script)
 """
 
 
@@ -272,6 +273,11 @@ _ASSERT_SCRIPT = textwrap.dedent(
     # the run flaky). This mirrors what a real first-time user does once.
     git config --global user.email cleanroom@example.com
     git config --global user.name  cleanroom
+
+    # the lint_checks analyzer + hook are machine-wide, so only the GLOBAL layer's opt-out keeps them out of
+    # this run (their download needs network; the run is `--network none`)
+    mkdir -p "$HOME/.config/rig"
+    printf 'version: 1\\nlint_checks: { enabled: false }\\n' > "$HOME/.config/rig/config.yaml"
 
     mkdir -p "$REPO"
     git -C "$REPO" init -q
@@ -416,7 +422,7 @@ _ASSERT_SCRIPT = textwrap.dedent(
     SCAFFOLD_REPO="$HOME/scaffold-repo"
     mkdir -p "$SCAFFOLD_HOME" "$SCAFFOLD_REPO"
     git -C "$SCAFFOLD_REPO" init -q
-    HOME="$SCAFFOLD_HOME" RIG_AGENT_TOOLS_SOURCE="$SRC" RIG_SCHEDULE_DRY_RUN=1 RIG_TMUX_DRY_RUN=1 \\
+    HOME="$SCAFFOLD_HOME" RIG_AGENT_TOOLS_SOURCE="$SRC" RIG_SCHEDULE_DRY_RUN=1 RIG_TMUX_DRY_RUN=1 RIG_CCCC_DRY_RUN=1 \\
       rig init -C "$SCAFFOLD_REPO" --yes --apply >/opt/cleanroom/scaffold.log 2>&1 \\
       || { cat /opt/cleanroom/scaffold.log; fail "'rig init --yes --apply' (default scaffold) exited non-zero"; }
     [ -f "$SCAFFOLD_REPO/rig.yaml" ] || fail "'rig init --yes --apply' did not scaffold a rig.yaml"

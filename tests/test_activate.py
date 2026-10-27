@@ -22,12 +22,14 @@ _PROBE = activate.Probe  # captured before the tests replace ``activate.Probe`` 
 EVERYTHING = {"git", "tmux", "abduco", "omp", "claude", "codex", "opencode", "systemctl"}
 
 
-def _probe(have=EVERYTHING, platform="linux", service=True, homes=()) -> activate.Probe:
+def _probe(have=EVERYTHING, platform="linux", service=True, homes=(), cccc=None) -> activate.Probe:
+    """``cccc``: the reason no pinned analyzer exists on the fake machine (``None`` = supported)."""
     return _PROBE(
         platform=platform,
         which=lambda name: f"/usr/bin/{name}" if name in have else None,
         exists=lambda path: path in homes,
         systemd_user=lambda: service,
+        cccc_unsupported=lambda: cccc,
     )
 
 
@@ -54,7 +56,7 @@ def test_a_fully_equipped_machine_activates_everything_the_config_does_not_menti
     }
     assert act.doc["tools"] == {"enabled": True, "items": {"ctmux": {}}}
     assert "omp" in areas["agent_hooks"].detail
-    assert {"skills", "agent_hooks", "harness", "tmux", "sysmon", "tools"} <= act.included
+    assert {"skills", "agent_hooks", "harness", "tmux", "sysmon", "tools", "lint_checks_machine"} <= act.included
 
 
 def test_existing_config_keys_are_never_overridden():
@@ -101,6 +103,38 @@ def test_what_the_machine_lacks_is_listed_with_the_reason_and_excluded():
     assert act.config_changes == []  # nothing to switch on: no harness, tmux or abduco here
     assert not ({"harness", "tmux", "sysmon", "tools", "git_hooks"} & act.included)
     assert {"skills", "agent_hooks", "env"} <= act.included
+
+
+def test_the_lint_check_machine_area_owns_the_analyzer_and_hook_category():
+    act = activate.build_activation({}, _probe())
+    area = _by_id(act)["lint_checks"]
+    assert area.status == activate.ACTIVATE and area.categories == frozenset({"lint_checks_machine"})
+    assert "lint_checks_machine" in act.included and "lint_checks" in activate.AREA_IDS
+
+
+def test_an_unsupported_analyzer_platform_is_listed_with_the_reason_never_an_error():
+    reason = "no pinned cccc release for plan9/mips"
+    act = activate.build_activation({}, _probe(cccc=reason))
+    area = _by_id(act)["lint_checks"]
+    assert area.status == activate.UNSUPPORTED and area.detail == reason
+    assert "lint_checks_machine" not in act.included
+    assert "lint_checks" in [a.id for a in act.unsupported]
+
+
+def test_the_real_probe_reports_the_pin_table_verdict(monkeypatch):
+    from riglib import cccc_install
+
+    monkeypatch.setattr(cccc_install, "platform_key", lambda: ("plan9", "mips"))
+    assert "plan9/mips" in activate.Probe().cccc_unsupported()
+    monkeypatch.setattr(cccc_install, "platform_key", lambda: ("linux", "x86_64"))
+    assert activate.Probe().cccc_unsupported() is None
+
+
+def test_a_global_opt_out_leaves_the_lint_check_area_alone():
+    act = activate.build_activation({"version": 1, "lint_checks": {"enabled": False}}, _probe())
+    assert _by_id(act)["lint_checks"].status == activate.LEFT_ALONE
+    assert "lint_checks_machine" not in act.included
+    assert not any("lint_checks" in change for change in act.config_changes)  # an explicit off switch is never overridden
 
 
 def test_macos_gets_launchd_areas_and_needs_no_systemd():
@@ -263,3 +297,23 @@ def test_only_limits_what_is_listed_and_written(machine, capsys):
 def test_the_preview_reports_an_unconfigured_profile_without_touching_it(machine, capsys):
     rc, out = _run(capsys=capsys)
     assert rc == 0 and "profile: not configured" in out
+
+
+def test_commit_activates_the_lint_check_analyzer_and_hook_through_the_one_engine(machine, capsys):
+    machine.write_text(machine.read_text(encoding="utf-8") + "git_hooks:\n  dispatcher:\n    enabled: true\n", encoding="utf-8")
+    rc, out = _run("commit", "--only", "lint_checks", capsys=capsys)  # RIG_CCCC_DRY_RUN=1 (suite-wide): nothing is downloaded
+    assert rc == 0, out
+    assert "✓ lint_checks" in out
+    (log,) = (Path.home() / ".cache" / "rig").glob("apply-*.log")
+    text = log.read_text(encoding="utf-8")
+    assert "lint_checks_machine/cccc" in text and "lint_checks_machine/pre-commit-hook" in text
+    assert "lint_checks/ci-workflow" not in text  # a machine-level activation never plans a repo's workflow
+    assert (Path.home() / ".config" / "git" / "global-hooks.d" / "pre-commit" / "30-lint-check").is_file()
+
+
+def test_commit_skips_an_unsupported_analyzer_platform_without_failing(fake_agent_tools, monkeypatch, capsys):
+    monkeypatch.setenv("RIG_AGENT_TOOLS_SOURCE", str(fake_agent_tools))
+    monkeypatch.setattr(activate, "Probe", lambda: _probe(cccc="no pinned cccc release for plan9/mips"))
+    rc, out = _run("commit", "--only", "lint_checks", capsys=capsys)
+    assert rc == 0, out
+    assert "lint_checks: no pinned cccc release for plan9/mips" in out and "BLOCKED" not in out

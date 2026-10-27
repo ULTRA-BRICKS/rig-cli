@@ -83,6 +83,7 @@ AREAS: tuple[Area, ...] = (
     Area("tgctl_reaper", "tgctl-reaper orphan sweep (macOS)", GLOBAL, ("tgctl_reaper",)),
     Area("sysmon", "sysmon resource monitor", GLOBAL, ("sysmon",)),
     Area("tools", "personal CLI ecosystem (tg/review/task/draw/…)", GLOBAL, ("tools",)),
+    Area("lint_checks_machine", "lint check: pinned cccc analyzer + pre-commit hook", GLOBAL, ("lint_checks_machine",)),
     # the machine-level agent-tools/env file (AGENT_TOOLS_ROOT): a GLOBAL artifact with no
     # standalone action — hence configured_by, not a category claim. It is written by whichever
     # action OWNS it: the repo-scoped ship_delegator action normally, or the machine-global
@@ -104,6 +105,7 @@ AREAS: tuple[Area, ...] = (
     Area("ship_delegator", "`gh ship` delegator (.claude/scripts/pr-ship.sh)", REPO, ("ship_delegator",)),
     Area("internal_dev", "internal-dev daemon auto-reload hook", REPO, ("internal_dev",)),
     Area("linters", "linter / formatter config files", REPO, ("linters",)),
+    Area("lint_checks", "lint check CI workflow (.github/workflows/rig-lint-check.yml)", REPO, ("lint_checks",)),
     Area("project_tools", "project tools (Haft / Serena / Sverklo)", REPO, ("project_tools",)),
     Area("ecosystem_readme", "README ecosystem block", REPO, ("ecosystem_readme",)),
     Area("task", "task-cli code prefix (.ship-config SHIP_TASK_CODE_PREFIX)", REPO, ("task",)),

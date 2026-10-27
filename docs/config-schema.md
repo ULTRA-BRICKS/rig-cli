@@ -1607,6 +1607,63 @@ delegator-enabled plan). Provenance points at the config layer that declares the
 
 `rig config set <path> <value>` validates the prospective target layer and builds the resulting reconcile plan **without writing the config file**. Add `--commit` to write the already-validated change and execute that plan. `--no-apply` remains an explicit write-only compatibility mode. This mirrors `rig apply`: inspection is safe by default; mutation requires explicit intent.
 
+## `lint_checks`
+
+Knobs for `rig lint check`: per-function cognitive/cyclomatic complexity (official `cccc`, pinned and
+sha256-verified) and physical file-line limits. **Default ON**, independent of `linters.*` (no Oxc or
+Biome needed). Valid in **both** the global config and a repo `rig.yaml`; the repo value wins per key.
+Every layer is validated alone and the merged result is validated again; unknown keys, wrong types
+(bool/float/string/null where an integer is required), values outside `1..10000000`, or a merged
+`warn_above > error_above` fail closed, naming the key and the layer.
+
+```yaml
+lint_checks:
+  enabled: true              # master switch; false => status "disabled" there. In the GLOBAL layer it also removes the machine-wide analyzer + hook
+  complexity:
+    enabled: true
+    max_cognitive: 15        # integer >= 1; a value strictly above the limit is an error
+    max_cyclomatic: 20       # integer >= 1
+  file_lines:
+    enabled: true
+    warn_above: 1200         # more lines than this => warning (must be <= error_above)
+    error_above: 2400        # more lines than this => error
+    exempt_extensions: [json]  # lowercase, no leading dot; lockfiles other than .json are NOT exempt
+  ci:
+    rig_source: git+https://git.hyperide.ai/ultrabricks/rig-cli@<40-hex commit sha>  # see below; unset => no CI workflow
+```
+
+Try it: `rig config set lint_checks.complexity.max_cognitive 18`, then `rig lint check --json`
+(exit 0 ok/warnings only, 1 error finding, 2 usage/config error, 3 analysis incomplete,
+127 analyzer missing or not matching the pin).
+
+The generated CI workflow sees only the built-in defaults plus the repo's `rig.yaml` (no global
+config), so thresholds CI must enforce belong in the repo's `rig.yaml`; a value set only in
+`~/.config/rig/config.yaml` reaches local runs and the commit hook, never CI.
+
+`lint_checks.ci.rig_source` is where the generated `.github/workflows/rig-lint-check.yml` installs `rig`
+from (`pip install "<rig_source>"` in a fresh venv). It must be an **immutable** reference — exactly
+`git+https://<host>/<path>@<full 40-hex commit sha>` (a branch, tag, PyPI spec or bare URL is rejected,
+naming the key and the layer) — of a rig-cli commit that already contains `rig lint check`. It is
+**unset by default and the workflow is then not written** (the plan prints a note): rig has no
+published, installable release that carries the check (`hyper-rig==<version>` does not resolve on
+PyPI for the running dev version), and an unresolvable pin would leave the CI job permanently red.
+The workflow bytes depend on this setting alone — never on the rig version that rendered them — so a
+rig upgrade does not churn every repo. With the repo's own `complexity.enabled: false` the workflow skips the `cccc`
+download; a complexity opt-out that exists only in the global config keeps it, because CI never reads that file. The step installs
+to `${XDG_DATA_HOME:-$HOME/.local/share}/rig/cccc/v<version>`, the same lookup `rig` uses.
+
+**Machine-wide vs per-repo.** The analyzer (`install_cccc`) and the pre-commit hook are one per machine and
+serve every repo. The **hook** is decided by the **global** layer (built-in defaults + `~/.config/rig/config.yaml`),
+never by one repo turning the check off. The per-machine, harmless **analyzer** is installed whenever the global
+layer or the repo being applied runs complexity (`enabled` and `complexity.enabled`), so a repo that enables the
+check against a global opt-out gets the analyzer its own `rig lint check` needs (but no hook). A repo's
+`lint_checks.enabled: false` or `complexity.enabled: false` only changes `rig lint check` in that repo and that
+repo's generated workflow: it neither removes the machine-wide artifacts nor creates `extra` drift for the
+installed hook. The hook is gated on a verified analyzer; a repo that enables complexity against a global
+complexity opt-out gets exit 127 with the `rig apply commit` fix message until its own apply installs the analyzer
+(loud, never a silent pass). To remove the machine-wide hook, disable `lint_checks` (or the
+`git_hooks.dispatcher.fragments.lint-check` fragment) in the global config.
+
 ## `linters`
 
 Provisions this repo's **linter + formatter config files** — the same reconciled-area treatment

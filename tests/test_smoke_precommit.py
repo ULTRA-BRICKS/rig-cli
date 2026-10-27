@@ -585,3 +585,14 @@ def test_real_catalog_full_coverage_plans_every_item():
     # smoke on one, so a green run already implies none — assert explicitly as a guard).
     assert "unknown ci item" not in out
     assert "scanner dropped it" not in out
+
+
+def test_smoke_entrypoint_is_python_with_only_thin_shell_glue():
+    """The established shell command remains compatible without carrying shell logic."""
+    assert len(SMOKE.read_text().splitlines()) <= 40
+    implementation = SMOKE.with_suffix(".py")
+    assert implementation.is_file()
+    source = implementation.read_text()
+    compile(source, str(implementation), "exec")
+    assert "subprocess.run" in source
+    assert "bash -c" not in source

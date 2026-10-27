@@ -48,6 +48,9 @@ _CATEGORY_LAYER = {
     "tgctl_reaper": GLOBAL,
     "sysmon": GLOBAL,
     "tools": GLOBAL,
+    # `rig lint check` machine artifacts (pinned analyzer + dispatcher pre-commit fragment): machine-wide,
+    # so visible to `rig status` outside a git repo; the CI workflow stays REPO (`lint_checks`).
+    "lint_checks_machine": GLOBAL,
     # the machine-level agent-tools/env file (AGENT_TOOLS_ROOT). The CHECK runs from the
     # repo-scoped ship_delegator action, but the artifact is machine-wide — its drift is the
     # machine's, not this repo's, so status must render it under the GLOBAL heading.
@@ -61,6 +64,7 @@ _CATEGORY_LAYER = {
     "ship_delegator": REPO,
     "internal_dev": REPO,
     "linters": REPO,
+    "lint_checks": REPO,
     "project_tools": REPO,
     "ecosystem_readme": REPO,
     "agents_md": REPO,

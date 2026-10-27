@@ -47,6 +47,14 @@ jobs:
           bun-version: 1.4.2
       - name: Install package + test deps
         run: pip install -e '.[test]' pyyaml
+      # rig lint check: the --fix safety tests drive the REAL pinned cccc and a REAL TypeScript compiler.
+      # Without them they skip, so provision both and make the suite FAIL (not skip) if either is missing.
+      - name: Install pinned cccc + TypeScript (rig lint check real-analyzer tests)
+        run: |
+          python -c "from riglib import cccc_install; cccc_install.install()"
+          mkdir -p "$RUNNER_TEMP/ts" && npm install --prefix "$RUNNER_TEMP/ts" --no-audit --no-fund typescript@6.0.3
+          echo "RIG_TEST_TYPESCRIPT_DIR=$RUNNER_TEMP/ts/node_modules/typescript" >> "$GITHUB_ENV"
+          echo "RIG_LINT_REQUIRE_REAL=1" >> "$GITHUB_ENV"
       - name: Unit suite
         run: python -m pytest -q
       # The smoke script self-skips the apply leg when no agent-tools checkout is present

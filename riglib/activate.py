@@ -11,7 +11,8 @@ What it does, in order (commit):
 1. ``rig profile sync`` — when ``profile.repo`` is configured (pulls the shared config and the
    tmux / omp / sysmon files; a conflict warns and the local files are used as they are).
 2. Probes the machine (:func:`build_activation`): which harnesses are installed, whether ``tmux``,
-   ``abduco``, ``git`` and a service manager (systemd ``--user`` / launchd) exist.
+   ``abduco``, ``git`` and a service manager (systemd ``--user`` / launchd) exist, and whether a pinned
+   ``cccc`` analyzer exists for this OS/CPU (the ``lint_checks`` area: analyzer + commit hook).
 3. Writes the ``enabled`` switches the config does not mention yet (a missing ``harness``,
    ``tmux``, ``harness_wrappers`` block; the first-class ``ctmux`` tool) into the GLOBAL config,
    so the decision is visible and travels with the profile. It NEVER overrides a key the config
@@ -46,13 +47,24 @@ FIRST_CLASS_TOOLS = ("ctmux",)
 
 # the areas `rig activate --only` accepts, in table order
 AREA_IDS = (
-    "skills", "agent_hooks", "git_hooks", "harness", "tmux", "harness_wrappers", "sysmon", "models",
+    "skills", "agent_hooks", "git_hooks", "lint_checks", "harness", "tmux", "harness_wrappers", "sysmon", "models",
     "tg_ctl", "tcc_watch", "tgctl_reaper", "spotlight", "tools", "global",
 )
 
 ACTIVATE = "activate"
 UNSUPPORTED = "unsupported"
 LEFT_ALONE = "left alone"
+
+
+def _cccc_unsupported() -> str | None:
+    """Why no pinned ``cccc`` analyzer exists for this OS/CPU, or ``None`` when one does."""
+    from . import cccc_install
+
+    try:
+        cccc_install.pin_for()
+    except cccc_install.UnsupportedPlatform as exc:
+        return str(exc)
+    return None
 
 
 def _systemd_user() -> bool:
@@ -71,6 +83,7 @@ class Probe:
     which: Callable[[str], str | None] = shutil.which
     exists: Callable[[str], bool] = lambda path: Path(os.path.expanduser(path)).exists()
     systemd_user: Callable[[], bool] = _systemd_user
+    cccc_unsupported: Callable[[], str | None] = _cccc_unsupported
 
     @property
     def darwin(self) -> bool:
@@ -173,6 +186,9 @@ def build_activation(
         else:
             add("git_hooks", "global git-hook dispatcher", UNSUPPORTED, "git is not installed")
 
+    if want("lint_checks"):
+        _lint_checks(doc, probe, add)
+
     if want("harness"):
         _harness(doc, probe, changes, add)
     if want("tmux"):
@@ -194,17 +210,7 @@ def build_activation(
             _set_if_absent(doc, "harness_wrappers.enabled", True, changes)
             add("harness_wrappers", title, ACTIVATE, "abduco found; crash-supervised hosting for the harnesses")
 
-    service = probe.has_service_manager()
-    why = "no service manager (needs systemd --user on Linux, launchd on macOS)"
-    if want("sysmon"):
-        add("sysmon", "resource monitor", ACTIVATE if service else UNSUPPORTED, "resident daemon" if service else why)
-    if want("models"):
-        add("models", "model-freshness schedule", ACTIVATE if service else UNSUPPORTED, "timer" if service else why)
-    for area_id, title in (("tg_ctl", "tg-ctl inbound daemon"), ("tcc_watch", "TCC watch"),
-                           ("tgctl_reaper", "tg-ctl reaper"), ("spotlight", "Spotlight exclusions")):
-        if want(area_id):
-            add(area_id, title, ACTIVATE if probe.darwin else UNSUPPORTED,
-                "launchd agent" if probe.darwin else "macOS only (launchd / Spotlight)")
+    _service_areas(probe, want, add)
 
     if want("tools"):
         _tools(doc, probe, changes, add)
@@ -212,6 +218,40 @@ def build_activation(
         add("global", "env, git config, gitignore, fj, bun", ACTIVATE, "as declared in the config",
             "env", "git", "gitignore", "fj", "bun", "mode")
     return Activation(areas, changes, doc)
+
+
+def _lint_checks(doc: dict[str, Any], probe: Probe, add: Callable[..., None]) -> None:
+    """The machine-wide ``rig lint check`` artifacts: the pinned analyzer and the pre-commit hook."""
+    title = "lint check (cccc analyzer + pre-commit hook)"
+    block = doc.get("lint_checks")
+    if isinstance(block, dict) and block.get("enabled") is False:
+        add("lint_checks", title, LEFT_ALONE, "lint_checks.enabled is false in the config — not touched",
+            "lint_checks_machine")
+        return
+    reason = probe.cccc_unsupported()
+    if reason is not None:
+        add("lint_checks", title, UNSUPPORTED, reason, "lint_checks_machine")
+        return
+    add("lint_checks", title, ACTIVATE, "pinned, digest-verified cccc + the commit gate in every repo", "lint_checks_machine")
+
+
+def _area_verdict(supported: bool, detail: str, why_not: str) -> tuple[str, str]:
+    return (ACTIVATE, detail) if supported else (UNSUPPORTED, why_not)
+
+
+def _service_areas(probe: Probe, want: Callable[[str], bool], add: Callable[..., None]) -> None:
+    """The areas that need a service manager (systemd --user / launchd), and the macOS-only ones."""
+    why = "no service manager (needs systemd --user on Linux, launchd on macOS)"
+    service = probe.has_service_manager()
+    for area_id, title, detail in (("sysmon", "resource monitor", "resident daemon"),
+                                   ("models", "model-freshness schedule", "timer")):
+        if want(area_id):
+            add(area_id, title, *_area_verdict(service, detail, why))
+    mac = _area_verdict(probe.darwin, "launchd agent", "macOS only (launchd / Spotlight)")
+    for area_id, title in (("tg_ctl", "tg-ctl inbound daemon"), ("tcc_watch", "TCC watch"),
+                           ("tgctl_reaper", "tg-ctl reaper"), ("spotlight", "Spotlight exclusions")):
+        if want(area_id):
+            add(area_id, title, *mac)
 
 
 def _harness(doc: dict[str, Any], probe: Probe, changes: list[str], add: Callable[..., None]) -> None:

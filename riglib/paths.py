@@ -17,3 +17,11 @@ def expand_user_path(path: str) -> Path:
     if xdg and (path == "~/.config" or path.startswith("~/.config/")):
         path = xdg + path[len("~/.config"):]
     return Path(os.path.expanduser(os.path.expandvars(path)))
+
+
+def expand_path(path: str, repo_root: Path) -> Path:
+    """:func:`expand_user_path`, then anchor a still-relative result at ``repo_root`` (resolved)."""
+    p = expand_user_path(path)
+    if not p.is_absolute():
+        p = (repo_root / p).resolve()
+    return p

@@ -680,6 +680,33 @@ AREAS: tuple[Area, ...] = (
         ),
     ),
     Area(
+        "lint_checks", "complexity + file-line checks", "`rig lint check`: cognitive/cyclomatic complexity (pinned cccc) and file-length limits, run on commit and in CI.",
+        (
+            _opt("lint_checks.enabled", KIND_BOOL, True,
+                 "Master switch for `rig lint check` and its commit-time activation. Independent of "
+                 "`linters.*` (Oxc/Biome). Valid in the global and the repo config; repo wins."),
+            _opt("lint_checks.complexity.enabled", KIND_BOOL, True,
+                 "Run the per-function complexity check (official cccc, pinned and sha256-verified)."),
+            _opt("lint_checks.complexity.max_cognitive", KIND_INT, 15,
+                 "Cognitive complexity limit per function; a value strictly above it is an error (integer >= 1)."),
+            _opt("lint_checks.complexity.max_cyclomatic", KIND_INT, 20,
+                 "Cyclomatic complexity limit per function; a value strictly above it is an error (integer >= 1)."),
+            _opt("lint_checks.file_lines.enabled", KIND_BOOL, True,
+                 "Run the physical file-line check."),
+            _opt("lint_checks.file_lines.warn_above", KIND_INT, 1200,
+                 "Files with more lines than this warn (integer >= 1, must be <= error_above)."),
+            _opt("lint_checks.file_lines.error_above", KIND_INT, 2400,
+                 "Files with more lines than this are errors (integer >= 1)."),
+            _opt("lint_checks.file_lines.exempt_extensions", KIND_LIST, ["json"],
+                 "Lowercase extensions without a dot exempt from the file-line check (default: json only; "
+                 "lockfiles are NOT exempt)."),
+            _opt("lint_checks.ci.rig_source", KIND_STR, None,
+                 "Immutable install source for the CI workflow's rig: `git+https://<host>/<path>@<40-hex commit sha>` "
+                 "of a rig-cli that has `rig lint check`. Unset => no workflow is written (a pin that does not "
+                 "resolve would leave the job red). Valid in the global and the repo config; repo wins."),
+        ),
+    ),
+    Area(
         "task", "task-cli code prefix", "A repo-unique task-code prefix, consumed by ship.sh's review-quorum gate.",
         (
             _opt("task.code_prefix", KIND_STR, None,

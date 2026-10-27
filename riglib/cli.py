@@ -641,6 +641,29 @@ def _add_lint_parser(sub: "argparse._SubParsersAction") -> None:
     rp.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
     rp.add_argument("--config", help="config file (default: ./rig.yaml + global)")
     rp.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    cp = lsub.add_parser(
+        "check",
+        help="check complexity (pinned cccc) and file-line limits",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=(
+            "Check cognitive/cyclomatic complexity and physical file-line limits for the files in\n"
+            "scope (tracked + untracked-not-ignored). Limits come from the lint_checks config block."
+        ),
+        epilog=(
+            "exit codes:\n"
+            "  0    no error-severity finding (warnings allowed) or check disabled\n"
+            "  1    at least one error finding\n"
+            "  2    usage or config error (also --fix refused with --staged / partial staging)\n"
+            "  3    analysis incomplete (parse error, analyzer crash, malformed output, coverage gap)\n"
+            "  127  analyzer missing or not byte-identical to the pin (run `rig apply commit`)"
+        ),
+    )
+    cp.add_argument("paths", nargs="*", metavar="PATH", help="limit to these files/directories (default: whole repo)")
+    cp.add_argument("-C", "--cwd", default=".", help="repo root (default: cwd)")
+    cp.add_argument("--config", help="config file (default: ./rig.yaml + global)")
+    cp.add_argument("--json", action="store_true", help="emit the rig-lint-check/v1 JSON document")
+    cp.add_argument("--staged", action="store_true", help="check the staged (index) content, not the working tree")
+    cp.add_argument("--fix", action="store_true", help="apply the safe fix/else-after-return TS/JS rewrite, then re-check")
 
 
 def _add_stats_parser(sub: "argparse._SubParsersAction") -> None:
@@ -4363,7 +4386,12 @@ def cmd_evolve(args: argparse.Namespace) -> int:
 
 
 def cmd_lint(args: argparse.Namespace) -> int:
+    if getattr(args, "lint_command", None) == "check":
+        from .lint_check import run as check_run
+
+        return check_run(args)
     from .lint_rules_cli import run
+
     return run(args)
 
 

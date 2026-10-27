@@ -81,6 +81,7 @@ from ..hook_blurb_sync import sync_agent_hook_blurbs
 from .. import ecosystem_readme
 from .. import project_tools
 from . import fsutil
+from . import lint_checks
 
 
 @dataclass
@@ -10414,6 +10415,9 @@ _HANDLERS: dict[str, Callable[[Action, str], ActionResult]] = {
     "install_agent_hook": _do_install_agent_hook,
     "sync_hook_blurbs": _do_sync_hook_blurbs,
     "install_dispatcher": _do_install_dispatcher,
+    "install_cccc": lint_checks.do_install_cccc,
+    "install_lint_check_hook": lint_checks.do_install_hook,
+    "install_lint_check_workflow": lint_checks.do_install_workflow,
     "install_ci": _do_install_ci,
     "register_mcp": _do_register_mcp,
     "apply_harness": _do_apply_harness,

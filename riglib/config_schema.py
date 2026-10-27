@@ -39,6 +39,7 @@ from .harness_skills import (
     HARNESS_NATIVE_SKILLS,
     HARNESS_SKILL_DIR_KINDS,
 )
+from .lint_checks_ci import SCHEMA_PATTERN as _RIG_SOURCE_PATTERN
 from .project_tools import HAFT_WORKFLOW_MODES
 from .wrapper_provision import DEFAULT_DIR as _WRAPPER_DEFAULT_DIR
 
@@ -110,6 +111,7 @@ class Leaf:
     additional_properties_type: str | tuple[str, ...] | None = None
     property_names_pattern: str | None = None
     not_pattern: str | None = None
+    pattern: str | None = None
 
     def to_node(self) -> dict[str, Any]:
         node_type: Any = list(self.type) if isinstance(self.type, tuple) else self.type
@@ -140,6 +142,8 @@ class Leaf:
             node["propertyNames"] = {"pattern": self.property_names_pattern}
         if self.type == "string" and self.not_pattern:
             node["not"] = {"pattern": self.not_pattern}
+        if self.type == "string" and self.pattern:
+            node["pattern"] = self.pattern
         return node
 
 
@@ -1224,6 +1228,49 @@ _LINTERS_BLOCK = Block(
     open_map_item_required=("tool", "path"),
 )
 
+_LINT_CHECKS_BLOCK = Block(
+    doc=(
+        "`rig lint check`: cognitive/cyclomatic complexity (pinned cccc) and file-line limits. "
+        "Independent of `linters.*`; valid in the global and the repo layer (repo wins per key)."
+    ),
+    leaves={"enabled": Leaf("boolean", "master switch for the check and its commit-time activation", default=True)},
+    nested={
+        "complexity": Block(
+            doc="per-function complexity limits; a value strictly above the limit fails",
+            leaves={
+                "enabled": Leaf("boolean", "run the complexity check", default=True),
+                "max_cognitive": Leaf("integer", "cognitive complexity limit", default=15, minimum=1, maximum=10_000_000),
+                "max_cyclomatic": Leaf("integer", "cyclomatic complexity limit", default=20, minimum=1, maximum=10_000_000),
+            },
+        ),
+        "file_lines": Block(
+            doc="physical line-count limits per file (warning above warn_above, error above error_above)",
+            leaves={
+                "enabled": Leaf("boolean", "run the file-line check", default=True),
+                "warn_above": Leaf("integer", "lines above this warn (must be <= error_above)", default=1200, minimum=1, maximum=10_000_000),
+                "error_above": Leaf("integer", "lines above this fail", default=2400, minimum=1, maximum=10_000_000),
+                "exempt_extensions": Leaf(
+                    "array",
+                    "lowercase extensions without a dot that are exempt from the file-line check",
+                    items_type="string",
+                    items_pattern="^[a-z0-9]+$",
+                    default=["json"],
+                ),
+            },
+        ),
+        "ci": Block(
+            doc="where the rendered CI workflow installs rig from; the workflow is only written when this is set",
+            leaves={
+                "rig_source": Leaf(
+                    "string",
+                    "immutable `git+https://<host>/<path>@<40-hex commit sha>` of a rig-cli that has `rig lint check`",
+                    pattern=_RIG_SOURCE_PATTERN,
+                ),
+            },
+        ),
+    },
+)
+
 _ECOSYSTEM_README_BLOCK = Block(
     doc=(
         "writes/updates a marker-delimited '## Ecosystem' section in a target repo's README from "
@@ -1901,6 +1948,7 @@ BLOCKS: dict[str, Block] = {
 
 "internal_dev": _INTERNAL_DEV_BLOCK,    "ship_delegator": _SHIP_DELEGATOR_BLOCK,
     "linters": _LINTERS_BLOCK,
+    "lint_checks": _LINT_CHECKS_BLOCK,
     "project_tools": _PROJECT_TOOLS_BLOCK,
     "ecosystem_readme": _ECOSYSTEM_README_BLOCK,
     "task": _TASK_BLOCK,

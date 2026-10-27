@@ -625,9 +625,12 @@ def test_plan_disabled_category(fake_agent_tools, tmp_path):
             "tgctl_reaper": {"enabled": False},
             "sysmon": {"enabled": False},
             "permissions": {"enabled": False},
+            "lint_checks": {"enabled": False},  # default-ON: analyzer install (+ hook/workflow)
         },
         tmp_path,
     )
+    # the analyzer + hook are machine-wide: only the GLOBAL layer's opt-out removes them
+    cfg.global_data["lint_checks"] = {"enabled": False}
     plan = build(cfg, cat, project_type="cli")
     assert len(plan) == 0
 

@@ -396,6 +396,10 @@ def compute_drift_report(
     disp_cfg = loaded.category("git_hooks").get("dispatcher", {}) if isinstance(loaded.category("git_hooks"), dict) else {}
     if isinstance(disp_cfg, dict) and not disp_cfg.get("enabled") and not _restricted_out("git_hooks"):
         check_disabled_dispatcher(loaded.repo_root, report)
+    # the fragment is a lint_checks_machine artifact (its drift item carries that category), so that is the
+    # category a restricted scan must name — not git_hooks, whose dispatcher it merely rides
+    if isinstance(disp_cfg, dict) and disp_cfg.get("enabled") and not _restricted_out("lint_checks_machine"):
+        _check_disabled_lint_check_hook(loaded, disp_cfg, report)
     # disabled-but-installed global-excludes block: config opted the gitignore category out, but a
     # prior apply may have left the rig-managed block in the global excludes file. apply won't
     # remove it, so surface it as disk→config drift (mirrors the disabled-dispatcher scan; this is
@@ -542,6 +546,15 @@ def detect(
                 declared_ci_dirs.setdefault(action.target, set()).add(f"{action.item}.yml")
         elif action.kind == "install_dispatcher":
             _check_dispatcher(action, report)
+        elif action.kind == "install_cccc":
+            _check_lint_check_analyzer(action, report)
+        elif action.kind == "install_lint_check_hook":
+            _check_lint_check_hook(action, report)
+        elif action.kind == "install_lint_check_workflow":
+            _check_lint_check_workflow(action, report)
+            # rig-owned file in the SAME workflows dir the extras scan covers: declared, never "extra"/"known"
+            wf_path = action.target / str(action.options["rel_path"])
+            declared_ci_dirs.setdefault(wf_path.parent, set()).add(wf_path.name)
         elif action.kind == "register_mcp":
             _check_mcp(action, report)
             cf = _mcp_config_file(action)
@@ -1650,6 +1663,78 @@ def _check_dispatcher(action: Action, report: DriftReport) -> None:
                     report.items.append(
                         DriftItem("modified", "git_hooks", frag.name, dst, "dispatcher fragment differs from source")
                     )
+
+
+def _check_disabled_lint_check_hook(loaded, disp_cfg: dict, report: DriftReport) -> None:
+    """A ``30-lint-check`` fragment still installed after the MACHINE config switched it off.
+
+    apply never deletes a dropped fragment and the dispatcher runs every executable file in the dir,
+    so the stale fragment keeps blocking commits — same ``extra`` shape as a disabled catalog fragment.
+    Only the global layer (or the fragment switch) counts: a repo's own ``lint_checks.enabled: false``
+    leaves the machine-wide hook correctly installed (it exits 0 "disabled" there), so it is not drift.
+    """
+    from . import lint_checks_artifacts as arts
+
+    fragment_off = arts.hook_fragment_disabled(disp_cfg)
+    if not (fragment_off or not arts.lint_checks_intent(loaded).machine_enabled):
+        return
+    dst = arts.hook_fragment_path(arts.resolve_dispatcher_dir(disp_cfg, loaded.repo_root))
+    if dst.exists():
+        why = "fragment disabled in config" if fragment_off else "lint_checks.enabled is false (global config)"
+        report.items.append(DriftItem(
+            "extra", "lint_checks_machine", arts.HOOK_NAME, dst, f"{why} but still installed (will still run)",
+        ))
+
+
+def _check_lint_check_analyzer(action: Action, report: DriftReport) -> None:
+    """Flag a missing / byte-mismatched / wrong-version / unsupported-platform cccc analyzer.
+
+    One verdict, :func:`riglib.cccc_install.inspect`, shared with ``rig lint check`` itself, so
+    status says exactly what the gate will do (fail closed with exit 127).
+    """
+    from . import cccc_install
+
+    state = cccc_install.inspect()
+    if state.state == "ok":
+        return
+    direction = "missing" if state.state == "missing" else "modified"
+    report.items.append(DriftItem(direction, "lint_checks_machine", "cccc", state.path, state.detail))
+
+
+def _check_lint_check_hook(action: Action, report: DriftReport) -> None:
+    """Flag a missing, edited or non-executable pre-commit fragment (git ignores a non-exec hook)."""
+    from .lint_checks_artifacts import render_hook_fragment
+
+    path = action.target
+    label = "pre-commit-hook"
+    if not path.is_file():
+        report.items.append(DriftItem("missing", "lint_checks_machine", label, path, "lint-check pre-commit fragment not installed"))
+        return
+    try:
+        current = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        report.items.append(DriftItem("modified", "lint_checks_machine", label, path, f"cannot read fragment: {exc}"))
+        return
+    if current != render_hook_fragment(str(action.options["rig_bin"])):
+        report.items.append(DriftItem("modified", "lint_checks_machine", label, path, "lint-check fragment differs from the rig-rendered one"))
+    elif not os.access(path, os.X_OK):
+        report.items.append(DriftItem("modified", "lint_checks_machine", label, path, "lint-check fragment is not executable (the dispatcher skips it)"))
+
+
+def _check_lint_check_workflow(action: Action, report: DriftReport) -> None:
+    """Flag a missing / edited / unsafe-path ``rig-lint-check.yml`` (same classifier apply uses)."""
+    from .lint_checks_artifacts import render_workflow
+
+    rel_path = str(action.options["rel_path"])
+    content = render_workflow(str(action.options["rig_source"]), bool(action.options["with_analyzer"]))
+    r = resolve_linter_config(action.target, rel_path, content)
+    if r.state == "ok":
+        return
+    if r.state == "create":
+        report.items.append(DriftItem("missing", "lint_checks", "ci-workflow", r.target_path, f"{rel_path} not written (apply writes it)"))
+    else:
+        detail = r.detail if r.state == "io_error" else f"{rel_path} differs from the rig-rendered workflow"
+        report.items.append(DriftItem("modified", "lint_checks", "ci-workflow", r.target_path, detail))
 
 
 def _check_global_excludes(action: Action, report: DriftReport) -> None:

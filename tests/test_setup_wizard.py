@@ -34,7 +34,8 @@ def test_registry_covers_every_status_area():
         "stack",
         "skills", "agent_hooks", "git_hooks", "ci", "mcp", "harness", "permissions",
         "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "bun", "harness_wrappers", "tg_ctl",
-        "tcc_watch", "tgctl_reaper", "sysmon", "linters", "project_tools", "ecosystem_readme", "task", "internal_dev",
+        "tcc_watch", "tgctl_reaper", "sysmon", "linters", "lint_checks", "project_tools", "ecosystem_readme", "task",
+        "internal_dev",
     }
     assert cats == expected
 
@@ -359,7 +360,9 @@ def test_writable_layer_agrees_with_the_scaffold():
     # repo's README unprompted, so it is deliberately absent from default_state() until a user opts in.
     # task: code_prefix has no sensible default (it is a repo-specific ticket-code prefix the
     # operator must choose) — unset is the correct default, so there is nothing to scaffold.
-    _repo_unscaffolded_ok = {"agents_md", "linters", "permissions", "stack", "ecosystem_readme", "task", "internal_dev"}
+    _repo_unscaffolded_ok = {
+        "agents_md", "linters", "lint_checks", "permissions", "stack", "ecosystem_readme", "task", "internal_dev",
+    }
     for area in schema.AREAS:
         if schema.writable_layer_for_category(area.category) == schema.REPO:
             assert area.category in scaffolded or area.category in _repo_unscaffolded_ok, area.category
@@ -373,11 +376,12 @@ def test_writable_layer_agrees_with_the_scaffold():
     # though status displays the reconciled harness settings under GLOBAL. stack is a REPO-writable
     # preset (the committed rig.yaml) that has no reconciled drift Area, so layers.py leaves it
     # unregistered (defaulting the DISPLAY classification to GLOBAL) — but its WRITABLE layer is
-    # legitimately REPO (a global default is also allowed).
+    # legitimately REPO (a global default is also allowed). lint_checks is the same shape: valid in
+    # both layers, repo-writable, no scaffolded block until the activation area lands.
     for area in schema.AREAS:
         if (
             area.category not in scaffolded
-            and area.category not in {"agents_md", "permissions", "stack"}
+            and area.category not in {"agents_md", "permissions", "stack", "lint_checks"}
             and layer_for_category(area.category) == schema.GLOBAL
         ):
             assert schema.writable_layer_for_category(area.category) == schema.GLOBAL, area.category
@@ -438,8 +442,8 @@ def test_wizard_int_option_prompt_and_write(tmp_path):
 def test_wizard_invalid_menu_and_blank_value_branches(tmp_path):
     repo = _make_repo(tmp_path)
     out_lines = []
-    # "99" = out-of-range menu; then a real option with a blank value (keep); then quit.
-    answers = iter(["99", _index_of("harness.auto_mode"), "", "q"])
+    # one past the last menu number = out-of-range menu; then a real option with a blank value (keep); then quit.
+    answers = iter([str(len(schema.all_options()) + 1), _index_of("harness.auto_mode"), "", "q"])
     setup_wizard.run_setup(
         repo,
         apply_fn=lambda _root: 0,

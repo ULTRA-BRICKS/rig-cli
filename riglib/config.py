@@ -115,6 +115,7 @@ _VALID_TOP_KEYS = {
     "internal_dev",
     "ship_delegator",
     "linters",
+    "lint_checks",
     "project_tools",
     "ecosystem_readme",
     "scripts",
@@ -849,6 +850,7 @@ def load(
     # `task` block around the ancestor overlay after the normal cascade validates (UB-23).
     raw_task_by_label: dict[str, Any] = {}
     global_data: dict[str, Any] = {}
+    lint_checks_layers: dict[str, Any] = {}  # raw per-layer blocks, to name layers in merged errors
 
     def _merge_layer(path: Path, label: str) -> None:
         """Merge one config file into the accumulator and record its key provenance + layer.
@@ -902,6 +904,11 @@ def load(
                     fix=f"move these policy keys to {global_config_path()}",
                     schema_path="ci.items.ship",
                 )
+        if "lint_checks" in data:
+            from . import lint_checks_config
+
+            lint_checks_config.validate_block(data["lint_checks"], layer=label)
+            lint_checks_layers[label] = data["lint_checks"]
         if label == "global" and data.get("internal_dev"):
             raise ConfigError(
                 "internal_dev is a repo-only config block",
@@ -957,6 +964,10 @@ def load(
             if rpath.is_file() or rpath.resolve() in overrides:
                 _merge_layer(rpath, "repo")
 
+    if "lint_checks" in merged:
+        from . import lint_checks_config
+
+        lint_checks_config.resolve(merged, lint_checks_layers)
     validate(merged)
     ancestor_task_source = ancestor_task_sources[-1] if ancestor_task_sources else None
     _recombine_task_layers(merged, key_sources, raw_task_by_label, ancestor_task, ancestor_task_source)
@@ -1057,6 +1068,10 @@ def validate(data: dict[str, Any]) -> None:
     _validate_internal_dev(data.get("internal_dev", {}))
     _validate_ship_delegator(data.get("ship_delegator", {}))
     _validate_linters(data.get("linters", {}))
+    if "lint_checks" in data:
+        from . import lint_checks_config
+
+        lint_checks_config.validate_block(data["lint_checks"], layer="config")
     _validate_project_tools(data.get("project_tools", {}))
     _validate_ecosystem_readme(data.get("ecosystem_readme", {}))
     _validate_task(data.get("task", {}))

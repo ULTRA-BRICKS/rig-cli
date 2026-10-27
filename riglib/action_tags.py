@@ -121,6 +121,20 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "install_ci", "creates_file", AUDIENCE_HUMAN,
         "Writes a GitHub Actions workflow file under .github/workflows — runs in CI, not locally.",
     ),
+    "install_cccc": _tag(
+        "install_cccc", "creates_file", AUDIENCE_HUMAN,
+        "Downloads the pinned cccc complexity analyzer (digest-verified) into rig's own data dir, "
+        "~/.local/share/rig/cccc — never on PATH.",
+    ),
+    "install_lint_check_hook": _tag(
+        "install_lint_check_hook", "installs_hook", AUDIENCE_HUMAN,
+        "Adds the `rig lint check --staged` pre-commit fragment to the global git-hook dispatcher — "
+        "it runs on every commit in every repo and blocks on findings.",
+    ),
+    "install_lint_check_workflow": _tag(
+        "install_lint_check_workflow", "creates_file", AUDIENCE_HUMAN,
+        "Writes .github/workflows/rig-lint-check.yml — runs `rig lint check` in CI, not locally.",
+    ),
     "register_mcp": _tag(
         "register_mcp", "edits_file", AUDIENCE_AGENT,
         "Merges a server entry into the harness's MCP config file (e.g. ~/.claude/mcp/mcp.json).",

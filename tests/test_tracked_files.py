@@ -501,6 +501,20 @@ def test_a_directory_target_installer_is_not_diverted_even_when_its_files_match(
     assert (kept, diverted) == ([ci], [])
 
 
+def test_lint_check_workflow_is_diverted_when_its_file_is_tracked_owned(forge):
+    # the rig-owned workflow targets the repo root and writes one fixed file under it
+    wf = SimpleNamespace(kind="install_lint_check_workflow", target=forge.repo, category="lint_checks", item="ci-workflow")
+    hook = SimpleNamespace(
+        kind="install_lint_check_hook", target=forge.tmp / "home" / ".config" / "git" / "global-hooks.d" / "pre-commit" / "30-lint-check",
+        category="lint_checks_machine", item="pre-commit-hook",
+    )
+
+    kept, diverted = tf.divert_actions([wf, hook], forge.repo, _settings(paths=(".github/workflows/*.yml",)))
+
+    assert diverted == [wf] and kept == [hook]  # the machine-wide dispatcher fragment is never a repo file
+    assert tf.divert_actions([wf], forge.repo, _settings(paths=("docs/*.md",))) == ([wf], [])
+
+
 def test_divert_leaves_an_ignored_file_alone(forge):
     (forge.repo / ".gitignore").write_text(".ship-config\n", encoding="utf-8")
     prefix = SimpleNamespace(kind="provision_ship_task_prefix", target=forge.repo)

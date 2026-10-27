@@ -8,6 +8,10 @@ from pathlib import Path
 
 import pytest
 
+from riglib import cccc_install as _cccc_install
+
+_REAL_CCCC_INSPECT = _cccc_install.inspect
+
 # Files and directories the tests create must not be group-writable: config.load skips an
 # ancestor rig.yaml (or its directory) that other users can write (`_trusted_ancestor_config`,
 # task-cli's `_trusted_ancestor` rule). The suite assumes a 022 umask (macOS, GitHub-hosted
@@ -304,6 +308,40 @@ def _isolate_review_gate_source(monkeypatch):
     which wins over this autouse default. Mirrors ``_isolate_tmux_activation``.
     """
     monkeypatch.setenv("RIG_REVIEW_BIN", "")
+
+
+@pytest.fixture(autouse=True)
+def _verified_cccc_analyzer(monkeypatch):
+    """The ``lint_checks`` area is default-on, and its analyzer install can never run for real in a
+    test (no network). Report the managed analyzer as verified suite-wide so the many apply-then-status
+    round-trips stay in sync, and set ``RIG_CCCC_DRY_RUN`` so a CLI SUBPROCESS (which gets the real
+    ``inspect``, and no longer skips the install merely because HOME is a sandbox) never downloads;
+    ``test_lint_checks_*`` / ``test_cccc_install`` use the ``real_cccc_inspect`` fixture and clear the
+    flag to exercise the genuine verification and install instead."""
+    from riglib import cccc_install
+
+    monkeypatch.setenv("RIG_CCCC_DRY_RUN", "1")
+    monkeypatch.setattr(
+        cccc_install, "inspect",
+        lambda key=None: cccc_install.AnalyzerState("ok", "verified (test stub)", cccc_install.managed_binary_path()),
+    )
+
+
+@pytest.fixture
+def pinned_rig(monkeypatch):
+    """A fixed absolute ``rig`` pin, independent of what is on this machine's PATH."""
+    from riglib.actions import runner
+
+    monkeypatch.setattr(runner, "pinned_rig_path", lambda: "/opt/rig/bin/rig")
+    return "/opt/rig/bin/rig"
+
+
+@pytest.fixture
+def real_cccc_inspect(monkeypatch):
+    """Undo :func:`_verified_cccc_analyzer` for a test that checks the real analyzer verdict."""
+    from riglib import cccc_install
+
+    monkeypatch.setattr(cccc_install, "inspect", _REAL_CCCC_INSPECT)
 
 
 @pytest.fixture

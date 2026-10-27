@@ -609,7 +609,7 @@ def test_status_reports_known_items_as_informational_and_exits_clean(
     skills = tmp_path / "home" / "skills"
     _plant_skill(skills, "tg")
     _plant_skill(skills, "swiftui-pro")
-    (repo / ".github/workflows").mkdir(parents=True)
+    (repo / ".github/workflows").mkdir(parents=True, exist_ok=True)
     (repo / ".github/workflows/ci.yml").write_text("name: ci\n", encoding="utf-8")
     capsys.readouterr()
     rc = main(["status", "-C", str(repo)])
@@ -633,7 +633,7 @@ def test_disabled_area_with_known_items_stays_not_configured(tmp_path, capsys, f
     # "in sync" — rig reconciles nothing there. "not configured" + the known count is the honest
     # line (review finding). Skills/hooks dirs are not scanned at all when off, so no such case.
     repo = _status_repo(tmp_path, fake_agent_tools, monkeypatch, ci="{enabled: false}")
-    (repo / ".github/workflows").mkdir(parents=True)
+    (repo / ".github/workflows").mkdir(parents=True, exist_ok=True)
     (repo / ".github/workflows/ci.yml").write_text("name: ci\n", encoding="utf-8")
     capsys.readouterr()
     rc = main(["status", "-C", str(repo)])

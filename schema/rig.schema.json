@@ -2737,6 +2737,93 @@
       },
       "additionalProperties": false
     },
+    "lint_checks": {
+      "type": "object",
+      "description": "`rig lint check`: cognitive/cyclomatic complexity (pinned cccc) and file-line limits. Independent of `linters.*`; valid in the global and the repo layer (repo wins per key).",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "master switch for the check and its commit-time activation",
+          "default": true
+        },
+        "complexity": {
+          "type": "object",
+          "description": "per-function complexity limits; a value strictly above the limit fails",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "run the complexity check",
+              "default": true
+            },
+            "max_cognitive": {
+              "type": "integer",
+              "description": "cognitive complexity limit",
+              "default": 15,
+              "minimum": 1,
+              "maximum": 10000000
+            },
+            "max_cyclomatic": {
+              "type": "integer",
+              "description": "cyclomatic complexity limit",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 10000000
+            }
+          },
+          "additionalProperties": false
+        },
+        "file_lines": {
+          "type": "object",
+          "description": "physical line-count limits per file (warning above warn_above, error above error_above)",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "run the file-line check",
+              "default": true
+            },
+            "warn_above": {
+              "type": "integer",
+              "description": "lines above this warn (must be <= error_above)",
+              "default": 1200,
+              "minimum": 1,
+              "maximum": 10000000
+            },
+            "error_above": {
+              "type": "integer",
+              "description": "lines above this fail",
+              "default": 2400,
+              "minimum": 1,
+              "maximum": 10000000
+            },
+            "exempt_extensions": {
+              "type": "array",
+              "description": "lowercase extensions without a dot that are exempt from the file-line check",
+              "default": [
+                "json"
+              ],
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+$"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "ci": {
+          "type": "object",
+          "description": "where the rendered CI workflow installs rig from; the workflow is only written when this is set",
+          "properties": {
+            "rig_source": {
+              "type": "string",
+              "description": "immutable `git+https://<host>/<path>@<40-hex commit sha>` of a rig-cli that has `rig lint check`",
+              "pattern": "^(?!.*\\.\\.)git\\+https://[a-z0-9][a-z0-9.-]*(?::(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?/[A-Za-z0-9._~/-]+@[0-9a-f]{40}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "project_tools": {
       "type": "object",
       "description": "repo-local integration carriers for Haft, Serena, and Sverklo.",

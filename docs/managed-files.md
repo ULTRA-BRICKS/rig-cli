@@ -48,3 +48,15 @@ the allow-list in `riglib/profile_files.py` and is `portable`; everything else r
 `~/.tmux.conf` is split by `tmux.split_user_and_managed`: the sentinel block (block mode) and the
 `source-file …/rig.tmux.conf` import line (import mode) are marker-managed and stay on the machine;
 the rest is the user's and travels.
+
+## Files owned by `lint_checks`
+
+`lint_checks` (default on, see [lint-check.md](lint-check.md)) writes two rig-rendered files and one binary. All three
+are reconciled by `rig apply` and compared by `rig status` against the same renderer. The hook and the binary are
+machine-wide: they follow the GLOBAL layer's `lint_checks` intent (never one repo's `rig.yaml`); only the workflow is per repo.
+
+| Class | Target | Rule |
+| --- | --- | --- |
+| `generated` | `<git_hooks.dispatcher.dir>/pre-commit/30-lint-check` (default `~/.config/git/global-hooks.d`) | whole file, executable; pins the absolute `rig` path; carries `# global-hook-protected: true` (a tracked `.githooks-skip` / `GLOBAL_HOOKS_SKIP` cannot disable it); written only after the analyzer verified; a hand edit is backed up (`on_conflict: backup`) and restored |
+| `generated` | `.github/workflows/rig-lint-check.yml` | whole file (per repo, from the merged config; not written when that repo disables `lint_checks`), carries the managed header; installs rig from the configured immutable `lint_checks.ci.rig_source` commit and the pinned analyzer (digests verified, placed where `rig` looks) unless that repo itself disables complexity (CI never reads the global config); **not written while `lint_checks.ci.rig_source` is unset**; bytes never depend on the rig version |
+| `source-backed` (upstream release) | `${XDG_DATA_HOME:-~/.local/share}/rig/cccc/v<version>/cccc` | byte-identical to the pinned release (sha256 checked on every use); extracted from the tarball's single top-level `cccc` member; never on `PATH`; a mismatching file is backed up without exec bits, never trusted |
