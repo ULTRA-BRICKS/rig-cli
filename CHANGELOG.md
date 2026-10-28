@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.73.0
+
+### Changed
+- The omp guard still denies every Runpod creation path, now with one message that names the replacement:
+  `Runpod is removed (owner tg#25309): heavy work goes to the server: server-run -- <cmd>` (rig-cli#786). The
+  `runpod-budget-write` and `runpod-run-script-write` rules (runpod-run state protection) are gone with `runpod-run`.
+
 ## 0.72.0
 
 ### Added

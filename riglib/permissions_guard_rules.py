@@ -87,8 +87,8 @@ SIGNAL_MATCHERS: dict[str, str] = {
     "kill_computed_pid": "kill $(…)|`…`|unchecked $VAR · … | xargs kill",
 }
 
-# Runpod spend matchers (rig-cli#714). Agents rent Runpod compute only through ``runpod-run`` (its
-# budget, pod cap and TTL); these families catch the paths around it that no argv prefix can:
+# Runpod matchers (rig-cli#714). Runpod is removed (owner order tg#25309); these families catch the
+# creation paths that no argv prefix can:
 #   ``http_write_url`` — a curl/wget/http/xh stage whose effective method is POST, PUT or PATCH (or
 #                        an explicit method the guard cannot resolve) to a URL whose host is one of
 #                        ``tokens`` or a subdomain of one, and whose decoded, normalized path
@@ -106,7 +106,8 @@ SIGNAL_MATCHERS: dict[str, str] = {
 #                        install, ln, rm, chmod, truncate, ``dd of=``, ``sed -i``, ``perl -i``) on a
 #                        path matching one of the ``tokens`` globs (``~/``-anchored or absolute;
 #                        ``*`` stays in one segment, a trailing ``/**`` also covers the directory).
-#                        Reads are never matched.
+#                        Reads are never matched. No current rule uses this matcher (the runpod-run
+#                        state rules went with runpod-run, owner order tg#25309); it stays generic.
 # ``code_pattern`` gains one opt-in flag for the same incident class: ``flags=("word",)`` matches
 # the needle as a whole word ANYWHERE in the eval source — a GraphQL operation name lives inside
 # query text, never as the quoted command name the default code_pattern shape looks for.
@@ -299,10 +300,9 @@ def _signal_hint(what: str) -> str:
     return f"{what} — {_SIGNAL_INCIDENT}. Instead, {_SIGNAL_SAFE}"
 
 
-# rig-cli#714: every Runpod creation path outside runpod-run shares one reason.
+# Owner order tg#25309: Runpod is removed; every creation path shares one reason.
 _RUNPOD_CREATE_HINT = (
-    "use runpod-run — creating Runpod pods, endpoints or clusters directly bypasses its budget, "
-    "pod cap and TTL"
+    "Runpod is removed (owner tg#25309): heavy work goes to the server: server-run -- <cmd>"
 )
 # (rule id, argv prefix). `pods` is runpodctl's alias of `pod`, `sls` of `serverless`; `create
 # pod(s)` is the deprecated top-level form, still shipped.
@@ -454,10 +454,8 @@ OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
                            "the session leader, gnome-shell/gnome-session/Xwayland, the tmux "
                            "server or an omp session (yours or another's)"),
               "signal_protected"),
-    # rig-cli#714 — see the Runpod spend matchers above. runpod-run is the ONE sanctioned way an
-    # agent rents Runpod compute (budget, pod cap, TTL); every other creation path is denied, and
-    # so is any agent write to runpod-run's budget ledger or its installed script/skill. runpod-run
-    # itself is unaffected: its own runpodctl/curl calls are subprocesses, not tool calls.
+    # rig-cli#714, owner order tg#25309 — see the Runpod matchers above. Runpod is removed: every
+    # creation path is denied with one message that names server-run.
     *(
         GuardRule(rule_id, _RUNPOD_CREATE_HINT, "argv_prefix", tokens)
         for rule_id, tokens in _RUNPOD_CREATE_ARGV
@@ -471,22 +469,9 @@ OMP_GUARD_DENY_RULES: tuple[GuardRule, ...] = (
                "mcp__runpod_deploy_hub_repo"),
               scope=MATCHER_SCOPES["mcp_tool"]),
     # update-endpoint also renames and scales to zero; only raising workers above zero rents
-    GuardRule("runpod-mcp-scale-up",
-              "use runpod-run — scaling a Runpod endpoint above zero workers directly bypasses its "
-              "budget, pod cap and TTL",
+    GuardRule("runpod-mcp-scale-up", _RUNPOD_CREATE_HINT,
               "mcp_tool", ("mcp__runpod_update_endpoint",), flags=("workersMin", "workersMax"),
               scope=MATCHER_SCOPES["mcp_tool"]),
-    GuardRule("runpod-budget-write",
-              "use runpod-run — its budget ledger (~/.config/runpod-run/budget*) is runpod-run's "
-              "own state; agents never edit it",
-              "write_path", ("~/.config/runpod-run/budget*",), scope=MATCHER_SCOPES["write_path"]),
-    # the INSTALLED copy only: the agent-tools source (skills/universal/runpod-offload) stays
-    # editable in a worktree, and `rig apply` installs it as a subprocess, not a tool call
-    GuardRule("runpod-run-script-write",
-              "use runpod-run as installed — change it in the agent-tools source "
-              "(skills/universal/runpod-offload) and run `rig apply`, never the installed copy",
-              "write_path", ("~/.agents/skills/runpod-offload/**", "~/.local/bin/runpod-run"),
-              scope=MATCHER_SCOPES["write_path"]),
     # GraphQL from an eval cell (fetch/requests): only the two pod-renting operation names — the
     # other GraphQL create names (createCluster, saveEndpoint, …) are common identifiers in
     # unrelated code, so the eval scan would false-positive on them

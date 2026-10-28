@@ -561,11 +561,11 @@ CLAUDE_CODE_DENY_RULES: tuple[str, ...] = (
     # removes the prompt AND the location-bypass. CC-only (no EnterWorktree equivalent
     # on opencode/codex/omp).
     "EnterWorktree",
-    # rig-cli#714: Runpod compute is rented only through runpod-run. The argv forms mirror the
-    # omp guard's argv rules (prefix-only: `runpodctl -o json pod create` and the guard's
-    # HTTP/GraphQL/write-path rules stay omp-only). The Runpod MCP create/deploy tools are
-    # WHOLE-TOOL denies (Claude Code names MCP tools mcp__<server>__<tool>, Runpod's tool names
-    # are hyphenated) — none of them has a legitimate agent use outside runpod-run.
+    # rig-cli#714, owner order tg#25309: Runpod is removed, heavy work goes to the server. The argv
+    # forms mirror the omp guard's argv rules (prefix-only: `runpodctl -o json pod create` and the
+    # guard's HTTP/GraphQL rules stay omp-only). The Runpod MCP create/deploy tools are WHOLE-TOOL
+    # denies (Claude Code names MCP tools mcp__<server>__<tool>, Runpod's tool names are
+    # hyphenated).
     *(f"Bash({' '.join(tokens)}:*)" for _, tokens in _RUNPOD_CREATE_ARGV),
     "mcp__runpod__create-pod",
     "mcp__runpod__create-endpoint",
@@ -620,7 +620,7 @@ OPENCODE_DENY_RULES: tuple[str, ...] = (
     "rg*--pre *",
     "rg*--pre=*",
     "rg*--pre",
-    # rig-cli#714: direct Runpod creation goes through runpod-run (same argv forms as claude-code)
+    # rig-cli#714, owner order tg#25309: Runpod is removed (same argv forms as claude-code)
     *(" ".join(tokens) + "*" for _, tokens in _RUNPOD_CREATE_ARGV),
 )
 OPENCODE_ASK_RULES: tuple[str, ...] = (
@@ -773,7 +773,7 @@ CODEX_DENY_RULES: tuple[tuple[str, ...], ...] = (
     ("screencapture",),
     ("osascript",),
     ("rg", "--pre"),
-    # rig-cli#714: unambiguous full-command bans — Runpod compute goes through runpod-run
+    # rig-cli#714, owner order tg#25309: unambiguous full-command bans — Runpod is removed
     *(tokens for _, tokens in _RUNPOD_CREATE_ARGV),
 )
 

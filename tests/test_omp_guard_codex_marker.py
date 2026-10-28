@@ -149,8 +149,6 @@ def test_guard_rules_cover_the_same_intents_as_the_glob_belts():
         "runpod-graphql-create",
         "runpod-mcp-create",
         "runpod-mcp-scale-up",
-        "runpod-budget-write",
-        "runpod-run-script-write",
         "eval-runpod-graphql-deploy",
         "eval-runpod-graphql-rent",
     }

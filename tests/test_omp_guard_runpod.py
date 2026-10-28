@@ -1,16 +1,14 @@
-"""Runpod spend rules of the generated omp guard (rig-cli#714), EXECUTED under bun.
+"""Runpod deny rules of the generated omp guard (rig-cli#714, reworked by owner order tg#25309),
+EXECUTED under bun.
 
-Agents must rent Runpod compute only through ``runpod-run`` (its budget, pod cap and TTL). The
-guard denies every direct creation path an agent has — ``runpodctl``/``flash`` argv, raw
-HTTP/GraphQL writes to ``*.runpod.io``, the Runpod MCP create/deploy/scale-up devices, GraphQL
-from an eval cell — and every agent write to runpod-run's budget ledger or its installed
-script/skill (write/edit/apply_patch tool calls and bash write shapes).
+Runpod is removed: heavy work runs on the owner's server through ``server-run``. The guard denies
+every Runpod creation path an agent has — ``runpodctl``/``flash`` argv, raw HTTP/GraphQL writes
+to ``*.runpod.io``, the Runpod MCP create/deploy/scale-up devices, GraphQL from an eval cell —
+with one message that names ``server-run``.
 
 Like ``tests/test_omp_guard_signals.py``, these tests run the GENERATED TS, not a Python
 re-implementation: one table goes through the exported ``evaluateToolCall`` AND the real
-``tool_call`` handler, both of which must agree. Paths resolve against a FAKE ``$HOME`` (bun runs
-with ``HOME`` pointed at a temp tree that carries the same symlinks as this machine:
-``~/.local/bin/runpod-run`` → the installed skill copy).
+``tool_call`` handler, both of which must agree.
 """
 
 from __future__ import annotations
@@ -44,15 +42,13 @@ RUNPOD_RULE_IDS = (
     "runpod-graphql-create",
     "runpod-mcp-create",
     "runpod-mcp-scale-up",
-    "runpod-budget-write",
-    "runpod-run-script-write",
     "eval-runpod-graphql-deploy",
     "eval-runpod-graphql-rent",
 )
 
+REMOVED_HINT = "Runpod is removed (owner tg#25309): heavy work goes to the server: server-run -- <cmd>"
+
 ALLOW = "allow"
-BUDGET = "deny:runpod-budget-write"
-SCRIPT = "deny:runpod-run-script-write"
 HTTP = "deny:runpod-http-create"
 GRAPHQL = "deny:runpod-graphql-create"
 MCP = "deny:runpod-mcp-create"
@@ -67,16 +63,9 @@ def write(path, content="{}") -> tuple[str, dict]:
     return "write", {"path": path, "content": content}
 
 
-def edit(text, **extra) -> tuple[str, dict]:
-    return "edit", {"input": text, **extra}
-
 
 def mcp(tool: str, content="{}") -> tuple[str, dict]:
     return write(f"xd://{tool}", content)
-
-
-def hashline(path: str) -> str:
-    return f"[{path}#ABCD]\nPUT 1.=1:\n+x\n"
 
 
 _GQL_CREATE = '{"query":"mutation { podFindAndDeployOnDemand(input: {gpuCount: 1}) { id } }"}'
@@ -86,8 +75,7 @@ _EVAL_FETCH = (
     'body: JSON.stringify({query: "mutation { %s(input: {}) { id } }"})});'
 )
 
-# (name, (toolName, input), expected). `{HOME}` is replaced by the fake home's absolute path; the
-# cwd of every call is `{HOME}/work`.
+# (name, (toolName, input), expected); the cwd of every call is `<fake home>/work`.
 CASES: list[tuple[str, tuple[str, dict], str]] = [
     # ── runpodctl / flash argv ────────────────────────────────────────────────────────────
     ("runpodctl pod create", bash("runpodctl pod create --gpu-id x --image y"), "deny:runpodctl-pod-create"),
@@ -111,8 +99,8 @@ CASES: list[tuple[str, tuple[str, dict], str]] = [
     ("runpodctl billing", bash("runpodctl billing pods --bucket-size day"), ALLOW),
     ("runpodctl doctor", bash("runpodctl doctor"), ALLOW),
     ("flash --help", bash("flash --help"), ALLOW),
-    ("runpod-run dry run", bash("runpod-run --dry-run -- pytest tests"), ALLOW),
-    ("runpod-run status", bash("runpod-run --status"), ALLOW),
+    ("runpod-run budget ledger is no longer protected", write("~/.config/runpod-run/budget.json"), ALLOW),
+    ("runpod-run installed script is no longer protected", bash("echo 0 > ~/.local/bin/runpod-run"), ALLOW),
     ("echo mentions pod create", bash("echo runpodctl pod create"), ALLOW),
     ("commit message mentions pod create", bash("git commit -m 'deny runpodctl pod create'"), ALLOW),
     # ── raw HTTP writes to *.runpod.io ────────────────────────────────────────────────────
@@ -193,80 +181,6 @@ CASES: list[tuple[str, tuple[str, dict], str]] = [
     ("mcp delete_pod", mcp("mcp__runpod_delete_pod", '{"podId":"p"}'), ALLOW),
     ("mcp delete_endpoint", mcp("mcp__runpod_delete_endpoint", '{"endpointId":"e"}'), ALLOW),
     ("read the create_pod device docs", ("read", {"path": "xd://mcp__runpod_create_pod"}), ALLOW),
-    # ── write/edit/apply_patch to runpod-run's protected paths ────────────────────────────
-    ("write budget via ~", write("~/.config/runpod-run/budget.json"), BUDGET),
-    ("write budget absolute", write("{HOME}/.config/runpod-run/budget"), BUDGET),
-    ("write budget via $HOME", write("$HOME/.config/runpod-run/budget-ledger.jsonl"), BUDGET),
-    ("write budget relative to cwd", write("../.config/runpod-run/budget.json"), BUDGET),
-    ("write budget through ..", write("~/.config/runpod-run/../runpod-run/budget.json"), BUDGET),
-    ("write budget through a file symlink", write("~/sneaky"), BUDGET),
-    ("write new budget file through a dir symlink", write("~/linkdir/budget-new.json"), BUDGET),
-    ("write runpod-run config (not budget)", write("~/.config/runpod-run/config.toml"), ALLOW),
-    ("write installed script", write("~/.local/bin/runpod-run"), SCRIPT),
-    ("write installed skill file", write("~/.agents/skills/runpod-offload/SKILL.md"), SCRIPT),
-    ("write lookalike skill dir", write("~/.agents/skills/runpod-offloader/SKILL.md"), ALLOW),
-    ("write in the worktree", write("src/app.py"), ALLOW),
-    ("write with a non-string path", ("write", {"path": 42, "content": "x"}), ALLOW),
-    ("write with no input", ("write", None), ALLOW),
-    ("edit installed script hashline", edit(hashline("~/.agents/skills/runpod-offload/runpod-run")), SCRIPT),
-    ("edit agent-tools source copy", edit(hashline("~/dev/agent-tools/skills/universal/runpod-offload/runpod-run")), ALLOW),
-    ("edit second section protected", edit(hashline("src/a.py") + hashline("~/.local/bin/runpod-run")), SCRIPT),
-    ("edit MV onto installed script", edit("[src/a.py#ABCD]\nMV ~/.local/bin/runpod-run\n"), SCRIPT),
-    ("edit body row naming the script", edit("[src/a.py#ABCD]\nPUT 1.=1:\n+[~/.local/bin/runpod-run#ABCD]\n"), ALLOW),
-    ("edit malformed input on a protected path", ("edit", {"path": "~/.local/bin/runpod-run", "input": 5}), SCRIPT),
-    ("edit malformed input elsewhere", ("edit", {"input": 5}), ALLOW),
-    ("apply_patch update installed script", ("apply_patch", {"input": "*** Begin Patch\n*** Update File: ~/.local/bin/runpod-run\n@@\n-a\n+b\n*** End Patch\n"}), SCRIPT),
-    ("apply_patch move onto budget", ("apply_patch", {"patch": "*** Begin Patch\n*** Update File: notes.txt\n*** Move to: ~/.config/runpod-run/budget.json\n*** End Patch\n"}), BUDGET),
-    ("apply_patch add file in worktree", ("apply_patch", {"input": "*** Begin Patch\n*** Add File: src/new.py\n+x\n*** End Patch\n"}), ALLOW),
-    # ── bash write shapes on protected paths ──────────────────────────────────────────────
-    ("redirect into budget", bash("echo 0 > ~/.config/runpod-run/budget.json"), BUDGET),
-    ("clobber redirect into budget", bash("echo 0 >| ~/.config/runpod-run/budget.json"), BUDGET),
-    ("&> redirect into installed script", bash("echo x &> ~/.local/bin/runpod-run"), SCRIPT),
-    ("append into budget", bash("echo 0 >> ~/.config/runpod-run/budget.json"), BUDGET),
-    ("stderr redirect into budget", bash("ls 2>~/.config/runpod-run/budget.json"), BUDGET),
-    ("tee -a into budget", bash("echo 0 | tee -a ~/.config/runpod-run/budget.json"), BUDGET),
-    ("sudo tee installed script", bash("sudo tee ~/.local/bin/runpod-run < /tmp/x"), SCRIPT),
-    ("cp over installed script", bash("cp /tmp/x ~/.local/bin/runpod-run"), SCRIPT),
-    ("cp into the budget dir", bash("cp /tmp/budget.json ~/.config/runpod-run/"), BUDGET),
-    ("cp -t into the budget dir", bash("cp -t ~/.config/runpod-run budget.json"), BUDGET),
-    ("mv installed script away", bash("mv ~/.local/bin/runpod-run /tmp/old"), SCRIPT),
-    ("mv a file named runpod-run into ~/.local/bin", bash("mv /tmp/runpod-run ~/.local/bin/"), SCRIPT),
-    ("install over installed script", bash("install -m 755 /tmp/x ~/.local/bin/runpod-run"), SCRIPT),
-    ("ln -sf over installed script", bash("ln -sf /tmp/evil ~/.local/bin/runpod-run"), SCRIPT),
-    ("rm budget", bash("rm ~/.config/runpod-run/budget.json"), BUDGET),
-    ("rm -rf installed skill dir", bash("rm -rf ~/.agents/skills/runpod-offload"), SCRIPT),
-    ("rm -rf an ancestor of the budget", bash("rm -rf ~/.config"), BUDGET),
-    ("rm glob inside the budget dir", bash("rm ~/.config/runpod-run/*"), BUDGET),
-    ("rm glob matching the installed script", bash("rm -f ~/.local/bin/runpod-*"), SCRIPT),
-    ("chmod installed script", bash("chmod +x ~/.local/bin/runpod-run"), SCRIPT),
-    ("truncate budget", bash("truncate -s 0 ~/.config/runpod-run/budget.json"), BUDGET),
-    ("dd of= budget", bash("dd if=/dev/zero of=$HOME/.config/runpod-run/budget.json count=1"), BUDGET),
-    ("sed -i installed script", bash("sed -i 's/a/b/' ~/.local/bin/runpod-run"), SCRIPT),
-    ("sed -i.bak installed script", bash("sed -i.bak -e 's/a/b/' ~/.local/bin/runpod-run"), SCRIPT),
-    ("perl -pi installed script", bash("perl -pi -e 's/a/b/' ~/.local/bin/runpod-run"), SCRIPT),
-    ("cd then relative redirect", bash("cd ~/.config/runpod-run && echo 0 > budget.json"), BUDGET),
-    ("failed cd keeps the old cwd", bash("cd /nonexistent; echo 0 > ../.config/runpod-run/budget.json"), BUDGET),
-    ("bash -c redirect into budget", bash("bash -c 'echo 0 > ~/.config/runpod-run/budget.json'"), BUDGET),
-    ("redirect through a file symlink", bash("echo 0 > ~/sneaky"), BUDGET),
-    ("cat budget", bash("cat ~/.config/runpod-run/budget.json"), ALLOW),
-    ("less installed script", bash("less ~/.local/bin/runpod-run"), ALLOW),
-    ("grep installed script", bash("grep -n budget ~/.local/bin/runpod-run"), ALLOW),
-    ("sed -n read of installed script", bash("sed -n 1,20p ~/.local/bin/runpod-run"), ALLOW),
-    ("cp budget out (a read)", bash("cp ~/.config/runpod-run/budget.json /tmp/budget-copy.json"), ALLOW),
-    # a link gives the protected file a second, unprotected name the next stage could write
-    ("ln -s naming the installed script", bash("ln -s ~/.local/bin/runpod-run /tmp/rr"), SCRIPT),
-    ("ln -s then write through the link", bash("ln -s ~/.config/runpod-run/budget.json /tmp/b && echo 0 > /tmp/b"), BUDGET),
-    ("hard link to the budget", bash("ln ~/.config/runpod-run/budget.json /tmp/h"), BUDGET),
-    ("one-operand ln -s into cwd", bash("ln -s ~/.config/runpod-run/budget.json"), BUDGET),
-    ("cp -s symlink of the budget", bash("cp -s ~/.config/runpod-run/budget.json /tmp/b"), BUDGET),
-    ("ln -s to an unrelated file", bash("ln -s /tmp/tool ~/.local/bin/tool"), ALLOW),
-    ("read budget then redirect elsewhere", bash("cat ~/.config/runpod-run/budget.json > /tmp/b"), ALLOW),
-    ("mv an unrelated file into ~/.local/bin", bash("mv /tmp/tool ~/.local/bin/"), ALLOW),
-    ("rm unrelated cache", bash("rm -rf ~/.cache/foo"), ALLOW),
-    ("rm unrelated glob in home", bash("rm -f ~/*.log"), ALLOW),
-    ("rm a file named [", bash("rm /tmp/["), ALLOW),
-    ("rm a file named a][", bash("rm '/tmp/a]['"), ALLOW),
-    ("sed -i agent-tools source copy", bash("sed -i 's/a/b/' ~/dev/agent-tools/skills/universal/runpod-offload/runpod-run"), ALLOW),
     # ── eval cells ───────────────────────────────────────────────────────────────────────
     ("eval GraphQL podFindAndDeployOnDemand", ("eval", {"language": "js", "code": _EVAL_FETCH % "podFindAndDeployOnDemand"}), "deny:eval-runpod-graphql-deploy"),
     ("eval GraphQL podRentInterruptable", ("eval", {"language": "js", "code": _EVAL_FETCH % "podRentInterruptable"}), "deny:eval-runpod-graphql-rent"),
@@ -311,34 +225,7 @@ def _bun() -> str | None:
 
 
 def _fake_home(home: Path) -> None:
-    """The protected layout of this machine: the budget ledger, the installed skill copy, and
-    ``~/.local/bin/runpod-run`` as a symlink to it — plus two symlinks a write could hide behind
-    and the agent-tools source copy that stays editable."""
-    budget_dir = home / ".config" / "runpod-run"
-    budget_dir.mkdir(parents=True)
-    (budget_dir / "budget.json").write_text("{}\n", encoding="utf-8")
-    skill = home / ".agents" / "skills" / "runpod-offload"
-    skill.mkdir(parents=True)
-    (skill / "runpod-run").write_text("#!/bin/sh\n", encoding="utf-8")
-    (skill / "SKILL.md").write_text("# runpod-offload\n", encoding="utf-8")
-    (home / ".local" / "bin").mkdir(parents=True)
-    (home / ".local" / "bin" / "runpod-run").symlink_to(skill / "runpod-run")
-    (home / "sneaky").symlink_to(budget_dir / "budget.json")
-    (home / "linkdir").symlink_to(budget_dir)
-    source = home / "dev" / "agent-tools" / "skills" / "universal" / "runpod-offload"
-    source.mkdir(parents=True)
-    (source / "runpod-run").write_text("#!/bin/sh\n", encoding="utf-8")
-    (home / "work").mkdir()
-
-
-def _with_home(value, home: str):
-    if isinstance(value, str):
-        return value.replace("{HOME}", home)
-    if isinstance(value, dict):
-        return {k: _with_home(v, home) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_with_home(v, home) for v in value]
-    return value
+    (home / "work").mkdir(parents=True)
 
 
 def _guard_env(home: Path) -> dict[str, str]:
@@ -355,7 +242,7 @@ def verdicts(tmp_path_factory) -> dict[str, dict[str, str]]:
     _fake_home(home)
     (work / "guard.ts").write_text(render_guard_ts(), encoding="utf-8")
     (work / "run.mts").write_text(_RUNNER, encoding="utf-8")
-    table = [[n, tool, _with_home(inp, str(home))] for n, (tool, inp), _ in CASES]
+    table = [[n, tool, inp] for n, (tool, inp), _ in CASES]
     (work / "cases.json").write_text(json.dumps(table), encoding="utf-8")
     proc = subprocess.run(
         [bun, "run.mts", str(work / "cases.json"), str(home / "work")],
@@ -378,15 +265,21 @@ def test_runpod_rule_verdict(verdicts, name, call, expected):
     assert got == {"evaluated": expected, "handled": expected, "confirmed": expected}, f"{call!r}"
 
 
-def test_every_runpod_rule_is_a_deny_whose_hint_starts_with_use_runpod_run():
+def test_every_runpod_rule_is_a_deny_that_points_at_the_server():
     deny = {r.id: r for r in OMP_GUARD_DENY_RULES}
     assert not set(RUNPOD_RULE_IDS) & {r.id for r in OMP_GUARD_ASK_RULES}
     for rule_id in RUNPOD_RULE_IDS:
         assert rule_id in deny, rule_id
-        assert deny[rule_id].hint.startswith("use runpod-run"), rule_id
-    # and the list above is the whole family: a new runpod-run rule must be added here (and to
-    # the verdict table) too
-    assert {r.id for r in OMP_GUARD_DENY_RULES if r.hint.startswith("use runpod-run")} == set(RUNPOD_RULE_IDS)
+        assert deny[rule_id].hint == REMOVED_HINT, rule_id
+    # and the list above is the whole family: a new Runpod rule must be added here (and to the
+    # verdict table) too
+    assert {r.id for r in OMP_GUARD_DENY_RULES if r.hint == REMOVED_HINT} == set(RUNPOD_RULE_IDS)
+
+
+def test_runpod_run_steering_and_its_protected_paths_are_gone():
+    ids = {r.id for r in (*OMP_GUARD_DENY_RULES, *OMP_GUARD_ASK_RULES)}
+    assert not ids & {"runpod-budget-write", "runpod-run-script-write"}
+    assert not any("runpod-run" in r.hint for r in (*OMP_GUARD_DENY_RULES, *OMP_GUARD_ASK_RULES))
 
 
 def test_every_rule_scope_is_its_matchers_scope():
@@ -452,22 +345,18 @@ def test_check_cli_evaluates_a_non_bash_tool_call(tmp_path):
     deny = _check(bun, guard, home, "--tool", "write", "--input",
                   json.dumps({"path": "xd://mcp__runpod_create_pod", "content": "{}"}))
     assert deny.returncode == 2, deny.stdout + deny.stderr
-    assert deny.stdout.startswith("deny runpod-mcp-create: use runpod-run")
+    assert deny.stdout.startswith("deny runpod-mcp-create: Runpod is removed (owner tg#25309)")
+    assert deny.stdout.strip().endswith("heavy work goes to the server: server-run -- <cmd>")
 
     allow = _check(bun, guard, home, "--tool", "write", "--input",
                    json.dumps({"path": "xd://mcp__runpod_list_pods", "content": "{}"}))
     assert allow.returncode == 0, allow.stdout + allow.stderr
     assert allow.stdout.strip() == "allow"
 
-    edit_deny = _check(bun, guard, home, "--tool", "edit", "--input",
-                       json.dumps({"input": hashline("~/.local/bin/runpod-run")}))
-    assert edit_deny.returncode == 2, edit_deny.stdout + edit_deny.stderr
-    assert edit_deny.stdout.startswith("deny runpod-run-script-write: use runpod-run")
-
     via_tool = _check(bun, guard, home, "--tool", "bash", "--input",
                       json.dumps({"command": "runpodctl pod create --gpu-id x"}))
     assert via_tool.returncode == 2, via_tool.stdout + via_tool.stderr
-    assert via_tool.stdout.startswith("deny runpodctl-pod-create: use runpod-run")
+    assert via_tool.stdout.startswith("deny runpodctl-pod-create: Runpod is removed (owner tg#25309)")
 
     positional = _check(bun, guard, home, "runpodctl pod create --gpu-id x")
     assert positional.returncode == 2, positional.stdout + positional.stderr

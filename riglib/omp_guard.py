@@ -947,11 +947,11 @@ function computedTarget(call: SignalCall, st: Stage[], idx: number): boolean {
   });
 }
 
-// ── Runpod spend and runpod-run's own state (rig-cli#714) ──────────────────────────────────
-// runpod-run is the ONE way an agent rents Runpod compute (budget, pod cap, TTL). These matchers
-// see the paths around it no argv prefix can: raw HTTP/GraphQL writes (http_write_url), the MCP
-// create devices (mcp_tool) and writes to runpod-run's budget ledger or installed copy
-// (write_path, for tool calls and for bash).
+// ── Runpod creation paths and write targets (rig-cli#714, owner order tg#25309) ─────────────
+// Runpod is removed: heavy work runs on the server. These matchers see the paths no argv prefix
+// can: raw HTTP/GraphQL writes (http_write_url) and the MCP create devices (mcp_tool). The
+// write_path matcher (tool-call write targets and bash write shapes) is generic; no current rule
+// uses it.
 
 // JSON/JavaScript string escapes (`\uXXXX`, `\u{X…}`, `\xXX`) decoded the way the server or
 // interpreter reads the text — a name spelled with them is still that name.

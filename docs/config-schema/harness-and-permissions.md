@@ -467,7 +467,7 @@ the child `git worktree add` inside `rig` is not a gated tool call; prefix-only 
 that mentions "worktree add"), `EnterWorktree`
 (whole-tool deny on purpose: the tool can CREATE a worktree at a model-supplied path, which
 is the location-bypass `rig worktree create` exists to close — CC-only, no equivalent on
-opencode/codex/omp), and direct Runpod creation outside `runpod-run` (rig-cli#714):
+opencode/codex/omp), and Runpod creation, removed by owner order tg#25309 (rig-cli#714):
 `Bash(runpodctl pod create:*)`, `Bash(runpodctl pods create:*)`,
 `Bash(runpodctl serverless create:*)`, `Bash(runpodctl sls create:*)`,
 `Bash(runpodctl cluster create:*)`, `Bash(runpodctl create pod:*)`,
@@ -582,11 +582,10 @@ malformed invocation exits 64. Literal-PID verdicts are judged from the CHECKING
 omp scope, so run it from the session's own bash tool to get that session's verdict. A kill run
 as the first word of another command's `$(…)` stays the documented wrapper gap above.
 
-**omp guard: Runpod compute only through `runpod-run` (rig-cli#714).** `runpod-run` is the one
-sanctioned way an agent rents Runpod compute (its budget, pod cap and TTL). The guard denies every
-other creation path, and every agent write to runpod-run's own state; each reason starts with
-`use runpod-run`. `runpod-run` itself is unaffected — its own `runpodctl`/`curl` calls and `rig
-apply` installing the skill are subprocesses, not tool calls.
+**omp guard: Runpod is removed (rig-cli#714, owner order tg#25309).** Heavy work runs on the
+owner's server through `server-run -- <cmd>`. The guard denies every Runpod creation path an agent
+has; each reason reads `Runpod is removed (owner tg#25309): heavy work goes to the server:
+server-run -- <cmd>`. There is no sanctioned Runpod exception left.
 
 - DENY `runpodctl-pod-create`, `runpodctl-pods-create`, `runpodctl-serverless-create`,
   `runpodctl-sls-create`, `runpodctl-cluster-create`, `runpodctl-create-pod`,
@@ -611,18 +610,6 @@ apply` installing the skill are subprocesses, not tool calls.
   `xd://mcp__runpod_update_endpoint` whose JSON content sets `workersMin` or `workersMax` above
   zero at any depth, or cannot be parsed; renames and scale-to-zero pass. `list_*`, `get_*`,
   `delete_*` and reading a device's docs stay allowed.
-- DENY `runpod-budget-write` (`~/.config/runpod-run/budget*`) and `runpod-run-script-write`
-  (`~/.agents/skills/runpod-offload/**`, `~/.local/bin/runpod-run`): `write`/`edit` (hashline
-  `[PATH#TAG]` headers and `MV DEST`)/`apply_patch` (`*** Update|Add|Delete File:`, `*** Move to:`)
-  targets, and bash `>`/`>>`, `tee`, `truncate`, `rm`/`chmod` (an ancestor directory counts),
-  `cp`/`install`/`ln`/`mv` destinations (and `mv` sources), the SOURCE of a link (`ln`, `cp -l|-s`:
-  a second name a later stage could write through), `dd of=`, `sed -i`, `perl -i`.
-  Paths resolve `~`/`$HOME`, `..`, the session's cwd (after a `cd DIR` stage) and symlinks
-  (`~/.local/bin/runpod-run` → the installed skill); a shell glob operand counts when it can reach
-  a protected path. Reads (`cat`, `less`, `grep`, `sed -n`, `cp` out) and the agent-tools source
-  copy (`skills/universal/runpod-offload`) stay allowed. A malformed `write`/`edit` input is never
-  blocked for that alone — only when the fields it does carry name a protected path or a
-  Runpod MCP device.
 - DENY `eval-runpod-graphql-deploy` / `eval-runpod-graphql-rent`: an eval cell whose source names
   `podFindAndDeployOnDemand` / `podRentInterruptable` as a whole word, as written or with its
   `\u…`/`\x…` string escapes decoded (a name assembled at runtime, e.g. by concatenation, is not

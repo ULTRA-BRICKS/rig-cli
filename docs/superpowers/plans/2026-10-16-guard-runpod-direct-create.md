@@ -1,5 +1,7 @@
 # Guard: deny direct Runpod creation outside runpod-run — Implementation Plan
 
+> **Superseded by owner order tg#25309 (rig-cli#786):** Runpod is removed and `runpod-run` no longer exists. The guard still denies every Runpod creation path, but with the message `Runpod is removed (owner tg#25309): heavy work goes to the server: server-run -- <cmd>`; the `runpod-budget-write` and `runpod-run-script-write` rules and every `use runpod-run` hint below are gone. Read the rest as history.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** the generated omp guard (and the claude-code deny belt) denies every agent path that rents Runpod compute outside `runpod-run`, and every agent write to runpod-run's owner-only budget files or its installed script (rig-cli#714).
