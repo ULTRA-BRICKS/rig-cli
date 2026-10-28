@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 
 def _helper():
-    return importlib.import_module("tests.test_tmux_e2e")._wait_for_restored_pane_text
+    return importlib.import_module("tests.tmux_e2e_helpers")._wait_for_restored_pane_text
 
 
 class _FakeTmux:

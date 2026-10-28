@@ -30,14 +30,23 @@ import pytest
 from riglib import spotlight
 from riglib import tg_ctl as tgmod
 from riglib.actions import runner
+from riglib.actions import live_env as live_env_mod
+from riglib.actions import service_ctl as service_ctl_mod
+from riglib.actions import tg_ctl_action as tg_ctl_action_mod
+import subprocess
 from riglib import drift as driftmod
+from riglib import drift_services
 from riglib.plan import Action, InstallPlan
+from riglib.actions import shared as shared_mod
+from riglib.actions import tmux as tmux_mod
 
 # The genuine handlers + launchctl seams, captured at import (before conftest's autouse stubs).
-_REAL = {
-    name: getattr(runner, name)
+_REAL_HANDLERS = {
+    name: getattr(runner, name) for name in ("_do_provision_tg_ctl", "_do_provision_schedule")
+}
+_REAL_LAUNCHCTL = {
+    name: getattr(service_ctl_mod, name)
     for name in (
-        "_do_provision_tg_ctl", "_do_provision_schedule",
         "_launchctl", "_launchctl_loaded", "_launchctl_load_enable",
         "_launchctl_bootstrap", "_launchctl_bootout", "_launchctl_gui_loaded",
     )
@@ -47,22 +56,24 @@ _REAL = {
 @pytest.fixture(autouse=True)
 def _live_paths(monkeypatch):
     """Restore the real handlers + seams, clear every DRY_RUN env, pin darwin, forbid launchctl."""
-    for name, fn in _REAL.items():
+    for name, fn in _REAL_HANDLERS.items():
         monkeypatch.setattr(runner, name, fn)
-    monkeypatch.setitem(runner._HANDLERS, "provision_tg_ctl", _REAL["_do_provision_tg_ctl"])
-    monkeypatch.setitem(runner._HANDLERS, "provision_schedule", _REAL["_do_provision_schedule"])
+    for name, fn in _REAL_LAUNCHCTL.items():
+        monkeypatch.setattr(service_ctl_mod, name, fn)
+    monkeypatch.setitem(runner._HANDLERS, "provision_tg_ctl", _REAL_HANDLERS["_do_provision_tg_ctl"])
+    monkeypatch.setitem(runner._HANDLERS, "provision_schedule", _REAL_HANDLERS["_do_provision_schedule"])
     for var in ("RIG_TG_CTL_DRY_RUN", "RIG_SCHEDULE_DRY_RUN", "RIG_TMUX_DRY_RUN", "RIG_SPOTLIGHT_DRY_RUN"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setattr(sys, "platform", "darwin")
 
-    real_run = runner.subprocess.run
+    real_run = subprocess.run
 
     def _guarded_run(argv, *a, **kw):
         if argv and argv[0] == "launchctl":
             raise AssertionError(f"live launchctl reached from a sandboxed HOME: {argv}")
         return real_run(argv, *a, **kw)
 
-    monkeypatch.setattr(runner.subprocess, "run", _guarded_run)
+    monkeypatch.setattr(subprocess, "run", _guarded_run)
 
 
 def _sandbox_home(monkeypatch, tmp_path: Path) -> Path:
@@ -75,26 +86,26 @@ def _sandbox_home(monkeypatch, tmp_path: Path) -> Path:
 
 def _unsandbox(monkeypatch, home: Path) -> None:
     """Make the FAKE home count as the login home (never point Path.home at the real one)."""
-    monkeypatch.setattr(runner, "_real_login_home", lambda: home.resolve())
+    monkeypatch.setattr(live_env_mod, "_real_login_home", lambda: home.resolve())
 
 
 # ── the predicate ──────────────────────────────────────────────────────────────────────
 def test_skip_reason_renders_unknown_login_home_readably(monkeypatch, tmp_path):
     _sandbox_home(monkeypatch, tmp_path)
-    monkeypatch.setattr(runner, "_real_login_home", lambda: None)
-    reason = runner._live_skip_reason("RIG_TG_CTL_DRY_RUN", "launchctl bootstrap")
+    monkeypatch.setattr(live_env_mod, "_real_login_home", lambda: None)
+    reason = live_env_mod._live_skip_reason("RIG_TG_CTL_DRY_RUN", "launchctl bootstrap")
     assert "unknown login home" in reason and "None" not in reason
 
 
 def test_home_is_sandboxed_when_path_home_differs_from_login_home(monkeypatch, tmp_path):
     _sandbox_home(monkeypatch, tmp_path)
-    assert runner._home_is_sandboxed() is True
+    assert live_env_mod._home_is_sandboxed() is True
 
 
 def test_home_is_not_sandboxed_when_they_match(monkeypatch, tmp_path):
     home = _sandbox_home(monkeypatch, tmp_path)
     _unsandbox(monkeypatch, home)
-    assert runner._home_is_sandboxed() is False
+    assert live_env_mod._home_is_sandboxed() is False
 
 
 def test_home_comparison_resolves_symlinks(monkeypatch, tmp_path):
@@ -104,20 +115,20 @@ def test_home_comparison_resolves_symlinks(monkeypatch, tmp_path):
     link = tmp_path / "link"
     link.symlink_to(real, target_is_directory=True)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: link))
-    monkeypatch.setattr(runner, "_real_login_home", lambda: real)
-    assert runner._home_is_sandboxed() is False
+    monkeypatch.setattr(live_env_mod, "_real_login_home", lambda: real)
+    assert live_env_mod._home_is_sandboxed() is False
 
 
 def test_unknown_login_home_is_sandboxed_fail_closed(monkeypatch, tmp_path):
     _sandbox_home(monkeypatch, tmp_path)
-    monkeypatch.setattr(runner, "_real_login_home", lambda: None)
-    assert runner._home_is_sandboxed() is True
+    monkeypatch.setattr(live_env_mod, "_real_login_home", lambda: None)
+    assert live_env_mod._home_is_sandboxed() is True
 
 
 def test_real_login_home_comes_from_the_passwd_database():
     pwd = pytest.importorskip("pwd")
 
-    assert runner._real_login_home() == Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
+    assert live_env_mod._real_login_home() == Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
 
 
 # ── tg_ctl ─────────────────────────────────────────────────────────────────────────────
@@ -156,9 +167,9 @@ def test_tg_ctl_real_home_bootstraps(monkeypatch, tmp_path):
     home = _sandbox_home(monkeypatch, tmp_path)
     _unsandbox(monkeypatch, home)
     spy: list = []
-    monkeypatch.setattr(runner, "_launchctl_bootout", lambda p: spy.append(("bootout", p)) or 0)
-    monkeypatch.setattr(runner, "_launchctl_bootstrap", lambda p: spy.append(("bootstrap", p)) or 0)
-    monkeypatch.setattr(runner, "_launchctl_gui_loaded", lambda label: False)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_bootout", lambda p: spy.append(("bootout", p)) or 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_bootstrap", lambda p: spy.append(("bootstrap", p)) or 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_gui_loaded", lambda label: False)
     res = runner._do_provision_tg_ctl(_tg_action(home), "backup")
     assert res.status == "created"
     assert [v for v, _ in spy] == ["bootout", "bootstrap"]
@@ -198,7 +209,7 @@ def test_schedule_sandboxed_reapply_with_current_plist_never_probes_launchd(monk
 
 def test_schedule_systemd_sandboxed_home_never_enables(monkeypatch, tmp_path):
     home = _sandbox_home(monkeypatch, tmp_path)
-    monkeypatch.setattr(runner, "_systemctl_user", lambda *args: pytest.fail(f"systemctl --user {args}"))
+    monkeypatch.setattr(service_ctl_mod, "_systemctl_user", lambda *args: pytest.fail(f"systemctl --user {args}"))
     action = _schedule_action(home)
     action.options["platform"] = "systemd"
     res = runner._do_provision_schedule(action, "backup")
@@ -210,8 +221,8 @@ def test_schedule_real_home_loads(monkeypatch, tmp_path):
     home = _sandbox_home(monkeypatch, tmp_path)
     _unsandbox(monkeypatch, home)
     calls: list = []
-    monkeypatch.setattr(runner, "_launchctl", lambda verb, arg: calls.append(verb) or 0)
-    monkeypatch.setattr(runner, "_launchctl_loaded", lambda label: False)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl", lambda verb, arg: calls.append(verb) or 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_loaded", lambda label: False)
     res = runner._do_provision_schedule(_schedule_action(home), "backup")
     assert res.status == "created" and "load" in calls
 
@@ -234,7 +245,7 @@ def test_tmux_sandboxed_home_writes_artifacts_but_skips_live_activation(monkeypa
     def _no_clone(repo, dest):
         raise AssertionError(f"live plugin clone from a sandboxed HOME: {repo}")
 
-    monkeypatch.setattr(runner, "_git_clone", _no_clone)
+    monkeypatch.setattr(shared_mod, "_git_clone", _no_clone)
     res = runner._do_provision_tmux(_tmux_action(home), "backup")
     assert res.status == "created"  # the sandbox note is a warning, never an error status
     assert (home / ".config" / "rig" / "tmux" / "rig.tmux.conf").is_file()
@@ -246,14 +257,14 @@ def test_tmux_real_home_runs_the_activation(monkeypatch, tmp_path):
     home = _sandbox_home(monkeypatch, tmp_path)
     _unsandbox(monkeypatch, home)
     loads: list = []
-    monkeypatch.setattr(runner, "_git_clone", lambda repo, dest: Path(dest).mkdir(parents=True, exist_ok=True) or 0)
-    monkeypatch.setattr(runner, "_launchctl_loaded", lambda label: False)
-    monkeypatch.setattr(runner, "_launchctl_load_enable", lambda plist: loads.append(str(plist)) or 0)
-    monkeypatch.setattr(runner, "_launchctl_gui_loaded", lambda label: True)
-    monkeypatch.setattr(runner, "_launchctl_bootout", lambda p: 0)
-    monkeypatch.setattr(runner, "_launchctl_bootstrap", lambda p: 0)
-    monkeypatch.setattr(runner, "_tmux_resurrect_save", lambda plan: 0)
-    monkeypatch.setattr(runner, "_clean_stale_continuum_boot", lambda plan: False)
+    monkeypatch.setattr(shared_mod, "_git_clone", lambda repo, dest: Path(dest).mkdir(parents=True, exist_ok=True) or 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_loaded", lambda label: False)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_load_enable", lambda plist: loads.append(str(plist)) or 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_gui_loaded", lambda label: True)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_bootout", lambda p: 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_bootstrap", lambda p: 0)
+    monkeypatch.setattr(tmux_mod, "_tmux_resurrect_save", lambda plan: 0)
+    monkeypatch.setattr(tmux_mod, "_clean_stale_continuum_boot", lambda plan: False)
     res = runner._do_provision_tmux(_tmux_action(home), "backup")
     assert loads and (home / ".tmux" / "resurrect").is_dir()
     assert "HOME is overridden" not in res.detail
@@ -297,8 +308,8 @@ def test_spotlight_real_home_loads(monkeypatch, tmp_path):
     root = tmp_path / "work"
     root.mkdir()
     calls: list = []
-    monkeypatch.setattr(runner, "_launchctl", lambda verb, arg: calls.append(verb) or 0)
-    monkeypatch.setattr(runner, "_launchctl_loaded", lambda label: False)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl", lambda verb, arg: calls.append(verb) or 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_loaded", lambda label: False)
     res = runner._do_provision_spotlight(_spotlight_action(root), "backup")
     assert res.status == "created" and "load" in calls
 
@@ -308,29 +319,29 @@ def test_home_is_sandboxed_fails_closed_on_keyerror_from_path_home(monkeypatch, 
     """A uid with no passwd entry and no $HOME (e.g. an unmapped-uid container) makes
     Path.home() raise KeyError/RuntimeError, not OSError -- must still read as sandboxed,
     not propagate and crash rig apply/status."""
-    monkeypatch.setattr(runner, "_real_login_home", lambda: tmp_path / "somewhere")
+    monkeypatch.setattr(live_env_mod, "_real_login_home", lambda: tmp_path / "somewhere")
 
     def _boom():
         raise KeyError("getpwuid(): uid not found")
 
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: (_ for _ in ()).throw(KeyError("no passwd entry"))))
-    assert runner._home_is_sandboxed() is True
+    assert live_env_mod._home_is_sandboxed() is True
 
 
 def test_home_is_sandboxed_fails_closed_on_runtimeerror_from_path_home(monkeypatch, tmp_path):
-    monkeypatch.setattr(runner, "_real_login_home", lambda: tmp_path / "somewhere")
+    monkeypatch.setattr(live_env_mod, "_real_login_home", lambda: tmp_path / "somewhere")
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: (_ for _ in ()).throw(RuntimeError("could not find home"))))
-    assert runner._home_is_sandboxed() is True
+    assert live_env_mod._home_is_sandboxed() is True
 
 
 def test_live_skip_reason_never_crashes_when_path_home_raises(monkeypatch, tmp_path):
     """The exact scenario `_home_is_sandboxed` degrades to dry-run for (no $HOME, no passwd
     entry) must not crash the RENDERER either — `_live_skip_reason` is called on every dry-run
     apply path right after the predicate returns True."""
-    monkeypatch.setattr(runner, "_real_login_home", lambda: None)
+    monkeypatch.setattr(live_env_mod, "_real_login_home", lambda: None)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: (_ for _ in ()).throw(KeyError("no passwd entry"))))
     monkeypatch.delenv("HOME", raising=False)
-    reason = runner._live_skip_reason("RIG_TG_CTL_DRY_RUN", "launchctl bootstrap")
+    reason = live_env_mod._live_skip_reason("RIG_TG_CTL_DRY_RUN", "launchctl bootstrap")
     assert "unset, no passwd entry" in reason and "unknown login home" in reason
 
 
@@ -343,11 +354,11 @@ def test_tg_ctl_apply_survives_home_becoming_unresolvable_after_plan_build(monke
     captured `plan.home`, only the detail-rendering call is exercised here."""
     home = _sandbox_home(monkeypatch, tmp_path)
     action = _tg_action(home)
-    monkeypatch.setattr(runner, "_real_login_home", lambda: None)
-    real_home = runner.tg_ctl_plan_from_action(action).home  # capture it BEFORE breaking Path.home()
+    monkeypatch.setattr(live_env_mod, "_real_login_home", lambda: None)
+    real_home = tg_ctl_action_mod.tg_ctl_plan_from_action(action).home  # capture it BEFORE breaking Path.home()
     assert real_home == home
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: (_ for _ in ()).throw(KeyError("no passwd entry"))))
-    reason = runner._live_skip_reason("RIG_TG_CTL_DRY_RUN", "launchctl bootstrap")
+    reason = live_env_mod._live_skip_reason("RIG_TG_CTL_DRY_RUN", "launchctl bootstrap")
     assert str(home) in reason  # falls back to $HOME env var, did not raise
 
 
@@ -359,7 +370,7 @@ def test_drift_schedule_sandboxed_home_never_probes_launchd(monkeypatch, tmp_pat
     home = _sandbox_home(monkeypatch, tmp_path)
     action = _schedule_action(home)
     assert runner._do_provision_schedule(action, "backup").status == "created"
-    monkeypatch.setattr(driftmod, "_launchctl_loaded", lambda label: pytest.fail(f"drift probed launchctl: {label}"))
+    monkeypatch.setattr(drift_services, "_launchctl_loaded", lambda label: pytest.fail(f"drift probed launchctl: {label}"))
     report = driftmod.detect(InstallPlan(actions=[action]))
     assert not [i for i in report.items if i.category == "models"]
 
@@ -368,10 +379,10 @@ def test_drift_schedule_real_home_still_probes_launchd(monkeypatch, tmp_path):
     home = _sandbox_home(monkeypatch, tmp_path)
     _unsandbox(monkeypatch, home)
     action = _schedule_action(home)
-    monkeypatch.setattr(runner, "_launchctl", lambda verb, arg: 0)
-    monkeypatch.setattr(runner, "_launchctl_loaded", lambda label: False)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl", lambda verb, arg: 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_loaded", lambda label: False)
     assert runner._do_provision_schedule(action, "backup").status == "created"
-    monkeypatch.setattr(driftmod, "_launchctl_loaded", lambda label: False)
+    monkeypatch.setattr(drift_services, "_launchctl_loaded", lambda label: False)
     report = driftmod.detect(InstallPlan(actions=[action]))
     assert any("not loaded" in i.detail for i in report.items if i.category == "models")
 
@@ -380,7 +391,7 @@ def test_drift_tg_ctl_sandboxed_home_never_probes_launchd(monkeypatch, tmp_path)
     home = _sandbox_home(monkeypatch, tmp_path)
     action = _tg_action(home)
     assert runner._do_provision_tg_ctl(action, "backup").status == "created"
-    monkeypatch.setattr(driftmod, "_launchctl_gui_loaded", lambda label: pytest.fail(f"drift probed launchctl: {label}"))
+    monkeypatch.setattr(drift_services, "_launchctl_gui_loaded", lambda label: pytest.fail(f"drift probed launchctl: {label}"))
     report = driftmod.detect(InstallPlan(actions=[action]))
     assert not [i for i in report.items if i.category == "tg_ctl"]
 
@@ -392,7 +403,7 @@ def test_drift_schedule_systemd_sandboxed_home_is_not_reported_missing(monkeypat
     action = _schedule_action(home)
     action.options["platform"] = "systemd"
     assert runner._do_provision_schedule(action, "backup").status == "created"
-    monkeypatch.setattr(driftmod, "schedule_timer_active", lambda s: pytest.fail("drift probed the real user manager"))
+    monkeypatch.setattr(drift_services, "schedule_timer_active", lambda s: pytest.fail("drift probed the real user manager"))
     report = driftmod.detect(InstallPlan(actions=[action]))
     assert not [i for i in report.items if i.category == "models"]
 
@@ -421,7 +432,7 @@ def test_verify_sandboxed_home_skips_the_loaded_check_and_never_probes(monkeypat
     plist.write_text("<plist/>", encoding="utf-8")
     results = verify._verify_launchd_agent(
         "tg_ctl", "boot", "ai.hyperide.tg-ctl", plist, "RIG_TG_CTL_DRY_RUN",
-        loaded_check=runner._launchctl_gui_loaded,
+        loaded_check=service_ctl_mod._launchctl_gui_loaded,
     )
     assert [r.passed for r in results] == [True, None]
     assert "sandboxed run" in results[1].evidence and "skipped" in results[1].evidence

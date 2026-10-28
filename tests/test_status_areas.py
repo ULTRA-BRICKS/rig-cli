@@ -111,25 +111,26 @@ def _emitted_reconcile_categories(drift_module) -> set[str]:
 
     Every ``DriftItem(direction, category, …)`` the ``_check_*`` helpers build names its category as
     a string literal at the call site, so the categories are exactly the second positional argument
-    of each ``DriftItem(...)`` constructed in ``drift.py``. Parsing the module's AST for those
-    literals gives the live set without a hand-kept list (which would re-introduce the very
-    omission this guard exists to catch). ``"tools"`` (the #67 category) is among them.
+    of each ``DriftItem(...)`` constructed in ``drift.py`` or one of its ``drift_*.py`` area
+    modules. Parsing those modules' ASTs for the literals gives the live set without a hand-kept
+    list (which would re-introduce the very omission this guard exists to catch). ``"tools"``
+    (the #67 category) is among them.
     """
     import ast
-    import inspect
+    from pathlib import Path
 
-    tree = ast.parse(inspect.getsource(drift_module))
     cats: set[str] = set()
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id == "DriftItem"
-            and len(node.args) >= 2
-            and isinstance(node.args[1], ast.Constant)
-            and isinstance(node.args[1].value, str)
-        ):
-            cats.add(node.args[1].value)
+    for path in sorted(Path(drift_module.__file__).parent.glob("drift*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "DriftItem"
+                and len(node.args) >= 2
+                and isinstance(node.args[1], ast.Constant)
+                and isinstance(node.args[1].value, str)
+            ):
+                cats.add(node.args[1].value)
     assert "tools" in cats, "introspection sanity: the tools category must be discoverable in drift.py"
     return cats
 
@@ -683,7 +684,7 @@ def test_area_state_line_appends_informational_notes(tmp_path):
     the count stays visible so a stalled sweep agent cannot hide behind a clean line.
     """
     from riglib.areas import Area
-    from riglib.cli import _area_state_line
+    from riglib.cli_status_areas import _area_state_line
     from riglib.drift import DriftNote, DriftReport
     from riglib.layers import GLOBAL
     from riglib.plan import Action, InstallPlan

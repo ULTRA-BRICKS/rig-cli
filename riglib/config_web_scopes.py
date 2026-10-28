@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 GLOBAL_SCOPE_ID = "global"
 
@@ -63,43 +64,57 @@ def discover_scopes(home_repo: Path) -> list[Scope]:
 
     Order: ``home_repo`` first, then the rest alphabetically by name, then the Global scope last.
     """
-    from .repository_registry import RepositoryRegistry  # lazy: keeps module import light
-
     home = home_repo.resolve()
     seen = {home}
     scopes = [_repo_scope(home)]
 
-    try:
-        registry = RepositoryRegistry.load()
-    except Exception:  # noqa: BLE001 — a malformed/corrupt registry must not break config-web
-        registry = None
-
-    others: list[Scope] = []
-    if registry is not None:
-        for entry in registry.repositories:
-            if entry.stale:
-                continue
-            try:
-                # RepositoryRegistry.load() only type-checks the tag arrays (see
-                # repository_registry.py) — a structurally-valid JSON registry can still carry a
-                # non-string `path` (e.g. `"path": null`, a hand-edited or corrupted registry
-                # file), which Path() raises TypeError on. One malformed entry must not 500 the
-                # whole console — every scope endpoint calls this on every request (found in
-                # review): skip that entry and keep discovering the rest.
-                path = Path(entry.path).resolve()
-            except (TypeError, ValueError):
-                continue
-            if path in seen:
-                continue
-            if not (path / "rig.yaml").is_file():
-                continue
-            seen.add(path)
-            others.append(_repo_scope(path))
+    others = _registry_repo_scopes(seen)
     others.sort(key=lambda s: s.label.lower())
 
     scopes.extend(others)
     scopes.append(_global_scope())
     return scopes
+
+
+def _registry_repo_scopes(seen: set[Path]) -> list[Scope]:
+    """Scopes for the non-stale, rig-managed repos in the machine-local registry (unsorted).
+
+    Adds each accepted path to ``seen`` so the caller's home repo (already in it) and any
+    duplicate registry entries are not listed twice.
+    """
+    from .repository_registry import RepositoryRegistry  # lazy: keeps module import light
+
+    try:
+        registry = RepositoryRegistry.load()
+    except Exception:  # noqa: BLE001 — a malformed/corrupt registry must not break config-web
+        return []
+
+    others: list[Scope] = []
+    for entry in registry.repositories:
+        if entry.stale:
+            continue
+        path = _entry_path(entry.path)
+        if path is None or path in seen:
+            continue
+        if not (path / "rig.yaml").is_file():
+            continue
+        seen.add(path)
+        others.append(_repo_scope(path))
+    return others
+
+
+def _entry_path(raw_path: Any) -> Path | None:
+    """The resolved path of one registry entry, or ``None`` when the entry is malformed."""
+    try:
+        # RepositoryRegistry.load() only type-checks the tag arrays (see
+        # repository_registry.py) — a structurally-valid JSON registry can still carry a
+        # non-string `path` (e.g. `"path": null`, a hand-edited or corrupted registry
+        # file), which Path() raises TypeError on. One malformed entry must not 500 the
+        # whole console — every scope endpoint calls this on every request (found in
+        # review): skip that entry and keep discovering the rest.
+        return Path(raw_path).resolve()
+    except (TypeError, ValueError):
+        return None
 
 
 def resolve_scope(scopes: list[Scope], scope_id: str | None) -> Scope | None:

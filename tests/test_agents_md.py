@@ -12,13 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from riglib.actions.runner import (
-    _AGENTS_MD_PLACEHOLDER,
-    _do_provision_agents_symlink,
-    _is_broken_symlink,
-    resolve_agents_md,
-    run_plan,
-)
+from riglib.actions.runner import _do_provision_agents_symlink, run_plan
+from riglib.actions.agents_md import _AGENTS_MD_PLACEHOLDER, _is_broken_symlink, resolve_agents_md
 from riglib.config import ConfigError, LoadedConfig, validate
 from riglib.drift import detect
 from riglib.plan import Action, InstallPlan, build

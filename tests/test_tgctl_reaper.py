@@ -10,10 +10,12 @@ from pathlib import Path
 
 import pytest
 
+from riglib import drift as driftmod
 from riglib import tgctl_reaper
 from riglib import tgctl_reaper_daemon as daemon
-from riglib import drift as driftmod
 from riglib.actions import runner
+from riglib.actions import service_ctl as service_ctl_mod
+from riglib.actions import tgctl_reaper_action as tgctl_reaper_action_mod
 from riglib.config import ConfigError, validate
 
 # captured at import (before any monkeypatch runs) — the genuine handler + drift check.
@@ -215,9 +217,9 @@ def _stub_launchctl(monkeypatch, *, loaded=False, spy=None):
         calls.append(("bootstrap", path))
         return 0
 
-    monkeypatch.setattr(runner, "_launchctl_bootout", _bootout)
-    monkeypatch.setattr(runner, "_launchctl_bootstrap", _bootstrap)
-    monkeypatch.setattr(runner, "_launchctl_gui_loaded", lambda label: loaded)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_bootout", _bootout)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_bootstrap", _bootstrap)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_gui_loaded", lambda label: loaded)
     return calls
 
 
@@ -325,7 +327,7 @@ def test_drift_tgctl_reaper_in_sync_after_apply(monkeypatch, tmp_path):
     _force_darwin(monkeypatch)
     home = _isolate_home(monkeypatch, tmp_path)
     _stub_launchctl(monkeypatch, loaded=True)
-    monkeypatch.setattr("riglib.drift._launchctl_gui_loaded", lambda label: True)
+    monkeypatch.setattr("riglib.drift_services._launchctl_gui_loaded", lambda label: True)
     runner._do_provision_tgctl_reaper(_action(home), "backup")
     plan = InstallPlan(on_conflict="backup")
     plan.actions.append(_action(home))
@@ -340,7 +342,7 @@ def test_drift_tgctl_reaper_modified(monkeypatch, tmp_path):
     _force_darwin(monkeypatch)
     home = _isolate_home(monkeypatch, tmp_path)
     _stub_launchctl(monkeypatch, loaded=True)
-    monkeypatch.setattr("riglib.drift._launchctl_gui_loaded", lambda label: True)
+    monkeypatch.setattr("riglib.drift_services._launchctl_gui_loaded", lambda label: True)
     runner._do_provision_tgctl_reaper(_action(home), "backup")
     plist = home / "Library" / "LaunchAgents" / f"{tgctl_reaper.DEFAULT_LABEL}.plist"
     plist.write_text("TAMPERED", encoding="utf-8")
@@ -358,10 +360,10 @@ def test_drift_tgctl_reaper_not_loaded(monkeypatch, tmp_path):
     _force_darwin(monkeypatch)
     home = _isolate_home(monkeypatch, tmp_path)
     _stub_launchctl(monkeypatch, loaded=True)
-    monkeypatch.setattr("riglib.drift._launchctl_gui_loaded", lambda label: True)
+    monkeypatch.setattr("riglib.drift_services._launchctl_gui_loaded", lambda label: True)
     runner._do_provision_tgctl_reaper(_action(home), "backup")
     _stub_launchctl(monkeypatch, loaded=False)
-    monkeypatch.setattr("riglib.drift._launchctl_gui_loaded", lambda label: False)
+    monkeypatch.setattr("riglib.drift_services._launchctl_gui_loaded", lambda label: False)
     plan = InstallPlan(on_conflict="backup")
     plan.actions.append(_action(home))
     report = detect(plan)
@@ -399,7 +401,7 @@ def _build(data, repo_root, fake_agent_tools):
 def test_status_no_action_in_plan_is_silent():
     """When ``tgctl_reaper.enabled: false``, plan.py emits NO action at all (mirrors
     ``tcc_watch``) — the status line must stay silent rather than claim a stale state."""
-    from riglib import cli
+    from riglib import cli_status_services
     from riglib.drift import DriftReport
     from riglib.plan import InstallPlan
 
@@ -411,7 +413,7 @@ def test_status_no_action_in_plan_is_silent():
     original_print = builtins.print
     try:
         builtins.print = lambda *a, **k: captured.append(" ".join(str(x) for x in a))
-        cli._print_tgctl_reaper_status(plan, report)
+        cli_status_services._print_tgctl_reaper_status(plan, report)
     finally:
         builtins.print = original_print
     assert captured == []
@@ -449,17 +451,19 @@ def test_plan_carries_knobs(fake_agent_tools, tmp_path):
 def test_plan_label_null_resolves_to_default(fake_agent_tools, tmp_path):
     plan = _build({"tgctl_reaper": {"label": None}}, tmp_path, fake_agent_tools)
     action = [a for a in plan.actions if a.kind == "provision_tgctl_reaper"][0]
-    tr = runner.tgctl_reaper_plan_from_action(action)
+    tr = tgctl_reaper_action_mod.tgctl_reaper_plan_from_action(action)
     assert tr.label == tgctl_reaper.DEFAULT_LABEL
 
 
 # ── status line (GLOBAL section) ─────────────────────────────────────────────────────────
 def _status_line(monkeypatch, tmp_path, *, darwin, drift_items=None, options_over=None):
     """Render the tgctl-reaper GLOBAL status line for a one-action plan, with `_on_darwin` forced."""
-    from riglib import cli
+    from riglib import cli_status_services
     from riglib.drift import DriftReport
     from riglib.plan import InstallPlan
 
+    monkeypatch.setattr("riglib.drift_services._on_darwin", lambda: darwin)
+    # the status renderer (cli_status_services) reads ``_on_darwin`` through ``riglib.drift``
     monkeypatch.setattr("riglib.drift._on_darwin", lambda: darwin)
     home = _isolate_home(monkeypatch, tmp_path)
     plan = InstallPlan(on_conflict="backup")
@@ -468,7 +472,7 @@ def _status_line(monkeypatch, tmp_path, *, darwin, drift_items=None, options_ove
     report.items.extend(drift_items or [])
     captured: list[str] = []
     monkeypatch.setattr("builtins.print", lambda *a, **k: captured.append(" ".join(str(x) for x in a)))
-    cli._print_tgctl_reaper_status(plan, report)
+    cli_status_services._print_tgctl_reaper_status(plan, report)
     return "\n".join(captured)
 
 

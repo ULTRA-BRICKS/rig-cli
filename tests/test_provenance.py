@@ -24,7 +24,12 @@ from riglib.catalog import Catalog
 from riglib.cli import main
 from riglib.config import ConfigError, LoadedConfig, validate
 from riglib.drift import compute_drift_report, detect
-from riglib.permissions import CLAUDE_CODE_DENY_RULES, DEFAULT_RULES, RETIRED_DEFAULT_TOOLS, desired_entries
+from riglib.permissions import (
+    CLAUDE_CODE_DENY_RULES,
+    DEFAULT_RULES,
+    RETIRED_DEFAULT_TOOLS,
+    desired_entries,
+)
 from riglib.plan import build
 from riglib.provenance import (
     INSTALLED_BY_MARKER,
@@ -434,7 +439,7 @@ def test_every_provenance_kind_has_a_status_label():
 
 
 def test_known_group_line_caps_the_names_it_prints(capsys):
-    from riglib.cli import _KNOWN_NAMES_SHOWN, _print_known_groups
+    from riglib.cli_status_areas import _KNOWN_NAMES_SHOWN, _print_known_groups
     from riglib.drift import KnownItem
 
     items = [KnownItem("skills", f"pack-{i:02d}", Path("/x"), KIND_CONFIG_KNOWN, f"pack-{i:02d}") for i in range(_KNOWN_NAMES_SHOWN + 3)]

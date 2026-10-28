@@ -16,8 +16,10 @@ import pytest
 from riglib import apt_packages, tools
 from riglib import drift as driftmod
 from riglib.actions import runner
+from riglib.actions import tools_provision as tools_provision_mod
 from riglib.config import ConfigError, validate
 from riglib.plan import Action
+from riglib.actions import shared as shared_mod
 
 _REAL_PROVISION = runner._do_provision_tools
 
@@ -154,7 +156,7 @@ def _apt_spec(tmp_path, *packages):
 
 
 def _ensure(spec):
-    return runner._ensure_apt_packages(spec, dry=False)
+    return tools_provision_mod._ensure_apt_packages(spec, dry=False)
 
 
 def _fake_apt(monkeypatch, *, installed=(), command=("sudo", "-n", "apt-get", "install", "-y"), apt=True):
@@ -166,34 +168,34 @@ def _fake_apt(monkeypatch, *, installed=(), command=("sudo", "-n", "apt-get", "i
         lambda pkgs: None if command is None else [*command, *pkgs],
     )
     ran: list[list[str]] = []
-    monkeypatch.setattr(runner, "_run_apt_install", lambda argv: ran.append(argv) or (0, ""))
+    monkeypatch.setattr(tools_provision_mod, "_run_apt_install", lambda argv: ran.append(argv) or (0, ""))
     return ran
 
 
 def test_apt_noop_when_none_declared(tmp_path, monkeypatch):
     ran = _fake_apt(monkeypatch)
     monkeypatch.setattr(apt_packages, "is_apt_system", lambda: pytest.fail("must not probe"))
-    assert runner._ensure_apt_packages(_apt_spec(tmp_path), dry=False) == ("", "", False)
+    assert tools_provision_mod._ensure_apt_packages(_apt_spec(tmp_path), dry=False) == ("", "", False)
     assert ran == []
 
 
 def test_apt_list_is_skipped_on_a_machine_without_apt(tmp_path, monkeypatch):
     ran = _fake_apt(monkeypatch, apt=False)
-    error, note, changed = runner._ensure_apt_packages(_apt_spec(tmp_path, "tmux"), dry=False)
+    error, note, changed = tools_provision_mod._ensure_apt_packages(_apt_spec(tmp_path, "tmux"), dry=False)
     assert error == "" and changed is False and "skipped" in note
     assert ran == []
 
 
 def test_apt_already_installed_installs_nothing(tmp_path, monkeypatch):
     ran = _fake_apt(monkeypatch, installed={"tmux"})
-    error, note, changed = runner._ensure_apt_packages(_apt_spec(tmp_path, "tmux"), dry=False)
+    error, note, changed = tools_provision_mod._ensure_apt_packages(_apt_spec(tmp_path, "tmux"), dry=False)
     assert (error, changed) == ("", False) and "already installed" in note
     assert ran == []
 
 
 def test_apt_installs_only_the_missing_packages_in_one_call(tmp_path, monkeypatch):
     ran = _fake_apt(monkeypatch, installed={"git"})
-    error, note, changed = runner._ensure_apt_packages(_apt_spec(tmp_path, "tmux", "git", "curl"), dry=False)
+    error, note, changed = tools_provision_mod._ensure_apt_packages(_apt_spec(tmp_path, "tmux", "git", "curl"), dry=False)
     assert error == "" and changed is True and "tmux, curl" in note
     assert ran == [["sudo", "-n", "apt-get", "install", "-y", "tmux", "curl"]]
 
@@ -216,14 +218,14 @@ def test_a_package_whose_command_is_on_path_is_not_missing(tmp_path, monkeypatch
 
 def test_apt_install_failure_is_an_error_with_the_tail(tmp_path, monkeypatch):
     _fake_apt(monkeypatch)
-    monkeypatch.setattr(runner, "_run_apt_install", lambda argv: (100, "E: unable to locate package tmux\n"))
-    error, _note, changed = runner._ensure_apt_packages(_apt_spec(tmp_path, "tmux"), dry=False)
+    monkeypatch.setattr(tools_provision_mod, "_run_apt_install", lambda argv: (100, "E: unable to locate package tmux\n"))
+    error, _note, changed = tools_provision_mod._ensure_apt_packages(_apt_spec(tmp_path, "tmux"), dry=False)
     assert changed is False and "exited 100" in error and "unable to locate package" in error
 
 
 def test_apt_dry_run_only_probes(tmp_path, monkeypatch):
     ran = _fake_apt(monkeypatch)
-    error, note, changed = runner._ensure_apt_packages(_apt_spec(tmp_path, "tmux"), dry=True)
+    error, note, changed = tools_provision_mod._ensure_apt_packages(_apt_spec(tmp_path, "tmux"), dry=True)
     assert (error, changed) == ("", False) and "would install tmux" in note
     assert ran == []
 
@@ -245,7 +247,7 @@ def _fake_clone(monkeypatch, *, check_exit=0, rc=0):
         )
         return 0
 
-    monkeypatch.setattr(runner, "_git_clone", clone)
+    monkeypatch.setattr(shared_mod, "_git_clone", clone)
     return calls
 
 

@@ -130,7 +130,7 @@ ecosystem_readme:
 # Generating the config lets rig GUARANTEE ordering (continuum's status-right hook last, so
 # the opt-in Moshi tweak can't wipe continuum's autosave → the stale-session-on-reboot fix).
 # This block is left commented here because a CLI repo has nothing to do with tmux config;
-# uncomment it in your global config to provision it. See docs/config-schema.md#tmux.
+# uncomment it in your global config to provision it. See docs/config-schema/github-and-tmux.md#tmux.
 #
 # tmux:
 #   enabled: true

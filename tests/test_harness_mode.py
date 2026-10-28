@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from riglib.actions import run_plan
-from riglib.actions.runner import upsert_toml_root_key
+from riglib.actions.toml_edit import upsert_toml_root_key
 from riglib.catalog import Catalog
 from riglib.config import LoadedConfig
 from riglib.drift import detect
@@ -263,7 +263,7 @@ def test_unknown_mode_on_non_claude_primary_writes_nothing_and_says_so(fake_agen
     """The user asked for (what they think is) maximum auto; silently writing the INTERACTIVE
     value — the old `not in auto_values → False` — was the opposite of the ask. Now: no write for
     any kind, one elevated note naming the kind's real values."""
-    from riglib.cli import _note_needs_attention
+    from riglib.cli_plan_print import _note_needs_attention
 
     monkeypatch.setenv("RIG_CODEX_HOME", str(tmp_path / "codex-home"))
     repo = tmp_path / "repo"; repo.mkdir()
@@ -515,42 +515,64 @@ def test_omp_mode_is_owned_by_the_approval_action_and_follows_intent(fake_agent_
     assert yaml.safe_load(_omp_yml().read_text(encoding="utf-8"))["tools"]["approvalMode"] == "yolo"
 
 
-def test_omp_converges_back_to_always_ask_after_rig_wrote_yolo(fake_agent_tools, tmp_path):
-    """auto_mode true → false must re-enable prompts: the `yolo` rig itself installed (receipt) is
-    rig-owned and converged, not mistaken for a user-set value and left relaxed forever. A value the
-    USER set (no receipt) stays untouched — `test_approval_never_clobbers_a_differing_user_value`."""
+def _omp_approval_mode() -> str:
     import yaml
 
-    repo = tmp_path / "repo"; repo.mkdir()
-    first = run_plan(_omp_plan(fake_agent_tools, repo, auto_mode=True))
-    assert not first.errors, [r.detail for r in first.errors]
-    assert yaml.safe_load(_omp_yml().read_text(encoding="utf-8"))["tools"]["approvalMode"] == "yolo"
+    return yaml.safe_load(_omp_yml().read_text(encoding="utf-8"))["tools"]["approvalMode"]
 
+
+def _approval_result(report):
+    return [r for r in report.results if r.action.kind == "provision_harness_approval"][0]
+
+
+def _permissions_drift(plan) -> list:
+    return [d for d in detect(plan).items if d.category == "permissions"]
+
+
+def _converge_omp_back_to_always_ask(fake_agent_tools, repo: Path):
+    """Apply auto_mode=False over rig's own yolo write; returns the plan for follow-up runs."""
     plan = _omp_plan(fake_agent_tools, repo, auto_mode=False)
-    drift = [d for d in detect(plan).items if d.category == "permissions"]
+    drift = _permissions_drift(plan)
     # status says what apply will DO — a rig-owned value converges, it is not a hand fix
     assert drift and "apply converges" in drift[0].detail and "never clobbers" not in drift[0].detail, drift
     second = run_plan(plan)
     assert not second.errors, [r.detail for r in second.errors]
-    res = [r for r in second.results if r.action.kind == "provision_harness_approval"][0]
+    res = _approval_result(second)
     assert res.status in ("updated", "backed_up"), res.detail
-    assert yaml.safe_load(_omp_yml().read_text(encoding="utf-8"))["tools"]["approvalMode"] == "always-ask"
+    assert _omp_approval_mode() == "always-ask"
+    return plan
+
+
+def test_omp_converges_back_to_always_ask_after_rig_wrote_yolo(fake_agent_tools, tmp_path):
+    """auto_mode true → false must re-enable prompts: the `yolo` rig itself installed (receipt) is
+    rig-owned and converged, not mistaken for a user-set value and left relaxed forever. A value the
+    USER set (no receipt) stays untouched — `test_approval_never_clobbers_a_differing_user_value`."""
+    repo = tmp_path / "repo"; repo.mkdir()
+    first = run_plan(_omp_plan(fake_agent_tools, repo, auto_mode=True))
+    assert not first.errors, [r.detail for r in first.errors]
+    assert _omp_approval_mode() == "yolo"
+
+    plan = _converge_omp_back_to_always_ask(fake_agent_tools, repo)
     receipt = json.loads((_omp_yml().parent / ".rig-permissions-receipt.json").read_text())
     # `previous` stays the ORIGINAL pre-rig state (the key was absent), never rig's own `yolo` —
     # a deprovision must restore what the user had, not rig's intermediate write
     assert receipt["managed"]["tools.approvalMode"] == {"previous": None, "installed": "always-ask"}
-    assert not [d for d in detect(plan).items if d.category == "permissions"]
+    assert not _permissions_drift(plan)
     third = run_plan(plan)
-    assert [r for r in third.results if r.action.kind == "provision_harness_approval"][0].status == "skipped"
+    assert _approval_result(third).status == "skipped"
     # a value the USER changed afterwards (differs from what the receipt says rig installed) is a
     # conflict again — rig-ownership is exactly "still holds what rig wrote", nothing wider
     _omp_yml().write_text("tools:\n  approvalMode: write\n", encoding="utf-8")
-    drift4 = [d for d in detect(plan).items if d.category == "permissions"]
+    drift4 = _permissions_drift(plan)
     assert drift4 and "never clobbers" in drift4[0].detail, drift4
-    fourth = run_plan(plan)
-    res4 = [r for r in fourth.results if r.action.kind == "provision_harness_approval"][0]
+    res4 = _approval_result(run_plan(plan))
     assert res4.status == "skipped" and "differs" in res4.detail, res4.detail
-    assert yaml.safe_load(_omp_yml().read_text(encoding="utf-8"))["tools"]["approvalMode"] == "write"
+    assert _omp_approval_mode() == "write"
+
+
+def _guardless(plan):
+    plan.actions = [a for a in plan.actions if a.kind != "install_harness_guard"]
+    return plan
 
 
 def test_omp_tightening_is_not_blocked_by_a_missing_guard(fake_agent_tools, tmp_path):
@@ -558,9 +580,7 @@ def test_omp_tightening_is_not_blocked_by_a_missing_guard(fake_agent_tools, tmp_
     always-ask is the safe direction and must go through even when the guard file is gone —
     otherwise a user who removed the guard is stuck in yolo. Drift must not call an always-ask
     posture "relaxed" either."""
-    import yaml
-
-    from riglib.actions.runner import resolve_guard_target
+    from riglib.actions.harness_guard import resolve_guard_target
 
     repo = tmp_path / "repo"; repo.mkdir()
     first = run_plan(_omp_plan(fake_agent_tools, repo, auto_mode=True))
@@ -570,19 +590,17 @@ def test_omp_tightening_is_not_blocked_by_a_missing_guard(fake_agent_tools, tmp_
     guard = resolve_guard_target(approval)
     assert guard is not None and guard.is_file()
     guard.unlink()
-    plan.actions = [a for a in plan.actions if a.kind != "install_harness_guard"]  # the belt stays gone
-    res = [r for r in run_plan(plan).results if r.action.kind == "provision_harness_approval"][0]
+    _guardless(plan)  # the belt stays gone
+    res = _approval_result(run_plan(plan))
     assert res.status in ("updated", "backed_up"), res.detail
-    assert yaml.safe_load(_omp_yml().read_text(encoding="utf-8"))["tools"]["approvalMode"] == "always-ask"
-    assert not [d for d in detect(plan).items if d.category == "permissions" and "relaxed" in d.detail]
+    assert _omp_approval_mode() == "always-ask"
+    assert not [d for d in _permissions_drift(plan) if "relaxed" in d.detail]
     # the relaxing direction keeps the interlock — yolo AND the intermediate `write` (a pinned
     # primary mode that auto-approves edits is a relaxed posture too, not a tightening)
     for relaxed in ({"auto_mode": True}, {"mode": "write"}):
-        relax = _omp_plan(fake_agent_tools, repo, **relaxed)
-        relax.actions = [a for a in relax.actions if a.kind != "install_harness_guard"]
-        res2 = [r for r in run_plan(relax).results if r.action.kind == "provision_harness_approval"][0]
+        res2 = _approval_result(run_plan(_guardless(_omp_plan(fake_agent_tools, repo, **relaxed))))
         assert res2.status == "error" and "guard" in res2.detail, (relaxed, res2.detail)
-        assert yaml.safe_load(_omp_yml().read_text(encoding="utf-8"))["tools"]["approvalMode"] == "always-ask"
+        assert _omp_approval_mode() == "always-ask"
 
 
 def test_omp_receipt_backup_stays_the_pre_rig_restore_point(fake_agent_tools, tmp_path):
@@ -647,7 +665,7 @@ def test_omp_mode_skipped_note_when_permissions_disabled(fake_agent_tools, tmp_p
     repo = tmp_path / "repo"; repo.mkdir()
     plan = _plan(fake_agent_tools, repo, kind="omp", auto_mode=True)  # permissions.enabled: false
     assert not [a for a in plan.actions if a.kind == "provision_harness_approval"]
-    from riglib.cli import _note_needs_attention
+    from riglib.cli_plan_print import _note_needs_attention
 
     notes = [n for n in plan.notes if "harness: auto-mode write skipped" in n and "omp" in n]
     assert notes, plan.notes
@@ -661,7 +679,7 @@ def test_omp_skipped_note_when_omp_is_not_among_the_permissions_kinds(fake_agent
     write — the note must say skipped (elevated) and the status row must still exist. This is
     the gate mismatch a re-derived `written` guess got wrong: it looked only at
     permissions.enabled and would have claimed "written by the approval action"."""
-    from riglib.cli import _note_needs_attention
+    from riglib.cli_plan_print import _note_needs_attention
 
     repo = tmp_path / "repo"; repo.mkdir()
     cfg = _cfg(repo, fake_agent_tools, kind="omp", auto_mode=True)
@@ -702,7 +720,7 @@ def test_omp_posture_ignores_a_harness_block_that_does_not_configure_omp(fake_ag
 def test_na_kind_records_a_visible_note_even_without_auto_mode_set(fake_agent_tools, tmp_path, kind):
     """A plain `kind: pi` (nothing asked) still gets a VISIBLE note — informational, not an
     alarm on every apply, since there is nothing actionable in it."""
-    from riglib.cli import _note_needs_attention
+    from riglib.cli_plan_print import _note_needs_attention
 
     repo = tmp_path / "repo"; repo.mkdir()
     plan = _plan(fake_agent_tools, repo, kind=kind)
@@ -716,7 +734,7 @@ def test_na_kind_records_a_visible_note_even_without_auto_mode_set(fake_agent_to
 @pytest.mark.parametrize("kind", sorted(HARNESS_MODE_NA))
 def test_na_kind_note_is_elevated_when_a_mode_was_asked_for(fake_agent_tools, tmp_path, kind):
     """`kind: pi, auto_mode: true` asked for something rig cannot write for pi — elevated."""
-    from riglib.cli import _note_needs_attention
+    from riglib.cli_plan_print import _note_needs_attention
 
     repo = tmp_path / "repo"; repo.mkdir()
     plan = _plan(fake_agent_tools, repo, kind=kind, auto_mode=True)
@@ -730,7 +748,7 @@ def test_na_kind_as_additive_next_to_auto_mode_is_informational(fake_agent_tools
     """`kind: claude-code, auto_mode: true, kinds: [pi]` — the documented skills-only listing (and
     the live global config's shape). The intent targets claude-code; pi's n/a note must stay
     informational, not an attention item on every apply. Elevation is for a PRIMARY n/a kind only."""
-    from riglib.cli import _note_needs_attention
+    from riglib.cli_plan_print import _note_needs_attention
 
     repo = tmp_path / "repo"; repo.mkdir()
     plan = _plan(fake_agent_tools, repo, kinds=[kind], auto_mode=True, settings_path=str(repo / ".claude/settings.json"))
@@ -762,7 +780,7 @@ def test_harness_mode_rows_cover_every_configured_kind(fake_agent_tools, tmp_pat
 
 
 def test_status_prints_a_harness_mode_line_per_kind(fake_agent_tools, tmp_path, monkeypatch, capsys):
-    from riglib.cli import _print_harness_mode_status
+    from riglib.cli_status_services import _print_harness_mode_status
 
     repo = tmp_path / "repo"; repo.mkdir()
     plan = _plan(fake_agent_tools, repo, kind="claude-code", kinds=["pi"], auto_mode=True,
@@ -779,7 +797,7 @@ def test_status_prints_a_harness_mode_line_per_kind(fake_agent_tools, tmp_path, 
 def test_status_omp_row_tracks_the_permissions_approval_drift(fake_agent_tools, tmp_path, capsys):
     """omp's drift is filed under the permissions approval action, not ("harness", "omp") — the
     status row must follow the owning action or it prints "in sync" over a drifted key."""
-    from riglib.cli import _print_harness_mode_status
+    from riglib.cli_status_services import _print_harness_mode_status
 
     repo = tmp_path / "repo"; repo.mkdir()
     plan = _omp_plan(fake_agent_tools, repo, auto_mode=True)
@@ -847,7 +865,7 @@ def test_opencode_empty_file_is_created_not_a_permanent_malformed_error(fake_age
 def test_codex_root_key_probe_ignores_a_multiline_marker_inside_a_comment():
     """A triple-quote marker inside a root-section comment is a comment, not a multiline string;
     it must not turn every apply into a permanent skip."""
-    from riglib.actions.runner import read_toml_root_key
+    from riglib.actions.toml_edit import read_toml_root_key
 
     text = '# use """ for multiline values\napprovals_reviewer = "user"\n'
     assert read_toml_root_key(text, "approvals_reviewer") == ("present", "user")
@@ -858,7 +876,7 @@ def test_codex_root_key_probe_ignores_a_multiline_marker_inside_a_comment():
 def test_generic_mode_writer_refuses_an_unknown_format(tmp_path):
     """Only the registry's formats are serialized; a yaml action (omp's key belongs to the
     approval action) must never fall through to the JSON writer."""
-    from riglib.actions.runner import _do_apply_harness_mode
+    from riglib.actions.harness_mode import _do_apply_harness_mode
     from riglib.plan import Action
 
     action = Action(kind="apply_harness", category="harness", item="omp", source=tmp_path,

@@ -15,10 +15,7 @@ from pathlib import Path
 
 from riglib import config as configmod
 from riglib.actions import run_plan
-from riglib.actions.runner import (
-    ECOSYSTEM_README_BEGIN_MARKER,
-    ECOSYSTEM_README_END_MARKER,
-)
+from riglib.actions.managed_blocks import ECOSYSTEM_README_BEGIN_MARKER, ECOSYSTEM_README_END_MARKER
 from riglib.catalog import Catalog
 from riglib.config import ConfigError, LoadedConfig
 from riglib.drift import detect

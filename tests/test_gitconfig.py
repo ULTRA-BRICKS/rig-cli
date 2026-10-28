@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from riglib import gitconfig
-from riglib.actions import runner
+from riglib.actions import git_config as git_config_mod
 from riglib.actions.runner import _do_provision_git_config
 from riglib.config import ConfigError, LoadedConfig, load, validate
 from riglib.plan import Action, InstallPlan, _build_git
@@ -26,8 +26,8 @@ from riglib.plan import Action, InstallPlan, _build_git
 # The genuine seams, captured at import — before the conftest autouse guard swaps them for an
 # in-memory store for every test. Only the real-git tests below put them back, and only after
 # pointing GIT_CONFIG_GLOBAL at a tmp file.
-_REAL_GET = runner._git_global_get
-_REAL_SET = runner._set_git_global
+_REAL_GET = git_config_mod._git_global_get
+_REAL_SET = git_config_mod._set_git_global
 
 
 @pytest.fixture
@@ -36,8 +36,8 @@ def git_global(tmp_path, monkeypatch) -> Path:
     path = tmp_path / "sandbox.gitconfig"
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(path))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
-    monkeypatch.setattr(runner, "_git_global_get", _REAL_GET)
-    monkeypatch.setattr(runner, "_set_git_global", _REAL_SET)
+    monkeypatch.setattr(git_config_mod, "_git_global_get", _REAL_GET)
+    monkeypatch.setattr(git_config_mod, "_set_git_global", _REAL_SET)
     return path
 
 
@@ -55,8 +55,8 @@ def fake_git(monkeypatch):
         store[gitconfig.canonical_key(key)] = value
         return 0
 
-    monkeypatch.setattr(runner, "_git_global_get", _get)
-    monkeypatch.setattr(runner, "_set_git_global", _set)
+    monkeypatch.setattr(git_config_mod, "_git_global_get", _get)
+    monkeypatch.setattr(git_config_mod, "_set_git_global", _set)
     return store, calls
 
 
@@ -269,8 +269,8 @@ def test_apply_treats_hand_written_yes_as_current(fake_git):
 
 
 def test_apply_reports_error_when_git_refuses(monkeypatch):
-    monkeypatch.setattr(runner, "_git_global_get", lambda key: None)
-    monkeypatch.setattr(runner, "_set_git_global", lambda key, value: 5)
+    monkeypatch.setattr(git_config_mod, "_git_global_get", lambda key: None)
+    monkeypatch.setattr(git_config_mod, "_set_git_global", lambda key, value: 5)
     res = _do_provision_git_config(_action({"remote.origin.fetch": "x"}), "backup")
     assert res.status == "error"
     assert "remote.origin.fetch" in res.detail and "multi-valued" in res.detail

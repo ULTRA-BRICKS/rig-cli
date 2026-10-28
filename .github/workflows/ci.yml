@@ -45,6 +45,24 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.2
+      # rig lint run: a bare run hosts the Rig anti-slop Oxlint policy from the agent-tools catalog and, with
+      # RIG_LINT_REQUIRE_REAL=1, reports `required-policy-unavailable` without one. The real-tool tests need the
+      # REAL catalog, so it is checked out here (no continue-on-error: a missing catalog must fail, not skip).
+      # Only the real-tool lint tests read RIG_TEST_AGENT_TOOLS_SOURCE and hand it to the `rig lint run` they
+      # start as RIG_AGENT_TOOLS_SOURCE, so the rest of the suite keeps its no-catalog environment.
+      - name: Checkout the real agent-tools catalog (rig lint real-tool tests)
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository_owner }}/agent-tools
+          # An explicit ref skips actions/checkout's default-branch lookup, which this Forgejo
+          # runner answers with "The target couldn't be found" (the job then fails at checkout).
+          ref: main
+          path: agent-tools-catalog
+          fetch-depth: 1
+          # The anti-slop policy carrier is the vendor/anti-slop submodule; the real-policy tests need it.
+          submodules: true
+      - name: Point the real-tool lint tests at the catalog
+        run: echo "RIG_TEST_AGENT_TOOLS_SOURCE=$GITHUB_WORKSPACE/agent-tools-catalog" >> "$GITHUB_ENV"
       - name: Install package + test deps
         run: pip install -e '.[test]' pyyaml
       # rig lint check: the --fix safety tests drive the REAL pinned cccc and a REAL TypeScript compiler.
@@ -55,8 +73,40 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ts" && npm install --prefix "$RUNNER_TEMP/ts" --no-audit --no-fund typescript@6.0.3
           echo "RIG_TEST_TYPESCRIPT_DIR=$RUNNER_TEMP/ts/node_modules/typescript" >> "$GITHUB_ENV"
           echo "RIG_LINT_REQUIRE_REAL=1" >> "$GITHUB_ENV"
+          # rig lint run: the real-binary integration tests (tests/test_lint_real_tools.py) run a bare
+          # `rig lint run` against tmp fixture repos, so Rig itself bootstraps the PINNED tools into this
+          # tool cache: Oxlint 1.90.0 / Oxfmt 0.75.0 (npm), Ruff 0.17.3 (private venv), ShellCheck 0.11.0 /
+          # shfmt 3.14.1 / actionlint 1.7.12 (sha256-verified release binaries). npm and python3 -m venv
+          # come with the runner; with RIG_LINT_REQUIRE_REAL=1 any tool that cannot be obtained FAILS.
+          echo "RIG_TEST_LINT_TOOL_CACHE=$RUNNER_TEMP/rig-lint-tools" >> "$GITHUB_ENV"
       - name: Unit suite
         run: python -m pytest -q
+      # The JSON-schema validator tests (config schema + the committed schema file) skip without `jsonschema` (a `.[test]` dependency); a skip here would
+      # leave the generated schema unvalidated by a real validator, so fail on any skip.
+      - name: Config schema validator tests (must RUN, not skip)
+        run: |
+          set -euo pipefail
+          out="$(python -m pytest tests/test_config_schema.py tests/test_task_block.py -v -rs 2>&1)" || { echo "$out"; exit 1; }
+          echo "$out"
+          if grep -Eq "[1-9][0-9]* skipped" <<<"$out"; then
+            echo "::error title=schema tests SKIPPED::a config-schema validator test skipped in CI"
+            exit 1
+          fi
+          grep -Eq "test_real_validator_flags_unknown_key_and_bad_enum PASSED" <<<"$out" \
+            || { echo "::error title=schema validator test missing::the real-validator test did not appear as PASSED"; exit 1; }
+      # The real-tool lint tests already ran inside the unit suite; this re-run (the tool cache is warm, so
+      # it is seconds) prints each test's outcome and fails on ANY skip, so a gate that quietly stopped
+      # exercising the real binaries cannot pass green. Collecting nothing (exit 5) fails too.
+      - name: Real-tool rig lint integration (must RUN, not skip)
+        run: |
+          set -euo pipefail
+          out="$(python -m pytest tests/test_lint_real_tools.py tests/test_lint_bootstrap_oxlint.py tests/test_lint_providers_authority.py tests/test_lint_providers.py -v -rs 2>&1)" || { echo "$out"; exit 1; }
+          echo "$out"
+          if grep -Eq "[1-9][0-9]* skipped" <<<"$out"; then
+            echo "::error title=real-tool lint tests SKIPPED::a real-binary rig lint test skipped in CI"
+            exit 1
+          fi
+          grep -Eq "test_lint_real_tools.py::.*PASSED" <<<"$out"
       # The smoke script self-skips the apply leg when no agent-tools checkout is present
       # (CI has none), so it exercises --help / doctor / export / pytest end to end here.
       # The full run already covers every leg the --fast subset runs (--fast only GATES OFF the
@@ -174,6 +224,9 @@ jobs:
           # a hard-coded alex-mextner/ resolved to a repo that does not exist there, so the
           # smoke "skipped loudly" on every run and the drift guard never ran.
           repository: ${{ github.repository_owner }}/agent-tools
+          # Explicit ref: actions/checkout's default-branch lookup is answered "The target couldn't be found" by
+          # this Forgejo runner, which made this step fail and the whole smoke skip on every run.
+          ref: main
           path: agent-tools-catalog
           # a shallow checkout is enough — the smoke reads the working tree, not history.
           fetch-depth: 1

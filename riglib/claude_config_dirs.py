@@ -289,17 +289,21 @@ class ConfigDirGap:
     fix: str
 
 
+def _hook_entries(blocks: Any) -> list[Any]:
+    entries: list[Any] = []
+    for block in blocks if isinstance(blocks, list) else []:
+        inner = block.get("hooks") if isinstance(block, dict) else None
+        entries.extend(inner if isinstance(inner, list) else [])
+    return entries
+
+
 def _count_bridge_hooks(hooks: Any) -> int:
     if not isinstance(hooks, dict):
         return 0
-    count = 0
-    for blocks in hooks.values():
-        for block in blocks if isinstance(blocks, list) else []:
-            inner = block.get("hooks") if isinstance(block, dict) else None
-            for hook in inner if isinstance(inner, list) else []:
-                if isinstance(hook, dict) and "cc_hook_bridge" in str(hook.get("command", "")):
-                    count += 1
-    return count
+    return sum(
+        1 for blocks in hooks.values() for hook in _hook_entries(blocks)
+        if isinstance(hook, dict) and "cc_hook_bridge" in str(hook.get("command", ""))
+    )
 
 
 def inspect_config_dir(config_dir: Path, role: str) -> ConfigDirStatus:

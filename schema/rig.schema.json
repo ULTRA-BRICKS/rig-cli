@@ -913,7 +913,7 @@
         },
         "allow_gh": {
           "type": "boolean",
-          "description": "pre-allow the GitHub CLI (gh); false opts out (sugar over disable: [gh]) — see the gh note in docs/config-schema.md for the residual risk this trades in",
+          "description": "pre-allow the GitHub CLI (gh); false opts out (sugar over disable: [gh]) — see the gh note in docs/config-schema/harness-and-permissions.md for the residual risk this trades in",
           "default": true
         },
         "allow": {
@@ -2820,6 +2820,111 @@
             }
           },
           "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "lint": {
+      "type": "object",
+      "description": "`rig lint` (aggregator): which applicable checks run, their timeouts, and the local bootstrap of Oxlint/Oxfmt/Ruff. Configuration only (nothing is reconciled by `rig apply`); valid in the global and the repo layer (repo wins per key). Providers' commands are never configurable.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "master switch for `rig lint run` (not for `rig lint check` / `rig lint rules`)",
+          "default": true
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "description": "default per-check timeout",
+          "default": 300,
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "categories": {
+          "type": "object",
+          "description": "switch a whole check category off (its checks report `not-applicable`)",
+          "properties": {
+            "lint": {
+              "type": "boolean",
+              "description": "run the `lint` category",
+              "default": true
+            },
+            "typecheck": {
+              "type": "boolean",
+              "description": "run the `typecheck` category",
+              "default": true
+            },
+            "format": {
+              "type": "boolean",
+              "description": "run the `format` category",
+              "default": true
+            },
+            "limits": {
+              "type": "boolean",
+              "description": "run the `limits` category",
+              "default": true
+            },
+            "scripts": {
+              "type": "boolean",
+              "description": "run the `scripts` category",
+              "default": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "bootstrap": {
+          "type": "object",
+          "description": "local-only installation of missing Oxlint/Oxfmt (JS/TS) and Ruff (Python); never runs in CI",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "allow bare local `rig lint` to install missing tooling",
+              "default": true
+            },
+            "javascript": {
+              "type": "boolean",
+              "description": "bootstrap Oxlint + Oxfmt for JS/TS scopes without a configured tool",
+              "default": true
+            },
+            "python": {
+              "type": "boolean",
+              "description": "bootstrap Ruff for Python scopes without a configured tool",
+              "default": true
+            },
+            "versions": {
+              "type": "object",
+              "description": "exact-version overrides keyed by pinned package (oxlint, oxfmt, oxlint-tsgolint, @oxlint/plugins, ruff)",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "pattern": "^(oxlint|oxfmt|oxlint-tsgolint|@oxlint/plugins|ruff)$"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "providers": {
+          "type": "object",
+          "description": "per-provider overrides keyed by provider id (eslint, ruff-check, shellcheck, ...)",
+          "additionalProperties": {
+            "type": "object",
+            "description": "per-provider override: switch one check provider off or bound its runtime (argv is never configurable).",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "run this provider (false => its checks report `not-applicable`)",
+                "default": true
+              },
+              "timeout_seconds": {
+                "type": "integer",
+                "description": "per-check timeout for this provider",
+                "minimum": 1,
+                "maximum": 3600
+              }
+            },
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false

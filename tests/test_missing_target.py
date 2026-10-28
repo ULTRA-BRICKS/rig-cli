@@ -306,7 +306,7 @@ def test_harness_settings_paths_from_real_plan_builders(fake_agent_tools, tmp_pa
     can't catch). This builds a real plan with all three enabled and asserts each carries
     ``options['kind'] == 'claude-code'`` AND that its resolved settings path is scanned.
     """
-    from riglib.actions.runner import harness_settings_file
+    from riglib.actions.harness_mode import harness_settings_file
     from riglib.catalog import Catalog
     from riglib.drift import harness_settings_paths
     from riglib.config import LoadedConfig

@@ -58,7 +58,7 @@ def exclude_lookup(data: dict[str, Any], key_path: tuple[str, ...] = EXCLUDE_KEY
     """State of the exclude list on disk: ``missing`` / ``present`` / ``shape``.
 
     ``present`` returns the list (possibly empty). ``shape`` returns the non-dict
-    parent or non-list value. Mirrors :func:`riglib.actions.runner.approval_lookup`
+    parent or non-list value. Mirrors :func:`riglib.actions.shared.approval_lookup`
     so apply and drift share one walk.
     """
     cur: object = data

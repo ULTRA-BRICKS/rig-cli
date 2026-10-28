@@ -34,7 +34,7 @@ def test_registry_covers_every_status_area():
         "stack",
         "skills", "agent_hooks", "git_hooks", "ci", "mcp", "harness", "permissions",
         "mode", "models", "agents_md", "github", "tmux", "gitignore", "spotlight", "bun", "harness_wrappers", "tg_ctl",
-        "tcc_watch", "tgctl_reaper", "sysmon", "linters", "lint_checks", "project_tools", "ecosystem_readme", "task",
+        "tcc_watch", "tgctl_reaper", "sysmon", "linters", "lint_checks", "lint", "project_tools", "ecosystem_readme", "task",
         "internal_dev",
     }
     assert cats == expected
@@ -361,7 +361,7 @@ def test_writable_layer_agrees_with_the_scaffold():
     # task: code_prefix has no sensible default (it is a repo-specific ticket-code prefix the
     # operator must choose) — unset is the correct default, so there is nothing to scaffold.
     _repo_unscaffolded_ok = {
-        "agents_md", "linters", "lint_checks", "permissions", "stack", "ecosystem_readme", "task", "internal_dev",
+        "agents_md", "linters", "lint_checks", "lint", "permissions", "stack", "ecosystem_readme", "task", "internal_dev",
     }
     for area in schema.AREAS:
         if schema.writable_layer_for_category(area.category) == schema.REPO:
@@ -376,12 +376,12 @@ def test_writable_layer_agrees_with_the_scaffold():
     # though status displays the reconciled harness settings under GLOBAL. stack is a REPO-writable
     # preset (the committed rig.yaml) that has no reconciled drift Area, so layers.py leaves it
     # unregistered (defaulting the DISPLAY classification to GLOBAL) — but its WRITABLE layer is
-    # legitimately REPO (a global default is also allowed). lint_checks is the same shape: valid in
-    # both layers, repo-writable, no scaffolded block until the activation area lands.
+    # legitimately REPO (a global default is also allowed). lint_checks and lint are the same shape: valid
+    # in both layers, repo-writable, no scaffolded block (`lint` is configuration only: no status area).
     for area in schema.AREAS:
         if (
             area.category not in scaffolded
-            and area.category not in {"agents_md", "permissions", "stack", "lint_checks"}
+            and area.category not in {"agents_md", "permissions", "stack", "lint_checks", "lint"}
             and layer_for_category(area.category) == schema.GLOBAL
         ):
             assert schema.writable_layer_for_category(area.category) == schema.GLOBAL, area.category

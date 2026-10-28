@@ -26,14 +26,10 @@ from pathlib import Path
 
 import pytest
 
-from riglib import drift as driftmod
-from riglib.actions import runner as runnermod
-from riglib.actions.runner import (
-    _do_provision_global_excludes,
-    global_excludes_block_text,
-    resolve_global_excludes,
-    run_plan,
-)
+from riglib import drift_git_hooks
+from riglib.actions.runner import _do_provision_global_excludes, run_plan
+from riglib.actions import git_config as git_config_mod
+from riglib.actions.global_excludes import global_excludes_block_text, resolve_global_excludes
 from riglib.config import (
     GITIGNORE_BEGIN_MARKER,
     GITIGNORE_DEFAULT_ENTRIES,
@@ -70,9 +66,9 @@ def git_config(monkeypatch):
         store[key] = value
         return 0
 
-    for mod in (runnermod, driftmod):
+    for mod in (git_config_mod, drift_git_hooks):
         monkeypatch.setattr(mod, "_git_global", _read, raising=False)
-    monkeypatch.setattr(runnermod, "_set_git_global", _write)
+    monkeypatch.setattr(git_config_mod, "_set_git_global", _write)
     return store
 
 

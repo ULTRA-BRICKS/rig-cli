@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.72.0
+
+### Added
+- The generated Oxlint React policy turns `react/react-in-jsx-scope` off when the nearest `tsconfig.json` explicitly selects the
+  automatic JSX runtime (`jsx: react-jsx` / `react-jsxdev`, JSON-only `extends` chain), so users are not pushed to add an unneeded
+  `import React`; classic runtime, no evidence and any existing Oxlint config keep the rule as is.
+- `rig lint` / `rig lint run`: runs every applicable check (lint, format check, typecheck, project lint/typecheck scripts, the
+  complexity/file-length gate) through one provider registry, chosen from the languages, manifests, nested packages and configured
+  tools in the worktree. Per-check states `passed`/`failed`/`missing-tool`/`not-applicable`/`unsupported-platform`, exit priority
+  `2 > 127 > 3 > 1 > 0`, `--json` (`rig-lint-run/v1`), `--plan`, `--no-setup`, `--ci`, `--only/--skip/--scope/--timeout`, and `--fix`
+  that runs only safe fixers and re-checks. Configured tools stay authoritative and complementary ones all run. See `docs/lint.md`.
+- The summary reports `files_checked`, `files_uncovered` and `complete`; unsupported languages are listed. `complete: false` never
+  exits 0 by itself: any source file nobody verified (no checker, a tool that could not run), or a Vue/Svelte/Nuxt scope whose
+  templates no configured tool lints (`template-lint-uncovered`, listed under `coverage.template_uncovered`), exits 127 unless the run
+  was narrowed on purpose with `--only`/`--skip`/`--scope`/`lint.categories`. `--plan` stays a preview (0). A linter that rejects the project's
+  own configuration is exit 3 (exit 2 stays Rig's own usage/config error).
+- Read-only runtime guard: every non-fix check is bracketed by a `git status` + content-digest snapshot; a check that changes the
+  worktree is `failed` with reason `wrote-files` (exit 3), which also catches scripts such as `oxfmt .` and bare `ruff format`.
+- A tool that could not run is no longer reported as `findings`: a rejected configuration or the exit code a tool reserves for
+  usage/config errors is `config-error`, a trace from the tool is `crash`, and unresolved modules with no `node_modules` are
+  `dependencies-not-installed` (`missing-tool`, with the install hint). Their files count as not checked, so
+  `files_checked` never includes files a tool did not analyze. `complete` is now also false whenever any applicable check crashed,
+  timed out, hit a configuration error or could not run, even if other checks cover the same files (listed in
+  `coverage.incomplete_checks`); a crashed typecheck next to a passing linter used to read `complete: true`.
+- The nested `rig lint check` runs through a trusted by-path launcher (`riglib/lint_check_launcher.py`), so a project's own
+  `riglib.py` / `riglib/` in the linted repository is never imported in place of Rig.
+- Local bare `rig lint` installs missing default tooling through the same `plan.build` + `actions.run_plan` engine as `rig apply`:
+  Oxlint + Oxfmt for JS/TS (pinned, via the repo's own package manager or a Rig-owned tool cache), Ruff for Python (pinned, from the
+  Rig tool cache so the application's runtime environment is never synced), sha256-verified ShellCheck/shfmt/actionlint, and
+  `rustup` clippy/rustfmt components. CI never edits manifests, lockfiles or configs.
+- `lint:` config block (global + repo) for the master switch, per-check timeout, categories, bootstrap and per-provider switches.
+- Bootstrap coverage (honest list): installs JS/TS Oxlint+Oxfmt, Python Ruff, ShellCheck/shfmt/actionlint and Rust clippy/rustfmt; Go
+  needs nothing; apt/brew/sudo, package-manager installs, ambiguous lockfiles and TypeScript major changes are never done (reported).
+- `rig lint --ci` contract: no setup, no manifest/lockfile/config edits, read-only runtime guard, exit `2 > 127 > 3 > 1 > 0`; an
+  incomplete run (uncovered source files) exits 127 unless deliberately narrowed.
+
+### Changed
+- Bare `rig lint` now runs the checks (it used to print help); `rig lint --help` still lists `run`, `check` and `rules`, and
+  `rig lint check` / `rig lint rules` keep their behavior. `rig lint rules` shows `active` / `inactive_reason` for type-aware rules.
+- Decomposition (no behavior change): oversized `riglib` modules (`cli`, `config`, `config_schema`, `drift`, `plan`, `actions`, `permissions`,
+  `config_web`) and their test files were split into focused modules/helpers so the whole-file complexity/length gate passes with no
+  exemptions or baselines.
+
 ## 0.71.0
 
 ### Added

@@ -392,6 +392,7 @@ def test_env_from_a_repo_level_config_is_honored_same_trust_model_as_tmux(fake_a
 # ── install (runner) + drift — real filesystem, isolated $HOME ─────────────────────────
 def test_apply_writes_generated_file_and_splices_import(tmp_path, monkeypatch):
     from riglib.actions import runner
+    from riglib.actions import env_action as env_action_mod
     from riglib.plan import Action
 
     home = tmp_path / "home"
@@ -413,7 +414,7 @@ def test_apply_writes_generated_file_and_splices_import(tmp_path, monkeypatch):
 
     rc_text = (home / ".zshenv").read_text(encoding="utf-8")
     assert "eval brew shellenv" in rc_text  # the user's own line is untouched
-    plan = runner.env_plan_from_action(action)
+    plan = env_action_mod.env_plan_from_action(action)
     assert plan.import_line() in rc_text
 
 
@@ -633,6 +634,7 @@ def test_drift_stays_clean_when_user_relocated_the_import_line(tmp_path, monkeyp
     check; the fix taken here is to make apply itself position-tolerant instead, so the two
     share one predicate by construction rather than by careful separate maintenance)."""
     from riglib.actions import runner
+    from riglib.actions import env_action as env_action_mod
     from riglib.drift import _check_env, DriftReport
     from riglib.plan import Action
 
@@ -645,7 +647,7 @@ def test_drift_stays_clean_when_user_relocated_the_import_line(tmp_path, monkeyp
         options={"rc_path": str(home / ".zshenv"), "generated_dir": str(home / ".config" / "rig" / "env"), "vars": {"COLORTERM": "truecolor"}},
     )
     runner._do_provision_env(action, "backup")
-    plan = runner.env_plan_from_action(action)
+    plan = env_action_mod.env_plan_from_action(action)
     relocated = plan.import_line() + "\nexport MY_OWN_VAR=1\n"
     (home / ".zshenv").write_text(relocated, encoding="utf-8")
 
@@ -665,6 +667,7 @@ def test_apply_drops_a_stale_import_even_when_the_current_line_is_also_present(t
     STALE `rig.env.sh` (an old `generated_dir`) silently sourced forever — the two must not
     coexist (review finding)."""
     from riglib.actions import runner
+    from riglib.actions import env_action as env_action_mod
     from riglib.plan import Action
 
     home = tmp_path / "home"
@@ -675,7 +678,7 @@ def test_apply_drops_a_stale_import_even_when_the_current_line_is_also_present(t
         source=tmp_path, target=home / ".zshenv",
         options={"rc_path": str(home / ".zshenv"), "generated_dir": str(home / ".config" / "rig" / "env"), "vars": {"COLORTERM": "truecolor"}},
     )
-    plan = runner.env_plan_from_action(action)
+    plan = env_action_mod.env_plan_from_action(action)
     stale = "source '/home/u/.config/rig/OLD/rig.env.sh'\n"
     both = stale + plan.import_line() + "\n"
     (home / ".zshenv").write_text(both, encoding="utf-8")
@@ -688,7 +691,7 @@ def test_apply_drops_a_stale_import_even_when_the_current_line_is_also_present(t
 
 
 def test_drift_flags_a_stale_import_coexisting_with_the_current_one(tmp_path, monkeypatch):
-    from riglib.actions import runner
+    from riglib.actions import env_action as env_action_mod
     from riglib.drift import _check_env, DriftReport
     from riglib.plan import Action
 
@@ -700,7 +703,7 @@ def test_drift_flags_a_stale_import_coexisting_with_the_current_one(tmp_path, mo
         source=tmp_path, target=home / ".zshenv",
         options={"rc_path": str(home / ".zshenv"), "generated_dir": str(home / ".config" / "rig" / "env"), "vars": {"COLORTERM": "truecolor"}},
     )
-    plan = runner.env_plan_from_action(action)
+    plan = env_action_mod.env_plan_from_action(action)
     stale = "source '/home/u/.config/rig/OLD/rig.env.sh'\n"
     (home / ".zshenv").write_text(stale + plan.import_line() + "\n", encoding="utf-8")
     # the generated rig.env.sh was never applied in this test -- that's a SEPARATE, expected
@@ -726,7 +729,7 @@ def test_env_plan_from_action_requires_rc_path_and_generated_dir(tmp_path, monke
     fallback silently resolving differently than the plan builder would have (review finding,
     discovered via exactly that divergence — see `riglib/shell_env.py`'s `build_shell_env`
     docstring for the fuller story)."""
-    from riglib.actions import runner
+    from riglib.actions import env_action as env_action_mod
     from riglib.plan import Action
 
     home = tmp_path / "home"
@@ -738,11 +741,12 @@ def test_env_plan_from_action_requires_rc_path_and_generated_dir(tmp_path, monke
         options={"vars": {"COLORTERM": "truecolor"}},  # no "rc_path"/"generated_dir" at all
     )
     with pytest.raises(KeyError):
-        runner.env_plan_from_action(action)
+        env_action_mod.env_plan_from_action(action)
 
 
 def test_env_plan_from_action_resolves_exactly_what_options_carry(tmp_path, monkeypatch):
     from riglib.actions import runner
+    from riglib.actions import env_action as env_action_mod
     from riglib.plan import Action
 
     home = tmp_path / "home"
@@ -757,7 +761,7 @@ def test_env_plan_from_action_resolves_exactly_what_options_carry(tmp_path, monk
             "vars": {"COLORTERM": "truecolor"},
         },
     )
-    plan = runner.env_plan_from_action(action)
+    plan = env_action_mod.env_plan_from_action(action)
     assert plan.rc_path == home / ".zshenv"
     assert plan.generated_dir == home / ".config" / "rig" / "env"
 

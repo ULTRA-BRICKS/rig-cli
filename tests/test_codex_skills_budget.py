@@ -453,7 +453,7 @@ def test_toml_parser_available_agrees_with_the_runner_probe():
     """Two independent 'can this Python parse TOML' checks (one in the owning module, for the
     plan builder; one in the runner, for the writer/drift) must never diverge — a review finding
     noted duplicating the check is only safe if it is pinned equal."""
-    from riglib.actions.runner import _toml_parser
+    from riglib.actions.toml_edit import _toml_parser
     from riglib.codex_skills_budget import toml_parser_available
 
     assert toml_parser_available() == (_toml_parser() is not None)

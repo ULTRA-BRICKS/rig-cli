@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 from riglib.actions import run_plan
-from riglib.actions.runner import INSTRUCTION_POLICY_BEGIN_MARKER, ORCHESTRATOR_BEGIN_MARKER
+from riglib.actions.agents_md import ORCHESTRATOR_BEGIN_MARKER
+from riglib.actions.harness_settings import INSTRUCTION_POLICY_BEGIN_MARKER
 from riglib.drift import detect
 from riglib.plan import Action, InstallPlan
 from riglib.problem_reporting import BEGIN_MARKER

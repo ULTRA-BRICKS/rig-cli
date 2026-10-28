@@ -270,13 +270,13 @@ def test_externally_managed_false_when_sysconfig_lacks_stdlib_key(monkeypatch):
 def test_print_dep_statuses_shows_pep668_fallback(monkeypatch, capsys):
     """`rig doctor`'s (no --yes) listing must surface the --break-system-packages fallback line
     for a dep that has one, not just the plain install_cmd that's known to fail there."""
-    from riglib import cli
+    from riglib import cli_doctor, cli_status_services
 
     monkeypatch.setattr(doctor.shutil, "which", lambda name: None)
     monkeypatch.setattr(doctor, "_python_present", lambda name: False)
     monkeypatch.setattr(doctor, "externally_managed", lambda: True)
     report = doctor.diagnose(OsInfo("darwin", "brew", "macOS"))
-    cli._print_dep_statuses(report)
+    cli_status_services._print_dep_statuses(report)
     out = capsys.readouterr().out
     assert "PEP-668 externally-managed" in out
     assert "pipx install hyper-rig" in out
@@ -289,12 +289,11 @@ def test_cmd_doctor_yes_shows_pep668_fallback_on_failed_install(monkeypatch, cap
     "rc=1" and no path forward."""
     import argparse
 
-    from riglib import cli
+    from riglib import cli_doctor, cli_status_services
+    from riglib import drift as _drift
     from riglib.doctor import DoctorReport
 
-    from riglib import drift as _drift
-
-    monkeypatch.setattr(cli, "_handle_core_bare", lambda do_fix: False)
+    monkeypatch.setattr(cli_doctor, "_handle_core_bare", lambda do_fix: False)
     monkeypatch.setattr(_drift, "scan_missing_targets", lambda settings_paths=None: [])
     monkeypatch.setattr(doctor.shutil, "which", lambda name: None)
     monkeypatch.setattr(doctor, "_python_present", lambda name: False)
@@ -312,7 +311,7 @@ def test_cmd_doctor_yes_shows_pep668_fallback_on_failed_install(monkeypatch, cap
     monkeypatch.setattr(doctor_mod.subprocess, "run", lambda cmd, timeout=None: _FailRes())
 
     args = argparse.Namespace(yes=True, optional=False, fix=False)
-    rc = cli.cmd_doctor(args)
+    rc = cli_doctor.cmd_doctor(args)
     out = capsys.readouterr().out
     assert rc != 0
     assert "if this interpreter refused it (PEP-668)" in out

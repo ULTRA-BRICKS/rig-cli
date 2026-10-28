@@ -13,9 +13,12 @@ from pathlib import Path
 import pytest
 
 from riglib import drift as driftmod
+from riglib import drift_services
 from riglib import sysmon
 from riglib.actions import runner
+from riglib.actions import sysmon_action as sysmon_action_mod
 from riglib.config import ConfigError, validate
+from riglib.actions import service_ctl as service_ctl_mod
 
 _REAL_PROVISION = runner._do_provision_sysmon
 _REAL_CHECK = driftmod._check_sysmon
@@ -51,11 +54,11 @@ def _action(block=None, gpu_env=None):
 
 def _stub_services(monkeypatch, *, loaded=False):
     calls = []
-    monkeypatch.setattr(runner, "_launchctl_bootout", lambda p: calls.append(("bootout", p)) or 0)
-    monkeypatch.setattr(runner, "_launchctl_bootstrap", lambda p: calls.append(("bootstrap", p)) or 0)
-    monkeypatch.setattr(runner, "_launchctl_gui_loaded", lambda label: loaded)
-    monkeypatch.setattr(runner, "_systemctl_user", lambda *a: calls.append(("systemctl",) + a) or (0 if loaded or a[0] != "is-active" else 3))
-    monkeypatch.setattr(driftmod, "_sysmon_service_loaded", lambda plan: loaded)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_bootout", lambda p: calls.append(("bootout", p)) or 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_bootstrap", lambda p: calls.append(("bootstrap", p)) or 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_gui_loaded", lambda label: loaded)
+    monkeypatch.setattr(service_ctl_mod, "_systemctl_user", lambda *a: calls.append(("systemctl",) + a) or (0 if loaded or a[0] != "is-active" else 3))
+    monkeypatch.setattr(drift_services, "_sysmon_service_loaded", lambda plan: loaded)
     return calls
 
 
@@ -133,10 +136,10 @@ def test_absent_block_still_provisions_and_enabled_false_opts_out(fake_agent_too
 def test_gpu_cap_follows_rig_env_unless_set_explicitly(fake_agent_tools, tmp_path):
     env = {"env": {"vars": {"RIG_GPU_SLOTS": "3", "RIG_GPU_SLOT_DIR": "/x/slots"}}}
     [a] = _plan_actions(env, fake_agent_tools, tmp_path)
-    rt = runner.sysmon_plan_from_action(a).runtime
+    rt = sysmon_action_mod.sysmon_plan_from_action(a).runtime
     assert rt["gpu"]["slots"] == 3 and rt["gpu"]["slot_dir"] == "/x/slots"
     [a] = _plan_actions({**env, "sysmon": {"gpu": {"slots": 1}}}, fake_agent_tools, tmp_path)
-    assert runner.sysmon_plan_from_action(a).runtime["gpu"]["slots"] == 1
+    assert sysmon_action_mod.sysmon_plan_from_action(a).runtime["gpu"]["slots"] == 1
 
 
 # ── rendering ─────────────────────────────────────────────────────────────────────────────
@@ -276,7 +279,7 @@ def test_apply_installs_package_config_plist_and_loads(monkeypatch, tmp_path):
     home = _home(monkeypatch, tmp_path)
     calls = _stub_services(monkeypatch)
     res = runner._do_provision_sysmon(_action(), "backup")
-    plan = runner.sysmon_plan_from_action(_action())
+    plan = sysmon_action_mod.sysmon_plan_from_action(_action())
     assert res.status == "created", res.detail
     assert (plan.package_dir / "daemon.py").is_file() and plan.config_path.is_file() and plan.plist_path.is_file()
     assert plan.state_dir.is_dir()
@@ -300,7 +303,7 @@ def test_a_hand_edited_module_is_restored_and_the_daemon_reloaded(monkeypatch, t
     _home(monkeypatch, tmp_path)
     _stub_services(monkeypatch)
     runner._do_provision_sysmon(_action(), "backup")
-    plan = runner.sysmon_plan_from_action(_action())
+    plan = sysmon_action_mod.sysmon_plan_from_action(_action())
     (plan.package_dir / "heal.py").write_text("# tampered\n")
     calls = _stub_services(monkeypatch, loaded=True)
     res = runner._do_provision_sysmon(_action(), "backup")
@@ -316,7 +319,7 @@ def test_config_change_rewrites_sysmon_json_and_reloads(monkeypatch, tmp_path):
     runner._do_provision_sysmon(_action(), "backup")
     calls = _stub_services(monkeypatch, loaded=True)
     runner._do_provision_sysmon(_action({"auto_remediate": True}), "backup")
-    plan = runner.sysmon_plan_from_action(_action({"auto_remediate": True}))
+    plan = sysmon_action_mod.sysmon_plan_from_action(_action({"auto_remediate": True}))
     assert json.loads(plan.config_path.read_text())["auto_remediate"] is True
     assert any(c[0] == "bootstrap" for c in calls)
 
@@ -327,7 +330,7 @@ def test_dry_run_writes_artifacts_but_never_touches_launchd(monkeypatch, tmp_pat
     monkeypatch.setenv("RIG_SYSMON_DRY_RUN", "1")
     calls = _stub_services(monkeypatch)
     res = runner._do_provision_sysmon(_action(), "backup")
-    assert runner.sysmon_plan_from_action(_action()).plist_path.is_file()
+    assert sysmon_action_mod.sysmon_plan_from_action(_action()).plist_path.is_file()
     assert calls == [] and "RIG_SYSMON_DRY_RUN" in res.detail
 
 
@@ -336,7 +339,7 @@ def test_linux_installs_a_systemd_user_unit(monkeypatch, tmp_path):
     _home(monkeypatch, tmp_path)
     calls = _stub_services(monkeypatch)
     res = runner._do_provision_sysmon(_action(), "backup")
-    plan = runner.sysmon_plan_from_action(_action())
+    plan = sysmon_action_mod.sysmon_plan_from_action(_action())
     assert res.status == "created", res.detail
     unit = plan.unit_path.read_text()
     assert f"ExecStart={' '.join(plan.program_arguments)}" in unit and "Restart=always" in unit
@@ -391,7 +394,7 @@ def test_drift_flags_a_modified_module(monkeypatch, tmp_path):
     runner._do_provision_sysmon(_action(), "backup")
     _stub_services(monkeypatch, loaded=True)
     _heartbeat(home, age_s=3)
-    plan = runner.sysmon_plan_from_action(_action())
+    plan = sysmon_action_mod.sysmon_plan_from_action(_action())
     (plan.package_dir / "alert.py").write_text("# edited\n")
     items = _drift()
     assert [d.direction for d in items] == ["modified"] and items[0].target.name == "alert.py"

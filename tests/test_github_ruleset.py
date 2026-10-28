@@ -14,7 +14,11 @@ import json
 import pytest
 
 from riglib.actions import runner
-from riglib.actions.runner import github_owner_repo, github_ruleset_state
+from riglib.actions import github_common as github_common_mod
+from riglib.actions import github_ruleset_action as github_ruleset_action_mod
+import shutil
+from riglib.actions.github_common import github_owner_repo
+from riglib.actions.github_ruleset_action import github_ruleset_state
 from riglib.config import ConfigError, LoadedConfig, validate
 from riglib.drift import detect
 from riglib.github_ruleset import (
@@ -91,18 +95,18 @@ class _GhRecorder:
 @pytest.fixture
 def gh_repo(monkeypatch):
     """Pretend the repo has a github origin remote (no real git needed)."""
-    monkeypatch.setattr(runner, "github_owner_repo", lambda repo_root: ("acme", "widget"))
+    monkeypatch.setattr(github_common_mod, "github_owner_repo", lambda repo_root: ("acme", "widget"))
 
 
 def _install_gh(monkeypatch, recorder: _GhRecorder) -> None:
-    monkeypatch.setattr(runner, "_gh_api", recorder)
+    monkeypatch.setattr(github_common_mod, "_gh_api", recorder)
     # The #4136.1 auth gate runs before every github.* mutation. These ruleset tests exercise the
     # POST/PUT mutation path with a stubbed `_gh_api`, so stub the gate as already-authed (the gate
     # itself has its own dedicated tests in test_github_auth.py) — otherwise the gate's real
     # `gh auth status` probe would intercept the mutation and return a not-authed error.
     from riglib.github_auth import AuthOutcome
 
-    monkeypatch.setattr(runner, "ensure_gh_auth", lambda **kw: AuthOutcome("ok"))
+    monkeypatch.setattr(github_common_mod, "ensure_gh_auth", lambda **kw: AuthOutcome("ok"))
 
 
 # ── desired body assembly + the footgun guard ──────────────────────────────────────
@@ -473,18 +477,18 @@ def test_github_owner_repo_none_when_git_fails(monkeypatch, tmp_path):
 )
 def test_gh_dry_run_parsing(monkeypatch, value, expected):
     monkeypatch.setenv("RIG_GH_DRY_RUN", value)
-    assert runner._gh_dry_run() is expected
+    assert github_common_mod._gh_dry_run() is expected
 
 
 def test_gh_dry_run_unset_is_false(monkeypatch):
     monkeypatch.delenv("RIG_GH_DRY_RUN", raising=False)
-    assert runner._gh_dry_run() is False
+    assert github_common_mod._gh_dry_run() is False
 
 
 def test_gh_api_missing_binary(monkeypatch):
     # when `gh` isn't on PATH, the seam returns 127 + a clear message (never raises).
-    monkeypatch.setattr(runner.shutil, "which", lambda name: None)
-    rc, out, err = runner._gh_api(["repos/acme/widget/rulesets"])
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    rc, out, err = github_common_mod._gh_api(["repos/acme/widget/rulesets"])
     assert rc == 127 and "gh CLI not found" in err
 
 
@@ -622,8 +626,8 @@ def test_no_github_remote_is_skipped_not_error(monkeypatch, tmp_path):
     def _explode(*a, **k):
         raise AssertionError("gh api must not be called when there is no github remote")
 
-    monkeypatch.setattr(runner, "github_owner_repo", lambda repo_root: None)
-    monkeypatch.setattr(runner, "_gh_api", _explode)
+    monkeypatch.setattr(github_common_mod, "github_owner_repo", lambda repo_root: None)
+    monkeypatch.setattr(github_common_mod, "_gh_api", _explode)
     res = runner._do_provision_github_ruleset(_action(tmp_path), "backup")
     assert res.status == "skipped" and "no github" in res.detail.lower()
 
@@ -751,7 +755,7 @@ def test_plan_limited_heuristic_matches_known_phrases(phrase, expected):
     # _looks_like_ruleset_plan_limited must match GitHub's plan-limit wording (case-insensitive)
     # and must NOT match unrelated 403s or empty strings — a miss degrades to a loud generic error,
     # never a silent no-op, so false negatives are safe but false positives would hide auth bugs.
-    assert runner._looks_like_ruleset_plan_limited(phrase) is expected
+    assert github_ruleset_action_mod._looks_like_ruleset_plan_limited(phrase) is expected
 
 
 def test_second_get_failure_is_gh_error(monkeypatch, tmp_path, gh_repo):
@@ -805,7 +809,7 @@ def test_drift_in_sync_when_matching(monkeypatch, tmp_path, gh_repo):
 
 
 def test_drift_no_item_without_github_remote(monkeypatch, tmp_path):
-    monkeypatch.setattr(runner, "github_owner_repo", lambda repo_root: None)
+    monkeypatch.setattr(github_common_mod, "github_owner_repo", lambda repo_root: None)
     report = detect(_plan_with(tmp_path))
     assert not [i for i in report.items if i.category == "github"]
 

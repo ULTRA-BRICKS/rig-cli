@@ -7,6 +7,7 @@ from pathlib import Path
 from riglib import spotlight, verify
 from riglib.actions.runner import ActionResult
 from riglib.plan import Action, InstallPlan
+from riglib.actions import service_ctl as service_ctl_mod
 
 
 def _spotlight_action(root: Path, label: str) -> Action:
@@ -175,7 +176,6 @@ def test_verify_plan_converts_verifier_exception_to_failure():
 def test_verify_tg_ctl_uses_gui_domain_check(tmp_path, monkeypatch, live_launchd_home):
     # tg_ctl loads in gui/<uid>; the verifier must consult the GUI-domain predicate, not the
     # legacy `launchctl list`. Prove it: gui-check True but legacy-check False → result is LOADED.
-    from riglib.actions import runner
 
     monkeypatch.setattr(verify, "_is_darwin", lambda: True)
     monkeypatch.delenv("RIG_TG_CTL_DRY_RUN", raising=False)
@@ -183,7 +183,7 @@ def test_verify_tg_ctl_uses_gui_domain_check(tmp_path, monkeypatch, live_launchd
     plist = tmp_path / "Library/LaunchAgents/ai.hyperide.tg-ctl.plist"
     plist.parent.mkdir(parents=True)
     plist.write_text("<plist/>", encoding="utf-8")
-    monkeypatch.setattr(runner, "_launchctl_gui_loaded", lambda label: True)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_gui_loaded", lambda label: True)
     monkeypatch.setattr(verify, "_launchctl_loaded", lambda label: False)  # legacy would say NOT loaded
     action = Action(
         kind="provision_tg_ctl", category="tg_ctl", item="boot",
@@ -219,7 +219,6 @@ def test_verify_tgctl_reaper_checks_plist(tmp_path, monkeypatch):
 def test_verify_tgctl_reaper_uses_gui_domain_check(tmp_path, monkeypatch, live_launchd_home):
     # tgctl_reaper loads in gui/<uid>; the verifier must consult the GUI-domain predicate, not
     # the legacy `launchctl list`. Prove it: gui-check True but legacy-check False → LOADED.
-    from riglib.actions import runner
 
     monkeypatch.setattr(verify, "_is_darwin", lambda: True)
     monkeypatch.delenv("RIG_TGCTL_REAPER_DRY_RUN", raising=False)
@@ -227,7 +226,7 @@ def test_verify_tgctl_reaper_uses_gui_domain_check(tmp_path, monkeypatch, live_l
     plist = tmp_path / "Library/LaunchAgents/com.hyperide.tgctl-omp-acp-reaper.plist"
     plist.parent.mkdir(parents=True)
     plist.write_text("<plist/>", encoding="utf-8")
-    monkeypatch.setattr(runner, "_launchctl_gui_loaded", lambda label: True)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_gui_loaded", lambda label: True)
     monkeypatch.setattr(verify, "_launchctl_loaded", lambda label: False)  # legacy would say NOT loaded
     action = Action(
         kind="provision_tgctl_reaper", category="tgctl_reaper", item="sweep",

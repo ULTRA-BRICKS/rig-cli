@@ -7,6 +7,7 @@ from pathlib import Path
 from riglib import spotlight
 from riglib.actions.runner import _do_provision_spotlight
 from riglib.plan import Action
+from riglib.actions import service_ctl as service_ctl_mod
 
 
 def _make_tree(root: Path) -> None:
@@ -136,7 +137,6 @@ def test_do_provision_spotlight_launchctl_load_failure_is_error(tmp_path, monkey
     if sys.platform != "darwin":
         import pytest
         pytest.skip("launchd branch is macOS-only")
-    from riglib.actions import runner
 
     root = tmp_path / "work"
     (root / "proj/node_modules").mkdir(parents=True)
@@ -144,8 +144,8 @@ def test_do_provision_spotlight_launchctl_load_failure_is_error(tmp_path, monkey
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.delenv("RIG_SPOTLIGHT_DRY_RUN", raising=False)  # exercise the real load path
-    monkeypatch.setattr(runner, "_launchctl", lambda verb, arg: 0 if verb == "unload" else 1)
-    monkeypatch.setattr(runner, "_launchctl_loaded", lambda label: False)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl", lambda verb, arg: 0 if verb == "unload" else 1)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_loaded", lambda label: False)
     action = Action(
         kind="provision_spotlight", category="spotlight", item="exclude",
         source=tmp_path, target=Path("ai.hyperide.spotlight-exclude"),
@@ -268,7 +268,7 @@ def test_drift_spotlight_modified_plist(tmp_path, monkeypatch):
 def test_drift_spotlight_agent_not_loaded(tmp_path, monkeypatch, live_launchd_home):
     """With a correct plist on disk but the launchd agent NOT loaded (real load path, not dry-run),
     status flags 'not loaded' — the branch every other drift test short-circuits via dry-run."""
-    from riglib import drift as driftmod
+    from riglib import drift_services
 
     action, _root, home = _spotlight_darwin_applied(tmp_path, monkeypatch)
     plist = home / "Library/LaunchAgents/ai.hyperide.spotlight-exclude.plist"
@@ -276,7 +276,7 @@ def test_drift_spotlight_agent_not_loaded(tmp_path, monkeypatch, live_launchd_ho
     monkeypatch.delenv("RIG_SPOTLIGHT_DRY_RUN", raising=False)  # exercise the live loaded-probe
     # explicit here (the autouse fixture already stubs this False) — this is the one test whose
     # branch depends on the loaded-probe outcome, so pin it locally rather than rely on the fixture.
-    monkeypatch.setattr(driftmod, "_launchctl_loaded", lambda label: False)
+    monkeypatch.setattr(drift_services, "_launchctl_loaded", lambda label: False)
     drift = _spotlight_drift(action)
     assert any(d.direction == "missing" and "not loaded" in d.detail for d in drift)
 
@@ -284,13 +284,13 @@ def test_drift_spotlight_agent_not_loaded(tmp_path, monkeypatch, live_launchd_ho
 def test_drift_spotlight_modified_and_not_loaded_both_surface(tmp_path, monkeypatch, live_launchd_home):
     """A content-drifted plist whose agent is ALSO not loaded surfaces BOTH facts — the modified
     check must not short-circuit the (independent) loaded probe."""
-    from riglib import drift as driftmod
+    from riglib import drift_services
 
     action, _root, home = _spotlight_darwin_applied(tmp_path, monkeypatch)
     plist = home / "Library/LaunchAgents/ai.hyperide.spotlight-exclude.plist"
     plist.write_text("<plist>tampered</plist>", encoding="utf-8")  # content drift
     monkeypatch.delenv("RIG_SPOTLIGHT_DRY_RUN", raising=False)  # exercise the live loaded-probe
-    monkeypatch.setattr(driftmod, "_launchctl_loaded", lambda label: False)
+    monkeypatch.setattr(drift_services, "_launchctl_loaded", lambda label: False)
     drift = _spotlight_drift(action)
     assert any(d.direction == "modified" for d in drift)
     assert any(d.direction == "missing" and "not loaded" in d.detail for d in drift)

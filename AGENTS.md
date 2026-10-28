@@ -104,7 +104,7 @@ bare `rig config-web` prints help, never launches.
   capability, add it to the headless engine first and let the wizard call it.
 - **Harness auto-mode is provisioned through the reconciler, like every other target.** The
   `harness:` block flows config → `plan.build` (one `apply_harness` action PER configured kind —
-  primary + `harness.kinds`) → `run_plan` (`actions/runner.py::_do_apply_harness`), writing only
+  primary + `harness.kinds`) → `run_plan` (`actions/harness_mode.py::_do_apply_harness`), writing only
   the managed permission key into the harness's own config, idempotent + backup-on-conflict, with
   drift surfaced by `rig status`. Recommend `auto_mode: true` by default — it is safe *because*
   the agent-hook guards (incl. `block-raw-pr-merge`, `block-reset-hard`) are installed in the same
@@ -246,7 +246,7 @@ bare `rig config-web` prints help, never launches.
   of `$HOME`; a HOME-only-isolated `rig apply` once bootstrapped the REAL `ai.hyperide.tg-ctl`
   agent from a scratch-HOME plist and crash-looped it 23,641 times. So before ANY live
   launchctl/systemctl mutation the runner compares the resolved `Path.home()` with the uid's real
-  login home (`riglib/actions/runner.py::_home_is_sandboxed`, one predicate feeding the four
+  login home (`riglib/actions/live_env.py::_home_is_sandboxed`, one predicate feeding the four
   `_*_dry_run` seams: schedule, tmux, tg_ctl, spotlight); when they differ it behaves exactly like
   the DRY_RUN env (artifact written, live mutation skipped) and says so in the action detail
   (`HOME is overridden (<home> != <real home>) — skipped live launchctl … (sandboxed run)`). The
@@ -437,7 +437,7 @@ cap; `find -delete`, `rsync --delete`, `mv` and interpreters are out of scope (a
 
 **The hook pins the rig it talks to (agent-tools#961).** `rig apply` rewrites the exact argument
 `/ABSOLUTE/PATH/TO/rig` in an agent-hook descriptor's `args` to the absolute path of the launcher that ran
-the apply (`riglib/actions/runner.py::pinned_rig_path`: `sys.argv[0]` when it is an executable file named
+the apply (`riglib/actions/agent_hook_install.py::pinned_rig_path`: `sys.argv[0]` when it is an executable file named
 `rig`, else `rig` on PATH, else the install fails loudly — never a bare `rig`). The agent-tools
 `block-unlanded-removal` hook reads `--rig <path>` instead of resolving `rig` through its own PATH, so a
 shadowing binary cannot answer for the guard; a moved or reinstalled rig shows up as drift and a re-apply
@@ -593,6 +593,11 @@ commit locally. To close the LOCAL half:
 - English-only code, comments, and docs.
 - No dead code, no underscore-prefixed unused params, no `as-unknown-as` escape hatches.
 - Keep `cli.py` thin (argparse + dispatch); behavior lives in the sibling modules.
+- `riglib/actions/runner.py` owns only `run_plan` and the `_HANDLERS` kind -> handler table; every handler
+  lives in its area module (`tmux.py`, `schedule.py`, `permissions.py`, ...). A subprocess/IO seam that tests
+  patch is patched on the module that DEFINES it, and other modules call it as `module.seam(...)` at call time
+  (never `from x import seam`), so the patch reaches every caller. New handlers get their own area module
+  and must keep the CCCC limits (no per-file exemptions).
 
 # >>> rig-managed orchestrator (do not edit) >>>
 # Orchestrator, not worker. Do not implement inline. Do not run `gh` except an unchained

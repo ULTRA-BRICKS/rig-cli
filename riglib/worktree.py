@@ -58,11 +58,12 @@ from __future__ import annotations
 
 import shlex
 import subprocess
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 from . import errors, removal_explain, removal_verdict as rv, worktree_gc
-from .actions.runner import reconcile_worktrees_exclude
+from .actions.worktrees_exclude import reconcile_worktrees_exclude
 from .config import WORKTREES_DIR_NAME
 
 _GIT_TIMEOUT_S = 60
@@ -377,21 +378,7 @@ def _find_worktree_branch(repo_root: Path, target: Path) -> str | None:
     resolved_target`` comparison — and feeding the returned branch name back into ``git branch -D``
     argv — still works correctly even for a non-UTF-8 path or branch name.
     """
-    cmd = ["git", "-C", str(repo_root), "worktree", "list", "--porcelain", "-z"]
-    try:
-        res = subprocess.run(cmd, capture_output=True, timeout=_GIT_TIMEOUT_S)
-    except subprocess.TimeoutExpired:
-        raise _BranchLookupError(
-            f"git worktree list timed out after {_GIT_TIMEOUT_S}s", errors.EXIT_INTERNAL
-        ) from None
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise _BranchLookupError(
-            f"could not run git worktree list: {exc}", _classify_run_oserror(exc)
-        ) from exc
-    if res.returncode != 0:
-        detail = _decode_message(res.stderr).strip() or _decode_message(res.stdout).strip()
-        raise _BranchLookupError(f"git worktree list failed: {detail or f'exit {res.returncode}'}", errors.EXIT_CONFIG)
-
+    stdout = _worktree_list_stdout(repo_root)
     # Exact match is the fast, common path — a case-insensitive fallback covers a worktree
     # registered on a case-insensitive filesystem (macOS/Windows default) whose recorded case
     # differs from `target`'s (e.g. `create`d as "Agent-1", `remove`d as "agent-1"): the
@@ -406,19 +393,44 @@ def _find_worktree_branch(repo_root: Path, target: Path) -> str | None:
     # silently removed.
     resolved_target = target.resolve()
     resolved_target_ci = str(resolved_target).casefold()
-    current_path: Path | None = None
     ci_fallback: str | None = None
-    for raw_field in res.stdout.split(b"\x00"):
+    for resolved_current, branch in _listed_branches(stdout):
+        if resolved_current == resolved_target:
+            return branch
+        if ci_fallback is None and str(resolved_current).casefold() == resolved_target_ci:
+            ci_fallback = branch
+    return ci_fallback
+
+
+def _worktree_list_stdout(repo_root: Path) -> bytes:
+    """Raw stdout of ``git worktree list --porcelain -z``; raises :class:`_BranchLookupError` when
+    the listing can't be trusted (timeout, couldn't run, non-zero exit)."""
+    cmd = ["git", "-C", str(repo_root), "worktree", "list", "--porcelain", "-z"]
+    try:
+        res = subprocess.run(cmd, capture_output=True, timeout=_GIT_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        raise _BranchLookupError(
+            f"git worktree list timed out after {_GIT_TIMEOUT_S}s", errors.EXIT_INTERNAL
+        ) from None
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise _BranchLookupError(
+            f"could not run git worktree list: {exc}", _classify_run_oserror(exc)
+        ) from exc
+    if res.returncode != 0:
+        detail = _decode_message(res.stderr).strip() or _decode_message(res.stdout).strip()
+        raise _BranchLookupError(f"git worktree list failed: {detail or f'exit {res.returncode}'}", errors.EXIT_CONFIG)
+    return res.stdout
+
+
+def _listed_branches(stdout: bytes) -> Iterator[tuple[Path, str]]:
+    """``(resolved worktree path, branch)`` for every listed worktree with a branch checked out."""
+    current_path: Path | None = None
+    for raw_field in stdout.split(b"\x00"):
         field = raw_field.decode("utf-8", errors="surrogateescape")
         if field.startswith("worktree "):
             current_path = Path(field[len("worktree ") :])
         elif field.startswith("branch refs/heads/") and current_path is not None:
-            resolved_current = current_path.resolve()
-            if resolved_current == resolved_target:
-                return field[len("branch refs/heads/") :]
-            if ci_fallback is None and str(resolved_current).casefold() == resolved_target_ci:
-                ci_fallback = field[len("branch refs/heads/") :]
-    return ci_fallback
+            yield current_path.resolve(), field[len("branch refs/heads/") :]
 
 
 def _run_git_worktree_remove(repo_root: Path, target: Path, *, force: bool = False) -> WorktreeResult | None:
@@ -538,6 +550,56 @@ def _not_a_worktree(arg: str) -> WorktreeResult:
     )
 
 
+def _ambiguous(arg: str, matches: list[Path]) -> WorktreeResult:
+    listed = ", ".join(str(m) for m in matches)
+    return WorktreeResult(
+        "error",
+        f"{arg!r} is ambiguous — it matches {listed}; pass the full path",
+        exit_code=errors.EXIT_CONFIG,
+    )
+
+
+def _resolve_by_path(
+    repo_root: Path, arg: str, cwd: Path | None, linked: list[tuple[Path, str]]
+) -> tuple[Path | None, WorktreeResult | None]:
+    candidates = [Path(arg)] if Path(arg).is_absolute() else [*([cwd / arg] if cwd else []), repo_root / arg]
+    for candidate in candidates:  # the shell's reading (cwd-relative) wins over the repo-root reading
+        by_path = {p for p, _ in linked if rv.same_path(p, candidate)}
+        if len(by_path) == 1:
+            return next(iter(by_path)), None
+        if len(by_path) > 1:
+            return None, _ambiguous(arg, sorted(by_path))
+    return None, None
+
+
+def _resolve_by_standard_name(
+    repo_root: Path, arg: str, linked: list[tuple[Path, str]]
+) -> tuple[Path | None, WorktreeResult | None]:
+    if _invalid_name_reason(arg) is not None:
+        return None, None
+    standardized = worktree_path(repo_root, arg)
+    if _target_escapes_repo(repo_root, standardized):
+        return None, WorktreeResult(
+            "error",
+            f"{standardized.parent} is a symlink pointing outside {repo_root} — refusing to remove "
+            "through it",
+            path=standardized,
+            exit_code=errors.EXIT_CONFIG,
+        )
+    if standardized.is_symlink():
+        return None, WorktreeResult(
+            "error",
+            f"{standardized} is itself a symlink — refusing to remove through it (a real "
+            "worktree root is never a symlink)",
+            path=standardized,
+            exit_code=errors.EXIT_CONFIG,
+        )
+    for p, _ in linked:
+        if rv.same_path(p, standardized):
+            return p, None
+    return None, None
+
+
 def resolve_target(
     repo_root: Path, arg: str, *, cwd: Path | None = None
 ) -> tuple[Path | None, WorktreeResult | None]:
@@ -553,53 +615,38 @@ def resolve_target(
     """
     if not arg or not arg.strip():
         return None, WorktreeResult("error", "worktree name must not be empty", exit_code=errors.EXIT_CONFIG)
+    linked, list_error = _linked_worktrees(repo_root)
+    if list_error is not None:
+        return None, list_error
+    found = _resolve_by_path(repo_root, arg, cwd, linked)
+    if found == (None, None):
+        found = _resolve_by_standard_name(repo_root, arg, linked)
+    if found == (None, None):
+        found = _resolve_by_branch_or_dirname(arg, linked)
+    return found
+
+
+def _linked_worktrees(repo_root: Path) -> tuple[list[tuple[Path, str]], WorktreeResult | None]:
+    """``([(path, branch)], None)`` for every LINKED worktree git lists (primary excluded), or
+    ``([], error_result)`` when the listing fails."""
     try:
         records = worktree_gc.worktree_records(repo_root)
     except worktree_gc.WorktreeGcError as exc:
-        return None, WorktreeResult(
+        return [], WorktreeResult(
             "error",
             f"could not list worktrees: {exc} — refusing to remove anything without knowing what is registered",
             exit_code=exc.exit_code,
         )
-    linked = [
+    return [
         (Path(r["worktree"]), r.get("branch", "").removeprefix("refs/heads/"))
         for r in records[1:]
         if "worktree" in r
-    ]
+    ], None
 
-    candidates = [Path(arg)] if Path(arg).is_absolute() else [*([cwd / arg] if cwd else []), repo_root / arg]
-    for candidate in candidates:  # the shell's reading (cwd-relative) wins over the repo-root reading
-        by_path = {p for p, _ in linked if rv.same_path(p, candidate)}
-        if len(by_path) == 1:
-            return next(iter(by_path)), None
-        if len(by_path) > 1:
-            listed = ", ".join(str(m) for m in sorted(by_path))
-            return None, WorktreeResult(
-                "error",
-                f"{arg!r} is ambiguous — it matches {listed}; pass the full path",
-                exit_code=errors.EXIT_CONFIG,
-            )
-    if _invalid_name_reason(arg) is None:
-        standardized = worktree_path(repo_root, arg)
-        if _target_escapes_repo(repo_root, standardized):
-            return None, WorktreeResult(
-                "error",
-                f"{standardized.parent} is a symlink pointing outside {repo_root} — refusing to remove "
-                "through it",
-                path=standardized,
-                exit_code=errors.EXIT_CONFIG,
-            )
-        if standardized.is_symlink():
-            return None, WorktreeResult(
-                "error",
-                f"{standardized} is itself a symlink — refusing to remove through it (a real "
-                "worktree root is never a symlink)",
-                path=standardized,
-                exit_code=errors.EXIT_CONFIG,
-            )
-        for p, _ in linked:
-            if rv.same_path(p, standardized):
-                return p, None
+
+def _resolve_by_branch_or_dirname(
+    arg: str, linked: list[tuple[Path, str]]
+) -> tuple[Path | None, WorktreeResult | None]:
     for matches in (
         [p for p, branch in linked if branch == arg],
         [p for p, _ in linked if p.name == arg],
@@ -607,12 +654,7 @@ def resolve_target(
         if len(matches) == 1:
             return matches[0], None
         if len(matches) > 1:
-            listed = ", ".join(str(m) for m in matches)
-            return None, WorktreeResult(
-                "error",
-                f"{arg!r} is ambiguous — it matches {listed}; pass the full path",
-                exit_code=errors.EXIT_CONFIG,
-            )
+            return None, _ambiguous(arg, matches)
     return None, _not_a_worktree(arg)
 
 

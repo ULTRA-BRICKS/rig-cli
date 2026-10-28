@@ -214,7 +214,7 @@ def resolve_key(key: str, desired: str, type_: str) -> KeyState:
     - ``missing``: the key is unset in the global gitconfig.
     - ``modified``: set, but to something else (``current`` names it, for the restore hint).
     """
-    from .actions.runner import _git_global_get
+    from .actions.git_config import _git_global_get
 
     current = _git_global_get(key)
     if current is None:

@@ -17,11 +17,8 @@ from pathlib import Path
 import pytest
 
 from riglib import gh_ship_alias as gsa
-from riglib.actions.runner import (
-    _do_provision_gh_ship_alias,
-    ship_env_file_content,
-    ship_env_file_path,
-)
+from riglib.actions.runner import _do_provision_gh_ship_alias
+from riglib.actions.ship_delegator import ship_env_file_content, ship_env_file_path
 from riglib.areas import AREAS
 from riglib.drift import DriftReport, _check_gh_ship_alias
 from riglib.layers import GLOBAL, layer_for_category
@@ -465,7 +462,8 @@ def test_handler_transient_env_keeps_action_skipped_not_green(tmp_path, monkeypa
     # env reconcile returns skipped_transient. Even with the alias freshly created, the action must
     # report `skipped` (the reconcile is INCOMPLETE — `gh ship` has no resolvable root) rather than
     # a falsely-green `created`, mirroring the delegator's partial-outcome contract.
-    from riglib.actions.runner import _merge_env_into_alias_result, ActionResult
+    from riglib.actions.runner import ActionResult
+    from riglib.actions.ship_extras import _merge_env_into_alias_result
 
     created = ActionResult(_action(), "created", "gh-ship-alias: `gh ship` set")
     merged = _merge_env_into_alias_result(created, "skipped_transient", "refused transient pointer", True)
@@ -474,7 +472,8 @@ def test_handler_transient_env_keeps_action_skipped_not_green(tmp_path, monkeypa
 
 
 def test_handler_alias_error_still_surfaces_env_note(monkeypatch):
-    from riglib.actions.runner import _merge_env_into_alias_result, ActionResult
+    from riglib.actions.runner import ActionResult
+    from riglib.actions.ship_extras import _merge_env_into_alias_result
 
     err = ActionResult(_action(), "error", "gh-ship-alias: `gh alias set` failed (rc != 0)")
     merged = _merge_env_into_alias_result(err, "written", "wrote env file /x", False)

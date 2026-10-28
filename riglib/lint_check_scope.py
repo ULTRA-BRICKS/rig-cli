@@ -17,7 +17,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 BINARY_PROBE_BYTES = 8192
@@ -172,8 +172,9 @@ def _tracked_modes(root: str) -> dict[str, str]:
     return modes
 
 
-def _untracked(root: str) -> list[str]:
-    out = _git(root, ["ls-files", "-z", "--others", "--exclude-standard"])
+def _untracked(root: str, extra_excludes: Sequence[str] = ()) -> list[str]:
+    """Untracked, not-ignored files; ``extra_excludes`` are additional git ignore patterns (they never hide tracked files)."""
+    out = _git(root, ["ls-files", "-z", "--others", "--exclude-standard", *(f"--exclude={p}" for p in extra_excludes)])
     return [_decode(n) for n in out.split(b"\0") if n]
 
 
@@ -204,9 +205,11 @@ def _unmatched_prefix_skips(root: str, prefixes: list[str], names: set[str]) -> 
     ]
 
 
-def worktree_scope(root: str, prefixes: list[str], needed: Callable[[str], bool]) -> Scope:
+def worktree_scope(
+    root: str, prefixes: list[str], needed: Callable[[str], bool], extra_excludes: Sequence[str] = ()
+) -> Scope:
     modes = _tracked_modes(root)
-    names = set(modes) | set(_untracked(root))
+    names = set(modes) | set(_untracked(root, extra_excludes))
     files: list[ScopedFile] = []
     for rel in sorted(names):
         if not _selected(rel.rstrip("/"), prefixes):

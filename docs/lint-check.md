@@ -8,6 +8,8 @@ Default **on**, for every repo, with no Oxc, Biome or `linters.enabled` involved
 Complexity is measured by the official [`moznion/cccc`](https://github.com/moznion/cccc) analyzer, pinned to an immutable release
 (`v1.8.4`) and verified by sha256 on every use. Design and rejected alternatives: [specs/2026-10-26-cccc-lint-check.md](specs/2026-10-26-cccc-lint-check.md).
 
+See also: bare `rig lint` aggregates this check with every other applicable lint, format and typecheck ([lint.md](lint.md)); `rig lint check` itself is unchanged.
+
 ## Configuration
 
 ```yaml

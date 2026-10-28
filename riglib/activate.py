@@ -186,10 +186,7 @@ def build_activation(
             "descriptors for every configured harness (omp: ~/.omp/agent/hooks) + the hook bridges")
 
     if want("git_hooks"):
-        if probe.which("git"):
-            add("git_hooks", "global git-hook dispatcher", ACTIVATE, "secret-scan and friends in every repo")
-        else:
-            add("git_hooks", "global git-hook dispatcher", UNSUPPORTED, "git is not installed")
+        _git_hooks(probe, add)
 
     if want("lint_checks"):
         _lint_checks(doc, probe, add)
@@ -197,23 +194,9 @@ def build_activation(
     if want("harness"):
         _harness(doc, probe, changes, add)
     if want("tmux"):
-        if not probe.which("tmux"):
-            add("tmux", "tmux config + plugins", UNSUPPORTED, "tmux is not installed")
-        elif "tmux" in doc:
-            add("tmux", "tmux config + plugins", ACTIVATE, "as declared in the config")
-        else:
-            _set_if_absent(doc, "tmux.enabled", True, changes)
-            add("tmux", "tmux config + plugins", ACTIVATE, "tmux found; rig-managed config + resurrect/continuum")
-
+        _tmux(doc, probe, changes, add)
     if want("harness_wrappers"):
-        title = "harness launcher wrappers"
-        if not probe.which("abduco"):
-            add("harness_wrappers", title, UNSUPPORTED, "abduco is not installed (brew install abduco / apt install abduco)")
-        elif "harness_wrappers" in doc:
-            add("harness_wrappers", title, ACTIVATE, "as declared in the config")
-        else:
-            _set_if_absent(doc, "harness_wrappers.enabled", True, changes)
-            add("harness_wrappers", title, ACTIVATE, "abduco found; crash-supervised hosting for the harnesses")
+        _harness_wrappers(doc, probe, changes, add)
 
     _service_areas(probe, want, add)
 
@@ -223,6 +206,34 @@ def build_activation(
         add("global", "env, git config, gitignore, fj, bun", ACTIVATE, "as declared in the config",
             "env", "git", "gitignore", "fj", "bun", "mode")
     return Activation(areas, changes, doc)
+
+
+def _git_hooks(probe: Probe, add: Callable[..., None]) -> None:
+    if probe.which("git"):
+        add("git_hooks", "global git-hook dispatcher", ACTIVATE, "secret-scan and friends in every repo")
+    else:
+        add("git_hooks", "global git-hook dispatcher", UNSUPPORTED, "git is not installed")
+
+
+def _tmux(doc: dict[str, Any], probe: Probe, changes: list[str], add: Callable[..., None]) -> None:
+    if not probe.which("tmux"):
+        add("tmux", "tmux config + plugins", UNSUPPORTED, "tmux is not installed")
+    elif "tmux" in doc:
+        add("tmux", "tmux config + plugins", ACTIVATE, "as declared in the config")
+    else:
+        _set_if_absent(doc, "tmux.enabled", True, changes)
+        add("tmux", "tmux config + plugins", ACTIVATE, "tmux found; rig-managed config + resurrect/continuum")
+
+
+def _harness_wrappers(doc: dict[str, Any], probe: Probe, changes: list[str], add: Callable[..., None]) -> None:
+    title = "harness launcher wrappers"
+    if not probe.which("abduco"):
+        add("harness_wrappers", title, UNSUPPORTED, "abduco is not installed (brew install abduco / apt install abduco)")
+    elif "harness_wrappers" in doc:
+        add("harness_wrappers", title, ACTIVATE, "as declared in the config")
+    else:
+        _set_if_absent(doc, "harness_wrappers.enabled", True, changes)
+        add("harness_wrappers", title, ACTIVATE, "abduco found; crash-supervised hosting for the harnesses")
 
 
 def _lint_checks(doc: dict[str, Any], probe: Probe, add: Callable[..., None]) -> None:

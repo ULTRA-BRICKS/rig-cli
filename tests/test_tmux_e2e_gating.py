@@ -108,6 +108,22 @@ def _marks(func) -> list:
     return _pytestmark_list(func)
 
 
+_E2E_TEST_MODULES = ("tests.test_tmux_e2e", "tests.test_tmux_e2e_boot_autosave")
+
+
+def _e2e_tests() -> dict:
+    """Every ``test_*`` function DEFINED in the e2e test modules, keyed by name. ``dir()`` also
+    surfaces IMPORTED names, and classifying those would false-trip the exhaustive check."""
+    found = {}
+    for modname in _E2E_TEST_MODULES:
+        mod = importlib.import_module(modname)
+        for name in dir(mod):
+            obj = getattr(mod, name)
+            if name.startswith("test_") and callable(obj) and getattr(obj, "__module__", None) == modname:
+                found[name] = obj
+    return found
+
+
 def test_tmux_e2e_gating_granularity_is_pinned():
     """The network-free tests stay tmux-only-gated and the plugin tests stay opt-in-gated.
 
@@ -115,7 +131,8 @@ def test_tmux_e2e_gating_granularity_is_pinned():
     bug) — silently re-hiding the leak regression behind ``RIG_TMUX_E2E`` + GitHub-reachability —
     fails HERE. Network-free in the default CI path (see module docstring).
     """
-    e2e = importlib.import_module("tests.test_tmux_e2e")
+    e2e = importlib.import_module("tests.tmux_e2e_helpers")
+    e2e_tests = _e2e_tests()
 
     # The two gate MARKER OBJECTS, by identity — the contract every test below is checked against.
     # Pulling them from the module (not reconstructing) means we compare the SAME decorator object
@@ -137,7 +154,8 @@ def test_tmux_e2e_gating_granularity_is_pinned():
     #    regression behind the network gate. (We reject ONLY skip/skipif module marks, so a benign
     #    future module mark like `filterwarnings` doesn't false-trip this guard.)
     module_marks = [
-        m for m in _pytestmark_list(e2e)
+        m for modname in _E2E_TEST_MODULES
+        for m in _pytestmark_list(importlib.import_module(modname))
         # an entry is a `Mark` (has `.name`) or a bare `MarkDecorator` (unwrap via `.mark`).
         if getattr(getattr(m, "mark", m), "name", "") in ("skip", "skipif")
     ]
@@ -148,7 +166,7 @@ def test_tmux_e2e_gating_granularity_is_pinned():
 
     # 2) The network-FREE tests carry the tmux gate and NOT the network gate (→ default hermetic CI).
     for name in _TMUX_ONLY_TEST_NAMES:
-        fn = getattr(e2e, name)
+        fn = e2e_tests[name]
         assert has_gate(fn, tmux_gate), (
             f"{name} lost its @_requires_tmux gate — it must run in default hermetic CI"
         )
@@ -159,7 +177,7 @@ def test_tmux_e2e_gating_granularity_is_pinned():
 
     # 3) The plugin-cloning tests keep the FULL network gate (opt-in) so default CI stays hermetic.
     for name in _NETWORK_TEST_NAMES:
-        fn = getattr(e2e, name)
+        fn = e2e_tests[name]
         assert has_gate(fn, network_gate), (
             f"{name} must keep the opt-in network gate (@_requires_tmux_e2e) — it clones plugins"
         )
@@ -187,16 +205,7 @@ def test_tmux_e2e_gating_granularity_is_pinned():
     #    must be added to _TMUX_ONLY_TEST_NAMES / _NETWORK_TEST_NAMES (and decorated), or, if it is a
     #    pure hermetic test, to _HERMETIC_EXEMPT_TEST_NAMES (the escape hatch).
     classified = _TMUX_ONLY_TEST_NAMES | _NETWORK_TEST_NAMES | _HERMETIC_EXEMPT_TEST_NAMES
-    for name in dir(e2e):
-        if not name.startswith("test_"):
-            continue
-        obj = getattr(e2e, name)
-        if not callable(obj):
-            continue
-        # Only classify functions DEFINED in the e2e module — `dir()` also surfaces IMPORTED names
-        # (e.g. a `from … import test_helper`), and classifying those would false-trip the check.
-        if getattr(obj, "__module__", None) != e2e.__name__:
-            continue
+    for name in e2e_tests:
         assert name in classified, (
             f"{name} in test_tmux_e2e.py is unclassified — add it to _TMUX_ONLY_TEST_NAMES, "
             f"_NETWORK_TEST_NAMES (and decorate it), or _HERMETIC_EXEMPT_TEST_NAMES if it needs "
@@ -208,8 +217,7 @@ def test_tmux_e2e_gating_granularity_is_pinned():
     #     name, never as a now-stale old entry) doesn't leave dead names silently accumulating in the
     #     sets, which would then mis-gate the renamed test or mask a real gap.
     for name in classified:
-        obj = getattr(e2e, name, None)
-        assert callable(obj) and getattr(obj, "__module__", None) == e2e.__name__, (
+        assert name in e2e_tests, (
             f"classified name '{name}' is no longer a test defined in test_tmux_e2e.py — it was "
             f"renamed or removed; update the classification set in test_tmux_e2e_gating.py"
         )

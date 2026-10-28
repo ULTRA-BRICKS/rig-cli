@@ -18,8 +18,16 @@ from pathlib import Path
 import pytest
 
 from riglib import config, config_schema, schema
-from riglib.actions.runner import hook_bridge_entries
+from riglib.actions.hook_bridge import hook_bridge_entries
 from riglib.plan import Action
+
+
+def _config_schema_docs(repo_root: Path) -> str:
+    """The config reference is an index plus topic parts under docs/config-schema/; the prose these
+    tests pin may live in any of them."""
+    docs = repo_root / "docs"
+    parts = [docs / "config-schema.md", *sorted((docs / "config-schema").glob("*.md"))]
+    return "\n".join(part.read_text() for part in parts)
 
 
 def _agent_hooks_schema_props() -> dict:
@@ -98,7 +106,7 @@ def test_docs_explain_the_subagent_monitor_ban_and_replacements():
     mention leaves the 175-ask inventory unable to confirm the ban, the reasons, or the
     hints (https://github.com/alex-mextner/rig-cli/issues/463)."""
     repo_root = Path(__file__).resolve().parent.parent
-    text = " ".join((repo_root / "docs" / "config-schema.md").read_text().split())
+    text = " ".join(_config_schema_docs(repo_root).split())
     assert "subagent-no-monitor" in text, (
         "docs/config-schema.md must name the hook the Monitor matcher exists to fire"
     )
@@ -175,7 +183,7 @@ def test_hand_copied_docs_document_the_tg_hatch_tokens_not_the_dead_env_bypass()
     shared var would misdescribe the actual per-hook hatch contract)."""
     repo_root = Path(__file__).resolve().parent.parent
     agents_md = (repo_root / "AGENTS.md").read_text()
-    config_schema_md = (repo_root / "docs" / "config-schema.md").read_text()
+    config_schema_md = _config_schema_docs(repo_root)
     live_tokens = (
         "RIG_HATCH_REQUEST_WORKTREE_ONLY_WRITES",
         "RIG_HATCH_REQUEST_PIN_PRIMARY_WORKTREE",
@@ -199,7 +207,7 @@ def test_orchestrator_only_gh_delegation_documented_consistently():
     allowlist' wording would pass every other check in this file)."""
     repo_root = Path(__file__).resolve().parent.parent
     agents_md = (repo_root / "AGENTS.md").read_text()
-    config_schema_md = (repo_root / "docs" / "config-schema.md").read_text()
+    config_schema_md = _config_schema_docs(repo_root)
     props = _agent_hooks_schema_props()
     surfaces = {
         "AGENTS.md": agents_md,

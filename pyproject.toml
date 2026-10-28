@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hyper-rig"
-version = "0.71.0"
+version = "0.72.0"
 description = "rig — the dev-environment umbrella driver: set up a repo from a committed rig.yaml by applying agent-tools content (skills, hooks, CI gates, MCP)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,10 +28,11 @@ authors = [{ name = "Alex Mextner" }]
 # to an earlier point). Keep this floor in sync with riglib/doctor.py's
 # `_TEXTUAL_MIN_VERSION` and install.sh's probe (see their comments) — the effective floor is
 # the max of every new Textual API surface this PR introduces, not just the first one found.
-dependencies = ["pyyaml", "textual>=0.66", "rich>=13"]
+# `tomli`: the TOML parser `rig lint` discovery needs on Python 3.10 (stdlib `tomllib` exists from 3.11).
+dependencies = ["pyyaml", "textual>=0.66", "rich>=13", "tomli>=2; python_version < '3.11'"]
 
 [project.optional-dependencies]
-test = ["pytest", "tomli; python_version < '3.11'"]
+test = ["pytest", "jsonschema", "tomli; python_version < '3.11'"]
 # NOTE — `rig config-web`'s lifecycle (run/start/stop/status/enable/disable + launchd/systemd
 # autostart) is delegated to the SHARED `agenttools-service` manager (an agent-tools nested lib,
 # which in turn needs `agenttools-daemon`). It is deliberately NOT declared as a dependency here:

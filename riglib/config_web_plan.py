@@ -30,10 +30,13 @@ import threading
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .action_tags import tag_for_kind
 from .config_web_scopes import Scope
+
+if TYPE_CHECKING:
+    from .plan import InstallPlan
 
 # ── resolving a scope into a plan ────────────────────────────────────────────────────────────
 
@@ -420,6 +423,61 @@ class ApplyJobStore:
             self._job_order.pop(0)
             self._jobs.pop(oldest, None)
 
+    def _assert_idle(self) -> None:
+        """Raise :class:`ApplyBusyError` while a job is in flight. Caller holds ``self._lock``."""
+        # .get() rather than a bare index: safe by construction even if a future eviction-
+        # order change ever let the active id be evicted (today it can't — the active id is
+        # always the newest appended and eviction pops from the front — but that invariant
+        # was previously unenforced by the lookup itself; found in review).
+        active = self._jobs.get(self._active_job_id) if self._active_job_id else None
+        if active is not None and not active.done:
+            raise ApplyBusyError("an apply job is already running")
+
+    def _register_job(
+        self, scope: Scope, expected_fingerprint: str, skip_keys: set[str]
+    ) -> tuple[ApplyJob, InstallPlan, dict[str, ActionProgress]]:
+        """Verify the preview is still current, then register a queued job for the SELECTED actions.
+
+        Caller holds ``self._lock``. Returns the job, the immutable ``InstallPlan`` snapshot of the
+        selected actions to run, and the progress rows keyed by action key.
+        """
+        from .plan import InstallPlan
+
+        self._assert_idle()
+        scope_plan = build_scope_plan(scope)
+        _require_declared_config(scope_plan)
+        _assert_unique_action_keys(scope_plan.plan)
+        fresh_fingerprint = fingerprint_plan(scope_plan.plan)
+        if fresh_fingerprint != expected_fingerprint:
+            raise PlanStaleError("plan changed since preview — re-fetch /api/plan before applying")
+        _assert_skip_keys_known(scope_plan.plan.actions, skip_keys)
+
+        selected = [a for a in scope_plan.plan.actions if action_key(a) not in skip_keys]
+        skipped = [a for a in scope_plan.plan.actions if action_key(a) in skip_keys]
+        run_this = InstallPlan(actions=selected, on_conflict=scope_plan.plan.on_conflict)
+
+        job_id = uuid.uuid4().hex
+        progress_rows = [
+            ActionProgress(
+                key=action_key(a), kind=a.kind, category=a.category, item=a.item,
+                describe=a.describe(), status="queued",
+            )
+            for a in scope_plan.plan.actions
+        ]
+        by_key = {row.key: row for row in progress_rows}
+        for a in skipped:
+            by_key[action_key(a)].status = "skipped"
+            by_key[action_key(a)].detail = "skipped by user"
+
+        job = ApplyJob(
+            id=job_id, scope_id=scope.id, fingerprint=fresh_fingerprint, actions=progress_rows
+        )
+        self._jobs[job_id] = job
+        self._job_order.append(job_id)
+        self._active_job_id = job_id
+        self._evict_if_over_capacity()
+        return job, run_this, by_key
+
     def start(
         self,
         scope: Scope,
@@ -433,98 +491,70 @@ class ApplyJobStore:
         matches ``expected_fingerprint`` (config changed since the browser previewed it) —
         nothing is applied. Raises :class:`ApplyBusyError` if a job is already running.
         """
-        from .actions.runner import run_plan
-        from .plan import InstallPlan
-
         with self._lock:
-            # .get() rather than a bare index: safe by construction even if a future eviction-
-            # order change ever let the active id be evicted (today it can't — the active id is
-            # always the newest appended and eviction pops from the front — but that invariant
-            # was previously unenforced by the lookup itself; found in review).
-            active = self._jobs.get(self._active_job_id) if self._active_job_id else None
-            if active is not None and not active.done:
-                raise ApplyBusyError("an apply job is already running")
-            scope_plan = build_scope_plan(scope)
-            _require_declared_config(scope_plan)
-            _assert_unique_action_keys(scope_plan.plan)
-            fresh_fingerprint = fingerprint_plan(scope_plan.plan)
-            if fresh_fingerprint != expected_fingerprint:
-                raise PlanStaleError(
-                    "plan changed since preview — re-fetch /api/plan before applying"
-                )
-
-            all_keys = {action_key(a) for a in scope_plan.plan.actions}
-            unknown_skips = skip_keys - all_keys
-            if unknown_skips:
-                # Fail CLOSED, not open: a skip_key matching nothing in the fresh plan (a client
-                # bug, or a key from a stale/different preview) must NOT be silently dropped —
-                # that would run an action the caller explicitly tried to skip. Every other
-                # mismatch in this flow (fingerprint, scope, body shape) already fails closed;
-                # this was the one place that didn't (found in review).
-                raise PlanStaleError(
-                    f"{len(unknown_skips)} skip_key(s) do not match any action in the current "
-                    "plan — re-fetch /api/plan before applying"
-                )
-            selected = [a for a in scope_plan.plan.actions if action_key(a) not in skip_keys]
-            skipped = [a for a in scope_plan.plan.actions if action_key(a) in skip_keys]
-            run_this = InstallPlan(actions=selected, on_conflict=scope_plan.plan.on_conflict)
-
-            job_id = uuid.uuid4().hex
-            progress_rows = [
-                ActionProgress(
-                    key=action_key(a), kind=a.kind, category=a.category, item=a.item,
-                    describe=a.describe(), status="queued",
-                )
-                for a in scope_plan.plan.actions
-            ]
-            by_key = {row.key: row for row in progress_rows}
-            for a in skipped:
-                by_key[action_key(a)].status = "skipped"
-                by_key[action_key(a)].detail = "skipped by user"
-
-            job = ApplyJob(
-                id=job_id, scope_id=scope.id, fingerprint=fresh_fingerprint, actions=progress_rows
-            )
-            self._jobs[job_id] = job
-            self._job_order.append(job_id)
-            self._active_job_id = job_id
-            self._evict_if_over_capacity()
-
-        def _on_start(action) -> None:  # noqa: ANN001
-            row = by_key.get(action_key(action))
-            if row is not None:
-                row.status = "running"
-
-        def _progress(result) -> None:  # noqa: ANN001
-            row = by_key.get(action_key(result.action))
-            if row is not None:
-                row.status = result.status
-                row.detail = result.detail
-
-        def _run() -> None:
-            try:
-                report = run_plan(run_this, on_start=_on_start, progress=_progress)
-                # run_plan() NEVER raises for a per-action failure — actions/runner.py catches
-                # each one into an ActionResult(status="error") and keeps going (see run_plan's
-                # own docstring: "collect, never abort the whole run"). Without this check
-                # `job.error` would only ever be set for a catastrophic run_plan crash, so a run
-                # where every action failed would still report done+no-error — a "applied"
-                # success toast over a fully-failed apply (caught in review).
-                if report.errors:
-                    failed = ", ".join(f"{r.action.category}/{r.action.item}" for r in report.errors)
-                    job.error = f"{len(report.errors)} action(s) failed: {failed}"
-            except Exception as exc:  # noqa: BLE001 — surface, never crash the daemon thread
-                job.error = f"{type(exc).__name__}: {exc}"
-            finally:
-                job.done = True
+            job, run_this, by_key = self._register_job(scope, expected_fingerprint, skip_keys)
 
         # The thread starts OUTSIDE the lock, but `run_this` is already a fully-built, immutable
         # InstallPlan snapshot captured INSIDE it above — a config edit landing between the lock
         # release and the thread actually running `run_plan` cannot change what gets applied; it
         # would only affect a LATER preview/apply call (raised in review as a possible TOCTOU;
         # traced and ruled out — `run_this` is never re-read from disk after this point).
-        threading.Thread(target=_run, daemon=True, name=f"config-web-apply-{job_id[:8]}").start()
+        _start_apply_thread(job, run_this, by_key)
         return job
 
     def get(self, job_id: str) -> ApplyJob | None:
         return self._jobs.get(job_id)
+
+
+def _assert_skip_keys_known(actions: list[Any], skip_keys: set[str]) -> None:
+    """Fail CLOSED when a skip key matches nothing in the fresh plan."""
+    unknown_skips = skip_keys - {action_key(a) for a in actions}
+    if unknown_skips:
+        # Fail CLOSED, not open: a skip_key matching nothing in the fresh plan (a client
+        # bug, or a key from a stale/different preview) must NOT be silently dropped —
+        # that would run an action the caller explicitly tried to skip. Every other
+        # mismatch in this flow (fingerprint, scope, body shape) already fails closed;
+        # this was the one place that didn't (found in review).
+        raise PlanStaleError(
+            f"{len(unknown_skips)} skip_key(s) do not match any action in the current "
+            "plan — re-fetch /api/plan before applying"
+        )
+
+
+def _start_apply_thread(
+    job: ApplyJob, run_this: InstallPlan, by_key: dict[str, ActionProgress]
+) -> None:
+    """Run ``run_this`` through the shared ``run_plan`` in a daemon thread, mirroring progress
+    into ``by_key``'s rows and finishing ``job`` (``done`` always set, ``error`` on any failure).
+    """
+    from .actions.runner import run_plan
+
+    def _on_start(action) -> None:  # noqa: ANN001
+        row = by_key.get(action_key(action))
+        if row is not None:
+            row.status = "running"
+
+    def _progress(result) -> None:  # noqa: ANN001
+        row = by_key.get(action_key(result.action))
+        if row is not None:
+            row.status = result.status
+            row.detail = result.detail
+
+    def _run() -> None:
+        try:
+            report = run_plan(run_this, on_start=_on_start, progress=_progress)
+            # run_plan() NEVER raises for a per-action failure — actions/runner.py catches
+            # each one into an ActionResult(status="error") and keeps going (see run_plan's
+            # own docstring: "collect, never abort the whole run"). Without this check
+            # `job.error` would only ever be set for a catastrophic run_plan crash, so a run
+            # where every action failed would still report done+no-error — a "applied"
+            # success toast over a fully-failed apply (caught in review).
+            if report.errors:
+                failed = ", ".join(f"{r.action.category}/{r.action.item}" for r in report.errors)
+                job.error = f"{len(report.errors)} action(s) failed: {failed}"
+        except Exception as exc:  # noqa: BLE001 — surface, never crash the daemon thread
+            job.error = f"{type(exc).__name__}: {exc}"
+        finally:
+            job.done = True
+
+    threading.Thread(target=_run, daemon=True, name=f"config-web-apply-{job.id[:8]}").start()

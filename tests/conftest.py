@@ -9,6 +9,12 @@ from pathlib import Path
 import pytest
 
 from riglib import cccc_install as _cccc_install
+from riglib.actions import agent_hook_install as agent_hook_install_mod
+from riglib.actions import git_config as git_config_mod
+from riglib.actions import live_env as live_env_mod
+from riglib.actions import schedule as schedule_mod
+from riglib.actions import service_ctl as service_ctl_mod
+from riglib.actions import runner
 
 _REAL_CCCC_INSPECT = _cccc_install.inspect
 
@@ -88,10 +94,11 @@ def _isolate_scheduler(monkeypatch):
     this autouse stub for those tests — so they exercise the real install logic safely while
     every OTHER test is fully insulated from the host scheduler.
 
-    It ALSO stubs the daemon/systemd/crontab seams on BOTH the `runner` and `drift` modules (drift
-    imports them by name, so patching only `runner` would leave `drift`'s bindings live).
+    It ALSO stubs the daemon/systemd/crontab seams on BOTH the `runner` and `drift_services` modules
+    (drift_services imports them by name, so patching only `runner` would leave its bindings live).
     """
     from riglib import drift as driftmod
+    from riglib import drift_services
     from riglib.actions import runner
     from riglib.plan import Action  # noqa: F401 — imported for the stub's type clarity
 
@@ -207,7 +214,7 @@ def _isolate_scheduler(monkeypatch):
     monkeypatch.setattr(driftmod, "_check_gh_ship_alias", lambda action, report: None)
     monkeypatch.setenv("RIG_GH_ALIAS_DRY_RUN", "1")
 
-    for mod in (runner, driftmod):
+    for mod in (service_ctl_mod, drift_services):
         monkeypatch.setattr(mod, "_launchctl", lambda verb, arg: 0, raising=False)
         monkeypatch.setattr(mod, "_launchctl_loaded", lambda label: False, raising=False)
         # the gui-domain verbs the tg-ctl provisioner uses — stub them so neither runner nor
@@ -218,21 +225,22 @@ def _isolate_scheduler(monkeypatch):
         monkeypatch.setattr(mod, "_launchctl_gui_loaded", lambda label: False, raising=False)
         # the systemd --user timer probe (Linux schedule, rig-cli#721): never ask the real user
         # manager. Dedicated schedule tests stub `_systemctl_user` themselves.
+    for mod in (schedule_mod, drift_services):
         monkeypatch.setattr(mod, "schedule_timer_active", lambda sched: False)
-    monkeypatch.setattr(runner, "_systemctl_user", lambda *args: 0)
+    monkeypatch.setattr(service_ctl_mod, "_systemctl_user", lambda *args: 0)
     # `rig doctor`'s scheduler-writability check asks the real user manager; report it healthy
     # suite-wide (CI containers have none). test_doctor_scheduler.py exercises the real check.
     from riglib import doctor as doctormod
 
     monkeypatch.setattr(doctormod, "scheduler_problem", lambda: None)
-    monkeypatch.setattr(runner, "_read_crontab", lambda: (crontab_store["has"], crontab_store["content"]))
+    monkeypatch.setattr(schedule_mod, "_read_crontab", lambda: (crontab_store["has"], crontab_store["content"]))
 
     def _fake_write_crontab(contents):
         crontab_store["has"] = True
         crontab_store["content"] = contents
         return 0
 
-    monkeypatch.setattr(runner, "_write_crontab", _fake_write_crontab)
+    monkeypatch.setattr(schedule_mod, "_write_crontab", _fake_write_crontab)
 
 
 @pytest.fixture(autouse=True)
@@ -243,8 +251,8 @@ def _isolate_global_git_config(monkeypatch):
     a full ``build`` + ``run_plan`` would otherwise shell out to real ``git config --global
     core.excludesfile`` — and, on a machine where that is UNSET, would WRITE the real global
     config. That is a hard-fail (a test must never mutate the user's git config). So this guard
-    stubs both git-config seams suite-wide on BOTH the runner and drift modules (drift imports
-    ``_git_global`` by name):
+    stubs both git-config seams suite-wide on BOTH the runner and drift modules (drift_git_hooks
+    imports ``_git_global`` by name):
 
       - reads (``_git_global``) return ``None`` — i.e. ``core.excludesfile`` is UNSET — so e2e
         apply takes the clean-machine path: set it to the XDG default and write the block. With
@@ -256,17 +264,16 @@ def _isolate_global_git_config(monkeypatch):
     the test body — those run after this autouse fixture and win — so they can exercise both the
     set-vs-unset target resolution explicitly.
     """
-    from riglib import drift as driftmod
-    from riglib.actions import runner
+    from riglib import drift_git_hooks
 
     store: dict[str, str] = {}
 
-    for mod in (runner, driftmod):
+    for mod in (git_config_mod, drift_git_hooks):
         monkeypatch.setattr(mod, "_git_global", lambda key: store.get(key), raising=False)
-    monkeypatch.setattr(runner, "_set_git_global", lambda key, value: store.__setitem__(key, value) or 0)
-    # the `git:` area's verbatim reader (riglib.gitconfig imports it lazily from runner, so the
-    # runner attribute is the one seam). Same store: an e2e apply's writes read back as current.
-    monkeypatch.setattr(runner, "_git_global_get", lambda key: store.get(key))
+    monkeypatch.setattr(git_config_mod, "_set_git_global", lambda key, value: store.__setitem__(key, value) or 0)
+    # the `git:` area's verbatim reader (riglib.gitconfig imports it lazily from
+    # actions.git_config, so that module attribute is the one seam). Same store: an e2e apply's writes read back as current.
+    monkeypatch.setattr(git_config_mod, "_git_global_get", lambda key: store.get(key))
 
 
 @pytest.fixture(autouse=True)
@@ -333,9 +340,8 @@ def _verified_cccc_analyzer(monkeypatch):
 @pytest.fixture
 def pinned_rig(monkeypatch):
     """A fixed absolute ``rig`` pin, independent of what is on this machine's PATH."""
-    from riglib.actions import runner
 
-    monkeypatch.setattr(runner, "pinned_rig_path", lambda: "/opt/rig/bin/rig")
+    monkeypatch.setattr(agent_hook_install_mod, "pinned_rig_path", lambda: "/opt/rig/bin/rig")
     return "/opt/rig/bin/rig"
 
 
@@ -572,9 +578,8 @@ def live_launchd_home(monkeypatch):
     that fakes HOME on purpose and asserts on the LIVE (stubbed) launchctl path is not routed dry
     by the sandboxed-HOME guard (``runner._home_is_sandboxed``). Request it wherever a
     ``RIG_*_DRY_RUN`` flag is cleared to exercise the live seams."""
-    from riglib.actions import runner
 
-    monkeypatch.setattr(runner, "_home_is_sandboxed", lambda: False)
+    monkeypatch.setattr(live_env_mod, "_home_is_sandboxed", lambda: False)
 
 
 @pytest.fixture

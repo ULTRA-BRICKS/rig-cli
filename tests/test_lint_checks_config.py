@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from riglib import config, config_schema, lint_checks_config as lcc, schema
+from riglib import config, config_schema, schema
+from riglib import lint_checks_config as lcc
 from riglib.cli import main
 from riglib.config import ConfigError
 from riglib.layers import REPO
@@ -269,12 +270,27 @@ def test_lint_check_help_documents_flags_and_exit_codes(capsys):
         assert token in out
 
 
-def test_lint_bare_prints_help_and_rules_still_routes(capsys, repo):
-    assert main(["lint"]) == 0
+def test_lint_help_lists_every_action_and_rules_still_routes(capsys, repo):
+    with pytest.raises(SystemExit) as exc:
+        main(["lint", "--help"])
+    assert exc.value.code == 0
     out = capsys.readouterr().out
-    assert "check" in out and "rules" in out
+    for action in ("run", "check", "rules"):
+        assert action in out
     assert main(["lint", "rules", "--json", "-C", str(repo)]) == 0
     assert capsys.readouterr().out.lstrip().startswith("[")
+
+
+def test_bare_lint_is_lint_run_and_keeps_flags_given_before_the_action(monkeypatch, repo):
+    seen = []
+    monkeypatch.setattr("riglib.lint_run_cli.run", lambda args: seen.append(args) or 0)
+    assert main(["lint", "-C", str(repo)]) == 0
+    assert main(["lint", "--json", "run"]) == 0
+    assert main(["lint", "run", "--json"]) == 0
+    bare, json_first, json_after = seen
+    assert bare.lint_command is None and bare.cwd == str(repo)
+    assert json_first.lint_command == "run" and json_first.json is True
+    assert json_after.lint_command == "run" and json_after.json is True
 
 
 def test_status_layer_is_repo_and_global_editable():

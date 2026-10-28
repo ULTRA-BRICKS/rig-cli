@@ -25,6 +25,8 @@ import pytest
 from riglib import drift as driftmod
 from riglib import tg_ctl
 from riglib.actions import runner
+from riglib.actions import service_ctl as service_ctl_mod
+from riglib.actions import tg_ctl_action as tg_ctl_action_mod
 from riglib.config import ConfigError, validate
 
 # captured at import (before any monkeypatch runs) — the genuine handler + drift check.
@@ -374,9 +376,9 @@ def _stub_launchctl(monkeypatch, *, loaded=False, spy=None):
             spy.append(("bootstrap", plist))
         return 0
 
-    monkeypatch.setattr(runner, "_launchctl_bootout", _bootout)
-    monkeypatch.setattr(runner, "_launchctl_bootstrap", _bootstrap)
-    monkeypatch.setattr(runner, "_launchctl_gui_loaded", lambda label: loaded)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_bootout", _bootout)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_bootstrap", _bootstrap)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_gui_loaded", lambda label: loaded)
 
 
 def test_apply_writes_plist_and_bootstraps(monkeypatch, tmp_path):
@@ -416,7 +418,7 @@ def test_reapply_against_identical_plist_does_not_rewrite(monkeypatch, tmp_path)
     _stub_launchctl(monkeypatch, loaded=True)
     plist = home / "Library" / "LaunchAgents" / "ai.hyperide.tg-ctl.plist"
     plist.parent.mkdir(parents=True, exist_ok=True)
-    desired = runner.tg_ctl_plan_from_action(_action(home)).render_plist()
+    desired = tg_ctl_action_mod.tg_ctl_plan_from_action(_action(home)).render_plist()
     plist.write_text(desired, encoding="utf-8")
     res = runner._do_provision_tg_ctl(_action(home), "backup")
     assert res.status == "skipped"
@@ -429,7 +431,7 @@ def test_apply_reloads_when_plist_present_but_not_loaded(monkeypatch, tmp_path):
     home = _isolate_home(monkeypatch, tmp_path)
     plist = home / "Library" / "LaunchAgents" / "ai.hyperide.tg-ctl.plist"
     plist.parent.mkdir(parents=True, exist_ok=True)
-    plist.write_text(runner.tg_ctl_plan_from_action(_action(home)).render_plist(), encoding="utf-8")
+    plist.write_text(tg_ctl_action_mod.tg_ctl_plan_from_action(_action(home)).render_plist(), encoding="utf-8")
     spy: list = []
     _stub_launchctl(monkeypatch, loaded=False, spy=spy)
     res = runner._do_provision_tg_ctl(_action(home), "backup")
@@ -578,7 +580,7 @@ def test_drift_tg_ctl_missing(monkeypatch, tmp_path):
     from riglib.plan import InstallPlan
 
     _isolate_home(monkeypatch, tmp_path)
-    monkeypatch.setattr("riglib.drift._on_darwin", lambda: True)
+    monkeypatch.setattr("riglib.drift_services._on_darwin", lambda: True)
     report = detect(InstallPlan(actions=[_action(tmp_path / "home")]))
     drift = [d for d in report.items if d.category == "tg_ctl"]
     assert drift and drift[0].direction == "missing"
@@ -591,8 +593,8 @@ def test_drift_tg_ctl_in_sync_after_apply(monkeypatch, tmp_path):
     _force_darwin(monkeypatch)
     home = _isolate_home(monkeypatch, tmp_path)
     _stub_launchctl(monkeypatch, loaded=True)
-    monkeypatch.setattr("riglib.drift._on_darwin", lambda: True)
-    monkeypatch.setattr("riglib.drift._launchctl_gui_loaded", lambda label: True)
+    monkeypatch.setattr("riglib.drift_services._on_darwin", lambda: True)
+    monkeypatch.setattr("riglib.drift_services._launchctl_gui_loaded", lambda label: True)
     runner._do_provision_tg_ctl(_action(home), "backup")
     report = detect(InstallPlan(actions=[_action(home)]))
     assert not [d for d in report.items if d.category == "tg_ctl"]
@@ -603,8 +605,8 @@ def test_drift_tg_ctl_modified(monkeypatch, tmp_path):
     from riglib.plan import InstallPlan
 
     home = _isolate_home(monkeypatch, tmp_path)
-    monkeypatch.setattr("riglib.drift._on_darwin", lambda: True)
-    monkeypatch.setattr("riglib.drift._launchctl_gui_loaded", lambda label: True)
+    monkeypatch.setattr("riglib.drift_services._on_darwin", lambda: True)
+    monkeypatch.setattr("riglib.drift_services._launchctl_gui_loaded", lambda label: True)
     plist = home / "Library" / "LaunchAgents" / "ai.hyperide.tg-ctl.plist"
     plist.parent.mkdir(parents=True, exist_ok=True)
     plist.write_text("<plist>HAND EDITED, DIFFERENT</plist>\n", encoding="utf-8")
@@ -619,11 +621,11 @@ def test_drift_tg_ctl_not_loaded(monkeypatch, tmp_path):
     from riglib.plan import InstallPlan
 
     home = _isolate_home(monkeypatch, tmp_path)
-    monkeypatch.setattr("riglib.drift._on_darwin", lambda: True)
-    monkeypatch.setattr("riglib.drift._launchctl_gui_loaded", lambda label: False)
+    monkeypatch.setattr("riglib.drift_services._on_darwin", lambda: True)
+    monkeypatch.setattr("riglib.drift_services._launchctl_gui_loaded", lambda label: False)
     plist = home / "Library" / "LaunchAgents" / "ai.hyperide.tg-ctl.plist"
     plist.parent.mkdir(parents=True, exist_ok=True)
-    plist.write_text(runner.tg_ctl_plan_from_action(_action(home)).render_plist(), encoding="utf-8")
+    plist.write_text(tg_ctl_action_mod.tg_ctl_plan_from_action(_action(home)).render_plist(), encoding="utf-8")
     report = detect(InstallPlan(actions=[_action(home)]))
     drift = [d for d in report.items if d.category == "tg_ctl"]
     assert drift and drift[0].direction == "missing"
@@ -635,12 +637,12 @@ def test_drift_flags_stale_predecessor(monkeypatch, tmp_path):
     from riglib.plan import InstallPlan
 
     home = _isolate_home(monkeypatch, tmp_path)
-    monkeypatch.setattr("riglib.drift._on_darwin", lambda: True)
-    monkeypatch.setattr("riglib.drift._launchctl_gui_loaded", lambda label: True)
+    monkeypatch.setattr("riglib.drift_services._on_darwin", lambda: True)
+    monkeypatch.setattr("riglib.drift_services._launchctl_gui_loaded", lambda label: True)
     # the tg-ctl plist itself is in sync, but the stale predecessor lingers.
     plist = home / "Library" / "LaunchAgents" / "ai.hyperide.tg-ctl.plist"
     plist.parent.mkdir(parents=True, exist_ok=True)
-    plist.write_text(runner.tg_ctl_plan_from_action(_action(home)).render_plist(), encoding="utf-8")
+    plist.write_text(tg_ctl_action_mod.tg_ctl_plan_from_action(_action(home)).render_plist(), encoding="utf-8")
     stale = home / "Library" / "LaunchAgents" / "com.ultra.codex-tg-bot.plist"
     stale.write_text("<plist>DEAD</plist>\n", encoding="utf-8")
     report = detect(InstallPlan(actions=[_action(home)]))
@@ -653,7 +655,7 @@ def test_drift_boot_disabled_flags_leftover_plist(monkeypatch, tmp_path):
     from riglib.plan import InstallPlan
 
     home = _isolate_home(monkeypatch, tmp_path)
-    monkeypatch.setattr("riglib.drift._on_darwin", lambda: True)
+    monkeypatch.setattr("riglib.drift_services._on_darwin", lambda: True)
     plist = home / "Library" / "LaunchAgents" / "ai.hyperide.tg-ctl.plist"
     plist.parent.mkdir(parents=True, exist_ok=True)
     plist.write_text("<plist/>\n", encoding="utf-8")
@@ -667,7 +669,7 @@ def test_drift_off_darwin_is_silent(monkeypatch, tmp_path):
     from riglib.plan import InstallPlan
 
     _isolate_home(monkeypatch, tmp_path)
-    monkeypatch.setattr("riglib.drift._on_darwin", lambda: False)
+    monkeypatch.setattr("riglib.drift_services._on_darwin", lambda: False)
     report = detect(InstallPlan(actions=[_action(tmp_path / "home")]))
     assert not [d for d in report.items if d.category == "tg_ctl"]
 
@@ -723,7 +725,7 @@ def test_plan_boot_null_resolves_to_enabled(fake_agent_tools, tmp_path):
     `bool(None)`=False — the resolved plan must keep the boot agent ENABLED."""
     plan = _build({"tg_ctl": {"boot": None}}, tmp_path, fake_agent_tools)
     a = next(a for a in plan.actions if a.kind == "provision_tg_ctl")
-    tg = runner.tg_ctl_plan_from_action(a)
+    tg = tg_ctl_action_mod.tg_ctl_plan_from_action(a)
     assert tg.boot_enabled is True
 
 
@@ -734,24 +736,26 @@ def test_plan_label_null_resolves_to_default(fake_agent_tools, tmp_path):
     a = next(a for a in plan.actions if a.kind == "provision_tg_ctl")
     assert a.target.name != "None"
     assert tg_ctl.DEFAULT_BOOT_LABEL in str(a.target)
-    tg = runner.tg_ctl_plan_from_action(a)
+    tg = tg_ctl_action_mod.tg_ctl_plan_from_action(a)
     assert tg.boot_label == tg_ctl.DEFAULT_BOOT_LABEL
 
 
 # ── status line (GLOBAL section) ─────────────────────────────────────────────────────────
 def _status_line(monkeypatch, tmp_path, *, darwin, drift_items=None, options_over=None):
     """Render the tg-ctl GLOBAL status line for a one-action plan, with `_on_darwin` forced."""
-    from riglib import cli
+    from riglib import cli_status_services
     from riglib.drift import DriftReport
     from riglib.plan import InstallPlan
 
     home = _isolate_home(monkeypatch, tmp_path)
+    monkeypatch.setattr("riglib.drift_services._on_darwin", lambda: darwin)
+    # the status renderer (cli_status_services) reads ``_on_darwin`` through ``riglib.drift``
     monkeypatch.setattr("riglib.drift._on_darwin", lambda: darwin)
     action = _action(home, **(options_over or {}))
     report = DriftReport(items=list(drift_items or []))
     captured: list[str] = []
     monkeypatch.setattr("builtins.print", lambda *a, **k: captured.append(" ".join(str(x) for x in a)))
-    cli._print_tg_ctl_status(InstallPlan(actions=[action]), report)
+    cli_status_services._print_tg_ctl_status(InstallPlan(actions=[action]), report)
     return "\n".join(captured)
 
 

@@ -40,6 +40,7 @@ from .config import ConfigError, canonical_dot_path, get_path as _config_get_pat
 from .config import set_path as _config_set_path
 from .harness_kinds import KINDS as _WRAPPER_KINDS
 from .harness_skills import HARNESS_INSTRUCTION_FILES, HARNESS_NATIVE_SKILLS, HARNESS_SKILL_DIR_KINDS
+from . import schema_lint_areas
 from .layers import GLOBAL, REPO, layer_for_category
 from .tmux import DEFAULT_PANE_TITLES_FORMAT
 from .wrapper_provision import DEFAULT_DIR as _WRAPPER_DEFAULT_DIR
@@ -418,7 +419,7 @@ AREAS: tuple[Area, ...] = (
                  "prompts) plus the deny/ask rule baselines (claude-code AND opencode; raw PR-merge via "
                  "gh pr merge, force-push, sudo rm, screencapture, osascript, rg --pre, git worktree add, "
                  "EnterWorktree denied; pkill/killall/git "
-                 "reset --hard prompt) — see the gh note in docs/config-schema.md for the residual risk "
+                 "reset --hard prompt) — see the gh note in docs/config-schema/harness-and-permissions.md for the residual risk "
                  "gh's default grant trades in and permissions.allow_gh to opt it out. codex gets a "
                  "safe-command allow + coarse deny via its execpolicy .rules block. Additive — "
                  "merges into the existing lists, never clobbers or removes the user's own entries. "
@@ -681,33 +682,7 @@ AREAS: tuple[Area, ...] = (
                  "Never clobbers a hand-written config — a conflict is backed up before overwrite."),
         ),
     ),
-    Area(
-        "lint_checks", "complexity + file-line checks", "`rig lint check`: cognitive/cyclomatic complexity (pinned cccc) and file-length limits, run on commit and in CI.",
-        (
-            _opt("lint_checks.enabled", KIND_BOOL, True,
-                 "Master switch for `rig lint check` and its commit-time activation. Independent of "
-                 "`linters.*` (Oxc/Biome). Valid in the global and the repo config; repo wins."),
-            _opt("lint_checks.complexity.enabled", KIND_BOOL, True,
-                 "Run the per-function complexity check (official cccc, pinned and sha256-verified)."),
-            _opt("lint_checks.complexity.max_cognitive", KIND_INT, 15,
-                 "Cognitive complexity limit per function; a value strictly above it is an error (integer >= 1)."),
-            _opt("lint_checks.complexity.max_cyclomatic", KIND_INT, 20,
-                 "Cyclomatic complexity limit per function; a value strictly above it is an error (integer >= 1)."),
-            _opt("lint_checks.file_lines.enabled", KIND_BOOL, True,
-                 "Run the physical file-line check."),
-            _opt("lint_checks.file_lines.warn_above", KIND_INT, 1200,
-                 "Files with more lines than this warn (integer >= 1, must be <= error_above)."),
-            _opt("lint_checks.file_lines.error_above", KIND_INT, 2400,
-                 "Files with more lines than this are errors (integer >= 1)."),
-            _opt("lint_checks.file_lines.exempt_extensions", KIND_LIST, ["json"],
-                 "Lowercase extensions without a dot exempt from the file-line check (default: json only; "
-                 "lockfiles are NOT exempt)."),
-            _opt("lint_checks.ci.rig_source", KIND_STR, None,
-                 "Immutable install source for the CI workflow's rig: `git+https://<host>/<path>@<40-hex commit sha>` "
-                 "of a rig-cli that has `rig lint check`. Unset => no workflow is written (a pin that does not "
-                 "resolve would leave the job red). Valid in the global and the repo config; repo wins."),
-        ),
-    ),
+    *schema_lint_areas.build(),
     Area(
         "task", "task-cli code prefix", "A repo-unique task-code prefix, consumed by ship.sh's review-quorum gate.",
         (
@@ -893,41 +868,61 @@ def coerce(option: Option, raw: str) -> Any:
     """Coerce a wizard/CLI string into the option's typed value. Raises ValueError on a bad value."""
     raw = raw.strip()
     if option.kind == KIND_BOOL:
-        low = raw.lower()
-        if low in ("y", "yes", "true", "on", "1"):
-            return True
-        if low in ("n", "no", "false", "off", "0"):
-            return False
-        raise ValueError(f"{option.key}: expected yes/no, got {raw!r}")
+        return _coerce_bool(option, raw)
     if option.kind == KIND_INT:
-        try:
-            return int(raw)
-        except ValueError:
-            raise ValueError(f"{option.key}: expected an integer, got {raw!r}") from None
+        return _coerce_int(option, raw)
     if option.kind == KIND_ENUM:
-        if raw not in option.choices:
-            if option.default is None and raw.lower() in option.null_tokens:
-                return None
-            raise ValueError(f"{option.key}: expected one of {list(option.choices)}, got {raw!r}")
-        return raw
+        return _coerce_enum(option, raw)
     if option.kind == KIND_LIST:
-        if raw in ("", "[]"):
-            return []
-        if raw.startswith("["):
-            try:
-                import yaml  # lazy, like the rest of the config stack
-
-                value = yaml.safe_load(raw)
-            except yaml.YAMLError as exc:
-                raise ValueError(f"{option.key}: expected a comma-separated list, got {raw!r}") from exc
-            if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
-                raise ValueError(f"{option.key}: expected a list of strings, got {raw!r}")
-            _validate_list_enum(option, value)
-            return value
-        value = [part.strip() for part in raw.split(",") if part.strip()]
-        _validate_list_enum(option, value)
-        return value
+        return _coerce_list(option, raw)
     return raw  # str
+
+
+def _coerce_bool(option: Option, raw: str) -> bool:
+    low = raw.lower()
+    if low in ("y", "yes", "true", "on", "1"):
+        return True
+    if low in ("n", "no", "false", "off", "0"):
+        return False
+    raise ValueError(f"{option.key}: expected yes/no, got {raw!r}")
+
+
+def _coerce_int(option: Option, raw: str) -> int:
+    try:
+        return int(raw)
+    except ValueError:
+        raise ValueError(f"{option.key}: expected an integer, got {raw!r}") from None
+
+
+def _coerce_enum(option: Option, raw: str) -> str | None:
+    if raw in option.choices:
+        return raw
+    if option.default is None and raw.lower() in option.null_tokens:
+        return None
+    raise ValueError(f"{option.key}: expected one of {list(option.choices)}, got {raw!r}")
+
+
+def _coerce_list(option: Option, raw: str) -> list[str]:
+    if raw in ("", "[]"):
+        return []
+    if raw.startswith("["):
+        value = _parse_flow_list(option, raw)
+    else:
+        value = [part.strip() for part in raw.split(",") if part.strip()]
+    _validate_list_enum(option, value)
+    return value
+
+
+def _parse_flow_list(option: Option, raw: str) -> list[str]:
+    import yaml  # lazy, like the rest of the config stack
+
+    try:
+        value = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"{option.key}: expected a comma-separated list, got {raw!r}") from exc
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ValueError(f"{option.key}: expected a list of strings, got {raw!r}")
+    return value
 
 
 def _validate_list_enum(option: Option, value: list[str]) -> None:

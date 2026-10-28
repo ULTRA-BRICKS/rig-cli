@@ -140,7 +140,7 @@ def _live_check_skip_reason(env_var: str) -> str | None:
     or a sandboxed HOME (rig-cli#116). These are the SAME predicates the runner's apply path uses
     to skip the live activation, so verify never asserts a load the runner deliberately skipped
     (which would fail `rig apply` on exactly the scratch-HOME run the guard exists for)."""
-    from .actions.runner import _env_flag, _home_is_sandboxed
+    from .actions.live_env import _env_flag, _home_is_sandboxed
 
     if _env_flag(env_var):
         return f"{env_var} set"
@@ -345,7 +345,7 @@ def _verify_tg_ctl(action: Action) -> list[VerifyResult]:
     use that domain's predicate — reusing the runner's ``_launchctl_gui_loaded`` — or a live agent
     reads as NOT loaded and fails apply.
     """
-    from .actions.runner import _launchctl_gui_loaded
+    from .actions.service_ctl import _launchctl_gui_loaded
     from .tg_ctl import DEFAULT_BOOT_LABEL
 
     label = str(action.options.get("label") or DEFAULT_BOOT_LABEL)
@@ -364,7 +364,7 @@ def _verify_tgctl_reaper(action: Action) -> list[VerifyResult]:
     timer to fire at all, so the loaded-check is exactly as load-bearing here as for a resident
     daemon.
     """
-    from .actions.runner import _launchctl_gui_loaded
+    from .actions.service_ctl import _launchctl_gui_loaded
     from .tgctl_reaper import DEFAULT_LABEL
 
     label = str(action.options.get("label") or DEFAULT_LABEL)
@@ -381,7 +381,8 @@ def _verify_sysmon(action: Action) -> list[VerifyResult]:
     """The sysmon service file is present and the service is loaded/active (launchd ``gui/<uid>``
     on macOS, ``systemctl --user`` on Linux). The daemon's own heartbeat is judged by ``rig
     status`` (drift), not here: right after a (re)load it has not ticked yet."""
-    from .actions.runner import _launchctl_gui_loaded, _sysmon_service_loaded, sysmon_plan_from_action
+    from .actions.service_ctl import _launchctl_gui_loaded
+    from .actions.sysmon_action import _sysmon_service_loaded, sysmon_plan_from_action
 
     plan = sysmon_plan_from_action(action)
     if _is_darwin():

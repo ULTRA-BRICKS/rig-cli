@@ -10,193 +10,127 @@ The plan tells us what *should* be on disk; this module walks the resolved targe
 diffs them. ``rig status`` renders the result; ``rig apply`` converges the
 config→disk side (it does not delete extras — extras are reported for the human to
 decide, per the "surface, don't auto-reconcile" rule).
+
+Layout: this module owns the scan orchestration (:func:`compute_drift_report`) and the per-kind
+dispatch (:func:`detect`); the checkers live in ``drift_*`` area modules (``drift_model`` report
+data model, ``drift_extras`` disk→config scanners, ``drift_skills`` / ``drift_ship`` /
+``drift_github`` / ``drift_git_hooks`` / ``drift_config_files`` / ``drift_permissions`` /
+``drift_harness`` / ``drift_hook_bridge`` / ``drift_env`` / ``drift_services`` per artifact area).
 """
 
 from __future__ import annotations
 
-import json
-import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-
-from .actions import fsutil
-from . import apt_packages, ecosystem_readme
-from .actions.runner import (
-    ECOSYSTEM_README_BEGIN_MARKER,
-    ECOSYSTEM_README_END_MARKER,
-    EXECPOLICY_BEGIN_MARKER,
-    EXECPOLICY_END_MARKER,
-    RigPinError,
-    _brew_installed_snapshot,
-    _ci_companion_files,
-    _find_marker_lines,
-    _splice_managed_block,
-    _git_global,
-    _launchctl_gui_loaded,
-    _launchctl_loaded,
-    _schedule_dry_run,
-    _spotlight_dry_run,
-    _tg_ctl_dry_run,
-    _tgctl_reaper_dry_run,
-    _sysmon_dry_run,
-    _sysmon_service_loaded,
-    _tmux_dry_run,
-    _resolve_excludes_target,
-    build_hook_descriptor,
-    schedule_timer_active,
-    codex_hook_bridge_block_bounds,
-    codex_hook_bridge_block_malformed,
-    codex_hook_bridge_conflict,
-    codex_hook_bridge_disabled_features,
-    descriptor_text,
-    desired_harness_value,
-    desired_permission_specs,
-    execpolicy_block_text,
-    execpolicy_rules_file,
-    pi_extension_policy_json,
-    find_managed_bridge_hook,
-    github_actions_state,
-    github_ghas_state,
-    github_merge_state,
-    github_ruleset_state,
-    harness_settings_file,
-    hook_bridge_format,
-    hook_bridge_entries,
-    hook_bridge_module,
-    hook_bridge_settings_file,
-    managed_bridge_hook_drift_reason,
-    merge_codex_hook_bridge_toml,
-    omp_hook_bridge_extension_target,
-    opencode_hook_bridge_plugin_target,
-    desired_mcp_server_entry,
-    ecosystem_readme_block_text,
-    ecosystem_readme_file,
-    permissions_settings_file,
-    _is_rig_import_line,
-    resolve_agents_md,
-    _linter_label,
-    resolve_ci_workflow,
-    resolve_global_excludes,
-    resolve_linter_config,
-    repo_self_hosts_ship,
-    env_file_pins_transient_root,
-    resolve_ship_delegator,
-    ship_env_file_content,
-    ship_env_file_path,
-    transient_ship_root_skip_reason,
-    schedule_plan_from_action,
-    self_merge_allow_present,
-    SELF_MERGE_LEGACY_ALLOW,
-    SELF_MERGE_PERMISSIONS_DENY,
-    self_merge_legacy_allow_present,
-    self_merge_permissions_addable,
-    SELF_MERGE_PERMISSIONS_ALLOW,
-    skill_harness_link_target,
-    tg_ctl_plan_from_action,
-    tgctl_reaper_plan_from_action,
-    sysmon_desired_files,
-    sysmon_plan_from_action,
-    tmux_plan_from_action,
-    env_plan_from_action,
-)
-from .config import GITIGNORE_BEGIN_MARKER, linter_path_escapes_repo
-from .github_ruleset import DEFAULT_RULESET_NAME
+from .actions.harness_mode import harness_settings_file
+from .actions.permissions_specs import permissions_settings_file
 from .layers import GLOBAL, layer_for_category
 from .missing_target import scan_settings_hooks
 from .plan import Action, InstallPlan
-from .provenance import (
-    KIND_DISABLED_BASELINE,
-    KIND_RETIRED_DEFAULT,
-    KIND_UNVERIFIED,
-    KIND_USER_EXTRA,
-    PERMISSION_KINDS,
-    hook_provenance,
-    mcp_provenance,
-    skill_provenance,
-    undeclared_hook_detail,
-    undeclared_skill_detail,
-    workflow_provenance,
+from .drift_model import DriftItem, DriftNote, DriftReport, KnownItem, _on_darwin
+from .drift_skills import (
+    _check_agent_hook,
+    _check_agents_autonomous_mode,
+    _check_agents_orchestrator,
+    _check_agents_symlink,
+    _check_copy_skill,
+    _check_link_skill_plugin,
+    _check_mcp,
+    _check_skill_harness_link,
+    _mcp_config_file,
 )
-from . import project_tools
-from .review_gate import SOURCE_ORIGIN, composer_sources, unshipped_composers
-from .tg_ctl import STALE_PREDECESSOR_LABEL
+from .drift_config_files import (
+    _check_bunfig,
+    _check_fj,
+    _check_format_policy_blocked,
+    _check_git_config,
+    _check_global_excludes,
+    _check_harness_wrapper,
+    _check_linter_bundle,
+    _check_linter_config,
+    _check_lint_policy_blocked,
+    _check_project_tool,
+    check_disabled_bunfig,
+    check_disabled_global_excludes,
+)
+from .drift_git_hooks import (
+    _check_ci,
+    _check_composers,
+    _check_disabled_lint_check_hook,
+    _check_dispatcher,
+    _check_lint_check_analyzer,
+    _check_lint_check_hook,
+    _check_lint_check_workflow,
+    check_disabled_dispatcher,
+    hook_manager_shim,
+)
+from .drift_harness import (
+    _check_codex_skills_budget,
+    _check_ecosystem_readme,
+    _check_execpolicy,
+    _check_harness,
+    _check_harness_approval,
+    _check_harness_guard,
+    _check_instruction_policy,
+    _check_omp_idle_ttl,
+    _check_omp_web_search,
+    _check_pi_extension,
+    _check_problem_reporting,
+)
+from .drift_env import _check_env, _check_tmux, _check_tools, check_disabled_env
+from .drift_ship import (
+    _check_gh_ship_alias,
+    _check_ship_delegator,
+    _check_ship_task_prefix,
+    check_ship_env_for_dropped_repo_action,
+)
+from .drift_github import (
+    _check_github_actions,
+    _check_github_ghas,
+    _check_github_merge,
+    _check_github_ruleset,
+)
+from .drift_hook_bridge import _check_hook_bridge, _check_opencode_hook_bridge
+from .drift_services import (
+    _check_internal_dev,
+    _check_schedule,
+    _check_spotlight,
+    _check_sysmon,
+    _check_tg_ctl,
+    _check_tgctl_reaper,
+)
+from .drift_permissions import _check_permissions
+from .drift_extras import _extras_ci, _extras_hooks, _extras_mcp, _extras_skills
+
+
+# Names other modules / tests import from ``riglib.drift`` although the checkers live in the
+# ``drift_*`` area modules (the model classes in ``drift_model``).
+__all__ = [
+    "DriftItem",
+    "DriftNote",
+    "DriftReport",
+    "DriftScan",
+    "KnownItem",
+    "check_disabled_bunfig",
+    "check_disabled_dispatcher",
+    "check_disabled_env",
+    "check_disabled_global_excludes",
+    "check_ship_env_for_dropped_repo_action",
+    "compute_drift_report",
+    "detect",
+    "harness_settings_paths",
+    "hook_manager_shim",
+    "is_global_action",
+    "scan_missing_targets",
+    "_check_composers",
+    "_on_darwin",
+    "_check_opencode_hook_bridge",
+]
 
 
 def is_global_action(action: Action) -> bool:
     """Whether an install action belongs to the GLOBAL status layer (see :mod:`riglib.layers`)."""
     return layer_for_category(action.category) == GLOBAL
-
-
-@dataclass
-class DriftItem:
-    direction: str  # "missing" (config→disk) | "extra" (disk→config) | "modified"
-    category: str
-    item: str
-    target: Path
-    detail: str
-
-
-@dataclass
-class DriftNote:
-    """A fact about a reconciled area that is NOT drift but must stay visible (rig-cli#375).
-
-    Unlike :class:`KnownItem` (an on-disk item rig could place but does not manage), a note is a
-    free-form observation a checker wants printed next to its area's state — today: the Spotlight
-    dependency dirs created since the last sweep, which no sweep could have covered yet. Reporting
-    them as drift makes ``rig status`` permanently red on a machine that builds anything; dropping
-    them silently is how a dead sweep agent hides for a month. So: shown dim beside "in sync",
-    never counted in the drift totals, never part of the exit code.
-    """
-
-    category: str
-    item: str
-    detail: str
-
-
-@dataclass
-class KnownItem:
-    """An on-disk item rig does NOT manage but CAN place (rig-cli#357) — informational, never drift.
-
-    ``kind`` is a :mod:`riglib.provenance` grouping key (``KIND_LABELS`` names it for the user),
-    ``by`` the installer it names (empty when the kind carries none), ``name`` the display label
-    (the skill/hook/workflow name, or the permission entry itself). ``container`` is set for a
-    ``permissions`` item only: the list the entry sits in, ``<harness kind>:<dotted key path>``
-    (``claude-code:permissions.deny``), which the renderer groups by. Kept OUT of
-    :attr:`DriftReport.items` so ``in_sync``, the drift exit code and the area counts never see it.
-    """
-
-    category: str
-    item: str
-    target: Path
-    kind: str
-    name: str
-    by: str = ""
-    container: str = ""
-
-
-@dataclass
-class DriftReport:
-    items: list[DriftItem] = field(default_factory=list)
-    known: list[KnownItem] = field(default_factory=list)
-    notes: list[DriftNote] = field(default_factory=list)
-
-    @property
-    def in_sync(self) -> bool:
-        return not self.items
-
-    @property
-    def known_placed(self) -> list[KnownItem]:
-        """Known items whose origin is another installer / the config / the repo — "not managed by rig"."""
-        return [k for k in self.known if k.kind not in PERMISSION_KINDS]
-
-    @property
-    def known_kept(self) -> list[KnownItem]:
-        """Permission entries beyond the rig baseline — "your additions, kept"."""
-        return [k for k in self.known if k.kind in PERMISSION_KINDS]
-
-    def by_direction(self, direction: str) -> list[DriftItem]:
-        return [i for i in self.items if i.direction == direction]
 
 
 def harness_settings_paths(plan: InstallPlan) -> list[Path]:
@@ -314,164 +248,21 @@ def compute_drift_report(
     tab that never renders those settings (caught in review — a regression the Global-plan
     narrowing itself introduced, since before that narrowing the plan and the scan agreed).
     """
-    from .plan import resolve_category_target, resolve_category_targets
-
-    # The REPO layer only exists inside a git repository. plan.build still emits default-on repo
-    # actions from built-in defaults even when no repo config file was loaded; outside git those
-    # actions have no layer to report under, so drift detection must drop them (as must the
-    # summary a caller renders from the returned dropped list). Build a NEW plan for internal use
-    # rather than mutating the caller's — see the docstring's "PURE" note.
-    dropped_ship_delegator: list = []
-    repo_actions_dropped = 0
-    effective_plan = plan
-    if not env.is_git_repo:
-        global_actions = []
-        repo_actions = []
-        for action in plan.actions:
-            (global_actions if is_global_action(action) else repo_actions).append(action)
-        effective_plan = InstallPlan(
-            actions=global_actions, on_conflict=plan.on_conflict, notes=plan.notes,
-            catalog_items=plan.catalog_items, known_names=plan.known_names,
-            diverted=list(getattr(plan, "diverted", [])),  # every InstallPlan field travels along
-        )
-        # ship_delegator carries the GLOBAL ship_env (machine env file) check, and apply does
-        # NOT drop repo actions outside git — it still reconciles that file. Remember the dropped
-        # actions so the env-file check below still runs (status/apply parity for the
-        # machine-wide artifact; the repo-local delegator part stays dropped).
-        dropped_ship_delegator = [a for a in repo_actions if a.category == "ship_delegator"]
-        repo_actions_dropped = len(repo_actions)
-
-    # scan the configured target dirs for extras even if no action targets them.
-    # CI + MCP targets are REPO-LOCAL with clear ownership → scan even when the category is
-    # disabled, so a previously-applied gate/server left on disk surfaces as disk→config
-    # drift. Skills/agent-hooks live in SHARED global dirs (~/.agents/skills, ~/.claude/
-    # hooks) where other tools' entries legitimately coexist, so only scan them when the
-    # category is enabled (flagging every global skill as "extra" would be noise).
-    scan_skill_dirs = []
-    scan_ci_dirs = []
-    scan_mcp_files = []
-    scan_hook_dirs = []
-
-    def _restricted_out(category: str) -> bool:
-        return restrict_scan_categories is not None and category not in restrict_scan_categories
-
-    if loaded.category("skills").get("enabled") is not False and not _restricted_out("skills"):
-        d = resolve_category_target(loaded, "skills")
-        if d:
-            scan_skill_dirs.append(d)
-    if loaded.category("agent_hooks").get("enabled") is not False and not _restricted_out("agent_hooks"):
-        scan_hook_dirs.extend(resolve_category_targets(loaded, "agent_hooks"))
-    # CI + MCP are REPO-LOCAL — only scan them when this IS a repo (a non-git dir has no repo
-    # layer; scanning a cwd-relative .github there would be meaningless). Gated on the SAME
-    # env.is_git_repo the effective-plan partition above uses, so a scope that forces a non-git
-    # env (config-web's Global tab, which has no repo context even when $HOME happens to be a
-    # git checkout) never scans a repo-local CI dir either.
-    if env.is_git_repo and not _restricted_out("ci"):
-        d = resolve_category_target(loaded, "ci")  # CI: scan unconditionally (repo-local)
-        if d:
-            scan_ci_dirs.append(d)
-    if not _restricted_out("mcp"):
-        d = resolve_category_target(loaded, "mcp")  # MCP: scan unconditionally (global)
-        if d:
-            scan_mcp_files.append(d if d.suffix == ".json" else d / "mcp.json")
+    effective_plan, dropped_ship_delegator, repo_actions_dropped = _effective_plan(plan, env)
+    targets = _scan_targets(loaded, env, restrict_scan_categories)
     report = detect(
         effective_plan,
-        scan_skill_dirs=scan_skill_dirs,
-        scan_ci_dirs=scan_ci_dirs,
-        scan_mcp_files=scan_mcp_files,
-        scan_hook_dirs=scan_hook_dirs,
+        scan_skill_dirs=targets.skill_dirs,
+        scan_ci_dirs=targets.ci_dirs,
+        scan_mcp_files=targets.mcp_files,
+        scan_hook_dirs=targets.hook_dirs,
     )
-    if dropped_ship_delegator:
-        # non-git cwd: the repo-scoped delegator actions were dropped above (in this function's
-        # own non-git partition), but their GLOBAL ship_env (machine env file) check must still
-        # run — apply reconciles that file here too.
-        for action in dropped_ship_delegator:
-            check_ship_env_for_dropped_repo_action(action, report)
-    # disabled-but-installed dispatcher: config turned the dispatcher off, but a prior apply
-    # may have left core.hooksPath pointing at the installed composer dir. apply won't delete
-    # it, so surface it as disk→config drift. Gated on the SAME restriction as the scan-dirs
-    # above — the Global tab's plan can't declare a "git_hooks" action either, so it must not
-    # report drift for a category it never renders/applies (caught in review, same class of bug
-    # as the skills-false-positive the scan-dir restriction above fixes).
-    disp_cfg = loaded.category("git_hooks").get("dispatcher", {}) if isinstance(loaded.category("git_hooks"), dict) else {}
-    if isinstance(disp_cfg, dict) and not disp_cfg.get("enabled") and not _restricted_out("git_hooks"):
-        check_disabled_dispatcher(loaded.repo_root, report)
-    # the fragment is a lint_checks_machine artifact (its drift item carries that category), so that is the
-    # category a restricted scan must name — not git_hooks, whose dispatcher it merely rides
-    if isinstance(disp_cfg, dict) and disp_cfg.get("enabled") and not _restricted_out("lint_checks_machine"):
-        _check_disabled_lint_check_hook(loaded, disp_cfg, report)
-    # disabled-but-installed global-excludes block: config opted the gitignore category out, but a
-    # prior apply may have left the rig-managed block in the global excludes file. apply won't
-    # remove it, so surface it as disk→config drift (mirrors the disabled-dispatcher scan; this is
-    # a GLOBAL, machine-wide artifact, not repo-local). "gitignore" IS writable-global, so this
-    # one is NOT restricted out for the Global scope — it belongs there.
-    gi_cfg = loaded.data.get("gitignore")
-    if isinstance(gi_cfg, dict) and gi_cfg.get("enabled") is False and not _restricted_out("gitignore"):
-        from .config import GITIGNORE_DEFAULT_EXCLUDESFILE
-
-        gi_opts: dict[str, object] = {"xdg_default": GITIGNORE_DEFAULT_EXCLUDESFILE}
-        override = gi_cfg.get("excludesfile")
-        if isinstance(override, str) and override:
-            gi_opts["excludesfile"] = override
-        check_disabled_global_excludes(
-            Action(
-                kind="provision_global_excludes",
-                category="gitignore",
-                item="block",
-                source=loaded.repo_root,
-                target=loaded.repo_root,
-                options=gi_opts,
-            ),
-            report,
-        )
-    # a host config with no ``models:`` block at all: the daily model-freshness schedule is
-    # silently absent (a global config written before the scaffold default gained the block,
-    # rig-cli#721). Surface it as drift naming the one command that turns it on; ``enabled:
-    # false`` is an explicit opt-out and stays quiet, and a machine with no global config yet is
-    # `rig init`'s job, not this check's.
-    if loaded.global_path is not None and "models" not in loaded.data and not _restricted_out("models"):
-        report.items.append(DriftItem(
-            "missing", "models", "model-freshness", loaded.global_path,
-            "no `models:` block, so no daily model-freshness schedule — enable with: "
-            "rig config set --global models.enabled true (or opt out: models.enabled false)",
-        ))
-    # disabled-but-installed shell env vars: config opted the env category out, but a prior
-    # apply may have left rig.env.sh + its live source line in rc_path. apply won't remove
-    # them, so surface as disk→config drift (mirrors the disabled-global-excludes scan above;
-    # also a GLOBAL, machine-wide artifact). A higher-consequence orphan than a stale tmux conf
-    # — the vars keep applying to every shell, not just tmux sessions — so worth the extra scan
-    # even though tmux itself has no equivalent check. "env" is status-global but NOT
-    # writable-global (like skills/agent_hooks) — restricted out for the Global scope for the
-    # same reason as the dispatcher check above.
-    env_cfg = loaded.data.get("env")
-    if isinstance(env_cfg, dict) and env_cfg.get("enabled") is False and not _restricted_out("env"):
-        from .plan import env_options_from_config
-
-        env_disabled_options = env_options_from_config(env_cfg, loaded.repo_root)
-        check_disabled_env(
-            Action(
-                kind="provision_env",
-                category="env",
-                item="vars",
-                source=loaded.repo_root,
-                # matches `_build_env`'s own target (rc_path) — the scan derives everything
-                # from `options` regardless, but keeping the two constructions of this action
-                # kind identical avoids a needless divergence (review).
-                target=Path(env_disabled_options["rc_path"]),
-                options=env_disabled_options,
-            ),
-            report,
-        )
-    bun_cfg = loaded.data.get("bun")
-    if isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is False and not _restricted_out("bun"):
-        check_disabled_bunfig(report)
-    # broken bun worktree installs: with the global store on, a node_modules symlink to another
-    # checkout or broken links into links/ is drift apply cannot fix (it never deletes) — surfaced
-    # with the per-worktree fix; an install that merely skips the store is only a note.
-    from .bun_store import check_worktree_installs, worktree_check_enabled
-
-    if env.is_git_repo and not _restricted_out("bun") and worktree_check_enabled(loaded.global_data.get("bun"), bun_cfg):
-        check_worktree_installs(env.repo_root, report, merged_bun=bun_cfg)
+    # non-git cwd: the repo-scoped delegator actions were dropped above (in the non-git partition),
+    # but their GLOBAL ship_env (machine env file) check must still run — apply reconciles that
+    # file here too.
+    for action in dropped_ship_delegator:
+        check_ship_env_for_dropped_repo_action(action, report)
+    _check_disabled_categories(loaded, env, report, restrict_scan_categories)
     # missing-target: a hook command in the harness settings.json that points at a file gone
     # from disk (the dead-rtk-hook case) surfaces PROACTIVELY here, before it bites at runtime
     # as a generic "PreToolUse error". This is independent of config↔disk drift. Scan the
@@ -485,6 +276,320 @@ def compute_drift_report(
         repo_actions_dropped=repo_actions_dropped,
         plan=effective_plan,
     )
+
+
+def _restricted_out(restrict_scan_categories: frozenset[str] | None, category: str) -> bool:
+    return restrict_scan_categories is not None and category not in restrict_scan_categories
+
+
+def _effective_plan(plan: InstallPlan, env) -> tuple[InstallPlan, list, int]:
+    """``(effective plan, dropped ship_delegator actions, dropped repo-action count)``.
+
+    The REPO layer only exists inside a git repository. plan.build still emits default-on repo
+    actions from built-in defaults even when no repo config file was loaded; outside git those
+    actions have no layer to report under, so drift detection must drop them (as must the
+    summary a caller renders from the returned dropped list). Builds a NEW plan rather than
+    mutating the caller's — see :func:`compute_drift_report`'s "PURE" note.
+
+    ship_delegator carries the GLOBAL ship_env (machine env file) check, and apply does NOT drop
+    repo actions outside git — it still reconciles that file. The dropped actions are returned so
+    the env-file check still runs (status/apply parity for the machine-wide artifact; the
+    repo-local delegator part stays dropped).
+    """
+    if env.is_git_repo:
+        return plan, [], 0
+    global_actions = []
+    repo_actions = []
+    for action in plan.actions:
+        (global_actions if is_global_action(action) else repo_actions).append(action)
+    effective_plan = InstallPlan(
+        actions=global_actions, on_conflict=plan.on_conflict, notes=plan.notes,
+        catalog_items=plan.catalog_items, known_names=plan.known_names,
+        diverted=list(getattr(plan, "diverted", [])),  # every InstallPlan field travels along
+    )
+    dropped_ship_delegator = [a for a in repo_actions if a.category == "ship_delegator"]
+    return effective_plan, dropped_ship_delegator, len(repo_actions)
+
+
+@dataclass
+class _ScanTargets:
+    """Configured target locations scanned for disk→config extras even when no action targets them."""
+
+    skill_dirs: list[Path] = field(default_factory=list)
+    ci_dirs: list[Path] = field(default_factory=list)
+    mcp_files: list[Path] = field(default_factory=list)
+    hook_dirs: list[Path] = field(default_factory=list)
+
+
+def _scan_targets(loaded, env, restrict: frozenset[str] | None) -> _ScanTargets:
+    """Wire :func:`detect`'s scan-dir arguments.
+
+    CI + MCP targets are REPO-LOCAL with clear ownership → scan even when the category is
+    disabled, so a previously-applied gate/server left on disk surfaces as disk→config drift.
+    Skills/agent-hooks live in SHARED global dirs (~/.agents/skills, ~/.claude/hooks) where other
+    tools' entries legitimately coexist, so only scan them when the category is enabled (flagging
+    every global skill as "extra" would be noise).
+    """
+    from .plan import resolve_category_target, resolve_category_targets
+
+    targets = _ScanTargets()
+    if _category_scanned(loaded, restrict, "skills"):
+        targets.skill_dirs.extend(_present(resolve_category_target(loaded, "skills")))
+    if _category_scanned(loaded, restrict, "agent_hooks"):
+        targets.hook_dirs.extend(resolve_category_targets(loaded, "agent_hooks"))
+    # CI + MCP are REPO-LOCAL — only scan them when this IS a repo (a non-git dir has no repo
+    # layer; scanning a cwd-relative .github there would be meaningless). Gated on the SAME
+    # env.is_git_repo the effective-plan partition uses, so a scope that forces a non-git
+    # env (config-web's Global tab, which has no repo context even when $HOME happens to be a
+    # git checkout) never scans a repo-local CI dir either.
+    if env.is_git_repo and not _restricted_out(restrict, "ci"):
+        targets.ci_dirs.extend(_present(resolve_category_target(loaded, "ci")))  # CI: scan unconditionally (repo-local)
+    if not _restricted_out(restrict, "mcp"):
+        mcp_target = resolve_category_target(loaded, "mcp")  # MCP: scan unconditionally (global)
+        if mcp_target:
+            targets.mcp_files.append(mcp_target if mcp_target.suffix == ".json" else mcp_target / "mcp.json")
+    return targets
+
+
+def _category_scanned(loaded, restrict: frozenset[str] | None, category: str) -> bool:
+    """The category is not disabled in config and is inside the restricted scope (if any)."""
+    return loaded.category(category).get("enabled") is not False and not _restricted_out(restrict, category)
+
+
+def _present(target: Path | None) -> list[Path]:
+    return [target] if target else []
+
+
+def _check_disabled_categories(loaded, env, report: DriftReport, restrict: frozenset[str] | None) -> None:
+    """Disabled-category augmentation checks: prior artifacts of a category config turned OFF."""
+    _check_disabled_dispatcher_config(loaded, report, restrict)
+    _check_disabled_gitignore_config(loaded, report, restrict)
+    _check_missing_models_block(loaded, report, restrict)
+    _check_disabled_env_config(loaded, report, restrict)
+    _check_bun_config(loaded, env, report, restrict)
+
+
+def _check_disabled_dispatcher_config(loaded, report: DriftReport, restrict: frozenset[str] | None) -> None:
+    # disabled-but-installed dispatcher: config turned the dispatcher off, but a prior apply
+    # may have left core.hooksPath pointing at the installed composer dir. apply won't delete
+    # it, so surface it as disk→config drift. Gated on the SAME restriction as the scan-dirs
+    # — the Global tab's plan can't declare a "git_hooks" action either, so it must not
+    # report drift for a category it never renders/applies (caught in review, same class of bug
+    # as the skills-false-positive the scan-dir restriction fixes).
+    git_hooks_cfg = loaded.category("git_hooks")
+    disp_cfg = git_hooks_cfg.get("dispatcher", {}) if isinstance(git_hooks_cfg, dict) else {}
+    if not isinstance(disp_cfg, dict):
+        return
+    if not disp_cfg.get("enabled") and not _restricted_out(restrict, "git_hooks"):
+        check_disabled_dispatcher(loaded.repo_root, report)
+    # the fragment is a lint_checks_machine artifact (its drift item carries that category), so that is the
+    # category a restricted scan must name — not git_hooks, whose dispatcher it merely rides
+    if disp_cfg.get("enabled") and not _restricted_out(restrict, "lint_checks_machine"):
+        _check_disabled_lint_check_hook(loaded, disp_cfg, report)
+
+
+def _check_disabled_gitignore_config(loaded, report: DriftReport, restrict: frozenset[str] | None) -> None:
+    # disabled-but-installed global-excludes block: config opted the gitignore category out, but a
+    # prior apply may have left the rig-managed block in the global excludes file. apply won't
+    # remove it, so surface it as disk→config drift (mirrors the disabled-dispatcher scan; this is
+    # a GLOBAL, machine-wide artifact, not repo-local). "gitignore" IS writable-global, so this
+    # one is NOT restricted out for the Global scope — it belongs there.
+    gi_cfg = loaded.data.get("gitignore")
+    if not (isinstance(gi_cfg, dict) and gi_cfg.get("enabled") is False) or _restricted_out(restrict, "gitignore"):
+        return
+    from .config import GITIGNORE_DEFAULT_EXCLUDESFILE
+
+    gi_opts: dict[str, object] = {"xdg_default": GITIGNORE_DEFAULT_EXCLUDESFILE}
+    override = gi_cfg.get("excludesfile")
+    if isinstance(override, str) and override:
+        gi_opts["excludesfile"] = override
+    check_disabled_global_excludes(
+        Action(
+            kind="provision_global_excludes",
+            category="gitignore",
+            item="block",
+            source=loaded.repo_root,
+            target=loaded.repo_root,
+            options=gi_opts,
+        ),
+        report,
+    )
+
+
+def _check_missing_models_block(loaded, report: DriftReport, restrict: frozenset[str] | None) -> None:
+    # a host config with no ``models:`` block at all: the daily model-freshness schedule is
+    # silently absent (a global config written before the scaffold default gained the block,
+    # rig-cli#721). Surface it as drift naming the one command that turns it on; ``enabled:
+    # false`` is an explicit opt-out and stays quiet, and a machine with no global config yet is
+    # `rig init`'s job, not this check's.
+    if loaded.global_path is not None and "models" not in loaded.data and not _restricted_out(restrict, "models"):
+        report.items.append(DriftItem(
+            "missing", "models", "model-freshness", loaded.global_path,
+            "no `models:` block, so no daily model-freshness schedule — enable with: "
+            "rig config set --global models.enabled true (or opt out: models.enabled false)",
+        ))
+
+
+def _check_disabled_env_config(loaded, report: DriftReport, restrict: frozenset[str] | None) -> None:
+    # disabled-but-installed shell env vars: config opted the env category out, but a prior
+    # apply may have left rig.env.sh + its live source line in rc_path. apply won't remove
+    # them, so surface as disk→config drift (mirrors the disabled-global-excludes scan above;
+    # also a GLOBAL, machine-wide artifact). A higher-consequence orphan than a stale tmux conf
+    # — the vars keep applying to every shell, not just tmux sessions — so worth the extra scan
+    # even though tmux itself has no equivalent check. "env" is status-global but NOT
+    # writable-global (like skills/agent_hooks) — restricted out for the Global scope for the
+    # same reason as the dispatcher check above.
+    env_cfg = loaded.data.get("env")
+    if not (isinstance(env_cfg, dict) and env_cfg.get("enabled") is False) or _restricted_out(restrict, "env"):
+        return
+    from .plan import env_options_from_config
+
+    env_disabled_options = env_options_from_config(env_cfg, loaded.repo_root)
+    check_disabled_env(
+        Action(
+            kind="provision_env",
+            category="env",
+            item="vars",
+            source=loaded.repo_root,
+            # matches `_build_env`'s own target (rc_path) — the scan derives everything
+            # from `options` regardless, but keeping the two constructions of this action
+            # kind identical avoids a needless divergence (review).
+            target=Path(env_disabled_options["rc_path"]),
+            options=env_disabled_options,
+        ),
+        report,
+    )
+
+
+def _check_bun_config(loaded, env, report: DriftReport, restrict: frozenset[str] | None) -> None:
+    if _restricted_out(restrict, "bun"):
+        return
+    bun_cfg = loaded.data.get("bun")
+    if isinstance(bun_cfg, dict) and bun_cfg.get("enabled") is False:
+        check_disabled_bunfig(report)
+    # broken bun worktree installs: with the global store on, a node_modules symlink to another
+    # checkout or broken links into links/ is drift apply cannot fix (it never deletes) — surfaced
+    # with the per-worktree fix; an install that merely skips the store is only a note.
+    from .bun_store import check_worktree_installs, worktree_check_enabled
+
+    if env.is_git_repo and worktree_check_enabled(loaded.global_data.get("bun"), bun_cfg):
+        check_worktree_installs(env.repo_root, report, merged_bun=bun_cfg)
+
+
+@dataclass
+class _Declared:
+    """What the plan's actions declare, keyed by the dir/file the extras scanners walk."""
+
+    skill_dirs: dict[Path, set[str]]
+    ci_dirs: dict[Path, set[str]]
+    mcp: dict[Path, set[str]]
+    hook_dirs: dict[Path, set[str]]
+
+
+def _declare_skill(action: Action, declared: _Declared) -> None:
+    declared.skill_dirs.setdefault(action.target.parent, set()).add(action.target.name)
+
+
+def _declare_agent_hook(action: Action, declared: _Declared) -> None:
+    descriptor = action.options.get("descriptor")
+    if descriptor:
+        declared.hook_dirs.setdefault(action.target, set()).add(descriptor)
+
+
+def _declare_ci(action: Action, declared: _Declared) -> None:
+    if action.options.get("slot") != "ship":
+        declared.ci_dirs.setdefault(action.target, set()).add(f"{action.item}.yml")
+
+
+def _declare_lint_check_workflow(action: Action, declared: _Declared) -> None:
+    # rig-owned file in the SAME workflows dir the extras scan covers: declared, never "extra"/"known"
+    wf_path = action.target / str(action.options["rel_path"])
+    declared.ci_dirs.setdefault(wf_path.parent, set()).add(wf_path.name)
+
+
+def _declare_mcp(action: Action, declared: _Declared) -> None:
+    server_key = str(action.options.get("server") or action.item)
+    declared.mcp.setdefault(_mcp_config_file(action), set()).add(server_key)
+
+
+_DECLARERS = {
+    "copy_skill": _declare_skill,
+    "link_skill_plugin": _declare_skill,
+    "install_agent_hook": _declare_agent_hook,
+    "install_ci": _declare_ci,
+    "install_lint_check_workflow": _declare_lint_check_workflow,
+    "register_mcp": _declare_mcp,
+}
+
+
+def _check_handlers(self_merge_files: set[Path]) -> dict:
+    """Action kind → drift checker ``(action, report)``.
+
+    Built per call (not a module constant) so each checker is resolved through this module's
+    namespace at detect time — the checkers are seams the test suite stubs on ``riglib.drift``.
+    ``provision_github_browser`` has no entry: the agent-browser backend has no cheap read-back,
+    status doesn't probe the UI.
+    """
+
+    def permissions(action: Action, report: DriftReport) -> None:
+        # settings files an active self-merge harness action writes the ship rules into: the
+        # permissions extras check suppresses those rig-owned rules ONLY for these files.
+        _check_permissions(action, report, self_merge_owned=permissions_settings_file(action) in self_merge_files)
+
+    return {
+        "copy_skill": _check_copy_skill,
+        "link_skill_harness": _check_skill_harness_link,
+        "link_skill_plugin": _check_link_skill_plugin,
+        "install_agent_hook": _check_agent_hook,
+        "install_ci": _check_ci,
+        "install_dispatcher": _check_dispatcher,
+        "install_cccc": _check_lint_check_analyzer,
+        "install_lint_check_hook": _check_lint_check_hook,
+        "install_lint_check_workflow": _check_lint_check_workflow,
+        "register_mcp": _check_mcp,
+        "apply_harness": _check_harness,
+        "provision_permissions": permissions,
+        "provision_execpolicy": _check_execpolicy,
+        "install_harness_guard": _check_harness_guard,
+        "provision_harness_approval": _check_harness_approval,
+        "provision_omp_web_search": _check_omp_web_search,
+        "provision_instruction_policy": _check_instruction_policy,
+        "provision_problem_reporting": _check_problem_reporting,
+        "provision_pi_extension": _check_pi_extension,
+        "register_hook_bridge": _check_hook_bridge,
+        "provision_omp_idle_ttl": _check_omp_idle_ttl,
+        "provision_codex_skills_budget": _check_codex_skills_budget,
+        "provision_schedule": _check_schedule,
+        "provision_agents_symlink": _check_agents_symlink,
+        "provision_agents_orchestrator": _check_agents_orchestrator,
+        "provision_agents_autonomous_mode": _check_agents_autonomous_mode,
+        "provision_ship_delegator": _check_ship_delegator,
+        "provision_gh_ship_alias": _check_gh_ship_alias,
+        "lint_policy_blocked": _check_lint_policy_blocked,
+        "format_policy_blocked": _check_format_policy_blocked,
+        "provision_linter_config": _check_linter_config,
+        "provision_linter_bundle": _check_linter_bundle,
+        "provision_project_tool": _check_project_tool,
+        "apply_ecosystem_readme": _check_ecosystem_readme,
+        "provision_github_ruleset": _check_github_ruleset,
+        "provision_github_merge": _check_github_merge,
+        "provision_github_ghas": _check_github_ghas,
+        "provision_github_actions": _check_github_actions,
+        "provision_tmux": _check_tmux,
+        "provision_env": _check_env,
+        "provision_global_excludes": _check_global_excludes,
+        "provision_tools": _check_tools,
+        "provision_tg_ctl": _check_tg_ctl,
+        "provision_tgctl_reaper": _check_tgctl_reaper,
+        "provision_sysmon": _check_sysmon,
+        "provision_spotlight": _check_spotlight,
+        "provision_bunfig": _check_bunfig,
+        "provision_fj": _check_fj,
+        "provision_git_config": _check_git_config,
+        "harness_wrapper": _check_harness_wrapper,
+        "provision_ship_task_prefix": _check_ship_task_prefix,
+        "install_dev_reload_hook": _check_internal_dev,
+    }
 
 
 def detect(
@@ -512,3534 +617,40 @@ def detect(
     # catalog / config knowledge then, the conservative reading (everything undeclared is drift).
     known = getattr(plan, "known_names", None) or {}
     catalog = getattr(plan, "catalog_items", None) or {}
-    declared_skill_dirs: dict[Path, set[str]] = {d: set() for d in (scan_skill_dirs or [])}
-    declared_ci_dirs: dict[Path, set[str]] = {d: set() for d in (scan_ci_dirs or [])}
-    declared_mcp: dict[Path, set[str]] = {f: set() for f in (scan_mcp_files or [])}
-    declared_hook_dirs: dict[Path, set[str]] = {d: set() for d in (scan_hook_dirs or [])}
-    # settings files an active self-merge harness action writes the ship rules into. The permissions
-    # extras check suppresses those rig-owned rules as "extras" ONLY for these files — so a
-    # self_merge:false plan (or a permissions action targeting a DIFFERENT file) still reports stray
-    # ship rules as drift-extras, keeping two-way drift honest (codex review).
-    self_merge_files = {
+    declared = _Declared(
+        skill_dirs=_empty_declarations(scan_skill_dirs),
+        ci_dirs=_empty_declarations(scan_ci_dirs),
+        mcp=_empty_declarations(scan_mcp_files),
+        hook_dirs=_empty_declarations(scan_hook_dirs),
+    )
+    handlers = _check_handlers(_self_merge_files(plan))
+    for action in plan.actions:
+        check = handlers.get(action.kind)
+        if check is not None:
+            check(action, report)
+        declare = _DECLARERS.get(action.kind)
+        if declare is not None:
+            declare(action, declared)
+    _extras_skills(declared.skill_dirs, report, known.get("skills", set()), catalog.get("skills"))
+    _extras_ci(declared.ci_dirs, report, known.get("ci", set()), catalog.get("ci"))
+    _extras_mcp(declared.mcp, report, known.get("mcp", set()))
+    _extras_hooks(declared.hook_dirs, report, known.get("agent_hooks", set()), catalog.get("agent_hooks"))
+    return report
+
+
+def _empty_declarations(scan_targets: list[Path] | None) -> dict[Path, set[str]]:
+    return {target: set() for target in (scan_targets or [])}
+
+
+def _self_merge_files(plan: InstallPlan) -> set[Path]:
+    """Settings files an active self-merge harness action writes the ship rules into.
+
+    The permissions extras check suppresses those rig-owned rules as "extras" ONLY for these
+    files — so a self_merge:false plan (or a permissions action targeting a DIFFERENT file) still
+    reports stray ship rules as drift-extras, keeping two-way drift honest (codex review).
+    """
+    return {
         harness_settings_file(a)
         for a in plan.actions
         if a.kind == "apply_harness" and a.options.get("self_merge")
     }
-
-    for action in plan.actions:
-        if action.kind == "copy_skill":
-            declared_skill_dirs.setdefault(action.target.parent, set()).add(action.target.name)
-            _check_copy_skill(action, report)
-        elif action.kind == "link_skill_harness":
-            _check_skill_harness_link(action, report)
-        elif action.kind == "link_skill_plugin":
-            declared_skill_dirs.setdefault(action.target.parent, set()).add(action.target.name)
-            _check_link_skill_plugin(action, report)
-        elif action.kind == "install_agent_hook":
-            _check_agent_hook(action, report)
-            descriptor = action.options.get("descriptor")
-            if descriptor:
-                declared_hook_dirs.setdefault(action.target, set()).add(descriptor)
-        elif action.kind == "install_ci":
-            _check_ci(action, report)
-            if action.options.get("slot") != "ship":
-                declared_ci_dirs.setdefault(action.target, set()).add(f"{action.item}.yml")
-        elif action.kind == "install_dispatcher":
-            _check_dispatcher(action, report)
-        elif action.kind == "install_cccc":
-            _check_lint_check_analyzer(action, report)
-        elif action.kind == "install_lint_check_hook":
-            _check_lint_check_hook(action, report)
-        elif action.kind == "install_lint_check_workflow":
-            _check_lint_check_workflow(action, report)
-            # rig-owned file in the SAME workflows dir the extras scan covers: declared, never "extra"/"known"
-            wf_path = action.target / str(action.options["rel_path"])
-            declared_ci_dirs.setdefault(wf_path.parent, set()).add(wf_path.name)
-        elif action.kind == "register_mcp":
-            _check_mcp(action, report)
-            cf = _mcp_config_file(action)
-            server_key = str(action.options.get("server") or action.item)
-            declared_mcp.setdefault(cf, set()).add(server_key)
-        elif action.kind == "apply_harness":
-            _check_harness(action, report)
-        elif action.kind == "provision_permissions":
-            _check_permissions(action, report, self_merge_owned=permissions_settings_file(action) in self_merge_files)
-        elif action.kind == "provision_execpolicy":
-            _check_execpolicy(action, report)
-        elif action.kind == "install_harness_guard":
-            _check_harness_guard(action, report)
-        elif action.kind == "provision_harness_approval":
-            _check_harness_approval(action, report)
-        elif action.kind == "provision_omp_web_search":
-            _check_omp_web_search(action, report)
-        elif action.kind == "provision_instruction_policy":
-            _check_instruction_policy(action, report)
-        elif action.kind == "provision_problem_reporting":
-            _check_problem_reporting(action, report)
-        elif action.kind == "provision_pi_extension":
-            _check_pi_extension(action, report)
-        elif action.kind == "register_hook_bridge":
-            _check_hook_bridge(action, report)
-        elif action.kind == "provision_omp_idle_ttl":
-            _check_omp_idle_ttl(action, report)
-        elif action.kind == "provision_codex_skills_budget":
-            _check_codex_skills_budget(action, report)
-        elif action.kind == "provision_schedule":
-            _check_schedule(action, report)
-        elif action.kind == "provision_agents_symlink":
-            _check_agents_symlink(action, report)
-        elif action.kind == "provision_agents_orchestrator":
-            _check_agents_orchestrator(action, report)
-        elif action.kind == "provision_agents_autonomous_mode":
-            _check_agents_autonomous_mode(action, report)
-        elif action.kind == "provision_ship_delegator":
-            _check_ship_delegator(action, report)
-        elif action.kind == "provision_gh_ship_alias":
-            _check_gh_ship_alias(action, report)
-        elif action.kind == "lint_policy_blocked":
-            report.items.append(DriftItem("modified", "linters", action.item, action.target, str(action.options.get("reason") or "lint policy prerequisites are blocked")))
-        elif action.kind == "format_policy_blocked":
-            report.items.append(DriftItem("modified", "linters", action.item, action.target, str(action.options.get("reason") or "formatter policy prerequisites are blocked")))
-        elif action.kind == "provision_linter_config":
-            _check_linter_config(action, report)
-        elif action.kind == "provision_linter_bundle":
-            from .linter_carriers import resolve_bundle
-            r = resolve_bundle(action.source, action.target, str(action.options.get("source_rel") or ""), str(action.options.get("target_rel") or ""))
-            if r.state != "ok":
-                direction = "missing" if r.state == "create" else "modified"
-                report.items.append(DriftItem(direction, "linters", action.item, r.target, r.detail or f"linter bundle state: {r.state}"))
-        elif action.kind == "provision_project_tool":
-            _check_project_tool(action, report)
-        elif action.kind == "apply_ecosystem_readme":
-            _check_ecosystem_readme(action, report)
-        elif action.kind == "provision_github_ruleset":
-            _check_github_ruleset(action, report)
-        elif action.kind == "provision_github_merge":
-            _check_github_merge(action, report)
-        elif action.kind == "provision_github_ghas":
-            _check_github_ghas(action, report)
-        elif action.kind == "provision_github_actions":
-            _check_github_actions(action, report)
-        elif action.kind == "provision_github_browser":
-            pass  # the agent-browser backend has no cheap read-back; status doesn't probe the UI
-        elif action.kind == "provision_tmux":
-            _check_tmux(action, report)
-        elif action.kind == "provision_env":
-            _check_env(action, report)
-        elif action.kind == "provision_global_excludes":
-            _check_global_excludes(action, report)
-        elif action.kind == "provision_tools":
-            _check_tools(action, report)
-        elif action.kind == "provision_tg_ctl":
-            _check_tg_ctl(action, report)
-        elif action.kind == "provision_tgctl_reaper":
-            _check_tgctl_reaper(action, report)
-        elif action.kind == "provision_sysmon":
-            _check_sysmon(action, report)
-        elif action.kind == "provision_spotlight":
-            _check_spotlight(action, report)
-        elif action.kind == "provision_bunfig":
-            _check_bunfig(action, report)
-        elif action.kind == "provision_fj":
-            _check_fj(action, report)
-        elif action.kind == "provision_git_config":
-            _check_git_config(action, report)
-        elif action.kind == "harness_wrapper":
-            _check_harness_wrapper(action, report)
-        elif action.kind == "provision_ship_task_prefix":
-            _check_ship_task_prefix(action, report)
-        elif action.kind == "install_dev_reload_hook":
-            _check_internal_dev(action, report)
-    _extras_skills(declared_skill_dirs, report, known.get("skills", set()), catalog.get("skills"))
-    _extras_ci(declared_ci_dirs, report, known.get("ci", set()), catalog.get("ci"))
-    _extras_mcp(declared_mcp, report, known.get("mcp", set()))
-    _extras_hooks(declared_hook_dirs, report, known.get("agent_hooks", set()), catalog.get("agent_hooks"))
-    return report
-
-
-def _extras_hooks(
-    declared_hook_dirs: dict[Path, set[str]], report: DriftReport, known: set[str], catalog: dict[str, tuple[Path, ...]] | None,
-) -> None:
-    """Flag agent-hook descriptors on disk (``*.json``) not declared in config.
-
-    Dispatcher *fragments* are intentionally NOT flagged: ``global-hooks.d`` is a shared
-    drop-in namespace where other tools' fragments legitimately coexist, so undeclared
-    fragments there are expected, not drift. A descriptor another installer marked, an
-    agent-tools ops-installer hook, or one listed under ``agent_hooks.known`` is filed as known.
-    """
-    for hook_dir, declared in declared_hook_dirs.items():
-        if not hook_dir.is_dir():
-            continue
-        for entry in sorted(hook_dir.glob("*.json")):
-            if entry.name in declared:
-                continue
-            prov = hook_provenance(entry, known=known, catalog=catalog)
-            if prov is not None:
-                report.known.append(KnownItem("agent_hooks", entry.stem, entry, prov.kind, entry.stem, prov.by))
-            else:
-                report.items.append(
-                    DriftItem("extra", "agent_hooks", entry.stem, entry, undeclared_hook_detail(entry, catalog))
-                )
-
-
-def _extras_skills(
-    declared_skill_dirs: dict[Path, set[str]], report: DriftReport, known: set[str], catalog: dict[str, tuple[Path, ...]] | None,
-) -> None:
-    """Flag skill dirs on disk not declared in config; a skill whose origin rig can name (an
-    installer marker / blurb, the ecosystem allowlist, ``skills.known``, a catalog item another
-    repo's config selects) is filed as known."""
-    for skills_dir, declared in declared_skill_dirs.items():
-        if not skills_dir.is_dir():
-            continue
-        for entry in sorted(skills_dir.iterdir()):
-            if not entry.is_dir() or entry.name.startswith("."):
-                continue
-            if entry.name in declared:
-                continue
-            if not (entry / "SKILL.md").is_file():  # only flag things that look like skills
-                continue
-            prov = skill_provenance(entry, skills_dir, known=known, catalog=catalog)
-            if prov is not None:
-                report.known.append(KnownItem("skills", entry.name, entry, prov.kind, entry.name, prov.by))
-            else:
-                report.items.append(
-                    DriftItem("extra", "skills", entry.name, entry, undeclared_skill_detail(entry.name, catalog))
-                )
-
-
-def _extras_ci(
-    declared_ci_dirs: dict[Path, set[str]], report: DriftReport, known: set[str], catalog: dict[str, tuple[Path, ...]] | None,
-) -> None:
-    """Flag workflow files not declared in config. Only a workflow named after a catalog CI slot
-    can be a rig orphan; any other stem is the repository's own workflow (known). Without catalog
-    knowledge (a hand-built plan) every undeclared workflow stays drift."""
-    for wf_dir, declared in declared_ci_dirs.items():
-        if not wf_dir.is_dir():
-            continue
-        for entry in sorted(wf_dir.iterdir()):
-            if entry.suffix not in (".yml", ".yaml") or not entry.is_file():
-                continue
-            if entry.name in declared:
-                continue
-            prov = workflow_provenance(entry.stem, known=known, catalog=catalog)
-            if prov is not None:
-                report.known.append(KnownItem("ci", entry.stem, entry, prov.kind, entry.name))
-            else:
-                report.items.append(
-                    DriftItem("extra", "ci", entry.stem, entry, "workflow on disk but not declared in config")
-                )
-
-
-def _extras_mcp(declared_mcp: dict[Path, set[str]], report: DriftReport, known: set[str]) -> None:
-    for cf, declared in declared_mcp.items():
-        if not cf.is_file():
-            continue
-        try:
-            data = json.loads(cf.read_text(encoding="utf-8"))
-        except ValueError:
-            continue
-        servers = data.get("mcpServers", {}) if isinstance(data, dict) else {}
-        if not isinstance(servers, dict):
-            continue
-        for name in sorted(servers):
-            if name in declared:
-                continue
-            prov = mcp_provenance(name, known=known)
-            if prov is not None:
-                report.known.append(KnownItem("mcp", name, cf, prov.kind, name))
-            else:
-                report.items.append(
-                    DriftItem("extra", "mcp", name, cf, "MCP entry registered but not declared in config")
-                )
-
-
-def _check_copy_skill(action: Action, report: DriftReport) -> None:
-    if not action.target.exists():
-        report.items.append(
-            DriftItem("missing", "skills", action.item, action.target, "declared, not on disk")
-        )
-    elif not fsutil.dirs_identical(action.source, action.target):
-        report.items.append(
-            DriftItem("modified", "skills", action.item, action.target, "on disk differs from source")
-        )
-
-
-def _check_skill_symlink(
-    action: Action, report: DriftReport, *, item_label: str, missing_detail: str, modified_detail_prefix: str,
-) -> None:
-    """Shared missing/modified/real-dir-left-alone check for an idempotent skill symlink.
-
-    Both :func:`_check_skill_harness_link` (a harness-discovery symlink) and
-    :func:`_check_link_skill_plugin` (a plugin-sourced skill's symlink into the skills target)
-    maintain the exact same idempotent-symlink contract the runner's shared
-    ``_do_link_skill_harness`` handler executes for both action kinds (see
-    ``actions/runner.py``'s ``_HANDLERS`` mapping) — only the item label and message wording
-    differ per caller, so the check itself lives in exactly one place (code-quality review
-    finding, rig-cli#590; mirrors the execution side's own single-handler precedent).
-
-    missing  — no symlink (and no real dir) at the target path: apply creates it.
-    modified — a symlink pointing at the WRONG destination: apply re-points it.
-    A REAL (non-symlink) dir/file at the path is NOT flagged — it's legitimately not rig's to
-    manage (a hand-authored skill, or — for the plugin case — the build()-time catalog-collision
-    check's runtime safety net), so reporting it as drift (which apply ignores anyway) would be
-    misleading noise.
-    """
-    link_path, dest = skill_harness_link_target(action)
-    if link_path.is_symlink():
-        from .actions.runner import _same_link_dest
-
-        try:
-            current = link_path.readlink()
-        except OSError:
-            return
-        if not _same_link_dest(link_path, current, dest):
-            report.items.append(
-                DriftItem("modified", "skills", item_label, link_path,
-                          f"{modified_detail_prefix}, expected → {dest}")
-            )
-        return
-    if link_path.exists():
-        return
-    report.items.append(DriftItem("missing", "skills", item_label, link_path, missing_detail))
-
-
-def _check_skill_harness_link(action: Action, report: DriftReport) -> None:
-    """Flag drift on a skill's harness-discovery symlink — see :func:`_check_skill_symlink`."""
-    _check_skill_symlink(
-        action, report,
-        item_label=f"{action.item} (harness link)",
-        missing_detail="skill not symlinked into harness dir (harness won't list it)",
-        modified_detail_prefix="harness symlink points elsewhere",
-    )
-
-
-def _check_link_skill_plugin(action: Action, report: DriftReport) -> None:
-    """Flag drift on a plugin-sourced skill's symlink into the skills target — see
-    :func:`_check_skill_symlink`. This symlink lands at ``skills_target/<name>`` itself (the
-    plugin IS the skill's install location, there is no separate copy step), not a harness
-    discovery dir."""
-    _check_skill_symlink(
-        action, report,
-        item_label=action.item,
-        missing_detail="plugin skill not symlinked into the skills target",
-        modified_detail_prefix="plugin skill symlink points elsewhere",
-    )
-
-
-def _check_agents_symlink(action: Action, report: DriftReport) -> None:
-    """Flag drift on the AGENTS.md (canonical) + CLAUDE.md (symlink) invariant.
-
-    Switches on the SAME :func:`resolve_agents_md` ``state`` apply uses, so status and apply read
-    one classification. Any non-``ok`` state is drift: the desired end-state is one real
-    canonical + a correct symlink, and a repo that isn't there is out of sync. As everywhere
-    else in rig, ``on_conflict`` governs only whether ``apply`` *reconciles* the drift, not
-    whether ``status`` *reports* it — so two identical real files (``converge``) read as drift
-    even though an ``on_conflict: skip`` apply would decline to collapse them (same as a
-    skip'd modified skill staying visible as drift).
-    """
-    r = resolve_agents_md(action.target)
-    if r.state == "ok":
-        return
-    if r.state == "create_both":
-        report.items.append(
-            DriftItem("missing", "agents_md", "symlink", r.canonical_path,
-                      "AGENTS.md/CLAUDE.md not present (apply creates canonical + symlink)")
-        )
-    elif r.state == "create_link":
-        report.items.append(
-            DriftItem("missing", "agents_md", "symlink", r.link,
-                      f"{r.link.name} missing (apply symlinks it → {r.canonical})")
-        )
-    elif r.state == "converge":
-        report.items.append(
-            DriftItem("modified", "agents_md", "symlink", r.link,
-                      "AGENTS.md and CLAUDE.md are identical real files "
-                      "(apply converges to a symlink under on_conflict=backup/overwrite)")
-        )
-    elif r.state == "conflict":
-        report.items.append(
-            DriftItem("modified", "agents_md", "symlink", r.link, r.detail)
-        )
-
-
-def _check_agents_md_splice(
-    action: Action,
-    report: DriftReport,
-    *,
-    desired: str,
-    begin: str,
-    end: str,
-    missing_file: str,
-    missing_block: str,
-    conflict: str,
-    stale: str,
-) -> None:
-    """missing/modified mirror the instruction-policy checker (same splice resolver)."""
-    from .actions.runner import _agents_md_splice_target, _splice_managed_block
-
-    path = _agents_md_splice_target(action.target)
-    if path is None or not path.is_file():
-        report.items.append(
-            DriftItem("missing", "agents_md", action.item, action.target / "AGENTS.md", missing_file)
-        )
-        return
-    try:
-        with path.open(encoding="utf-8", newline="") as fh:
-            content = fh.read()
-    except OSError as exc:
-        report.items.append(
-            DriftItem("modified", "agents_md", action.item, path, f"cannot read {path}: {exc}")
-        )
-        return
-    _, state, _detail = _splice_managed_block(content, desired, begin, end)
-    if state == "ok":
-        return
-    if state == "create":
-        report.items.append(
-            DriftItem("missing", "agents_md", action.item, path, missing_block)
-        )
-    elif state == "conflict":
-        report.items.append(
-            DriftItem("modified", "agents_md", action.item, path, conflict)
-        )
-    else:  # update
-        report.items.append(
-            DriftItem("modified", "agents_md", action.item, path, stale)
-        )
-
-
-def _check_agents_orchestrator(action: Action, report: DriftReport) -> None:
-    """Flag drift on the rig-managed orchestrator block in the repo AGENTS.md."""
-    from .actions.runner import (
-        ORCHESTRATOR_BEGIN_MARKER,
-        ORCHESTRATOR_END_MARKER,
-        orchestrator_block_text,
-    )
-
-    _check_agents_md_splice(
-        action, report,
-        desired=orchestrator_block_text(),
-        begin=ORCHESTRATOR_BEGIN_MARKER,
-        end=ORCHESTRATOR_END_MARKER,
-        missing_file="AGENTS.md not present (orchestrator splice skips until the symlink action creates it)",
-        missing_block="no rig-managed orchestrator block (apply adds it)",
-        conflict="unbalanced/misordered rig-managed orchestrator markers — reconcile by hand, then re-run",
-        stale="rig-managed orchestrator block is stale (apply rewrites it)",
-    )
-
-
-def _check_agents_autonomous_mode(action: Action, report: DriftReport) -> None:
-    """Flag drift on the rig-managed autonomous-mode block in the repo AGENTS.md."""
-    from .actions.runner import (
-        AUTONOMOUS_BEGIN_MARKER,
-        AUTONOMOUS_END_MARKER,
-        autonomous_mode_block_text,
-    )
-
-    _check_agents_md_splice(
-        action, report,
-        desired=autonomous_mode_block_text(),
-        begin=AUTONOMOUS_BEGIN_MARKER,
-        end=AUTONOMOUS_END_MARKER,
-        missing_file="AGENTS.md not present (autonomous-mode splice skips until the symlink action creates it)",
-        missing_block="no rig-managed autonomous-mode block (apply adds it)",
-        conflict="unbalanced/misordered rig-managed autonomous-mode markers — reconcile by hand, then re-run",
-        stale="rig-managed autonomous-mode block is stale (apply rewrites it)",
-    )
-
-
-def _nearest_existing_ancestor(path: Path) -> Path | None:
-    """The deepest ancestor of ``path`` (inclusive) that exists on disk (lexists), or ``None``.
-
-    Used to diagnose a blocked ``mkdir(parents=True)``: if the returned ancestor is not a
-    directory, creating ``path`` errors there. ``lexists`` so a dangling symlink counts as the
-    blocker it really is (mkdir errors on it too).
-    """
-    for candidate in (path, *path.parents):
-        if os.path.lexists(candidate):
-            return candidate
-    return None
-
-
-def check_ship_env_for_dropped_repo_action(action: Action, report: DriftReport) -> None:
-    """The ``ship_env`` half of the ship-delegator drift check, for a NON-GIT status run.
-
-    ``rig status`` in a non-git dir drops repo-scoped actions before drift detection (they have
-    no repo layer to report under) — but ``rig apply`` does NOT drop them, and it still
-    reconciles the MACHINE-level env file there (the delegator write skips only the git
-    ``info/exclude`` part). Dropping the whole action would therefore hide GLOBAL ship_env drift
-    apply would repair — status could look clean in ``~`` while every portable delegator on the
-    machine exits 127. This runs just the env-file check for such a dropped action, keeping
-    status/apply parity for the machine-wide artifact.
-
-    A non-git target is never self-hosting (``repo_self_hosts_ship`` needs a git toplevel), so
-    no self-hosting skip applies here. A malformed action (no ``canonical_ship``) fails CLOSED,
-    mirroring the in-git guard: apply errors on it (it cannot render the env file), so status
-    must flag it too — but emitted under ``ship_env`` (GLOBAL, renderable outside git), since
-    the repo-categorised ``ship_delegator`` item has no repo layer to render under here.
-    """
-    raw_canonical = str(action.options.get("canonical_ship", "")).strip()
-    if not raw_canonical:
-        report.items.append(
-            DriftItem("modified", "ship_env", "env-file", ship_env_file_path(),
-                      "ship_delegator action has no canonical_ship (malformed plan; apply "
-                      "errors on it and cannot render the machine env file)")
-        )
-        return
-    _check_ship_env_file(Path(raw_canonical), report)
-
-
-def _check_ship_env_file(canonical: Path, report: DriftReport) -> None:
-    """Flag drift on the MACHINE-level ``agent-tools/env`` file (category ``ship_env``).
-
-    Parity with the runner's three outcomes: a NON-FILE at the path or an unreadable file makes
-    apply ERROR (not rewrite), so report those as ``modified`` with the real failure — never a
-    misleading "missing (apply rewrites it)". Only a genuinely absent file is ``missing``.
-    ``is_symlink() or lexists-and-not-file`` matches ``_reconcile_ship_env_file`` exactly: a
-    dangling symlink, a dir, or ANY symlink is a non-file apply refuses to replace. A NON-DIRECTORY
-    on the PARENT chain (e.g. ``~/.config/agent-tools`` exists as a file) is the same class: the
-    env path itself does not exist, but apply's ``mkdir(parents=True)`` errors on it — so it must
-    be ``modified`` with the real failure, never "missing (apply rewrites it)".
-    """
-    # Order mirrors the runner's `_reconcile_ship_env_file` EXACTLY so status/apply never disagree.
-    # Apply errors on an EXISTING non-file/symlink or an unreadable file BEFORE it would skip a
-    # transient source, so those checks run first here too (a genuinely broken machine env file
-    # surfaces even when THIS status run's source checkout is throwaway). The transient-source skip
-    # then matches apply's skip (which happens before the content write / the absent-path mkdir), so
-    # the parent-blocker + desired-content checks — which apply reaches only when it actually WRITES
-    # (never under a transient source) — run AFTER it.
-    env_path = ship_env_file_path()
-    if env_path.is_symlink() or (os.path.lexists(env_path) and not env_path.is_file()):
-        report.items.append(
-            DriftItem("modified", "ship_env", "env-file", env_path,
-                      "a non-file sits at the machine env file path (apply errors on it)")
-        )
-        return
-    try:
-        # UnicodeDecodeError is a ValueError, not an OSError — a non-UTF-8 byte in the file must
-        # yield a drift item (apply errors on it the same way), never crash detect() itself.
-        env_current = env_path.read_text(encoding="utf-8") if env_path.is_file() else None
-    except (OSError, UnicodeDecodeError) as exc:
-        report.items.append(
-            DriftItem("modified", "ship_env", "env-file", env_path,
-                      f"machine env file unreadable (apply errors on it): {exc}")
-        )
-        return
-    # Transient (temp-dir) source + persistent pointer: apply SKIPS the write, so status must NOT
-    # flag drift apply would refuse to make. Placed after the structural/read checks, before the
-    # absent-path + content checks — the exact split apply uses. BUT never hide an ALREADY-poisoned
-    # pointer: if the existing env file itself pins a transient root (the vanished-tmp bug state),
-    # flag it REGARDLESS of whether it equals the current (also-transient) desired content — apply
-    # can't repair it from a throwaway source either, so it surfaces as drift until a durable apply
-    # runs (same shape as the skipped_user case). Return unconditionally afterwards to mirror apply's
-    # skip (a durable-good or absent existing pointer is left clean).
-    if transient_ship_root_skip_reason(canonical) is not None:
-        if env_file_pins_transient_root(env_current):
-            report.items.append(
-                DriftItem("modified", "ship_env", "env-file", env_path,
-                          "machine env file pins a TRANSIENT (temp-dir) AGENT_TOOLS_ROOT that vanishes "
-                          "on cleanup; apply cannot repair it from a transient source — re-run "
-                          "`rig apply` from a durable agent-tools checkout (e.g. ~/xp/agent-tools)")
-            )
-        return
-    if not os.path.lexists(env_path):
-        blocker = _nearest_existing_ancestor(env_path.parent)
-        # is_dir() follows symlinks, matching mkdir(parents=True, exist_ok=True): a symlink
-        # RESOLVING to a dir is traversable (no error); a plain file or dangling link blocks.
-        if blocker is not None and not blocker.is_dir():
-            report.items.append(
-                DriftItem("modified", "ship_env", "env-file", env_path,
-                          f"a non-directory blocks the env file's parent path at {blocker} "
-                          "(apply errors on it)")
-            )
-            return
-    if env_current != ship_env_file_content(canonical):
-        report.items.append(
-            DriftItem("missing" if env_current is None else "modified",
-                      "ship_env", "env-file", env_path,
-                      "machine env file with AGENT_TOOLS_ROOT absent/stale (apply rewrites it; "
-                      "a delegator with no $AGENT_TOOLS_ROOT and no repo-local ship.sh exits 127)")
-        )
-
-
-def _check_ship_task_prefix(action: Action, report: DriftReport) -> None:
-    """Flag drift on ``.ship-config``'s ``SHIP_TASK_CODE_PREFIX=`` line.
-
-    Recomputes the expected line from ``action.options["code_prefix"]`` — the SAME value
-    :func:`_do_provision_ship_task_prefix` (actions/runner.py) merges in — so status and apply
-    read one classification, per the repo's "drift is surfaced both ways, never silently
-    reconciled" rule: a hand-edited or deleted line must not report clean.
-    """
-    prefix = str(action.options.get("code_prefix", "")).strip()
-    if not prefix:
-        return  # nothing to provision (mirrors the runner's own skip on an unset prefix)
-    path = action.target / ".ship-config"
-    expected = f"SHIP_TASK_CODE_PREFIX={prefix}"
-    if not path.is_file():
-        report.items.append(DriftItem("missing", "task", "code_prefix", path, f"{path} does not exist"))
-        return
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        report.items.append(DriftItem("modified", "task", "code_prefix", path, f"could not read {path}: {exc}"))
-        return
-    found = [line for line in lines if line.startswith("SHIP_TASK_CODE_PREFIX=")]
-    if not found:
-        report.items.append(DriftItem("missing", "task", "code_prefix", path, "SHIP_TASK_CODE_PREFIX= line is absent"))
-    elif found != [expected]:
-        # Anything OTHER than exactly one line matching `expected` is drift — not just a wrong
-        # value. `_do_provision_ship_task_prefix` (runner.py) collapses a pre-existing DUPLICATE
-        # managed line to one on the next apply, so `found == [expected, "SHIP_TASK_CODE_PREFIX=
-        # OLD"]` (the correct line present ALONGSIDE a stale extra one) must not report clean —
-        # `expected in found` alone would miss that apply is still about to rewrite the file.
-        detail = (
-            f"SHIP_TASK_CODE_PREFIX line is {found[0]!r}, expected {expected!r}"
-            if len(found) == 1
-            else f"found {len(found)} SHIP_TASK_CODE_PREFIX= lines {found!r}, expected exactly one {expected!r}"
-        )
-        report.items.append(DriftItem("modified", "task", "code_prefix", path, detail))
-
-
-def _check_ship_delegator(action: Action, report: DriftReport) -> None:
-    """Flag drift on the per-repo ``.claude/scripts/pr-ship.sh`` (``gh ship`` delegator).
-
-    Switches on the SAME :func:`resolve_ship_delegator` ``state`` apply uses, so status and apply
-    read one classification:
-
-    - ``ok``       → no drift (file correct + git-ignored).
-    - ``create``   → ``missing``: the delegator file is absent (apply writes it + ignores it).
-    - ``update``   → ``modified`` when the FILE differs, else ``missing`` when the file is correct
-                     but the ``.git/info/exclude`` entry is gone (an un-ignored delegator would
-                     dirty the worktree → ship refuses). ``apply`` reconciles either.
-    - ``io_error`` → ``modified``: a directory/unreadable sits at the delegator path; apply errors.
-
-    Also byte-compares the MACHINE-level env file (``$XDG_CONFIG_HOME/agent-tools/env`` — where the
-    agent-tools root lives now that the delegator itself is a portable constant): a missing/stale
-    env file is drift apply repairs, and without it a provisioned delegator (absent an explicit
-    ``$AGENT_TOOLS_ROOT`` and a repo-local ship.sh) exits 127. Its items are emitted under the
-    ``ship_env`` category — classified GLOBAL in :mod:`riglib.layers`, because the file is a
-    machine-wide artifact, not this repo's — so ``rig status`` renders it under the machine layer
-    instead of blaming the repo. (The check runs from the repo-scoped ship_delegator action — for
-    ANY non-self-hosting target, git or plain dir, mirroring apply, which reconciles the env file
-    for those targets too; only a self-hosting repo skips it, see below.)
-    """
-    # Mirror the runner's fail-closed guard: a malformed action with no canonical_ship must NOT
-    # pass silently — apply errors on it (it cannot render the machine env file), so status must
-    # flag it too or the two would disagree. Surface it as a modified item.
-    raw_canonical = str(action.options.get("canonical_ship", "")).strip()
-    if not raw_canonical:
-        report.items.append(
-            DriftItem("modified", "ship_delegator", "delegator", action.target,
-                      "ship_delegator action has no canonical_ship (malformed plan)")
-        )
-        return
-    canonical = Path(raw_canonical)
-    # A SELF-HOSTING repo (carries its own ci/ship/ship.sh — agent-tools) never reads the env
-    # file: the delegator's repo-local branch wins first, and apply skips the env reconcile for
-    # it. Skip the env check for such a repo so status can't flag drift apply would never repair
-    # (status/apply parity) — every other target, including a non-git dir carrying a stray
-    # ci/ship/ship.sh (whose runtime git probe fails, so the env file IS needed), still gets the
-    # full check. `repo_self_hosts_ship` is the ONE shared predicate apply uses too.
-    if not repo_self_hosts_ship(action.target):
-        _check_ship_env_file(canonical, report)
-    r = resolve_ship_delegator(action.target)
-    if r.state == "ok":
-        return
-    if r.state == "create":
-        report.items.append(
-            DriftItem("missing", "ship_delegator", "delegator", r.delegator_path,
-                      "pr-ship.sh not provisioned (apply writes it + ignores it in .git/info/exclude)")
-        )
-    elif r.state == "io_error":
-        report.items.append(
-            DriftItem("modified", "ship_delegator", "delegator", r.delegator_path, r.detail)
-        )
-    elif r.state == "update":
-        # The two degradations are INDEPENDENT and both must surface (apply fixes both, but status
-        # must show the full picture): (a) the FILE differs from the rig-generated delegator, and
-        # (b) the .git/info/exclude entry is missing (an un-ignored delegator dirties the worktree →
-        # ship refuses). The resolver already classified the file (``file_correct``), so trust it
-        # rather than re-reading (avoids a redundant, racy TOCTOU read).
-        if not r.file_correct:
-            report.items.append(
-                DriftItem("modified", "ship_delegator", "delegator", r.delegator_path,
-                          "provisioned pr-ship.sh differs from the rig-generated delegator")
-            )
-        if not r.exclude_ok:
-            report.items.append(
-                DriftItem("missing", "ship_delegator", "ignore", r.exclude_path or r.delegator_path,
-                          "pr-ship.sh present but NOT git-ignored (apply adds it to .git/info/exclude "
-                          "so it can't dirty the worktree)")
-            )
-
-
-def _check_gh_ship_alias(action: Action, report: DriftReport) -> None:
-    """Flag drift on the machine-global ``gh ship`` alias (gh config, ``aliases.ship``).
-
-    Switches on the SAME :func:`resolve_gh_ship_alias` state apply uses, so status and apply read
-    one classification:
-
-    - ``ok``/``no_gh`` → no drift (either already correct, or gh is absent and neither side can
-      manage the alias — reporting a "missing" alias rig could never set would break status/apply
-      parity).
-    - ``create``       → ``missing``: gh has no ``ship`` alias (apply sets it).
-    - ``update``       → ``modified``: a ``ship`` alias exists but differs from the rig-managed
-      expansion (apply overwrites it unless ``on_conflict=skip``).
-
-    The alias is a machine-wide artifact (``gh_ship_alias`` is classified GLOBAL in
-    :mod:`riglib.layers`), so ``rig status`` renders it under the machine layer, not this repo's.
-
-    ci-only combo (``ship_delegator`` disabled, ``ci.items.ship.gh_alias`` on): the plan builder
-    carries ``canonical_ship`` on this action because no ``provision_ship_delegator`` action owns
-    the machine env file — so this check must also byte-compare that file (apply reconciles it here,
-    :func:`riglib.actions.runner._do_provision_gh_ship_alias`, so status must flag its drift or the
-    two disagree). No self-hosting skip: the machine-global alias needs the env file regardless of
-    the current repo. When the delegator owns the env file this option is absent — its own drift
-    check covers the file, so we do NOT double-report it here.
-    """
-    from .gh_ship_alias import GH_SHIP_ALIAS_CATEGORY, gh_config_path, resolve_gh_ship_alias
-
-    raw_canonical = str(action.options.get("canonical_ship", "")).strip()
-    if raw_canonical:
-        _check_ship_env_file(Path(raw_canonical), report)
-
-    r = resolve_gh_ship_alias()
-    # ok → correct; no_gh → gh absent (unmanageable); unknown → gh config unreadable (rig refuses
-    # to clobber). All three are apply no-ops, so status reports no drift (status/apply parity).
-    if r.state in ("ok", "no_gh", "unknown"):
-        return
-    target = gh_config_path()
-    if r.state == "create":
-        report.items.append(
-            DriftItem("missing", GH_SHIP_ALIAS_CATEGORY, "alias", target,
-                      "`gh ship` alias not set (apply sets it so `gh ship <PR>` reaches the ship gate)")
-        )
-    elif r.state == "update":
-        report.items.append(
-            DriftItem("modified", GH_SHIP_ALIAS_CATEGORY, "alias", target,
-                      "`gh ship` alias differs from the rig-managed expansion (apply reconciles it)")
-        )
-
-
-def _check_linter_config(action: Action, report: DriftReport) -> None:
-    """Flag drift on ONE per-repo linter/formatter config file (the ``linters`` block).
-
-    Switches on the SAME :func:`resolve_linter_config` ``state`` apply uses, so status and apply read
-    one classification:
-
-    - ``ok``       → no drift (file present + bytes correct).
-    - ``create``   → ``missing``: the config file is absent (apply writes it).
-    - ``update``   → ``modified``: the file exists but its bytes differ from config (apply rewrites
-                     it, backing up a hand-edited file per ``on_conflict``).
-    - ``io_error`` → ``modified``: a directory, a symlink, or an unreadable/non-UTF-8 file sits at
-                     the path (or the path escapes the repo); apply errors.
-    """
-    # Do NOT strip rel_path — match the runner + validator (which reject whitespace-padded paths) so
-    # status and apply operate on the identical literal value.
-    rel_path = str(action.options.get("rel_path", ""))
-    content = action.options.get("content")
-    role = str(action.options.get("role") or "linter")
-    tool = str(action.options.get("tool") or "")
-    label = _linter_label(role, tool, str(action.item))
-    # Mirror the runner's fail-closed guards (same label scheme, so status and apply name the broken
-    # item identically): a malformed action, then a path that escapes the repo. Surface either as a
-    # `modified` item so status flags it rather than silently passing.
-    # `not content` rejects an empty string too (mirroring the runner + plan builder): the validator
-    # requires non-empty content, so an empty one means a synthetic / replayed Action — flag it as
-    # drift so status and apply agree it is broken rather than treating a 0-byte write as "in sync".
-    if not rel_path or not isinstance(content, str) or not content:
-        report.items.append(
-            DriftItem("modified", "linters", label, action.target,
-                      "linters action is missing rel_path/content (malformed plan)")
-        )
-        return
-    if linter_path_escapes_repo(rel_path):
-        report.items.append(
-            DriftItem("modified", "linters", label, action.target,
-                      f"linters path {rel_path!r} escapes the repo (apply refuses to write it)")
-        )
-        return
-    r = resolve_linter_config(action.target, rel_path, content)
-    if r.state == "ok":
-        return
-    if r.state == "create":
-        report.items.append(
-            DriftItem("missing", "linters", label, r.target_path,
-                      f"{rel_path} not provisioned (apply writes it from config)")
-        )
-    elif r.state == "io_error":
-        report.items.append(
-            DriftItem("modified", "linters", label, r.target_path, r.detail)
-        )
-    elif r.state == "update":
-        report.items.append(
-            DriftItem("modified", "linters", label, r.target_path,
-                      f"provisioned {rel_path} differs from the rig-managed config")
-        )
-
-
-def _check_project_tool(action: Action, report: DriftReport) -> None:
-    """Flag drift for one repo-local project-tool carrier or registration."""
-    tool = str(action.options.get("tool") or "project-tool")
-    operation = str(action.options.get("operation") or "file")
-    label = f"{tool}/{action.item}"
-    if operation == "register" and tool == "sverklo":
-        registered, detail = project_tools.sverklo_registered(action.target)
-        if not registered:
-            report.items.append(
-                DriftItem(
-                    "missing", "project_tools", label, action.target,
-                    f"sverklo registry missing this repo ({detail}) — apply runs sverklo register",
-                )
-            )
-        return
-    if operation == "reindex" and tool == "sverklo":
-        return  # apply-only maintenance; no cheap read-back beyond registration.
-
-    rel_path = str(action.options.get("rel_path") or "")
-    content = action.options.get("content")
-    if not rel_path or not isinstance(content, str):
-        report.items.append(
-            DriftItem("modified", "project_tools", label, action.target,
-                      "project_tools action is missing rel_path/content (malformed plan)")
-        )
-        return
-    r = project_tools.resolve_entry(action.target, rel_path, content, operation)
-    if r.state == "ok":
-        return
-    if r.state == "create":
-        report.items.append(
-            DriftItem("missing", "project_tools", label, r.target_path,
-                      f"{rel_path} not provisioned (apply writes it from project_tools)")
-        )
-    elif r.state == "io_error":
-        report.items.append(DriftItem("modified", "project_tools", label, r.target_path, r.detail))
-    elif r.state == "update":
-        report.items.append(
-            DriftItem("modified", "project_tools", label, r.target_path,
-                      f"provisioned {rel_path} differs from project_tools config")
-        )
-
-
-def _check_github_ruleset(action: Action, report: DriftReport) -> None:
-    """Flag drift between the configured GitHub branch ruleset and the live repo.
-
-    Switches on the SAME :func:`github_ruleset_state` apply uses (one classification, shared via
-    the runner), so status and apply can never disagree on what "in sync" means:
-
-    - ``create``   → ``missing``: no rig-managed ruleset on the repo (apply POSTs one).
-    - ``update``   → ``modified``: a rig-managed ruleset exists but its rules/bypass/enforcement
-                     differ from config (apply PUTs the desired body).
-    - ``ok``       → no drift item (in sync).
-    - ``no_remote``→ no drift item (a repo with no github origin has nothing to reconcile).
-    - ``gh_error`` → a VISIBLE "could not verify" item (not silent in-sync): rig genuinely
-                     couldn't reach the ruleset (gh missing / not authed / API error), so it must
-                     NOT report the repo as in sync — that would mask a real missing/drifted
-                     ruleset behind a green status. It is not a ``missing``/``modified`` (we
-                     don't know the on-repo state), but it surfaces so the operator sees rig
-                     couldn't check (and `rig apply` would error on the same state).
-    """
-    state, info = github_ruleset_state(action)
-    desired = info.get("desired", {})
-    name = desired.get("name", DEFAULT_RULESET_NAME)
-    # owner/repo are guaranteed present for the create/update/gh_error states (no_remote never
-    # reaches the branches below), so index directly — a future contract break surfaces as a
-    # real KeyError instead of a misleading "None/None" in the message.
-    if state == "create":
-        report.items.append(
-            DriftItem("missing", "github", "ruleset", action.target,
-                      f"no rig-managed ruleset '{name}' on {info['owner']}/{info['repo']} (apply creates it)")
-        )
-    elif state == "update":
-        report.items.append(
-            DriftItem("modified", "github", "ruleset", action.target,
-                      f"ruleset '{name}' on {info['owner']}/{info['repo']} differs from config (apply converges it)")
-        )
-    elif state == "gh_error":
-        report.items.append(
-            DriftItem("modified", "github", "ruleset", action.target,
-                      f"could not verify ruleset '{name}' on {info.get('owner')}/{info.get('repo')} "
-                      f"({info.get('detail', 'gh api failed')}) — status unknown, not confirmed in sync")
-        )
-
-
-def _check_github_merge(action: Action, report: DriftReport) -> None:
-    """Flag drift between the configured GitHub merge-button policy and the live repo.
-
-    Switches on the SAME :func:`github_merge_state` apply uses (one classification): ``update`` →
-    ``modified`` (live differs, apply PATCHes); ``ok``/``no_remote`` → no item; ``gh_error`` → a
-    VISIBLE "could not verify" item (never a silent in-sync — that would mask real drift behind a
-    green status; gh missing / not authed / no admin / API error).
-    """
-    state, info = github_merge_state(action)
-    if state == "update":
-        report.items.append(
-            DriftItem("modified", "github", "merge", action.target,
-                      f"merge policy on {info['owner']}/{info['repo']} differs from config (apply converges it)")
-        )
-    elif state == "gh_error":
-        report.items.append(
-            DriftItem("modified", "github", "merge", action.target,
-                      f"could not verify merge policy on {info.get('owner')}/{info.get('repo')} "
-                      f"({info.get('detail', 'gh api failed')}) — status unknown, not confirmed in sync")
-        )
-
-
-def _check_github_ghas(action: Action, report: DriftReport) -> None:
-    """Flag drift between the configured GHAS settings and the live repo.
-
-    Switches on the SAME :func:`github_ghas_state` apply uses: ``update`` → ``modified``;
-    ``ok``/``no_remote`` → no item; ``gh_error`` (the repo read itself failed) → a VISIBLE "could
-    not verify" item. The signal covers the ``security_and_analysis`` block, the vuln-alerts /
-    Dependabot sub-resources, and code-scanning. A scanner that couldn't be READ (plan-gated on a
-    private repo) is reported in the same ``modified`` item (it forces ``update``) with an explicit
-    "could not verify" suffix, so status is honest that one scanner's state is unknown — rather than
-    masking it behind a green status (the old behavior turned this into a whole-block gh_error that
-    also blocked applying the free features).
-    """
-    state, info = github_ghas_state(action)
-    if state == "update":
-        detail = f"security settings on {info['owner']}/{info['repo']} differ from config (apply converges them)"
-        unverifiable = info.get("unverifiable") or []
-        if unverifiable:
-            detail += " — could not verify: " + "; ".join(unverifiable)
-        report.items.append(DriftItem("modified", "github", "ghas", action.target, detail))
-    elif state == "gh_error":
-        report.items.append(
-            DriftItem("modified", "github", "ghas", action.target,
-                      f"could not verify security settings on {info.get('owner')}/{info.get('repo')} "
-                      f"({info.get('detail', 'gh api failed')}) — status unknown, not confirmed in sync")
-        )
-
-
-def _check_github_actions(action: Action, report: DriftReport) -> None:
-    """Flag drift between the configured GitHub Actions permissions and the live repo.
-
-    Switches on the SAME :func:`github_actions_state` apply uses: ``update`` → ``modified``;
-    ``ok``/``no_remote`` → no item; ``gh_error`` → a VISIBLE "could not verify" item.
-    """
-    state, info = github_actions_state(action)
-    if state == "update":
-        report.items.append(
-            DriftItem("modified", "github", "actions", action.target,
-                      f"Actions permissions on {info['owner']}/{info['repo']} differ from config (apply converges them)")
-        )
-    elif state == "gh_error":
-        report.items.append(
-            DriftItem("modified", "github", "actions", action.target,
-                      f"could not verify Actions permissions on {info.get('owner')}/{info.get('repo')} "
-                      f"({info.get('detail', 'gh api failed')}) — status unknown, not confirmed in sync")
-        )
-
-
-def _check_agent_hook(action: Action, report: DriftReport) -> None:
-    descriptor = action.target / (action.options.get("descriptor") or "")
-    if not descriptor.exists():
-        report.items.append(
-            DriftItem("missing", "agent_hooks", action.item, descriptor, "descriptor not installed")
-        )
-        return
-    # content comparison: an edited cmd/on_error (or a config on_error change) is drift —
-    # apply would replace it. Build the expected descriptor the same way the install does.
-    try:
-        spec, _ = build_hook_descriptor(action)
-        expected = descriptor_text(spec)
-    except RigPinError as exc:
-        report.items.append(
-            DriftItem("modified", "agent_hooks", action.item, descriptor, f"cannot verify the rig pin: {exc}")
-        )
-        return
-    except (OSError, ValueError):
-        return  # unreadable source — the install action surfaces this, not drift
-    if descriptor.read_text(encoding="utf-8") != expected:
-        report.items.append(
-            DriftItem("modified", "agent_hooks", action.item, descriptor, "descriptor on disk differs from config")
-        )
-
-
-def _check_ci(action: Action, report: DriftReport) -> None:
-    if action.options.get("slot") == "ship":
-        ship = action.target / "ship"
-        if not ship.exists():
-            report.items.append(
-                DriftItem("missing", "ci", "ship", ship, "ship not installed")
-            )
-            return
-        src_ship = action.source / "ship.sh"
-        from .ship_launcher import ship_launcher_text
-        if src_ship.is_file() and ship.read_text(encoding="utf-8") != ship_launcher_text(action.source):
-            report.items.append(
-                DriftItem("modified", "ci", "ship", ship, "installed ship differs from source")
-            )
-        return
-    wf = action.target / f"{action.item}.yml"
-    if not wf.is_file():
-        # absent, or a stale directory/non-file where the workflow should be — both are
-        # drift apply would resolve (file-vs-dir is a recoverable conflict on apply).
-        report.items.append(
-            DriftItem("missing", "ci", action.item, wf,
-                      "workflow not written" if not wf.exists() else "target is not a regular file")
-        )
-        return
-    # content comparison: a workflow edited in place (e.g. a job disabled) is drift even
-    # though the file still exists — apply would replace it.
-    slot = action.options.get("slot", action.item)
-    src_wf = resolve_ci_workflow(action.source, slot, action.options.get("variant"))
-    if src_wf is None or not src_wf.is_file():
-        return
-    if wf.read_text(encoding="utf-8") != src_wf.read_text(encoding="utf-8"):
-        report.items.append(
-            DriftItem("modified", "ci", action.item, wf, "on disk differs from source workflow")
-        )
-    # vendored companion scripts — a deleted/edited one breaks the gate that apply would
-    # recreate, so it is config→disk drift too. Companions install at their required paths
-    # relative to the checkout root (passed explicitly, independent of ci.target).
-    repo_root = Path(action.options.get("repo_root") or action.target.parent.parent)
-    for comp, rel in _ci_companion_files(action.source, src_wf):
-        dst = repo_root / rel
-        if not dst.exists():
-            report.items.append(
-                DriftItem("missing", "ci", f"{slot}:{comp.name}", dst, "CI companion script not installed")
-            )
-        elif dst.read_text(encoding="utf-8") != comp.read_text(encoding="utf-8"):
-            report.items.append(
-                DriftItem("modified", "ci", f"{slot}:{comp.name}", dst, "CI companion differs from source")
-            )
-
-
-def check_disabled_dispatcher(repo_root: Path, report: DriftReport) -> None:
-    """Flag a still-installed global dispatcher when the config disables it.
-
-    apply never deletes; so a repo that previously installed the dispatcher keeps git's
-    global ``core.hooksPath`` pointing at the composer dir even after the config turns it
-    off. Detect that (the global core.hooksPath dir contains a rig composer that references
-    ``run-global-hooks``) and report it as disk→config drift.
-    """
-    current = _git_global("core.hooksPath")
-    if not current:
-        return
-    pre_commit = Path(current) / "pre-commit"
-    if pre_commit.is_file():
-        try:
-            body = pre_commit.read_text(encoding="utf-8")
-        except OSError:
-            return
-        if "run-global-hooks" in body:
-            report.items.append(
-                DriftItem(
-                    "extra", "git_hooks", "dispatcher", Path(current),
-                    "dispatcher disabled in config but still wired as global core.hooksPath",
-                )
-            )
-
-
-# Strings only the managers' GENERATED shims carry (rig's own composers mention lefthook/husky
-# in comments, so bare names are not a signature).
-# Structural markers each manager writes into its global-dir shim. husky: `husky.sh` / `.husky/_`
-# are the v4-v8 shims (v9 sets a repo-local core.hooksPath and never writes a global shim) and
-# `HUSKY=0` is their skip switch — keep them even though a v9-only machine never shows them.
-_HOOK_MANAGER_SIGNATURES = (
-    ("lefthook", ("LEFTHOOK_VERBOSE", "call_lefthook")),
-    ("husky", ("husky.sh", "HUSKY=0", ".husky/_")),
-    ("pre-commit", ("pre-commit.com", "INSTALL_PYTHON=")),
-    ("simple-git-hooks", ("SKIP_SIMPLE_GIT_HOOKS",)),
-)
-
-
-def hook_manager_shim(text: str) -> str | None:
-    """The hook manager whose generated shim ``text`` is (lefthook, husky, pre-commit, …), or None.
-
-    A composer is rig's own script; a shim is what `lefthook install` & co. write into whatever
-    core.hooksPath resolves to — the GLOBAL one when rig's dispatcher is wired (a postinstall
-    `lefthook install` replaced the pre-commit composer this way on 2026-09-26).
-    """
-    head = text[:2048]
-    if "Composing global" in head:  # rig's own composer, just an older/edited copy
-        return None
-    for name, needles in _HOOK_MANAGER_SIGNATURES:
-        if any(n in head for n in needles):
-            return name
-    return None
-
-
-def _check_composers(src_hooks: Path, composer: Path, report: DriftReport) -> None:
-    """Compare every shipped composer against what apply would install.
-
-    Expected content comes from ``review_gate.composer_sources`` — the SAME helper apply
-    uses — so ``review-gate`` is compared against the installed review-cli's ``--print-gate``
-    output when available, else the agent-tools copy: a review-gate that still equals a
-    stale agent-tools copy is reported as drift instead of "clean" (rig-cli#382). The detail
-    names the source compared against and any fallback reason. A transient review-cli
-    failure leaves the expected content unknown — that file is not compared but is listed
-    as an informational ``unverified`` known item (never silently clean). Composers on
-    disk the source no longer ships are ``extra`` (git still runs them; never deleted).
-    """
-    sources = composer_sources(src_hooks)
-    for src in sources:
-        dst = composer / src.name
-        if not dst.exists():
-            report.items.append(DriftItem("missing", "git_hooks", src.name, dst, "composer hook not installed"))
-        elif src.expected is None:
-            report.known.append(KnownItem("git_hooks", src.name, dst, KIND_UNVERIFIED, f"{src.name}: {src.note}"))
-        elif (installed := dst.read_text(encoding="utf-8", errors="replace")) != src.expected:
-            manager = hook_manager_shim(installed)
-            if manager:
-                detail = (
-                    f"REPLACED by a {manager} shim — `{manager} install` wrote into the GLOBAL "
-                    f"core.hooksPath, so rig's {src.name} composer (secret scan, review gate) no longer "
-                    "runs in any repo; `rig apply` restores it (the old one may be in "
-                    f"{src.name}.old). Never run a hook manager's install with a global core.hooksPath."
-                )
-            else:
-                detail = f"composer hook differs from {src.origin}"
-                if src.note and src.origin == SOURCE_ORIGIN:
-                    detail += f" ({src.note})"
-            report.items.append(DriftItem("modified", "git_hooks", src.name, dst, detail))
-    for leftover in unshipped_composers(composer, sources):
-        report.items.append(
-            DriftItem(
-                "extra", "git_hooks", leftover.name, leftover,
-                "composer hook on disk but not shipped by source (git still runs it)",
-            )
-        )
-
-
-def _check_dispatcher(action: Action, report: DriftReport) -> None:
-    runner = Path(action.options["runner"])
-    src_runner = action.source / "run-global-hooks"
-    if not runner.exists():
-        report.items.append(
-            DriftItem("missing", "git_hooks", "dispatcher", runner, "runner not installed")
-        )
-    elif src_runner.is_file() and runner.read_text(encoding="utf-8") != src_runner.read_text(encoding="utf-8"):
-        report.items.append(
-            DriftItem("modified", "git_hooks", "run-global-hooks", runner, "runner differs from source")
-        )
-    # the composer dir is the real core.hooksPath target — compare EVERY shipped composer
-    # (pre-commit/commit-msg/pre-push/review-gate): a missing or edited one means that hook
-    # event stops invoking the dispatcher even though apply would recreate it.
-    composer = runner.parent / "hooks"
-    src_hooks = action.source / "hooks"
-    if src_hooks.is_dir():
-        _check_composers(src_hooks, composer, report)
-    # if the config wired core.hooksPath, verify git still points at the composer dir —
-    # files can exist while git no longer invokes them (someone re-set core.hooksPath).
-    if action.options.get("set_global_hooks_path"):
-        current = _git_global("core.hooksPath")
-        if current != str(composer):
-            report.items.append(
-                DriftItem(
-                    "modified", "git_hooks", "dispatcher", composer,
-                    f"global core.hooksPath is {current or 'unset'}, expected {composer}",
-                )
-            )
-
-    # each enabled, shipped fragment must be present + match the source on disk — a deleted
-    # or edited fragment is config→disk drift that apply would recreate.
-    src_frag = action.source / "global-hooks.d"
-    disabled = {
-        name
-        for name, spec in (action.options.get("fragments", {}) or {}).items()
-        if isinstance(spec, dict) and spec.get("enabled") is False
-    }
-    if src_frag.is_dir():
-        for event_dir in sorted(p for p in src_frag.iterdir() if p.is_dir()):
-            for frag in sorted(event_dir.iterdir()):
-                if not frag.is_file():
-                    continue
-                dst = action.target / event_dir.name / frag.name
-                if any(name in frag.name for name in disabled):
-                    # explicitly disabled — but install doesn't delete; a leftover copy
-                    # still runs in every repo, so surface it as disk→config drift.
-                    if dst.exists():
-                        report.items.append(
-                            DriftItem("extra", "git_hooks", frag.name, dst,
-                                      "fragment disabled in config but still installed (will still run)")
-                        )
-                    continue
-                if not dst.exists():
-                    report.items.append(
-                        DriftItem("missing", "git_hooks", frag.name, dst, "dispatcher fragment not installed")
-                    )
-                elif dst.read_text(encoding="utf-8") != frag.read_text(encoding="utf-8"):
-                    report.items.append(
-                        DriftItem("modified", "git_hooks", frag.name, dst, "dispatcher fragment differs from source")
-                    )
-
-
-def _check_disabled_lint_check_hook(loaded, disp_cfg: dict, report: DriftReport) -> None:
-    """A ``30-lint-check`` fragment still installed after the MACHINE config switched it off.
-
-    apply never deletes a dropped fragment and the dispatcher runs every executable file in the dir,
-    so the stale fragment keeps blocking commits — same ``extra`` shape as a disabled catalog fragment.
-    Only the global layer (or the fragment switch) counts: a repo's own ``lint_checks.enabled: false``
-    leaves the machine-wide hook correctly installed (it exits 0 "disabled" there), so it is not drift.
-    """
-    from . import lint_checks_artifacts as arts
-
-    fragment_off = arts.hook_fragment_disabled(disp_cfg)
-    if not (fragment_off or not arts.lint_checks_intent(loaded).machine_enabled):
-        return
-    dst = arts.hook_fragment_path(arts.resolve_dispatcher_dir(disp_cfg, loaded.repo_root))
-    if dst.exists():
-        why = "fragment disabled in config" if fragment_off else "lint_checks.enabled is false (global config)"
-        report.items.append(DriftItem(
-            "extra", "lint_checks_machine", arts.HOOK_NAME, dst, f"{why} but still installed (will still run)",
-        ))
-
-
-def _check_lint_check_analyzer(action: Action, report: DriftReport) -> None:
-    """Flag a missing / byte-mismatched / wrong-version / unsupported-platform cccc analyzer.
-
-    One verdict, :func:`riglib.cccc_install.inspect`, shared with ``rig lint check`` itself, so
-    status says exactly what the gate will do (fail closed with exit 127).
-    """
-    from . import cccc_install
-
-    state = cccc_install.inspect()
-    if state.state == "ok":
-        return
-    direction = "missing" if state.state == "missing" else "modified"
-    report.items.append(DriftItem(direction, "lint_checks_machine", "cccc", state.path, state.detail))
-
-
-def _check_lint_check_hook(action: Action, report: DriftReport) -> None:
-    """Flag a missing, edited or non-executable pre-commit fragment (git ignores a non-exec hook)."""
-    from .lint_checks_artifacts import render_hook_fragment
-
-    path = action.target
-    label = "pre-commit-hook"
-    if not path.is_file():
-        report.items.append(DriftItem("missing", "lint_checks_machine", label, path, "lint-check pre-commit fragment not installed"))
-        return
-    try:
-        current = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        report.items.append(DriftItem("modified", "lint_checks_machine", label, path, f"cannot read fragment: {exc}"))
-        return
-    if current != render_hook_fragment(str(action.options["rig_bin"])):
-        report.items.append(DriftItem("modified", "lint_checks_machine", label, path, "lint-check fragment differs from the rig-rendered one"))
-    elif not os.access(path, os.X_OK):
-        report.items.append(DriftItem("modified", "lint_checks_machine", label, path, "lint-check fragment is not executable (the dispatcher skips it)"))
-
-
-def _check_lint_check_workflow(action: Action, report: DriftReport) -> None:
-    """Flag a missing / edited / unsafe-path ``rig-lint-check.yml`` (same classifier apply uses)."""
-    from .lint_checks_artifacts import render_workflow
-
-    rel_path = str(action.options["rel_path"])
-    content = render_workflow(str(action.options["rig_source"]), bool(action.options["with_analyzer"]))
-    r = resolve_linter_config(action.target, rel_path, content)
-    if r.state == "ok":
-        return
-    if r.state == "create":
-        report.items.append(DriftItem("missing", "lint_checks", "ci-workflow", r.target_path, f"{rel_path} not written (apply writes it)"))
-    else:
-        detail = r.detail if r.state == "io_error" else f"{rel_path} differs from the rig-rendered workflow"
-        report.items.append(DriftItem("modified", "lint_checks", "ci-workflow", r.target_path, detail))
-
-
-def _check_global_excludes(action: Action, report: DriftReport) -> None:
-    """Flag drift in the GLOBAL git-excludes provisioning (a GLOBAL-section drift item).
-
-    Two coupled checks, mirroring apply's two steps:
-      1. ``core.excludesfile`` — if it is unset (and no override pins a file), rig WOULD set it;
-         surface that as ``missing`` so ``status`` says "apply will wire core.excludesfile". The
-         resolution goes through the SAME :func:`_resolve_excludes_target` apply uses, so status and
-         apply agree on the target file and whether git config needs writing.
-      2. The managed block — switch on the SAME :func:`resolve_global_excludes` ``state`` apply uses:
-
-         - ``create``   → ``missing``: no excludes file or no managed block (apply adds it).
-         - ``update``   → ``modified``: a managed block exists but differs, OR the file has
-                          duplicated rig-managed blocks (apply collapses to one correct block).
-         - ``ok``       → no block drift item (in sync).
-         - ``conflict`` → ``modified``: unbalanced markers rig won't rewrite — surfaced so the
-                          operator reconciles by hand (apply leaves it untouched).
-         - ``io_error`` → ``modified``: the file couldn't be read. NOT silently in-sync — rig
-                          couldn't even inspect it, so a green status would mask an un-provisioned
-                          ignore.
-    """
-    entries = [str(e) for e in action.options.get("entries", [])]
-    target, needs_set, set_value = _resolve_excludes_target(action)
-    if needs_set:
-        report.items.append(
-            DriftItem(
-                "missing", "gitignore", "core.excludesfile", target,
-                f"global core.excludesfile is unset (apply sets it → {set_value})",
-            )
-        )
-    r = resolve_global_excludes(target, entries)
-    if r.state == "ok":
-        return
-    if r.state == "create":
-        report.items.append(
-            DriftItem("missing", "gitignore", "block", target,
-                      "rig-managed global-excludes block not present (apply adds it)")
-        )
-    elif r.state == "update":
-        # Name the entries the file lacks (e.g. `.metadata_never_index` on a machine provisioned
-        # before rig-cli#331) so the operator sees WHY the block is stale, not just that it is.
-        missing = f" — missing: {', '.join(r.missing_entries)}" if r.missing_entries else ""
-        report.items.append(
-            DriftItem("modified", "gitignore", "block", target,
-                      f"rig-managed global-excludes block differs from config{missing} "
-                      "(apply reconciles it)")
-        )
-    elif r.state in ("conflict", "io_error"):
-        report.items.append(
-            DriftItem("modified", "gitignore", "block", target, r.detail)
-        )
-
-
-def _check_fj(action: Action, report: DriftReport) -> None:
-    """Flag missing Forgejo access via the SAME :func:`fj.pending_changes` apply acts on; what only
-    the user can do (log in, swap a pasted token for the browser login) is a note, never drift."""
-    from . import fj
-
-    for direction, item, target, detail in fj.pending_changes(action.options):
-        report.items.append(DriftItem(direction, "fj", item, target, detail))
-    for host, note in fj.login_notes(action.options):
-        report.notes.append(DriftNote("fj", host, note))
-
-
-def _check_git_config(action: Action, report: DriftReport) -> None:
-    """Flag each declared ``git.config`` key that is unset / different in the global gitconfig.
-
-    One :class:`DriftItem` PER KEY (item = the dotted key) so ``rig status`` names exactly which
-    setting drifted. Uses the SAME :func:`riglib.gitconfig.resolve` apply and verify use. Keys the
-    user set by hand that the config does not declare are never reported (the config→disk rule).
-    """
-    from . import gitconfig
-
-    for st in gitconfig.resolve(action.options):
-        if st.state == "ok":
-            continue
-        direction = "missing" if st.state == "missing" else "modified"
-        report.items.append(DriftItem(direction, "git", st.key, action.target, st.detail))
-
-
-def _check_harness_wrapper(action: Action, report: DriftReport) -> None:
-    """Flag one kind's PATH wrapper that is missing / stale / not rig's, and a real-binary record
-    that disagrees with ``harness_wrappers.real_bin``.
-
-    Reads the SAME :func:`riglib.wrapper_provision.resolve` state apply and verify use. The item is
-    the harness kind; the real-binary record is its own item (``<kind> real_bin``) so ``rig status``
-    names which half drifted. A real binary the config does not declare is never judged.
-    """
-    from . import wrapper_provision
-
-    state = wrapper_provision.resolve(action)
-    category, item = action.category, action.item
-    if state.wrapper == "relative":
-        report.items.append(DriftItem("modified", category, item, state.target, wrapper_provision.relative_detail(state)))
-        return
-    if state.wrapper == "missing":
-        report.items.append(DriftItem("missing", category, item, state.target, "wrapper not installed (`rig apply commit` writes it)"))
-    elif state.wrapper == "stale":
-        report.items.append(
-            DriftItem("modified", category, item, state.target,
-                      "wrapper differs from the one this rig writes (`rig apply commit` rewrites it)")
-        )
-    elif state.wrapper == "foreign":
-        report.items.append(
-            DriftItem("modified", category, item, state.target,
-                      f"{wrapper_provision.foreign_detail(state)}; `rig apply commit` will not overwrite it — move it aside first")
-        )
-    if not state.real_bin_current:
-        report.items.append(
-            DriftItem("modified", category, f"{item} real_bin", state.target, wrapper_provision.real_bin_detail(state))
-        )
-
-
-def _check_bunfig(action: Action, report: DriftReport) -> None:
-    """Flag drift in ``~/.bunfig.toml`` using the same :func:`bunfig.resolve` apply uses."""
-    from . import bunfig
-
-    r = bunfig.resolve(action.target)
-    if r.state == "ok":
-        return
-    if r.state == "create":
-        report.items.append(
-            DriftItem("missing", "bun", "bunfig", r.path,
-                      "~/.bunfig.toml missing isolated linker + globalStore (apply splices it)")
-        )
-        return
-    if r.state == "update":
-        report.items.append(
-            DriftItem("modified", "bun", "bunfig", r.path,
-                      "managed ~/.bunfig.toml is stale (apply rewrites it)")
-        )
-        return
-    report.items.append(
-        DriftItem("modified", "bun", "bunfig", r.path, r.detail)
-    )
-
-
-def check_disabled_bunfig(report: DriftReport) -> None:
-    """Flag a still-installed managed block when the config disables the ``bun`` category.
-
-    apply never deletes; so a machine that previously provisioned the bunfig block keeps it in
-    ``~/.bunfig.toml`` even after the config turns the category off. With the action gone from
-    the plan, ``_check_bunfig`` never runs — so without this scan the leftover block would
-    report as in sync (mirrors :func:`check_disabled_global_excludes`).
-    """
-    from . import bunfig
-
-    target = bunfig.bunfig_path()
-    if not target.is_file():
-        return
-    try:
-        content = target.read_text(encoding="utf-8")
-    except OSError:
-        return
-    if bunfig.BEGIN_MARKER in content:
-        report.items.append(
-            DriftItem(
-                "extra",
-                "bun",
-                "bunfig",
-                target,
-                "bun disabled in config but the rig-managed block is still in ~/.bunfig.toml",
-            )
-        )
-
-
-def check_disabled_global_excludes(action: Action, report: DriftReport) -> None:
-    """Flag a still-installed managed block when the config disables the ``gitignore`` category.
-
-    apply never deletes; so a machine that previously provisioned the global-excludes block keeps
-    it in ``core.excludesfile`` even after the config turns the category off. With the action gone
-    from the plan, ``_check_global_excludes`` never runs — so without this scan the leftover block
-    would report as "in sync". Resolve the target the SAME way apply does and report a present begin
-    marker as disk→config drift (mirrors :func:`check_disabled_dispatcher`). Marker detection reuses
-    :func:`_find_marker_lines` (the same offset-based scanner :func:`resolve_global_excludes` uses)
-    read with newline translation off, so detection never diverges from apply.
-    """
-    target, _needs_set, _set_value = _resolve_excludes_target(action)
-    if not target.is_file():
-        return
-    try:
-        with target.open(encoding="utf-8", newline="") as fh:
-            content = fh.read()
-    except OSError:
-        return
-    if _find_marker_lines(content, GITIGNORE_BEGIN_MARKER):
-        report.items.append(
-            DriftItem("extra", "gitignore", "block", target,
-                      "gitignore disabled in config but the rig-managed block is still in the global excludes file")
-        )
-
-
-def _check_harness(action: Action, report: DriftReport) -> None:
-    """Flag drift between the configured harness auto/permission mode and the file on disk.
-
-    missing  — the settings file or the managed key is absent.
-    modified — the managed key on disk has a different value than the config declares
-               (someone flipped auto-mode off, or the harness rewrote it). apply converges.
-    Only the single managed key is compared; other settings in the file are irrelevant here.
-    """
-    if str(action.options.get("kind", "claude-code")) != "claude-code":
-        _check_harness_mode(action, report)
-        return
-    (section, key), value = desired_harness_value(action)
-    config_file = harness_settings_file(action)
-    if not config_file.is_file():
-        report.items.append(
-            DriftItem("missing", "harness", action.item, config_file, "harness settings file not written")
-        )
-        return
-    try:
-        data = json.loads(config_file.read_text(encoding="utf-8"))
-    except ValueError:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, config_file, "harness settings file is malformed JSON")
-        )
-        return
-    sect = data.get(section, {}) if isinstance(data, dict) else {}
-    current = sect.get(key) if isinstance(sect, dict) else None
-    if current is None:
-        report.items.append(
-            DriftItem("missing", "harness", action.item, config_file, f"{section}.{key} not set")
-        )
-    elif current != value:
-        report.items.append(
-            DriftItem(
-                "modified", "harness", action.item, config_file,
-                f"{section}.{key} is '{current}', config declares '{value}'",
-            )
-        )
-    # the self-merge provisioning is two more managed things in the same file (auto-mode only): the
-    # HARD ``permissions.allow`` ship rules and the SOFT ``autoMode.allow`` carve-out. Skip both for
-    # a non-dict root — the mode-key path above already reported that file, and a second row for the
-    # same malformed file would just be noise.
-    if action.options.get("self_merge") and isinstance(data, dict):
-        # The ACTIVE ship rules are expected ONLY when auto is actually in effect on disk (defaultMode
-        # == the declared auto value). When the mode is non-auto — a skip that left it interactive, or
-        # a hand-flip — apply does NOT write the ship rules, so don't flag them missing; the mode-key
-        # drift row above already signals non-convergence (codex #159 P2). `addable` (not
-        # `not present`) so a MALFORMED permissions.allow — already a shape `modified` from the
-        # permissions check — doesn't get an inaccurate 'absent' row either.
-        if current == value and self_merge_permissions_addable(data):
-            detail = "self-merge ship rules absent from permissions.allow/deny (config declares self_merge)"
-            if self_merge_legacy_allow_present(data):
-                detail += "; legacy never-matching Bash(*/pr-ship.sh:*) / Bash(*/ship.sh:*) allow rules present"
-            report.items.append(DriftItem("missing", "harness", action.item, config_file, detail))
-        if not self_merge_allow_present(data):
-            report.items.append(
-                DriftItem(
-                    "missing", "harness", action.item, config_file,
-                    "self-merge carve-out absent from autoMode.allow (config declares self_merge)",
-                )
-            )
-
-
-def _check_harness_mode(action: Action, report: DriftReport) -> None:
-    """Drift for a non-claude kind's mode key — shares the runner's probe so apply and status agree.
-
-    missing  — the harness file or the managed key is absent (apply writes it).
-    modified — the file is malformed / mis-shaped / holds a non-plain value (apply leaves it — a
-               hand fix), or the key carries a different value (apply converges it).
-    """
-    from .actions.runner import desired_harness_mode, harness_mode_probe
-
-    key_path, value = desired_harness_mode(action)
-    dotted = ".".join(key_path)
-    path = action.target
-    state, current = harness_mode_probe(action)
-    if state == "absent":
-        report.items.append(DriftItem("missing", "harness", action.item, path, f"{dotted} not set (harness config file not written)"))
-    elif state == "missing":
-        report.items.append(DriftItem("missing", "harness", action.item, path, f"{dotted} not set"))
-    elif state == "malformed":
-        report.items.append(DriftItem("modified", "harness", action.item, path, "harness config file is malformed — fix it by hand"))
-    elif state == "unverifiable":
-        report.items.append(DriftItem("modified", "harness", action.item, path, f"{dotted} cannot be verified: {current}"))
-    elif state == "shape":
-        report.items.append(DriftItem("modified", "harness", action.item, path, f"{dotted}: '{current}' is not an object — fix it by hand"))
-    elif state == "conflict":
-        report.items.append(DriftItem("modified", "harness", action.item, path, f"{current} is not a plain value (rig wants '{value}') — fix it by hand"))
-    elif current != value:
-        report.items.append(DriftItem("modified", "harness", action.item, path, f"{dotted} is '{current}', config declares '{value}'"))
-
-
-def _check_permissions(action: Action, report: DriftReport, *, self_merge_owned: bool = False) -> None:
-    """Flag drift between the configured permissions layer and the harness settings file.
-
-    ``self_merge_owned`` is True when an active self-merge harness action writes the ship rules into
-    THIS same settings file — only then are those rig-owned rules suppressed from the allow extras.
-
-    One action spans EVERY container rig manages (rig-cli#100): the allow list plus, for
-    claude-code, the deny/ask rule baselines. Per container:
-
-    missing  — the settings file is absent, the container is absent, OR a desired entry is not
-               present in it. ``rig apply`` ADDS the missing entries (additive merge — never
-               removing the user's own).
-    modified — the settings file is malformed JSON, OR (object form) a desired entry's KEY is
-               present but its value is not ``"allow"`` (the user set it to ``ask``/``deny`` — that
-               is the user's call, surfaced so status isn't a silent green, but apply does NOT
-               downgrade it).
-    extra    — an entry in the container BEYOND the rig-managed baseline. Hand-edits to the
-               permissions lists must be visible drift, not silent config rot — and rig deletes
-               NONE of them, with exactly ONE exception: a ``gh``/git-hosting default allow entry
-               rig itself receipted as its own grant, which an explicit ``allow_gh: false`` /
-               ``disable: [gh]`` DOES revoke (:func:`_check_permission_revocation`, rig-cli#333) —
-               see :func:`_report_permission_extras` for the allow-vs-deny/ask reporting shape of
-               everything else.
-
-    Shares :func:`desired_permission_specs` with the install handler so apply and status never
-    diverge on what rig manages.
-    """
-    specs = desired_permission_specs(action)
-    config_file = permissions_settings_file(action)
-    if not config_file.is_file():
-        report.items.append(
-            DriftItem("missing", "permissions", action.item, config_file, "harness settings file not written")
-        )
-        return
-    try:
-        data = json.loads(config_file.read_text(encoding="utf-8"))
-    except ValueError:
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, config_file, "harness settings file is malformed JSON")
-        )
-        return
-    # A non-object root is a SHAPE problem apply ERRORS on — report `modified` (not a stream of
-    # `missing` entries), so status and apply agree on what the operator must fix.
-    if not isinstance(data, dict):
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, config_file, "harness settings file is not a JSON object")
-        )
-        return
-    # Two passes on purpose: apply errors out on the FIRST shape problem and fixes NOTHING in the
-    # file, so when ANY container is mis-shaped the per-entry "apply adds it" claims would be false
-    # — report only the shape `modified` items then (status and apply agree on what to fix first).
-    resolved: list[tuple[object, object]] = []
-    shape_errors: list[str] = []
-    for ps in specs:
-        node, err = _resolve_permission_container(data, ps)
-        if err is not None:
-            # dedup by detail: a non-dict `permissions` node yields the SAME error for every
-            # container spec — apply raises it once, so status reports it once too
-            if err not in shape_errors:
-                shape_errors.append(err)
-        else:
-            resolved.append((ps, node))
-    if shape_errors:
-        for err in shape_errors:
-            report.items.append(DriftItem("modified", "permissions", action.item, config_file, err))
-        return
-    # Per-spec missing/modified (each spec owns its own entries — no overlap even when specs share
-    # a container, since a role's keys never appear in a sibling role's desired set).
-    for ps, node in resolved:
-        _check_permission_entries(action, ps, node, config_file, report)
-    # Ordering: opencode's shared permission.bash object is last-match-wins, so a deny/ask key that
-    # sits BEFORE some other key (rig's own allow, or the user's) is a live security gap even
-    # though every entry is individually present/correct — the per-entry check above cannot see it.
-    _check_permission_ordering(action, resolved, config_file, report)
-    # A receipt-tracked default grant rig itself made but no longer desires (`allow_gh: false`
-    # after `gh` joined the default set) is ACTIONABLE drift — apply revokes it — not a summarized
-    # "your additions, kept" line. Compute it BEFORE the extras pass so those entries can be
-    # excluded from the "kept" bucket below (no double reporting of the same entry).
-    stale_granted = _check_permission_revocation(action, resolved, config_file, report)
-    # Extras are reported ONCE PER CONTAINER, not per spec: opencode folds allow + deny + ask into
-    # the SAME permission.bash object, so (a) a rig-written deny key must be computed against the
-    # UNION of all roles' desired entries or it looks like an allow "extra", and (b) a genuine user
-    # extra must not be reported once per sharing spec. For claude-code each role has its own
-    # key_path, so a container has exactly one spec — the union is that spec's entries (unchanged).
-    _report_container_extras(
-        action, resolved, config_file, report, self_merge_owned=self_merge_owned, exclude=stale_granted,
-    )
-
-
-def _check_permission_revocation(
-    action: Action, resolved: list[tuple[object, object]], config_file: Path, report: DriftReport,
-) -> frozenset[str]:
-    """Drift for a receipt-tracked default allow grant that is no longer desired AND still
-    physically present (apply has something real to revoke).
-
-    rig-cli#333 review finding: setting ``allow_gh: false`` after ``gh`` joined the default tool
-    set only removed ``gh`` from the DESIRED list — the additive merge never deletes anything on
-    its own, so the entry stayed authorized and was merely reported as an "extra" (kept), which
-    is a real security gap for a raw GitHub-write tool. Apply now revokes an entry it can PROVE it
-    granted itself (:func:`riglib.actions.runner._revoke_stale_default_grants`, via the sidecar
-    receipt written by :func:`riglib.actions.runner._sync_permissions_receipt`) — this is the
-    status-side mirror, so a stale grant reads as real, actionable drift instead of a clean/kept
-    line, and apply/status can never diverge on it (the same rig-cli#333 parity requirement as the
-    ordering check above).
-
-    Round-2 review finding: "stale" used to mean "receipted but not in this apply's resolved tool
-    list" — but that is ALSO exactly what an unrelated ``permissions.tools: [tg]`` override
-    produces on a repo that never typed ``allow_gh``/``disable: [gh]`` at all, on the SAME
-    machine-wide shared settings file a sibling repo already granted `gh` in. Mirrors the writer's
-    :func:`riglib.actions.runner._permission_revocation_context`: only the EXPLICIT opt-out signal
-    (:func:`riglib.actions.runner.explicit_git_hosting_revocation_entries`) is ever a revocation
-    trigger, MINUS whatever the allow spec's own entries still want present (a raw
-    ``permissions.allow`` re-asserting the exact same entry wins over the toggle).
-
-    Round-2 review finding: a receipted entry the USER already removed by hand (present in the
-    receipt, absent from the file) must NOT be reported as "apply revokes it" — apply has nothing
-    left to revoke there; it would just quietly clean the stale receipt entry and return
-    ``skipped``. Reporting it as `extra` drift would be a false non-clean status with a false
-    remediation claim. So this checks LIVE presence in the allow container (mirroring the writer's
-    own revocation-eligibility check — array: membership; object: value still equals rig's own)
-    before ever reporting an entry, using the SAME parsed ``node`` the rest of ``_check_permissions``
-    already resolved (never re-reading the file).
-
-    Returns the stale-AND-present entry set so the extras pass can exclude it from the "kept"
-    bucket — it is reported here instead, not twice.
-    """
-    from .actions.runner import (
-        explicit_git_hosting_revocation_entries, permissions_receipt_file, read_permissions_grant_receipt,
-        receipt_granted_entries,
-    )
-
-    kind = str(action.options.get("kind", "claude-code"))
-    receipt = read_permissions_grant_receipt(permissions_receipt_file(action))
-    granted = receipt_granted_entries(receipt, kind)
-    allow_spec, allow_node = next(((ps, node) for ps, node in resolved if ps.role == "allow"), (None, None))
-    if allow_spec is None:
-        return frozenset()
-    explicit_revoke = explicit_git_hosting_revocation_entries(action)
-    stale = (granted & explicit_revoke) - frozenset(allow_spec.entries)
-    if not stale:
-        return frozenset()
-    if allow_spec.container == "array":
-        present = {e for e in (allow_node if isinstance(allow_node, list) else []) if isinstance(e, str)}
-        stale_present = {e for e in stale if e in present}
-    else:
-        node = allow_node if isinstance(allow_node, dict) else {}
-        stale_present = {e for e in stale if node.get(e) == allow_spec.value}
-    if not stale_present:
-        return frozenset()
-    for entry in sorted(stale_present):
-        report.items.append(DriftItem(
-            "extra", "permissions", action.item, config_file,
-            f"'{entry}' is a rig-granted default no longer desired (apply revokes it)",
-        ))
-    return frozenset(stale_present)
-
-
-def _check_permission_ordering(
-    action: Action, resolved: list[tuple[object, object]], config_file: Path, report: DriftReport,
-) -> None:
-    """Flag drift when a desired deny/ask key sits BEFORE some other key in an object-form
-    container (opencode's shared ``permission.bash`` — claude-code's array containers have no
-    ordering concept, so this is a no-op there).
-
-    rig-cli#333 review finding: ``run_plan`` already re-anchors a misordered deny/ask key to the
-    tail on every apply (:func:`riglib.actions.runner._merge_permission_container`), but
-    ``_check_permissions`` only ever compared key membership and values — never order — so on an
-    upgraded/hand-grown file where ``gh pr merge*: deny`` already sits before ``gh *: allow`` (or
-    before ANY other key, rig's own or the user's), ``rig status`` reported that insecure
-    pre-repair state as clean. Since opencode is last-match-wins, the later key silently wins
-    until an apply is actually committed.
-
-    Runs the SAME re-anchor helper apply uses (:func:`riglib.actions.runner._reanchor_rule_keys`)
-    on a throwaway ``dict`` COPY of the container — never the parsed data drift must not mutate —
-    so "would apply change the key order" can never diverge between apply and status.
-    """
-    from .actions.runner import _reanchor_rule_keys
-
-    by_container: dict[tuple[str, ...], list[tuple[object, object]]] = {}
-    for ps, node in resolved:
-        if ps.container == "object":
-            by_container.setdefault(ps.key_path, []).append((ps, node))
-    for key_path, pairs in by_container.items():
-        node = pairs[0][1]
-        if not isinstance(node, dict) or not node:
-            continue
-        # Compare the NET key order across every role's reanchor pass, not each pass's own
-        # before/after — a deny-only pass run against a probe that ALREADY has ask keys sitting
-        # after it (the fully-converged, correctly-ordered state) moves deny past them on its own,
-        # which the following ask pass then undoes; that intermediate churn is not real drift, only
-        # the OVERALL before-vs-after (mirroring the write-decision the runner itself makes) is.
-        before_order = list(node.keys())
-        probe = dict(node)
-        for ps, _ in pairs:
-            if ps.role in ("deny", "ask"):
-                _reanchor_rule_keys(probe, ps.entries)
-        if list(probe.keys()) != before_order:
-            dotted = ".".join(key_path)
-            report.items.append(DriftItem(
-                "modified", "permissions", action.item, config_file,
-                f"{dotted}: a deny/ask key precedes another key — opencode is last-match-wins "
-                "(apply re-anchors rig's deny/ask keys to the end on every apply)",
-            ))
-
-
-def _report_container_extras(
-    action: Action, resolved: list[tuple[object, object]], config_file: Path, report: DriftReport,
-    *, self_merge_owned: bool = False, exclude: frozenset[str] = frozenset(),
-) -> None:
-    """One extras pass per container (see :func:`_check_permissions`).
-
-    Groups the resolved (spec, node) pairs by container key_path, computes the extras (present
-    entries not in the UNION of every sharing role's desired entries), and reports them under a
-    single representative spec — preferring the ``allow`` role so a shared object's extras use the
-    summarized allow shape rather than a per-entry deny/ask dump.
-
-    ``self_merge_owned`` suppresses the rig-OWNED self-merge ship rules from the ``allow`` extras
-    (they are written by apply_harness into this same file under an active self-merge — not user
-    cruft). Only applied when a self-merge action actually owns this file; a stray ship rule under
-    self_merge:false (or a different permissions target) still reports.
-
-    ``exclude`` drops entries :func:`_check_permission_revocation` already reported as ACTIONABLE
-    drift (a stale receipt-tracked default grant, ``extra``/apply-revokes-it) — those must not
-    ALSO show up here as a summarized "kept" line."""
-    by_container: dict[tuple[str, ...], list[tuple[object, object]]] = {}
-    for ps, node in resolved:
-        by_container.setdefault(ps.key_path, []).append((ps, node))
-    for pairs in by_container.values():
-        specs = [ps for ps, _ in pairs]
-        node = pairs[0][1]
-        union: set[str] = set()
-        for ps in specs:
-            union.update(ps.entries)
-        rep_spec = next((ps for ps in specs if ps.role == "allow"), specs[0])
-        if rep_spec.container == "array":
-            present = [e for e in (node if isinstance(node, list) else []) if isinstance(e, str)]
-        else:
-            present = list(node) if isinstance(node, dict) else []
-        extras = [k for k in present if k not in union and k not in exclude]
-        if rep_spec.role == "allow" and self_merge_owned:
-            extras = [e for e in extras if e not in (*SELF_MERGE_PERMISSIONS_ALLOW, *SELF_MERGE_LEGACY_ALLOW)]
-        elif rep_spec.role == "deny" and self_merge_owned:
-            extras = [e for e in extras if e not in SELF_MERGE_PERMISSIONS_DENY]
-        _report_permission_extras(action, rep_spec, extras, config_file, report)
-
-
-def _check_pi_extension(action: Action, report: DriftReport) -> None:
-    """Flag drift for the pi ``permission-guard`` extension provisioning (two managed artifacts).
-
-    missing  — the installed extension dir is absent, OR the policy file is absent. ``rig apply``
-               installs/writes them.
-    modified — the installed extension dir differs from the agent-tools source (stale copy), OR the
-               policy file's content differs from the rig-desired JSON (hand-edited/outdated).
-
-    Uses the SAME serializer (:func:`pi_extension_policy_json`) and identity check the install
-    handler uses, so apply and status never disagree on what rig manages.
-    """
-    ext_name = str(action.options.get("extension", "permission-guard"))
-    if not action.target.is_dir():
-        report.items.append(
-            DriftItem("missing", "permissions", action.item, action.target, f"pi extension '{ext_name}' not installed")
-        )
-    elif not fsutil.dirs_identical(action.source, action.target):
-        report.items.append(
-            DriftItem(
-                "modified", "permissions", action.item, action.target,
-                f"installed pi extension '{ext_name}' differs from the agent-tools source",
-            )
-        )
-    policy_file = Path(action.options["policy_file"])
-    desired = pi_extension_policy_json(action)
-    # No separate `is_file()` pre-check: `read_text()` itself raises `FileNotFoundError` when the
-    # path is absent, so checking first would only duplicate the "missing" DriftItem AND open a
-    # TOCTOU window (a delete between the check and the read). One read, one set of outcomes: a
-    # path that IS a directory now reports "unreadable" via the OSError branch below instead of
-    # a bogus "missing" — arguably more accurate anyway (something IS there, just not a file).
-    try:
-        current = policy_file.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        report.items.append(
-            DriftItem("missing", "permissions", action.item, policy_file, "pi permission policy file not written")
-        )
-        return
-    except (OSError, UnicodeDecodeError) as exc:
-        # The permission-guard extension itself fails CLOSED on an unreadable/invalid policy file
-        # (falls back to its baked baseline) — drift must report the same broken artifact, not
-        # crash `rig status`/config-web out from under the caller.
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, policy_file, f"pi permission policy file unreadable: {exc}")
-        )
-        return
-    if current != desired:
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, policy_file, "pi permission policy file differs from rig-desired")
-        )
-
-
-def _resolve_permission_container(data: dict, ps) -> tuple[object, str | None]:
-    """Walk (read-only) to ``ps``'s container → ``(node, shape_error)``.
-
-    ``shape_error`` is the `modified` detail when an INTERMEDIATE segment exists as a non-object
-    or the container itself has the wrong type — the same problems apply hard-errors on (it can't
-    create a container under a scalar / merge into a wrong-typed one). An ABSENT intermediate or
-    container is fine (``node=None`` — apply creates it), never a shape error.
-    """
-    dotted = ".".join(ps.key_path)
-    node: object = data
-    for seg in ps.key_path[:-1]:
-        nxt = node.get(seg) if isinstance(node, dict) else None
-        if nxt is not None and not isinstance(nxt, dict):
-            # container-AGNOSTIC wording on purpose: a scalar `permissions` node blocks every
-            # container, and naming one container per spec would emit 3 items for 1 problem —
-            # the caller dedups identical details, so this reports once (matching apply's one error)
-            return None, f"'{seg}' in the harness settings is not an object"
-        node = nxt
-        if node is None:
-            return None, None
-    node = node.get(ps.key_path[-1]) if isinstance(node, dict) else None
-    if node is not None:
-        if ps.container == "array" and not isinstance(node, list):
-            return None, f"{dotted} is not an array"
-        if ps.container == "object" and not isinstance(node, dict):
-            return None, f"{dotted} is not an object"
-    return node, None
-
-
-def _check_permission_entries(action: Action, ps, node, config_file: Path, report: DriftReport) -> None:
-    """Per-entry MISSING/MODIFIED drift for ONE well-shaped container (extras are reported once per
-    container by :func:`_report_container_extras`, since opencode shares permission.bash across
-    roles)."""
-    dotted = ".".join(ps.key_path)
-    if ps.container == "array":
-        raw_list = node if isinstance(node, list) else []
-        junk = [e for e in raw_list if not isinstance(e, str)]
-        if junk:
-            # apply works AROUND non-string junk (string-only membership) but never removes it —
-            # surface it, or status would look clean over a hand-mangled list (apply/status parity)
-            report.items.append(
-                DriftItem("modified", "permissions", action.item, config_file,
-                          f"{dotted} contains {len(junk)} non-string entr{'y' if len(junk) == 1 else 'ies'} "
-                          "(hand-edit — apply ignores them, prune by hand)")
-            )
-        present = {e for e in raw_list if isinstance(e, str)}
-        for entry in ps.entries:
-            if entry not in present:
-                report.items.append(
-                    DriftItem("missing", "permissions", action.item, config_file,
-                              f"'{entry}' not in {dotted} (apply adds it)")
-                )
-        return
-    existing = node if isinstance(node, dict) else {}
-    for entry in ps.entries:
-        if entry not in existing:
-            report.items.append(
-                DriftItem("missing", "permissions", action.item, config_file,
-                          f"'{entry}' not in {dotted} (apply adds it)")
-            )
-        elif existing.get(entry) != ps.value:
-            report.items.append(
-                DriftItem("modified", "permissions", action.item, config_file,
-                          f"'{entry}' in {dotted} is {existing.get(entry)!r}, not {ps.value!r} "
-                          "(user override — apply leaves it)")
-            )
-
-
-def _report_permission_extras(action: Action, ps, extras: list[str], config_file: Path, report: DriftReport) -> None:
-    """Entries beyond the rig baseline — filed as KNOWN ("your additions, kept"), never deleted
-    from here (rig-cli#100), and since rig-cli#357 no longer counted as drift either: rig writes
-    nothing it does not count as its own, so an entry beyond the baseline is by construction the
-    user's — or a rule rig itself once wrote and stopped asserting — a fact to show, not a problem
-    to fix. The ONE entry class this function never even SEES is a receipted ``gh``/git-hosting
-    default grant that is no longer desired — :func:`_check_permissions` reports and excludes it
-    (``exclude=``) upstream, in :func:`_check_permission_revocation`, as actionable `extra` drift
-    apply DOES revoke (rig-cli#333) — this function only ever renders the "kept, not touched" kind.
-    Each entry names its origin:
-
-    - a former rig default tool (:data:`riglib.permissions.RETIRED_DEFAULT_TOOLS`, rig-cli#41→#165),
-    - a baseline deny/ask rule the config turned off (``deny: []`` / ``ask: []``),
-    - anything else: a hand-added entry.
-
-    Per entry, every role: the renderer groups a container's entries into one line (and caps a long
-    allowlist), so the per-entry shape no longer risks drowning ``rig status``.
-
-    Adversarial reading, on purpose: a rogue writer appending ``Bash(curl:*)`` to the allow list is
-    NOT caught here — and was not before either: allow extras were one summarized count line
-    (``153 entries beyond the baseline``), where one more entry is invisible. A rogue deny/ask
-    entry only ever tightens the policy. The permission file's integrity is not a drift question;
-    the baseline rig DOES assert (missing/modified baseline entries) stays drift above.
-    """
-    from .permissions import DEFAULT_RULES, RETIRED_DEFAULT_TOOLS, desired_entries, harness_supported
-
-    if not extras:
-        return
-    dotted = ".".join(ps.key_path)
-    # the harness KIND lives in the options; `action.item` is the display label, which a
-    # claude-code fan-out target suffixes (`claude-code@account-1`) — never a rules key
-    harness_kind = str(action.options.get("kind") or action.item)
-    rules = DEFAULT_RULES.get(harness_kind, {})
-    # Origin lookups are scoped to the container: an ARRAY container (claude-code) holds ONE role,
-    # so only that role's baseline (and, for allow, the retired defaults) can explain an entry; an
-    # OBJECT container (opencode's shared permission.bash) holds every role's keys, so all of them
-    # can. Without the scoping a deny-list entry that merely spells an ask-baseline rule would be
-    # mislabelled "baseline rule your config turned off" instead of a hand-added entry.
-    roles = (ps.role,) if ps.container == "array" else tuple(rules)
-    retired: set[str] = set()
-    if harness_supported(harness_kind) and (ps.container != "array" or ps.role == "allow"):
-        retired.update(desired_entries(harness_kind, list(RETIRED_DEFAULT_TOOLS)))
-    baseline: set[str] = set()
-    for role in roles:
-        baseline.update(rules.get(role, ()))
-    for entry in extras:
-        if entry in retired:
-            origin = KIND_RETIRED_DEFAULT
-        elif entry in baseline:
-            origin = KIND_DISABLED_BASELINE
-        else:
-            origin = KIND_USER_EXTRA
-        report.known.append(
-            KnownItem("permissions", entry, config_file, origin, entry, container=f"{harness_kind}:{dotted}")
-        )
-
-
-def _check_execpolicy(action: Action, report: DriftReport) -> None:
-    """Flag drift between the configured codex execpolicy block and the on-disk .rules file.
-
-    missing  — the .rules file is absent, or holds no rig-managed block (apply APPENDS it).
-    modified — the managed block is stale (apply rewrites it), OR the file has unbalanced/misordered
-               markers rig refuses to rewrite (a HAND fix — apply hard-errors, does not reconcile).
-
-    Routes through the SAME :func:`_splice_managed_block` resolver apply uses, so the drift verdict
-    and its message can never overstate what apply will actually do."""
-    desired = execpolicy_block_text(action)
-    path = execpolicy_rules_file(action)
-    if not path.is_file():
-        report.items.append(
-            DriftItem("missing", "permissions", action.item, path, "execpolicy .rules file not written")
-        )
-        return
-    try:
-        with path.open(encoding="utf-8", newline="") as fh:
-            content = fh.read()
-    except OSError as exc:
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path, f"cannot read {path}: {exc}")
-        )
-        return
-    _, state, _detail = _splice_managed_block(
-        content, desired, EXECPOLICY_BEGIN_MARKER, EXECPOLICY_END_MARKER
-    )
-    if state == "ok":
-        return  # in sync
-    if state == "create":
-        report.items.append(
-            DriftItem("missing", "permissions", action.item, path, "no rig-managed execpolicy block (apply adds it)")
-        )
-    elif state == "conflict":
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path,
-                      "unbalanced/misordered rig-managed execpolicy markers — reconcile by hand, then re-run")
-        )
-    else:  # update
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path,
-                      "rig-managed execpolicy block is stale (apply rewrites it)")
-        )
-
-
-def _check_ecosystem_readme(action: Action, report: DriftReport) -> None:
-    """Flag drift between the canonical README Ecosystem block and the on-disk README (rig-cli#308).
-
-    missing  — the README is absent, or holds no rig-managed block and no unmarked
-               ``## Ecosystem`` heading either (apply APPENDS the block cleanly).
-    modified — the managed block is stale (apply rewrites it), the file has unbalanced/misordered
-               markers, OR it already has a bare ``## Ecosystem`` heading with no rig markers (all
-               three are a HAND fix — apply hard-errors, does not reconcile or duplicate).
-
-    Routes through the SAME :func:`_splice_managed_block` resolver apply uses, so the drift verdict
-    and its message can never overstate what apply will actually do."""
-    desired = ecosystem_readme_block_text(action)
-    path = ecosystem_readme_file(action)
-    if not path.is_file():
-        report.items.append(
-            DriftItem("missing", "ecosystem_readme", action.item, path, "README Ecosystem block not written")
-        )
-        return
-    try:
-        with path.open(encoding="utf-8", newline="") as fh:
-            content = fh.read()
-    except (OSError, UnicodeDecodeError) as exc:
-        # a README target is a pre-existing, arbitrary user-authored file — non-UTF-8 bytes are a
-        # real, reachable case here (unlike execpolicy's own rig-generated .rules file), so this
-        # must report actionable drift instead of letting rig status crash.
-        report.items.append(
-            DriftItem("modified", "ecosystem_readme", action.item, path, f"cannot read {path}: {exc}")
-        )
-        return
-    _, state, _detail = _splice_managed_block(
-        content, desired, ECOSYSTEM_README_BEGIN_MARKER, ECOSYSTEM_README_END_MARKER
-    )
-    if state == "ok":
-        return  # in sync
-    if state == "create":
-        if ecosystem_readme.has_unmarked_ecosystem_heading(content):
-            report.items.append(
-                DriftItem("modified", "ecosystem_readme", action.item, path,
-                          "an unmarked '## Ecosystem' section already exists — apply refuses to "
-                          "append a duplicate; wrap it in the rig markers by hand, then re-run")
-            )
-        else:
-            report.items.append(
-                DriftItem("missing", "ecosystem_readme", action.item, path, "no rig-managed Ecosystem block (apply adds it)")
-            )
-    elif state == "conflict":
-        report.items.append(
-            DriftItem("modified", "ecosystem_readme", action.item, path,
-                      "unbalanced/misordered rig-managed ecosystem-block markers — reconcile by hand, then re-run")
-        )
-    else:  # update
-        report.items.append(
-            DriftItem("modified", "ecosystem_readme", action.item, path,
-                      "rig-managed Ecosystem block is stale (apply rewrites it)")
-        )
-
-
-def _check_harness_guard(action: Action, report: DriftReport) -> None:
-    """Flag drift between the generated omp guard extension and the on-disk file.
-
-    missing  — the extension file is absent (apply writes it, atomically).
-    modified — the content differs (apply backs up and regenerates), OR the guard's own
-               runtime self-check fired: the ``.incompatible`` marker next to it means omp's
-               event contract changed and the guard is blocking fail-closed — a loud,
-               self-reported signal, not a silent no-op.
-    """
-    from .actions.runner import desired_guard_content, guard_extension_file
-    from .omp_guard import INCOMPATIBLE_MARKER_NAME
-
-    path = guard_extension_file(action)
-    if not path.is_file():
-        report.items.append(
-            DriftItem("missing", "permissions", action.item, path, "guard extension not written")
-        )
-        return
-    try:
-        current = path.read_text(encoding="utf-8", errors="replace")
-    except OSError as exc:
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path, f"cannot read {path}: {exc}")
-        )
-        return
-    if current != desired_guard_content(action):
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path,
-                      "guard extension differs (apply backs up and regenerates)")
-        )
-    marker = path.parent / INCOMPATIBLE_MARKER_NAME
-    if marker.exists():
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, marker,
-                      "guard self-check fired: incompatible omp event shape — the guard is "
-                      "blocking fail-closed; re-run `rig apply` and check the omp version")
-        )
-
-
-def _check_harness_approval(action: Action, report: DriftReport) -> None:
-    """Flag drift between the desired approval posture and the harness config.
-
-    missing  — the config file is absent, or a managed key is not set (apply adds it).
-    modified — the file is malformed, a parent is non-dict, or a managed key carries a
-               DIFFERENT value (the user's call — apply never clobbers; surfaced so status
-               isn't a silent green).
-    A matching value WITHOUT rig's receipt is 'compatible unmanaged' — first-class, NOT drift.
-    Shares :func:`_approval_lookup` with the install handler so apply and status can never
-    disagree on what a key state means.
-    """
-    import yaml  # lazy, like the rest of the config stack
-
-    from .actions.runner import (
-        approval_config_file,
-        approval_desired_keys,
-        approval_lookup,
-        approval_posture_relaxes,
-        approval_receipt_file,
-        read_approval_receipt,
-        receipt_installed_values,
-    )
-
-    path = approval_config_file(action)
-    if not path.is_file():
-        report.items.append(
-            DriftItem("missing", "permissions", action.item, path, "approval config not written")
-        )
-        return
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError):
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path,
-                      "approval config is unreadable (permissions/encoding) — fix it by hand")
-        )
-        return
-    except yaml.YAMLError:
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path,
-                      "approval config is malformed YAML")
-        )
-        return
-    if not isinstance(data, dict) and data is not None:
-        # apply HARD-ERRORS here ("fix it by hand") — drift must not promise an apply-set.
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path,
-                      "approval config is not a YAML mapping — fix it by hand")
-        )
-        return
-    data = data if isinstance(data, dict) else {}
-    try:
-        keys = approval_desired_keys(action)
-    except ValueError as exc:
-        report.items.append(DriftItem("modified", "permissions", action.item, path, str(exc)))
-        return
-    # the SAME receipt-ownership decision the writer makes: a key still holding what rig installed
-    # is converged by apply, so status must not tell the user to change it by hand
-    rig_installed = receipt_installed_values(read_approval_receipt(approval_receipt_file(action)))
-    for key_path, scalar in keys:
-        state, value = approval_lookup(data, key_path)
-        dotted = ".".join(key_path)
-        if state == "shape":
-            report.items.append(
-                DriftItem("modified", "permissions", action.item, path,
-                          f"{dotted} parent '{value}' is not an object — fix it by hand")
-            )
-        elif state == "missing":
-            report.items.append(
-                DriftItem("missing", "permissions", action.item, path,
-                          f"approval posture {dotted} not provisioned (apply sets {scalar!r})")
-            )
-        elif value != scalar and value is not None and rig_installed.get(dotted) == value:
-            report.items.append(
-                DriftItem("modified", "permissions", action.item, path,
-                          f"{dotted} is {value!r} (rig-installed; config now declares {scalar!r} — "
-                          "apply converges it; on_conflict=skip leaves it)")
-            )
-        elif value != scalar:
-            report.items.append(
-                DriftItem("modified", "permissions", action.item, path,
-                          f"{dotted} is {value!r} (rig wants {scalar!r}; apply never clobbers — "
-                          "change it by hand or remove the key)")
-            )
-    # Correlate the interlock's two halves: a RELAXED posture with the guard belt gone or
-    # drifted is the most dangerous combined state — never render it as routine drift.
-    if approval_posture_relaxes(action) and all(approval_lookup(data, kp)[1] == scalar for kp, scalar in keys):
-        # the interlock's other half, via the SAME resolver the runner uses — the most
-        # dangerous combined state must not depend on the plan's option wiring.
-        from .actions.runner import expected_guard_content, resolve_guard_target
-
-        gpath = resolve_guard_target(action)
-        if gpath is not None:
-            try:
-                gcontent = gpath.read_text(encoding="utf-8", errors="replace") if gpath.is_file() else None
-            except OSError:
-                gcontent = None
-            if gcontent != expected_guard_content(gpath):
-                report.items.append(
-                    DriftItem("modified", "permissions", action.item, gpath,
-                              "approval posture is relaxed but the guard belt is missing or "
-                              "drifted — enforcement is OFF (re-run `rig apply`)")
-                )
-
-
-def _check_omp_idle_ttl(action: Action, report: DriftReport) -> None:
-    """Flag missing/mismatched task.agentIdleTtlMs against the resolved keepalive write."""
-    import yaml
-    from .actions.runner import (
-        OMP_IDLE_TTL_KEY,
-        OMP_IDLE_TTL_VALUE,
-        _idle_ttl_parking_disabled,
-        approval_lookup,
-    )
-
-    path = action.target
-    dotted = ".".join(OMP_IDLE_TTL_KEY)
-    desired_value = action.options.get("ms", OMP_IDLE_TTL_VALUE)
-    if not path.is_file():
-        report.items.append(
-            DriftItem("missing", "harness", action.item, path,
-                      f"{dotted} not provisioned (apply sets {desired_value!r})")
-        )
-        return
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      f"cannot read {path}: {exc}")
-        )
-        return
-    try:
-        loaded = yaml.safe_load(text)
-    except yaml.YAMLError:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      "omp config is malformed YAML")
-        )
-        return
-    if loaded is not None and not isinstance(loaded, dict):
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      "omp config is not a YAML mapping — fix it by hand")
-        )
-        return
-    data = loaded if isinstance(loaded, dict) else {}
-    state, value = approval_lookup(data, OMP_IDLE_TTL_KEY)
-    if state == "shape":
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      f"{dotted} parent '{value}' is not an object — fix it by hand")
-        )
-    elif state == "missing":
-        report.items.append(
-            DriftItem("missing", "harness", action.item, path,
-                      f"{dotted} not provisioned (apply sets {desired_value!r})")
-        )
-    elif not (_idle_ttl_parking_disabled(value) or value == desired_value):
-        # A non-positive on-disk value is a standing "parking disabled" choice apply
-        # never overwrites (see _do_provision_omp_idle_ttl) regardless of desired_value
-        # -- drift must treat it as clean too, or it would report permanent unfixable
-        # drift for a value apply will never touch.
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      f"{dotted} is {value!r} (rig wants {desired_value!r}; apply never "
-                      "clobbers — change it by hand or remove the key)")
-        )
-
-
-def _check_codex_skills_budget(action: Action, report: DriftReport) -> None:
-    """Flag missing/mismatched skills.max_context_tokens against the resolved codex write.
-
-    A ``"missing"`` key is reported as ``"missing (apply sets N)"`` ONLY when apply will actually
-    write it. Two on-disk shapes apply refuses to text-edit (a genuine TOML multiline string, or
-    ``skills`` already defined via dotted keys/an inline table — see
-    :func:`riglib.actions.runner._skills_budget_unmanageable_reason`, shared with the writer) are
-    reported as ``"modified"`` with the SAME remediation instead — otherwise ``rig status`` would
-    promise a convergence ``rig apply`` never performs, looping forever (review finding: apply and
-    drift must classify these identically, not just agree on the desired VALUE).
-    """
-    from .actions.runner import (
-        CODEX_SKILLS_BUDGET_KEY,
-        CODEX_SKILLS_BUDGET_VALUE,
-        _skills_budget_unmanageable_reason,
-        _toml_parser,
-        approval_lookup,
-    )
-
-    path = action.target
-    dotted = ".".join(CODEX_SKILLS_BUDGET_KEY)
-    desired_value = action.options.get("max_context_tokens", CODEX_SKILLS_BUDGET_VALUE)
-    tomllib = _toml_parser()
-    if tomllib is None:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      "no TOML parser on this Python — cannot verify skills.max_context_tokens")
-        )
-        return
-    if not path.is_file():
-        report.items.append(
-            DriftItem("missing", "harness", action.item, path,
-                      f"{dotted} not provisioned (apply sets {desired_value!r})")
-        )
-        return
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      f"cannot read {path}: {exc}")
-        )
-        return
-    try:
-        data = tomllib.loads(text)
-    except tomllib.TOMLDecodeError:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      "codex config.toml is malformed TOML")
-        )
-        return
-    state, value = approval_lookup(data, CODEX_SKILLS_BUDGET_KEY)
-    if state == "shape":
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      f"{dotted} parent '{value}' is not a table — fix it by hand")
-        )
-    elif state == "missing":
-        reason = _skills_budget_unmanageable_reason(text, data)
-        if reason:
-            report.items.append(
-                DriftItem("modified", "harness", action.item, path,
-                          f"{reason}; add `{dotted} = {desired_value}` by hand "
-                          "(apply will never do this automatically)")
-            )
-        else:
-            report.items.append(
-                DriftItem("missing", "harness", action.item, path,
-                          f"{dotted} not provisioned (apply sets {desired_value!r})")
-            )
-    elif value != desired_value:
-        # ANY differing on-disk value (lower or higher) is a standing choice apply never
-        # overwrites (see _do_provision_codex_skills_budget) -- surfaced here for visibility,
-        # never auto-fixed.
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      f"{dotted} is {value!r} (rig wants {desired_value!r}; apply never "
-                      "clobbers — change it by hand or remove the key)")
-        )
-
-
-def _check_omp_web_search(action: Action, report: DriftReport) -> None:
-    """Flag drift between the desired webSearchExclude list and omp config.yml.
-
-    missing  — the file is absent, or a desired name is not in the list (apply adds it).
-    modified — malformed YAML, or providers.webSearchExclude is the wrong shape.
-    A list that already contains every desired name is NOT drift (extras stay).
-    """
-    import yaml  # lazy, like the rest of the config stack
-
-    from .omp_web_search import missing_exclude_entries
-
-    path = action.target
-    desired = [str(x) for x in action.options.get("exclude") or [] if str(x)]
-    if not path.is_file():
-        report.items.append(
-            DriftItem("missing", "harness", action.item, path,
-                      "omp web_search exclude not written (apply sets providers.webSearchExclude)")
-        )
-        return
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError):
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      "omp config.yml is unreadable (permissions/encoding) — fix it by hand")
-        )
-        return
-    except yaml.YAMLError:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      "omp config.yml is malformed YAML")
-        )
-        return
-    if not isinstance(data, dict) and data is not None:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      "omp config.yml is not a YAML mapping — fix it by hand")
-        )
-        return
-    data = data if isinstance(data, dict) else {}
-    state, missing = missing_exclude_entries(data, desired)
-    if state == "shape":
-        report.items.append(
-            DriftItem("modified", "harness", action.item, path,
-                      "providers.webSearchExclude is the wrong shape — fix it by hand")
-        )
-        return
-    if missing:
-        report.items.append(
-            DriftItem("missing", "harness", action.item, path,
-                      f"providers.webSearchExclude missing {', '.join(missing)} (apply adds them)")
-        )
-
-
-
-def _check_problem_reporting(action: Action, report: DriftReport) -> None:
-    from .problem_reporting import resolve
-
-    result = resolve(action.target)
-    if result.state != "ok":
-        direction = "missing" if result.state in {"create_file", "create"} else "modified"
-        report.items.append(DriftItem(direction, action.category, action.item, action.target, result.detail))
-
-
-def _check_instruction_policy(action: Action, report: DriftReport) -> None:
-    """Flag drift between the advisory instruction policy block and the instruction file.
-
-    missing/modified mirror the execpolicy checker exactly (same splice resolver)."""
-    from .actions.runner import (
-        INSTRUCTION_POLICY_BEGIN_MARKER,
-        INSTRUCTION_POLICY_END_MARKER,
-        _splice_managed_block,
-        instruction_policy_block_text,
-    )
-
-    desired = instruction_policy_block_text(action)
-    path = action.target
-    if not path.is_file():
-        report.items.append(
-            DriftItem("missing", "permissions", action.item, path,
-                      "instruction policy file not written")
-        )
-        return
-    try:
-        with path.open(encoding="utf-8", newline="") as fh:
-            content = fh.read()
-    except OSError as exc:
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path, f"cannot read {path}: {exc}")
-        )
-        return
-    _, state, _detail = _splice_managed_block(
-        content, desired, INSTRUCTION_POLICY_BEGIN_MARKER, INSTRUCTION_POLICY_END_MARKER
-    )
-    if state == "ok":
-        return
-    if state == "create":
-        report.items.append(
-            DriftItem("missing", "permissions", action.item, path,
-                      "no rig-managed instruction policy block (apply adds it)")
-        )
-    elif state == "conflict":
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path,
-                      "unbalanced/misordered rig-managed instruction policy markers — reconcile "
-                      "by hand, then re-run")
-        )
-    else:  # update
-        report.items.append(
-            DriftItem("modified", "permissions", action.item, path,
-                      "rig-managed instruction policy block is stale (apply rewrites it)")
-        )
-
-
-def _check_hook_bridge(action: Action, report: DriftReport) -> None:
-    """Flag drift between the configured hook-bridge wiring and the harness config.
-
-    missing  — the settings file is absent, or a managed dispatcher hook (one whose command
-               carries ``cc_hook_bridge``) is not present for an (event, matcher) we ship.
-    modified — the settings file is malformed JSON, OR a managed hook is present but its
-               TYPE/COMMAND differs from what apply would write (stale PYTHONPATH / moved
-               checkout / changed ``hook_bridge.python`` / malformed hook type). ``rig apply``
-               rewrites it.
-    Drift and apply share ``find_managed_bridge_hook`` + ``hook_bridge_entries`` so they
-    never diverge. Only OUR managed blocks are checked; the user's other hooks are ignored.
-    """
-    config_file = hook_bridge_settings_file(action)
-    if hook_bridge_format(action) == "opencode-plugin":
-        _check_opencode_hook_bridge(action, config_file, report)
-        return
-    if hook_bridge_format(action) == "omp-extension":
-        _check_omp_hook_bridge(action, config_file, report)
-        return
-    if not config_file.is_file():
-        report.items.append(
-            DriftItem("missing", "harness", action.item, config_file, "harness settings file not written")
-        )
-        return
-    if hook_bridge_format(action) == "toml":
-        _check_codex_hook_bridge(action, config_file, report)
-        return
-    try:
-        data = json.loads(config_file.read_text(encoding="utf-8"))
-    except ValueError:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, config_file, "harness settings file is malformed JSON")
-        )
-        return
-    hooks = data.get("hooks") if isinstance(data, dict) else None
-    hooks = hooks if isinstance(hooks, dict) else {}
-    for event, pairs in hook_bridge_entries(action).items():
-        blocks = hooks.get(event)
-        for matcher, command in pairs:
-            label = f"{event}[{matcher or '*'}]"
-            hk = find_managed_bridge_hook(blocks, matcher, hook_bridge_module(action))
-            if hk is None:
-                report.items.append(
-                    DriftItem("missing", "harness", action.item, config_file,
-                              f"{hook_bridge_module(action)} not wired for {label}")
-                )
-                continue
-            reason = managed_bridge_hook_drift_reason(hk, command)
-            if reason is not None:
-                report.items.append(
-                    DriftItem("modified", "harness", action.item, config_file,
-                              f"{hook_bridge_module(action)} hook for {label}: {reason}")
-                )
-
-
-def _check_opencode_hook_bridge(action: Action, config_file: Path, report: DriftReport) -> None:
-    plugin_path, dest = opencode_hook_bridge_plugin_target(action)
-    from .actions.runner import (
-        legacy_opencode_bridge_needs_cleanup,
-        _link_targets_itself,
-        _opencode_bridge_exclude_context,
-        _opencode_exclude_has_entry,
-        _same_link_dest,
-        opencode_hook_bridge_uses_wrapper,
-        opencode_hook_bridge_wrapper_text,
-    )
-
-    if _link_targets_itself(plugin_path, dest) and dest.is_file():
-        # source == target with the real plugin present: the runner skips UNCONDITIONALLY here
-        # (before the wrapper/symlink split, after its own dest.is_file() check) — it never
-        # self-symlinks nor overwrites the real module. Drift must read this as in sync, else
-        # status reports "real file (apply will replace it)" forever while apply keeps skipping,
-        # an apply/status loop. Gated on the SAME `dest.is_file()` the runner checks first (same
-        # path, same symlink-following semantics), so drift and apply agree on "real file
-        # present": when it is ABSENT (or a broken self-symlink loop) the runner errors ("bridge
-        # plugin missing"), so we fall through to the normal checks that surface it — never mask.
-        return
-
-    if opencode_hook_bridge_uses_wrapper(action):
-        if not plugin_path.is_file() or plugin_path.is_symlink():
-            if plugin_path.exists() or plugin_path.is_symlink():
-                report.items.append(
-                    DriftItem("modified", "harness", action.item, config_file,
-                              "opencode hook bridge wrapper is not a regular file")
-                )
-            else:
-                report.items.append(
-                    DriftItem("missing", "harness", action.item, config_file,
-                              "opencode hook bridge wrapper not written")
-                )
-        else:
-            try:
-                text = plugin_path.read_text(encoding="utf-8")
-            except OSError as exc:
-                report.items.append(
-                    DriftItem("modified", "harness", action.item, config_file,
-                              f"opencode hook bridge wrapper unreadable: {exc}")
-                )
-            else:
-                if text != opencode_hook_bridge_wrapper_text(action):
-                    report.items.append(
-                        DriftItem("modified", "harness", action.item, config_file,
-                                  "opencode hook bridge wrapper differs from config")
-                    )
-                else:
-                    ctx = _opencode_bridge_exclude_context(plugin_path)
-                    if ctx is not None:
-                        exclude_path, rel_path = ctx
-                        if not _opencode_exclude_has_entry(exclude_path, rel_path):
-                            report.items.append(
-                                DriftItem("missing", "harness", action.item, exclude_path,
-                                          "opencode hook bridge plugin is not git-ignored")
-                            )
-    elif not plugin_path.is_symlink():
-        if plugin_path.exists():
-            report.items.append(
-                DriftItem("modified", "harness", action.item, config_file,
-                          "opencode hook bridge plugin is a real file (apply will replace it)")
-            )
-        else:
-            report.items.append(
-                DriftItem("missing", "harness", action.item, config_file,
-                          "opencode hook bridge plugin not linked")
-            )
-    else:
-        try:
-            current = plugin_path.readlink()
-        except OSError as exc:
-            report.items.append(
-                DriftItem("modified", "harness", action.item, config_file,
-                          f"opencode hook bridge symlink unreadable: {exc}")
-            )
-            current = None
-        if current is not None:
-            if not _same_link_dest(plugin_path, current, dest):
-                report.items.append(
-                    DriftItem("modified", "harness", action.item, config_file,
-                              f"opencode hook bridge plugin points elsewhere, expected → {dest}")
-                )
-            else:
-                ctx = _opencode_bridge_exclude_context(plugin_path)
-                if ctx is not None:
-                    exclude_path, rel_path = ctx
-                    if not _opencode_exclude_has_entry(exclude_path, rel_path):
-                        report.items.append(
-                            DriftItem("missing", "harness", action.item, exclude_path,
-                                      "opencode hook bridge plugin is not git-ignored")
-                        )
-    if legacy_opencode_bridge_needs_cleanup(plugin_path, dest):
-        report.items.append(
-            DriftItem("modified", "harness", action.item, config_file,
-                      "legacy global opencode hook bridge symlink still present")
-        )
-
-
-def _check_omp_hook_bridge(action: Action, config_file: Path, report: DriftReport) -> None:
-    """Flag drift for the omp extension symlink/wrapper — simpler than opencode's: no
-    repo-local git-exclude reconciliation and no legacy predecessor to detect (the omp bridge
-    is new; every install is user-level from day one)."""
-    extension_path, dest = omp_hook_bridge_extension_target(action)
-    # local import matching _check_opencode_hook_bridge's own established pattern just above
-    # (it locally imports the same class of runner helpers rather than hoisting them to the
-    # module-level import block) — consistency with the sibling function, not a new anti-pattern.
-    from .actions.runner import (
-        _link_targets_itself,
-        _same_link_dest,
-        omp_hook_bridge_uses_wrapper,
-        omp_hook_bridge_wrapper_text,
-    )
-
-    if _link_targets_itself(extension_path, dest) and dest.is_file():
-        # source == target with the real extension present: the runner skips unconditionally
-        # here too — see the parallel comment in _check_opencode_hook_bridge for why this must
-        # read as in-sync rather than forever-drifting.
-        return
-
-    if omp_hook_bridge_uses_wrapper(action):
-        if not extension_path.is_file() or extension_path.is_symlink():
-            if extension_path.exists() or extension_path.is_symlink():
-                report.items.append(
-                    DriftItem("modified", "harness", action.item, config_file,
-                              "omp hook bridge wrapper is not a regular file")
-                )
-            else:
-                report.items.append(
-                    DriftItem("missing", "harness", action.item, config_file,
-                              "omp hook bridge wrapper not written")
-                )
-            return
-        try:
-            text = extension_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as exc:
-            report.items.append(
-                DriftItem("modified", "harness", action.item, config_file,
-                          f"omp hook bridge wrapper unreadable: {exc}")
-            )
-            return
-        if text != omp_hook_bridge_wrapper_text(action):
-            report.items.append(
-                DriftItem("modified", "harness", action.item, config_file,
-                          "omp hook bridge wrapper differs from config")
-            )
-        return
-
-    if not extension_path.is_symlink():
-        if extension_path.exists():
-            report.items.append(
-                DriftItem("modified", "harness", action.item, config_file,
-                          "omp hook bridge extension is a real file (apply will replace it)")
-            )
-        else:
-            report.items.append(
-                DriftItem("missing", "harness", action.item, config_file,
-                          "omp hook bridge extension not linked")
-            )
-        return
-    try:
-        current = extension_path.readlink()
-    except OSError as exc:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, config_file,
-                      f"omp hook bridge symlink unreadable: {exc}")
-        )
-        return
-    if not _same_link_dest(extension_path, current, dest):
-        report.items.append(
-            DriftItem("modified", "harness", action.item, config_file,
-                      f"omp hook bridge extension points elsewhere, expected → {dest}")
-        )
-
-
-def _check_codex_hook_bridge(action: Action, config_file: Path, report: DriftReport) -> None:
-    try:
-        text = config_file.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, config_file, f"harness config unreadable: {exc}")
-        )
-        return
-    if codex_hook_bridge_block_malformed(text):
-        report.items.append(
-            DriftItem("modified", "harness", action.item, config_file,
-                      "managed Codex hook bridge markers are incomplete")
-        )
-        return
-    bounds = codex_hook_bridge_block_bounds(text)
-    stripped = text
-    if bounds is not None:
-        start, end = bounds
-        stripped = text[:start] + text[end:]
-    conflict = codex_hook_bridge_conflict(stripped)
-    if conflict:
-        report.items.append(
-            DriftItem(
-                "modified",
-                "harness",
-                action.item,
-                config_file,
-                f"{conflict} in {config_file}; rig apply will not overwrite unmanaged Codex hooks TOML",
-            )
-        )
-        return
-    disabled = codex_hook_bridge_disabled_features(text)
-    if disabled:
-        report.items.append(
-            DriftItem(
-                "modified",
-                "harness",
-                action.item,
-                config_file,
-                f"Codex hooks disabled by {', '.join(disabled)} in {config_file} (apply will enable)",
-            )
-        )
-        return
-    if bounds is None:
-        report.items.append(
-            DriftItem("missing", "harness", action.item, config_file,
-                      f"codex_hook_bridge not wired in {config_file}")
-        )
-        return
-    merged, merge_conflict = merge_codex_hook_bridge_toml(text, action)
-    if merge_conflict:
-        report.items.append(
-            DriftItem(
-                "modified",
-                "harness",
-                action.item,
-                config_file,
-                f"{merge_conflict} in {config_file}; rig apply will not overwrite unmanaged Codex hooks TOML",
-            )
-        )
-        return
-    if merged != text:
-        report.items.append(
-            DriftItem("modified", "harness", action.item, config_file,
-                      "codex_hook_bridge TOML block is stale (apply will rewrite)")
-        )
-
-
-def _check_schedule(action: Action, report: DriftReport) -> None:
-    """Flag drift between the configured daily model-freshness schedule and disk.
-
-    missing  — the launchd plist / systemd unit files are absent (or the plist exists but the
-               job is not loaded / the timer is not enabled+active).
-    modified — the artifact on disk differs from the desired one (e.g. someone changed the
-               run time, or the checker path). ``rig apply`` converges.
-    Cross-platform: launchd plist content + loaded state on macOS; the systemd --user service +
-    timer on Linux. Shares the desired-artifact computation with the install handler.
-    """
-    sched = schedule_plan_from_action(action)
-    if sched.platform == "launchd":
-        plist = sched.plist_path
-        if plist is None or not plist.is_file():
-            report.items.append(
-                DriftItem("missing", "models", action.item, plist or action.target, "launchd plist not installed")
-            )
-            return
-        if plist.read_text(encoding="utf-8") != sched.plist_xml():
-            report.items.append(
-                DriftItem("modified", "models", action.item, plist, "launchd plist differs from configured schedule")
-            )
-            return
-        # Apply skips the live load under dry-run / a sandboxed HOME (rig-cli#116), so status
-        # suppresses the matching live probe to stay consistent (as spotlight / tmux already do).
-        if not _schedule_dry_run() and not _launchctl_loaded(sched.label):
-            report.items.append(
-                DriftItem("missing", "models", action.item, plist, f"launchd job '{sched.label}' not loaded")
-            )
-        return
-    # systemd --user branch (rig-cli#721): both unit files current, then the timer enabled +
-    # active. Apply skips the systemctl calls under dry-run / a sandboxed HOME (rig-cli#116), so
-    # status skips the live probe there too — else a sandboxed run could never converge.
-    for path, text in sched.unit_files().items():
-        if not path.is_file():
-            report.items.append(
-                DriftItem("missing", "models", action.item, path, f"systemd unit {path.name} not installed")
-            )
-            return
-        if path.read_text(encoding="utf-8") != text:
-            report.items.append(
-                DriftItem("modified", "models", action.item, path, f"{path.name} differs from configured schedule")
-            )
-            return
-    if not _schedule_dry_run() and not schedule_timer_active(sched):
-        report.items.append(
-            DriftItem("missing", "models", action.item, action.target,
-                      f"systemd timer '{sched.timer_name}' not enabled+active")
-        )
-
-
-def _check_spotlight(action: Action, report: DriftReport) -> None:
-    """Flag drift between the configured Spotlight-exclude state and disk.
-
-    All independent facts accumulate (a drifted sentinel, a drifted plist, AND an unloaded agent
-    are each surfaced): an ABSENT plist is the only short-circuit — you can't probe the loaded
-    state of a plist that isn't there. A content-drifted plist still reports its load state.
-
-    missing  — dependency/build dirs the last sweep VISITED still lack the
-               ``.metadata_never_index`` sentinel (the sweep failed them, or one was hand-deleted)
-               → ``rig apply`` / ``rig spotlight-sweep`` re-covers them. On macOS the launchd
-               re-sweep plist is absent, or (when live) its agent is not loaded.
-    modified — the launchd re-sweep plist on disk differs from the configured schedule/argv.
-    note     — uncovered dirs the last sweep NEVER SAW, i.e. they appeared since. Not drift: every
-               test run mints ``__pycache__`` dirs and the next sweep covers them. Printed dim
-               beside "in sync" so a stalled sweep is still visible. The split lives in
-               :class:`riglib.spotlight.Coverage`.
-
-    Cross-platform: the sentinel sweep is cross-platform, so its coverage is checked everywhere; the
-    launchd plist only exists on macOS (the runner writes none elsewhere), so the plist surface is
-    macOS-only — asserting a missing plist on Linux would be a false positive. The launchd
-    ``loaded`` probe is skipped under ``RIG_SPOTLIGHT_DRY_RUN`` (mirrors verify), so the hermetic
-    suite never shells out to the real ``launchctl``.
-    """
-    from . import spotlight
-
-    opts = action.options
-    roots, deny, max_depth = spotlight.sweep_args_from_options(opts)
-    label = str(opts.get("label") or spotlight.DEFAULT_BOOT_LABEL)
-
-    # 1) sentinel coverage — the SAME `scan_coverage` predicate the post-apply verify step uses, on
-    # the FULL matched set. `iter_target_dirs` already walks the whole tree (the dominant cost,
-    # unavoidable here), so classifying each dir is one extra stat — cheap. The stale/pending split
-    # is what keeps this honest: only dirs the sweep should have covered count as drift.
-    selector = spotlight.SweepSelector(roots, deny, max_depth)
-    record = spotlight.last_sweep(selector)
-    cov = spotlight.scan_coverage(selector, record)
-    if cov.stale:
-        report.items.append(
-            DriftItem(
-                "missing", "spotlight", action.item, cov.stale[0],
-                f"{len(cov.stale)}/{cov.total} dependency/build dirs the last sweep visited still "
-                f"lack {spotlight.SENTINEL_NAME} — run `rig apply commit` "
-                f"(or `rig spotlight-sweep`) to re-cover",
-            )
-        )
-    if cov.pending:
-        # `pending` exists only relative to a consulted record (the Coverage invariant).
-        assert record is not None
-        # Off macOS rig installs no re-sweep agent, so promising "the next sweep" there would be a
-        # promise nothing keeps — name the manual command instead. The age of the last sweep is
-        # what exposes a loaded-but-failing agent (it happened: 9 runs, 9 import errors).
-        next_sweep = (
-            "the daily re-sweep agent covers them" if _on_darwin()
-            else "run `rig spotlight-sweep` to cover them (no periodic sweep agent off macOS)"
-        )
-        report.notes.append(
-            DriftNote(
-                "spotlight", action.item,
-                f"{len(cov.pending)} of {cov.total} dependency/build dirs appeared since the last "
-                f"sweep ({spotlight.describe_age(record.at)}) — {next_sweep}",
-            )
-        )
-
-    # 2) the launchd re-sweep agent (macOS only — no plist is written on other hosts).
-    if not _on_darwin():
-        return
-    sweep_cmd = tuple(str(a) for a in opts.get("sweep_cmd", spotlight.default_sweep_cmd()))
-    plan = spotlight.build_spotlight(
-        roots=roots, deny=deny, sweep_cmd=sweep_cmd, label=label, max_depth=max_depth
-    )
-    plist = plan.plist_path
-    if plist is None or not plist.is_file():
-        report.items.append(
-            DriftItem("missing", "spotlight", action.item, plist or action.target,
-                      "launchd re-sweep plist not installed (new projects would stop being covered)")
-        )
-        return
-    try:
-        current = plist.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        report.items.append(
-            DriftItem("modified", "spotlight", action.item, plist,
-                      f"launchd re-sweep plist unreadable — apply rewrites it ({type(exc).__name__})")
-        )
-        return
-    if current != plan.plist_xml():
-        report.items.append(
-            DriftItem("modified", "spotlight", action.item, plist,
-                      "launchd re-sweep plist differs from configured schedule/argv")
-        )
-        # do NOT return — a content-drifted plist can ALSO be unloaded; both are true, surface both.
-    if not _spotlight_dry_run() and not _launchctl_loaded(label):
-        report.items.append(
-            DriftItem("missing", "spotlight", action.item, plist,
-                      f"launchd re-sweep agent '{label}' not loaded")
-        )
-
-
-def _check_env(action: Action, report: DriftReport) -> None:
-    """Flag drift on the rig-managed shell-env-vars artifacts (never the user's other rc lines).
-
-    missing  — the generated ``rig.env.sh`` is absent, OR rig's ``source <generated file>``
-               import line is entirely absent from ``rc_path`` (whether never installed, or
-               only a STALE copy from an old ``generated_dir`` lingers there).
-    modified — the generated ``rig.env.sh`` on disk differs from the desired render (a hand
-               edit of rig's own file, or the configured ``vars`` changed), OR the current
-               import line IS present but a STALE copy also coexists with it and needs
-               dropping.
-
-    The ``rc_path`` check reuses :func:`riglib.shell_env.desired_rc_text` — apply's EXACT,
-    POSITION-TOLERANT predicate — rather than a separate one. A user who relocated rig's own,
-    still byte-identical, import line (e.g. above their own exports) is genuinely IN SYNC: apply
-    leaves a relocated line alone too (see that function's docstring), so status must not flag
-    it either. Sharing one predicate makes divergence between apply and status impossible by
-    construction (review finding: an earlier end-anchoring version disagreed with a looser
-    drift check here — this one instead shares the exact rule apply itself follows).
-
-    Both file reads (and the defense-in-depth key check inside ``render_env_file``) are guarded
-    LOCALLY: a non-UTF-8 or concurrently-removed file, or an invalid var key that somehow
-    bypassed ``config.validate``, is reported as a ``modified`` drift item rather than crashing
-    the whole `rig status` command (review finding — apply already had this hardening; status
-    did not).
-    """
-    from .shell_env import desired_rc_text
-
-    plan = env_plan_from_action(action)
-    render_failed = False
-    try:
-        desired_file: str | None = plan.render_env_file()
-    except ValueError as exc:
-        # nothing to COMPARE the generated file against, but the rc_path check below (step 2)
-        # doesn't depend on this render at all (only on `plan.import_line()`) — so it still
-        # runs; only the generated-file comparison itself is skipped (review: an earlier
-        # version `return`ed here, silently skipping rc_path too).
-        report.items.append(
-            DriftItem("modified", "env", action.item, plan.generated_file_path,
-                      f"configured vars cannot be rendered: {exc}")
-        )
-        desired_file = None
-        render_failed = True
-
-    # 1) the generated rig.env.sh. Existence is checked regardless of whether the render
-    # succeeded (a render failure means "can't compare CONTENT", not "can't tell if it exists")
-    # — UNLESS the render already failed, in which case that single item is enough; reporting
-    # BOTH "cannot be rendered" AND "not installed" for the SAME target double-counts one
-    # artifact in the drift totals (review finding).
-    if render_failed:
-        pass
-    elif not plan.generated_file_path.is_file():
-        report.items.append(
-            DriftItem("missing", "env", action.item, plan.generated_file_path,
-                      "generated rig.env.sh not installed")
-        )
-    elif desired_file is not None:
-        try:
-            on_disk = plan.generated_file_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as exc:
-            report.items.append(
-                DriftItem("modified", "env", action.item, plan.generated_file_path,
-                          f"could not read: {exc}")
-            )
-            on_disk = None
-        if on_disk is not None and on_disk != desired_file:
-            report.items.append(
-                DriftItem("modified", "env", action.item, plan.generated_file_path,
-                          "generated rig.env.sh differs from configured vars")
-            )
-
-    # 2) rc_path — the SAME predicate `_do_provision_env` uses to decide whether to write.
-    # Position-tolerance means a differing text has TWO distinct causes, reported distinctly
-    # (review finding: an earlier version always said "missing" even when the line was actually
-    # present alongside a stale copy — the opposite of the truth):
-    #   missing  — the current import line is absent everywhere (never installed, or only a
-    #              stale copy from an old generated_dir exists).
-    #   modified — the current line IS present, but a STALE copy (old generated_dir) coexists
-    #              with it and still needs dropping.
-    # KNOWN LIMITATION (accepted, review round 9): "present" here is an EXACT string match
-    # against `plan.import_line()`, same as `desired_rc_text`'s own `current_present` check.
-    # A line that is functionally equivalent but not byte-identical — hand-quoted differently
-    # (`source "..."` vs the canonical bare/`'...'` form `shlex.quote` produces), or written
-    # with `$HOME` instead of the literal path — reads as "missing" here even though the file
-    # IS being sourced. Only reachable by hand-editing an already-correct line (rig's own
-    # output is deterministic and always canonical); apply self-heals it to the canonical form
-    # on the next run, so this is a one-time inaccurate STATUS MESSAGE, never a functional bug
-    # or a perpetual-drift loop. Narrowing this to semantic (full-path, not just the basename
-    # `is_rig_env_import_line` matches) equivalence was judged not worth the added complexity
-    # for a hand-edit-only, self-healing edge case.
-    if not plan.rc_path.is_file():
-        rc_text: str | None = ""
-    else:
-        try:
-            rc_text = plan.rc_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as exc:
-            report.items.append(
-                DriftItem("modified", "env", action.item, plan.rc_path, f"could not read: {exc}")
-            )
-            rc_text = None
-    if rc_text is not None and desired_rc_text(rc_text, plan) != rc_text:
-        import_line = plan.import_line()
-        if any(ln.strip() == import_line for ln in rc_text.splitlines()):
-            report.items.append(
-                DriftItem("modified", "env", action.item, plan.rc_path,
-                          f"the current import line is present in {plan.rc_path}, but a STALE "
-                          "copy (an old generated_dir) also lingers there and needs dropping")
-            )
-        else:
-            report.items.append(
-                DriftItem("missing", "env", action.item, plan.rc_path,
-                          f"source import line missing from {plan.rc_path}")
-            )
-
-
-def check_disabled_env(action: Action, report: DriftReport) -> None:
-    """Flag a still-installed ``rig.env.sh`` and/or a still-live ``rc_path`` import line when
-    the config disables the ``env`` category (only fires for an EXPLICIT ``enabled: false`` —
-    see the note at the end).
-
-    apply never deletes; so a machine that previously provisioned shell env vars keeps some or
-    all of ``rig.env.sh`` / the live ``source`` line in ``rc_path`` even after the config turns
-    the category off. With the action gone from the plan, ``_check_env`` never runs — so without
-    this scan the leftover would report as "in sync" (mirrors
-    :func:`check_disabled_global_excludes`). A HIGHER-consequence orphan than a stale tmux conf
-    (env vars keep silently applying to every shell invocation on the machine, not just tmux
-    sessions), so — unlike tmux, which has no equivalent check — this one is worth the extra
-    scan (review, raised across three rounds).
-
-    Checks BOTH halves of the pair independently — a review finding on an earlier version that
-    checked only the generated file: the INVERSE orphan (the generated file was deleted by hand
-    but a stale ``source`` line survives in ``rc_path``) is arguably worse, since every zsh
-    invocation on the machine then prints a "no such file or directory" error at startup, and
-    was previously invisible to this scan.
-
-    Known gap (documented, not fixed here — see ``docs/config-schema.md#env``): this fires ONLY
-    for an explicit ``env: {enabled: false}``. Removing the ``env:`` block ENTIRELY — arguably
-    the more natural way to "turn a feature off" — runs no scan at all here (``cmd_status``'s
-    caller only triggers this on ``enabled is False``), so the same still-active artifacts would
-    report as in sync in that case. Probing a fixed default path with no config presence at all
-    would need a broader design change (no other disabled-check in this codebase does that
-    either); left as a known limitation rather than special-cased here.
-    """
-    from .shell_env import is_rig_env_import_line
-
-    plan = env_plan_from_action(action)
-    generated_exists = plan.generated_file_path.is_file()
-    if generated_exists:
-        report.items.append(
-            DriftItem("extra", "env", action.item, plan.generated_file_path,
-                      f"env disabled in config but rig.env.sh is still present and (if "
-                      f"{plan.rc_path} still sources it) its vars keep applying to every "
-                      f"shell — remove {plan.generated_file_path} and its source line to "
-                      "fully turn it off")
-        )
-
-    if not plan.rc_path.is_file():
-        return
-    try:
-        rc_text = plan.rc_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        # a non-UTF-8/permission-denied/concurrently-removed rc_path must not crash `rig
-        # status` (review finding — the same hardening this diff already applies to the three
-        # OTHER rc_path reads in `_do_provision_env`/`_check_env`; this fourth one was missed).
-        # The generated-file check above already ran and reported independently; silently
-        # skipping the rc_path half here is the same "can't inspect it, don't crash" choice
-        # `_check_env` makes (there it reports a `modified` item instead — this scan has none
-        # of that item's target-uniqueness bookkeeping to hang a matching item off, so it just
-        # skips, consistent with returning early on a missing file just above).
-        return
-    generated_name = plan.generated_file_path.name
-    if any(is_rig_env_import_line(ln, plan.import_line(), generated_name) for ln in rc_text.splitlines()):
-        detail = (
-            f"env disabled in config but {plan.rc_path} still sources rig.env.sh"
-            + ("" if generated_exists else f" — {plan.generated_file_path} is GONE, so every "
-               "shell invocation now errors at startup ('no such file or directory')")
-            + f" — remove the source line from {plan.rc_path} to fully turn it off"
-        )
-        report.items.append(DriftItem("extra", "env", action.item, plan.rc_path, detail))
-
-
-def _check_tmux(action: Action, report: DriftReport) -> None:
-    """Flag drift on the rig-MANAGED tmux region only (never the user's hand-written lines).
-
-    missing  — the generated ``rig.tmux.conf`` is absent, OR (import mode) ``~/.tmux.conf``
-               lost its ``source-file`` import line, OR (block mode) the managed block is gone.
-    modified — the generated ``rig.tmux.conf`` on disk differs from the desired one (a hand
-               edit of rig's own file), OR a cc script / the boot plist / the managed block differs.
-    Shares the desired-artifact computation with the install handler, so apply and status can
-    never disagree. User-specific lines in ``~/.tmux.conf`` are ignored entirely. Every region
-    ACCUMULATES into ``report.items`` (no early return), so simultaneously-drifted regions are
-    ALL surfaced, not just the first.
-    """
-    from .tmux import BLOCK_BEGIN, BLOCK_END
-
-    plan = tmux_plan_from_action(action)
-    desired_conf = plan.render_rig_conf()  # render once; reused by the block-mode check below.
-
-    # 1) the generated rig.tmux.conf — present + byte-identical to the desired render.
-    _file_drift(report, action, plan.rig_conf_path, desired_conf, "generated rig.tmux.conf")
-
-    # 2) the managed scripts (cc-save/cc-restore; attach-or-create when anti-sprawl is on) —
-    # the SAME list apply writes (managed_scripts), so drift can't disagree on which exist.
-    # Content AND the executable bit: a stripped +x means the resurrect hook can't run them.
-    for path, body in plan.managed_scripts():
-        _file_drift(report, action, path, body, path.name)
-        if path.is_file() and not os.access(path, os.X_OK):
-            report.items.append(
-                DriftItem("modified", "tmux", action.item, path,
-                          f"{path.name} is not executable (resurrect hook can't run it)")
-            )
-    # When anti-sprawl is DISABLED, apply stops writing tmux-attach.sh but never deletes a
-    # previously-installed one — and the user may still source it from their shell rc (so
-    # anti-sprawl stays active). Surface the leftover as a disk→config extra, like the boot plist.
-    if not plan.anti_sprawl_enabled and plan.attach_path.is_file():
-        report.items.append(
-            DriftItem("extra", "tmux", action.item, plan.attach_path,
-                      "tmux-attach.sh present but tmux.anti_sprawl is disabled "
-                      "(it may still be wired from your shell rc — remove it or re-enable anti_sprawl)")
-        )
-
-    # 3) the boot launchd plist (macOS). When boot is ENABLED, apply writes it → check content.
-    # When boot is DISABLED, apply does NOT delete a previously-written plist, so a leftover
-    # plist (it still starts tmux at login) is a disk→config EXTRA — surface it, don't go silent.
-    if _on_darwin():
-        if plan.boot_enabled:
-            _file_drift(report, action, plan.boot_plist_path, plan.render_boot_plist(),
-                        "boot launchd plist")
-        elif plan.boot_plist_path.is_file():
-            report.items.append(
-                DriftItem("extra", "tmux", action.item, plan.boot_plist_path,
-                          "boot launchd plist present but tmux.boot is disabled "
-                          "(it still starts tmux at login — remove it or re-enable boot)")
-            )
-
-        # 3b) the INDEPENDENT autosave plist (#138). Same shape as the boot plist: content-check
-        # when enabled, surface a leftover as a disk→config extra when disabled.
-        if plan.autosave_enabled:
-            _file_drift(report, action, plan.autosave_plist_path, plan.render_autosave_plist(),
-                        "autosave launchd plist")
-        elif plan.autosave_plist_path.is_file():
-            report.items.append(
-                DriftItem("extra", "tmux", action.item, plan.autosave_plist_path,
-                          "autosave launchd plist present but tmux.autosave is disabled "
-                          "(it still saves periodically — remove it or re-enable autosave)")
-            )
-
-    # 4) the wiring in ~/.tmux.conf (the managed REGION only — user lines are ignored).
-    conf_text = plan.conf_path.read_text(encoding="utf-8") if plan.conf_path.is_file() else ""
-    if plan.apply_mode == "block":
-        if BLOCK_BEGIN not in conf_text or BLOCK_END not in conf_text:
-            report.items.append(
-                DriftItem("missing", "tmux", action.item, plan.conf_path,
-                          "managed tmux block missing from ~/.tmux.conf")
-            )
-        elif _managed_block_body(conf_text, BLOCK_BEGIN, BLOCK_END) != desired_conf.strip("\n"):
-            report.items.append(
-                DriftItem("modified", "tmux", action.item, plan.conf_path,
-                          "managed tmux block in ~/.tmux.conf differs from the configured block")
-            )
-    else:  # import mode — the EXACT import line must be present (not a substring/comment).
-        import_line = plan.import_line()
-        rig_conf_name = plan.rig_conf_path.name
-        if not any(ln.strip() == import_line for ln in conf_text.splitlines()):
-            report.items.append(
-                DriftItem("missing", "tmux", action.item, plan.conf_path,
-                          "source-file import line missing from ~/.tmux.conf")
-            )
-        # A STALE rig import (a `source-file …/rig.tmux.conf` from an OLD generated_dir) is still
-        # active — tmux sources that old managed file — and `rig apply` WOULD remove it. Flag it,
-        # so status doesn't read in-sync while a stale managed config is live (codex P2).
-        elif any(
-            _is_rig_import_line(ln, import_line, rig_conf_name) and ln.strip() != import_line
-            for ln in conf_text.splitlines()
-        ):
-            report.items.append(
-                DriftItem("modified", "tmux", action.item, plan.conf_path,
-                          "a STALE rig source-file import (old generated_dir) is still in "
-                          "~/.tmux.conf — apply removes it")
-            )
-        else:
-            # ORDERING drift: rig appends its import LAST so its generated config (which fixes the
-            # Moshi-vs-continuum ordering) wins. If a user added an executable line AFTER the rig
-            # import, tmux runs it after rig.tmux.conf and can undo the fix (e.g. a trailing
-            # `status-right ''`). apply re-appends the import at the end → flag it (codex P2).
-            code = [ln for ln in conf_text.splitlines() if ln.strip() and not ln.strip().startswith("#")]
-            if code and code[-1].strip() != import_line:
-                report.items.append(
-                    DriftItem("modified", "tmux", action.item, plan.conf_path,
-                              "rig's source-file import is not the LAST line of ~/.tmux.conf "
-                              "(a later line can undo the generated ordering) — apply re-appends it")
-                )
-
-    # 5) live activation state (DEFECTS 4/6): the resurrect snapshot dir + the plugin checkouts.
-    # apply now MANAGES these; status must surface them so a clean machine's "no snapshot / no
-    # plugins" doesn't read as in-sync (codex finding). A missing/partial plugin or absent
-    # resurrect dir is `missing` drift apply reconciles. (launchd loaded-state is intentionally
-    # NOT checked here — `rig status` must stay read-only + offline, and a `launchctl list` probe
-    # is a live-daemon query; the plist content drift above already covers the agent definition.)
-    #
-    # RIG_TMUX_DRY_RUN suppresses the LIVE half of apply (no plugin clone, no resurrect dir), so
-    # status MUST suppress the matching live-state drift too — else status would report drift apply
-    # is deliberately not converging (apply/status would disagree, and `rig status` could never read
-    # in-sync under the flag, e.g. CI/smoke). The file artifacts (sections 1-4) are written even
-    # under dry-run, so their drift stays checked above; only this live section is gated. Reuse the
-    # runner's flag helper so the dry-run truthiness has ONE definition across apply + status.
-    if _tmux_dry_run():
-        return
-
-    from .tmux import PLUGINS
-
-    resurrect_dir = plan.home / ".tmux" / "resurrect"
-    if not resurrect_dir.is_dir():
-        report.items.append(
-            DriftItem("missing", "tmux", action.item, resurrect_dir,
-                      "~/.tmux/resurrect missing (resurrect writes no snapshot → nothing to "
-                      "restore on reboot) — apply creates it")
-        )
-    plugins_dir = plan.home / ".tmux" / "plugins"
-    for name, (_repo, entry) in PLUGINS.items():
-        dest = plugins_dir / name
-        if not (dest / entry).exists():
-            report.items.append(
-                DriftItem("missing", "tmux", action.item, dest,
-                          f"tmux plugin {name} not installed (the @plugin decl won't resolve) "
-                          "— apply clones it")
-            )
-
-
-def _check_tools(action: Action, report: DriftReport) -> None:
-    """Flag drift on the personal CLI ecosystem (a declared tool not installed/advertised/dependent).
-
-    missing — a declared tool whose bin does NOT resolve (no managed symlink, not on PATH): the
-              ecosystem install never ran or was removed. ``rig apply`` runs its install.sh. A
-              declared Homebrew formula (``brew:``) that Homebrew does NOT report as installed is
-              ALSO ``missing`` — one item per absent formula, checked independently of the bin/
-              advertised state (a formula can go missing — e.g. ``brew uninstall`` — without
-              touching the managed symlink at all). ``rig apply`` runs ``brew install`` for it —
-              UNLESS ``brew`` itself isn't on PATH, in which case the detail says so instead of
-              promising an action apply cannot perform (review finding).
-    modified — a tool whose bin resolves but whose skill is NOT advertised (no blurb marker):
-               it's reachable but agents can't auto-discover it; apply re-runs install.sh to wire
-               up ``install-skill``.
-    Shares the desired-spec computation (:func:`tools.tool_status`) with the install handler, and
-    the SAME single-probe ``brew list --formula`` snapshot (:func:`runner._brew_installed_snapshot`)
-    the install handler uses to decide whether to run ``brew install`` — ONE Homebrew shell-out for
-    the whole carrier (not one per declared formula, review finding), so apply and status can never
-    disagree. Cross-platform (no launchd); pure reads (no disk/Homebrew mutation).
-    """
-    from . import tools as toolsmod
-
-    plan = toolsmod.plan_from_action_options(action.options)
-    any_brew = any(spec.brew_formulae for spec in plan.specs)
-    installed, brew_path = _brew_installed_snapshot() if any_brew else (frozenset(), None)
-    for spec in plan.specs:
-        st = toolsmod.tool_status(spec)
-        if not st.bin_resolves:
-            report.items.append(
-                DriftItem(
-                    "missing", "tools", spec.name, spec.managed_bin,
-                    f"tool '{spec.name}' declared but not installed "
-                    f"(no bin at {spec.managed_bin}, not on PATH) — apply runs its install.sh",
-                )
-            )
-        elif not st.advertised:
-            report.items.append(
-                DriftItem(
-                    "modified", "tools", spec.name, spec.blurb_file,
-                    f"tool '{spec.name}' installed but not advertised "
-                    f"(no skill blurb at {spec.blurb_file}) — apply re-runs install-skill",
-                )
-            )
-        for formula in spec.brew_formulae:
-            if formula in installed:
-                continue
-            remedy = (
-                f"install Homebrew, then run `brew install {formula}`" if brew_path is None
-                else f"apply runs `brew install {formula}`"
-            )
-            report.items.append(
-                DriftItem(
-                    "missing", "tools", f"{spec.name}:{formula}", spec.repo,
-                    f"tool '{spec.name}' declares Homebrew formula '{formula}' but it is not "
-                    f"installed (`brew list --formula` does not report it) — {remedy}",
-                )
-            )
-    apt_specs = [spec for spec in plan.specs if spec.apt_packages]
-    if apt_specs and apt_packages.is_apt_system():
-        have = apt_packages.installed_snapshot()
-        for spec in apt_specs:
-            for package in apt_packages.missing(spec.apt_packages, have):
-                remedy = (
-                    f"run `{apt_packages.manual_command([package])}` (apply installs it only as root or "
-                    f"through `sudo -n`, otherwise it just reports this line)"
-                )
-                report.items.append(
-                    DriftItem(
-                        "missing", "tools", f"{spec.name}:{package}", spec.repo,
-                        f"tool '{spec.name}' declares apt package '{package}' but dpkg does not report "
-                        f"it installed — {remedy}",
-                    )
-                )
-
-
-def _check_tg_ctl(action: Action, report: DriftReport) -> None:
-    """Flag drift on the rig-managed tg-ctl LaunchAgent (macOS).
-
-    missing  — boot enabled but the plist is absent, OR present + byte-identical but the agent is
-               NOT loaded in the gui domain (launchd never picked it up → daemon not running).
-    modified — the plist on disk differs from the desired byte-exact render (a hand edit, or an
-               upgrade that changed the args/PATH). ``rig apply`` reconciles + (re)loads.
-    extra    — a leftover plist when boot is DISABLED (it still auto-starts the daemon), OR the
-               stale predecessor ``com.ultra.codex-tg-bot`` plist (apply boots it out + removes it).
-    Off darwin (no launchd) tg-ctl provisioning is a no-op, so there is nothing to check.
-    Shares the desired-plist computation with the install handler, so apply and status can never
-    disagree.
-    """
-    if not _on_darwin():
-        return
-    plan = tg_ctl_plan_from_action(action)
-
-    # the stale predecessor service is always drift while it exists (apply removes it).
-    if plan.stale_plist_path.is_file():
-        report.items.append(
-            DriftItem("extra", "tg_ctl", action.item, plan.stale_plist_path,
-                      f"stale predecessor '{STALE_PREDECESSOR_LABEL}' LaunchAgent present — "
-                      f"apply boots it out and removes it")
-        )
-
-    if not plan.boot_enabled:
-        # boot disabled: a leftover managed plist still auto-starts the daemon → surface it as a
-        # disk->config extra (apply never deletes the user's own file).
-        if plan.plist_path.is_file():
-            report.items.append(
-                DriftItem("extra", "tg_ctl", action.item, plan.plist_path,
-                          "tg-ctl boot plist present but tg_ctl.boot is disabled "
-                          "(it still starts the daemon at login — remove it or re-enable boot)")
-            )
-        return
-
-    desired = plan.render_plist()
-    if not plan.plist_path.is_file():
-        report.items.append(
-            DriftItem("missing", "tg_ctl", action.item, plan.plist_path,
-                      "tg-ctl boot LaunchAgent not installed")
-        )
-        return
-    if plan.plist_path.read_text(encoding="utf-8") != desired:
-        report.items.append(
-            DriftItem("modified", "tg_ctl", action.item, plan.plist_path,
-                      "tg-ctl boot LaunchAgent differs from the configured plist")
-        )
-        return
-    # Apply skips the bootstrap under dry-run / a sandboxed HOME (rig-cli#116), so status
-    # suppresses the matching live probe to stay consistent (as spotlight / tmux already do).
-    if not _tg_ctl_dry_run() and not _launchctl_gui_loaded(plan.boot_label):
-        report.items.append(
-            DriftItem("missing", "tg_ctl", action.item, plan.plist_path,
-                      f"tg-ctl LaunchAgent '{plan.boot_label}' installed but not loaded")
-        )
-
-
-def _check_tgctl_reaper(action: Action, report: DriftReport) -> None:
-    """Flag drift on the rig-managed tgctl-reaper periodic orphan-sweep LaunchAgent (macOS).
-
-    Full drift/status parity with ``tg_ctl`` (Alex explicitly wants durable "control" here, not
-    the weaker ``tcc_watch`` shortcut — see :mod:`riglib.tgctl_reaper`'s module docstring):
-
-    missing  — the plist is absent, OR present + byte-identical but the agent is NOT loaded in
-               the gui domain (launchd never picked it up → the StartInterval timer never fires).
-    modified — the plist OR the sweeper script on disk differs from the desired byte-exact
-               render (a hand edit, an upgrade that changed args/interval, or a machine that ran
-               the OLD manually-installed `agent-tools/ops/tgctl-omp-acp-reaper/install.sh` under
-               the SAME label with a different script path/shape). `rig apply` reconciles + (re)loads.
-    Off darwin (no launchd) tgctl-reaper provisioning is a no-op, so there is nothing to check.
-    Shares the desired-plist/script computation with the install handler, so apply and status
-    can never disagree.
-    """
-    if not _on_darwin():
-        return
-    plan = tgctl_reaper_plan_from_action(action)
-
-    desired_script = plan.render_sweeper_script()
-    if not plan.sweeper_script_path.is_file():
-        report.items.append(
-            DriftItem("missing", "tgctl_reaper", action.item, plan.sweeper_script_path,
-                      "tgctl-reaper sweeper script not installed")
-        )
-        return
-    if plan.sweeper_script_path.read_text(encoding="utf-8") != desired_script:
-        report.items.append(
-            DriftItem("modified", "tgctl_reaper", action.item, plan.sweeper_script_path,
-                      "tgctl-reaper sweeper script differs from the configured source")
-        )
-        return
-
-    desired_plist = plan.render_plist()
-    if not plan.plist_path.is_file():
-        report.items.append(
-            DriftItem("missing", "tgctl_reaper", action.item, plan.plist_path,
-                      "tgctl-reaper LaunchAgent not installed")
-        )
-        return
-    if plan.plist_path.read_text(encoding="utf-8") != desired_plist:
-        report.items.append(
-            DriftItem("modified", "tgctl_reaper", action.item, plan.plist_path,
-                      "tgctl-reaper LaunchAgent differs from the configured plist")
-        )
-        return
-    # Apply skips the bootstrap under dry-run / a sandboxed HOME (rig-cli#116), so status
-    # suppresses the matching live probe to stay consistent (as tg_ctl/spotlight/tmux already do).
-    if not _tgctl_reaper_dry_run() and not _launchctl_gui_loaded(plan.label):
-        report.items.append(
-            DriftItem("missing", "tgctl_reaper", action.item, plan.plist_path,
-                      f"tgctl-reaper LaunchAgent '{plan.label}' installed but not loaded")
-        )
-
-
-def _check_sysmon(action: Action, report: DriftReport) -> None:
-    """Flag drift on the rig-managed sysmon resource monitor (rig-cli#622).
-
-    missing  — a package module, ``sysmon.json`` or the service file is absent; the service is
-               not loaded; or it is loaded but its heartbeat is stale (the daemon is crash-looping
-               or wedged — a monitor that does not run must not read as healthy).
-    modified — a package module / ``sysmon.json`` / the service file differs from the render
-               (a hand edit, or a rig upgrade not yet applied). ``rig apply`` reconciles.
-    Shares every desired byte with the install handler (``sysmon_plan_from_action``).
-    """
-    if sys.platform != "darwin" and not sys.platform.startswith("linux"):
-        return
-    plan = sysmon_plan_from_action(action)
-    desired_files = sysmon_desired_files(plan)
-    missing = [p for p in desired_files if not p.is_file()]
-    differs = [p for p, text in desired_files.items() if p.is_file() and p.read_text(encoding="utf-8") != text]
-    for path in missing[:3]:
-        report.items.append(DriftItem("missing", "sysmon", action.item, path, "sysmon file not installed"))
-    for path in differs[:3]:
-        report.items.append(DriftItem("modified", "sysmon", action.item, path,
-                                      "sysmon file differs from the configured render"))
-    service_path = plan.plist_path if sys.platform == "darwin" else plan.unit_path
-    desired = plan.render_plist() if sys.platform == "darwin" else plan.render_unit()
-    if not service_path.is_file():
-        report.items.append(DriftItem("missing", "sysmon", action.item, service_path, "sysmon service not installed"))
-        return
-    if service_path.read_text(encoding="utf-8") != desired:
-        report.items.append(DriftItem("modified", "sysmon", action.item, service_path,
-                                      "sysmon service differs from the configured render"))
-        return
-    if missing or differs or _sysmon_dry_run():
-        return
-    if not _sysmon_service_loaded(plan):
-        report.items.append(DriftItem("missing", "sysmon", action.item, service_path,
-                                      f"sysmon service '{plan.label}' installed but not loaded"))
-        return
-    from .sysmon_daemon.cli import health
-    from .sysmon_daemon.config import load
-
-    h = health(load(plan.config_path))
-    if h["state"] != "running":
-        age = f", heartbeat {h['age_s']:.0f}s old" if h["age_s"] is not None else ""
-        report.items.append(DriftItem("missing", "sysmon", action.item, plan.state_dir,
-                                      f"sysmon service loaded but the daemon is {h['state']}{age}"))
-
-
-
-def _check_internal_dev(action: Action, report: DriftReport) -> None:
-    """Flag drift on the per-repo daemon auto-reload post-commit hook.
-
-    Compares the rendered hook against the file at the resolved (worktree-correct) git-hooks
-    path — the SAME rendering the runner writes, so status and apply can never disagree. The
-    machine-global composer trampoline is a live/global apply-time concern (mirrors tg_ctl's
-    boot plist) and is not checked here; a missing repo-local hook already surfaces the drift
-    that matters to the repo.
-    """
-    from . import dev_reload
-
-    repo_root = action.source
-    dplan = dev_reload.build_dev_reload(
-        repo_root=repo_root,
-        daemon_source_paths=action.options.get("daemon_source_paths", []),
-        reload_command=action.options.get("reload_command", dev_reload.DEFAULT_RELOAD_COMMAND),
-    )
-    target = dev_reload.post_commit_hook_path(repo_root)
-    if not target.is_file():
-        report.items.append(
-            DriftItem("missing", "internal_dev", action.item, target,
-                      "dev-reload post-commit hook not installed")
-        )
-        return
-    if target.read_text(encoding="utf-8") != dplan.render_hook():
-        report.items.append(
-            DriftItem("modified", "internal_dev", action.item, target,
-                      "post-commit hook differs from the rig-generated dev-reload hook")
-        )
-
-
-def _file_drift(report: DriftReport, action: Action, path: Path, desired: str, label: str) -> None:
-    """Append a ``missing`` (absent) or ``modified`` (content differs) DriftItem for a rig file."""
-    if not path.is_file():
-        report.items.append(DriftItem("missing", "tmux", action.item, path, f"{label} not installed"))
-    elif path.read_text(encoding="utf-8") != desired:
-        report.items.append(DriftItem("modified", "tmux", action.item, path, f"{label} differs from generated"))
-
-
-def _managed_block_body(conf_text: str, begin: str, end: str) -> str | None:
-    """The text BETWEEN the managed sentinels (exclusive), or None when absent/malformed."""
-    b = conf_text.find(begin)
-    e = conf_text.find(end)
-    if b == -1 or e == -1 or e <= b:
-        return None
-    return conf_text[b + len(begin):e].strip("\n")
-
-
-def _on_darwin() -> bool:
-    import sys
-    return sys.platform == "darwin"
-
-
-def _mcp_config_file(action: Action) -> Path:
-    target = action.target
-    return target if target.suffix == ".json" else target / "mcp.json"
-
-
-def _check_mcp(action: Action, report: DriftReport) -> None:
-    command = str(action.options.get("command", "")).strip()
-    if not command:
-        return
-    server_key = str(action.options.get("server") or action.item)
-    config_file = _mcp_config_file(action)
-    desired = desired_mcp_server_entry(action.options)
-    existing = None
-    if config_file.is_file():
-        try:
-            data = json.loads(config_file.read_text(encoding="utf-8"))
-            servers = data.get("mcpServers", {}) if isinstance(data, dict) else {}
-            existing = servers.get(server_key) if isinstance(servers, dict) else None
-        except ValueError:
-            existing = None
-    if existing is None:
-        report.items.append(
-            DriftItem("missing", "mcp", server_key, config_file, "MCP entry not registered")
-        )
-    elif existing != desired:
-        report.items.append(
-            DriftItem("modified", "mcp", server_key, config_file, "MCP entry differs from config (command/args/env)")
-        )

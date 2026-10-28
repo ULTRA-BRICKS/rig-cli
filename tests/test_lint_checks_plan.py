@@ -19,6 +19,7 @@ from riglib.catalog import Catalog
 from riglib.cli import main
 from riglib.config import LoadedConfig
 from riglib.plan import build
+from riglib.actions import agent_hook_install as agent_hook_install_mod
 
 pytestmark = pytest.mark.usefixtures("pinned_rig")
 
@@ -389,14 +390,14 @@ def test_unsupported_platform_keeps_the_analyzer_action_but_never_the_hook(fake_
 
 
 def test_hook_pins_the_running_rig_and_never_a_bare_name(fake_agent_tools, tmp_path, monkeypatch):
-    from riglib.actions import runner
+    from riglib.actions import agent_hook_install as agent_hook_install_mod
 
     def missing() -> str:
-        raise runner.RigPinError("cannot pin rig: not started from a launcher and none on PATH")
+        raise agent_hook_install_mod.RigPinError("cannot pin rig: not started from a launcher and none on PATH")
 
-    monkeypatch.setattr(runner, "pinned_rig_path", missing)
+    monkeypatch.setattr(agent_hook_install_mod, "pinned_rig_path", missing)
     plan = _plan(fake_agent_tools, tmp_path, _dispatcher(tmp_path))
     assert "install_lint_check_hook" not in _lint_actions(plan)
     assert any("pre-commit hook NOT installed" in n and "cannot pin rig" in n for n in plan.notes)
-    monkeypatch.setattr(runner, "pinned_rig_path", lambda: "/usr/local/bin/rig")
+    monkeypatch.setattr(agent_hook_install_mod, "pinned_rig_path", lambda: "/usr/local/bin/rig")
     assert _lint_actions(_plan(fake_agent_tools, tmp_path, _dispatcher(tmp_path)))["install_lint_check_hook"].options["rig_bin"] == "/usr/local/bin/rig"

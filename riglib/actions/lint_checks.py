@@ -2,8 +2,7 @@
 
 Registered in :data:`riglib.actions.runner._HANDLERS`. All three are idempotent (a converged
 machine/repo is ``skipped``), honour ``on_conflict`` for files rig did not write, and never execute
-the analyzer. ``ActionResult`` and the safe-path classifier live in ``runner`` (which imports this
-module at load), so they are imported inside the handlers.
+the analyzer.
 
 The analyzer is written under whatever ``HOME``/``XDG_DATA_HOME`` rig runs with, sandboxed or not:
 ``rig status`` and ``rig lint check`` look for it in that same place, so skipping the install on an
@@ -23,11 +22,13 @@ from pathlib import Path
 from .. import cccc_install
 from .. import lint_checks_artifacts as arts
 from . import fsutil
+from .linter_config import resolve_linter_config
+from .live_env import _env_flag
+from .result import ActionResult
+from .shared import _chmod_x_if_changed
 
 
 def _dry_run() -> bool:
-    from .runner import _env_flag
-
     return _env_flag("RIG_CCCC_DRY_RUN")
 
 
@@ -54,8 +55,6 @@ def _set_aside_mismatch(dest: Path, on_conflict: str) -> tuple[str, Path | None]
 
 
 def do_install_cccc(action, on_conflict: str):
-    from .runner import ActionResult
-
     state = cccc_install.inspect()
     if state.state == "ok":
         return ActionResult(action, "skipped", f"cccc v{cccc_install.PINNED_VERSION} already installed and verified")
@@ -95,8 +94,6 @@ def _hook_blocker(action) -> tuple[str, str] | None:
 
 
 def do_install_hook(action, on_conflict: str):
-    from .runner import ActionResult, _chmod_x_if_changed
-
     blocked = _hook_blocker(action)
     if blocked is not None:
         return ActionResult(action, blocked[0], blocked[1])
@@ -107,8 +104,6 @@ def do_install_hook(action, on_conflict: str):
 
 
 def do_install_workflow(action, on_conflict: str):
-    from .runner import ActionResult, resolve_linter_config
-
     rel_path = str(action.options["rel_path"])
     content = arts.render_workflow(str(action.options["rig_source"]), bool(action.options["with_analyzer"]))
     r = resolve_linter_config(action.target, rel_path, content)

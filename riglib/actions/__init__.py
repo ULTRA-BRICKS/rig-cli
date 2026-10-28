@@ -16,6 +16,7 @@ the TUI Apply screen render the same results — one code path, two front-ends.
 
 from __future__ import annotations
 
-from .runner import ActionResult, ApplyReport, run_plan
+from .result import ActionResult, ApplyReport
+from .runner import run_plan
 
 __all__ = ["ActionResult", "ApplyReport", "run_plan"]

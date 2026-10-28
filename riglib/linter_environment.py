@@ -3,39 +3,23 @@
 Stdlib-only. The gate is deliberately repository-local and reproducible: a globally installed
 binary is not enough for a committed generated config whose imports/scripts must also work in CI.
 This module does not mutate package manifests; it produces an actionable gate and a copy-ready
-migration prompt for a human or coding agent.
+migration prompt for a human or coding agent. Detection facts come from ``linter_environment_facts``
+(``lint_discovery`` in a git toplevel, a root-only reader elsewhere).
 """
+
 from __future__ import annotations
 
-import json
-import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-_FOREIGN_LINTER_PACKAGES = {
-    "eslint": "ESLint",
-    "@biomejs/biome": "Biome",
-    "standard": "StandardJS",
-    "xo": "XO",
-    "tslint": "TSLint",
-}
-_FOREIGN_CONFIG_GLOBS = {
-    "ESLint": ("eslint.config.*", ".eslintrc", ".eslintrc.*"),
-    "Biome": ("biome.json", "biome.jsonc"),
-    "TSLint": ("tslint.json",),
-}
-_OXC_PACKAGES = ("oxlint", "oxfmt", "@oxlint/plugins")
-_FOREIGN_FORMATTER_PACKAGES = {
-    "prettier": "Prettier",
-    "@biomejs/biome": "Biome",
-    "dprint": "dprint",
-}
-_FOREIGN_FORMATTER_CONFIG_GLOBS = {
-    "Prettier": (".prettierrc", ".prettierrc.*", "prettier.config.*"),
-    "Biome": ("biome.json", "biome.jsonc"),
-    "dprint": ("dprint.json", "dprint.jsonc"),
-}
+from .linter_environment_facts import RepoFacts, gather_facts
+
+MIN_TYPE_AWARE_TYPESCRIPT = 7
+
+
+def required_oxc_packages(*, anti_slop: bool, type_aware: bool) -> tuple[str, ...]:
+    """Oxc packages the active policy imports: `@oxlint/plugins` only for the anti-slop plugin, tsgolint only for type-aware rules."""
+    return ("oxlint",) + (("@oxlint/plugins",) if anti_slop else ()) + (("oxlint-tsgolint",) if type_aware else ())
 
 
 @dataclass(frozen=True)
@@ -46,86 +30,25 @@ class LinterEnvironment:
     missing_oxc_packages: tuple[str, ...]
     reason: str
     agent_prompt: str
+    # Type-aware Oxlint needs oxlint-tsgolint AND a resolved TypeScript >= 7 (decision D10).
+    type_aware: bool = False
+    type_aware_reason: str = ""
+    config_files: tuple[str, ...] = ()   # existing oxlint config files at the repo root
 
 
-def _package_manifest(repo_root: Path) -> dict[str, Any]:
-    path = repo_root / "package.json"
-    if not path.is_file():
-        return {}
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return {}
-    return raw if isinstance(raw, dict) else {}
+def _join_names(names: tuple[str, ...]) -> str:
+    if len(names) <= 2:
+        return " and ".join(names)
+    return ", ".join(names[:-1]) + ", and " + names[-1]
 
 
-def _declared_packages(manifest: dict[str, Any]) -> set[str]:
-    out: set[str] = set()
-    for key in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies"):
-        block = manifest.get(key)
-        if isinstance(block, dict):
-            out.update(str(name) for name in block)
-    return out
-
-
-def _script_text(manifest: dict[str, Any]) -> str:
-    scripts = manifest.get("scripts")
-    if not isinstance(scripts, dict):
-        return ""
-    return "\n".join(value for value in scripts.values() if isinstance(value, str)).lower()
-
-
-def _script_tokens(manifest: dict[str, Any]) -> set[str]:
-    """Executable/package tokens in package scripts; exact tokens avoid `standard-version` false positives."""
-    scripts = manifest.get("scripts")
-    if not isinstance(scripts, dict):
-        return set()
-    out: set[str] = set()
-    for value in scripts.values():
-        if not isinstance(value, str):
-            continue
-        try:
-            parts = shlex.split(value, posix=True)
-        except ValueError:
-            parts = value.split()
-        for part in parts:
-            token = part.strip().lower().replace("\\", "/").rsplit("/", 1)[-1]
-            if token and token not in {"&&", "||", ";", "|"}:
-                out.add(token)
-    return out
-
-
-def _foreign_from_files(repo_root: Path) -> set[str]:
-    found: set[str] = set()
-    for label, patterns in _FOREIGN_CONFIG_GLOBS.items():
-        if any(any(repo_root.glob(pattern)) for pattern in patterns):
-            found.add(label)
-    return found
-
-
-def _foreign_from_scripts(manifest: dict[str, Any]) -> set[str]:
-    tokens = _script_tokens(manifest)
-    found: set[str] = set()
-    token_map = {
-        "eslint": "ESLint",
-        "biome": "Biome",
-        "standard": "StandardJS",
-        "xo": "XO",
-        "tslint": "TSLint",
-    }
-    for token, label in token_map.items():
-        if token in tokens:
-            found.add(label)
-    return found
-
-
-def _prompt(*, foreign: tuple[str, ...], missing: tuple[str, ...]) -> str:
+def _prompt(*, foreign: tuple[str, ...], required: tuple[str, ...], missing: tuple[str, ...]) -> str:
     foreign_text = ", ".join(foreign) if foreign else "no existing linter"
     missing_text = ", ".join(missing) if missing else "none"
     return (
         "Prepare this repository for Rig-managed Oxc lint policy. "
         f"Current lint environment: {foreign_text}. Missing Oxc packages: {missing_text}. "
-        "Install compatible oxlint, oxfmt, and @oxlint/plugins as repository development "
+        f"Install compatible {_join_names(required)} as repository development "
         "dependencies using the existing package manager; do not rely on a globally installed "
         "binary because CI and other developers must reproduce the toolchain. Migrate lint/format "
         "scripts and CI from any foreign linter to Oxc without deleting project-specific semantics; "
@@ -147,18 +70,9 @@ class FormatterEnvironment:
 
 def inspect_formatter_environment(repo_root: Path) -> FormatterEnvironment:
     """Return repository-local Oxfmt readiness independently of the lint gate."""
-    manifest = _package_manifest(repo_root)
-    packages = _declared_packages(manifest)
-    oxfmt_present = "oxfmt" in packages
-    foreign = {label for pkg, label in _FOREIGN_FORMATTER_PACKAGES.items() if pkg in packages}
-    for label, patterns in _FOREIGN_FORMATTER_CONFIG_GLOBS.items():
-        if any(any(repo_root.glob(pattern)) for pattern in patterns):
-            foreign.add(label)
-    script_tokens = _script_tokens(manifest)
-    for token, label in (("prettier", "Prettier"), ("biome", "Biome"), ("dprint", "dprint")):
-        if token in script_tokens:
-            foreign.add(label)
-    names = tuple(sorted(foreign))
+    facts = gather_facts(repo_root)
+    oxfmt_present = "oxfmt" in facts.packages
+    names = tuple(sorted(facts.foreign_formatters))
     if oxfmt_present:
         reason = "Repository-local Oxfmt is declared; Rig can apply the formatter baseline."
     elif names:
@@ -176,44 +90,39 @@ def inspect_formatter_environment(repo_root: Path) -> FormatterEnvironment:
     return FormatterEnvironment(oxfmt_present, oxfmt_present, names, reason, prompt)
 
 
-def inspect_linter_environment(repo_root: Path) -> LinterEnvironment:
+def _type_aware(facts: RepoFacts) -> tuple[bool, str]:
+    """Whether type-aware Oxlint rules can run, with a sentence saying why (or why not)."""
+    major = facts.typescript_major
+    if "oxlint-tsgolint" not in facts.packages:
+        return False, "oxlint-tsgolint is not declared"
+    if major is None:
+        return False, f"TypeScript is not declared or installed; type-aware Oxlint needs TypeScript >= {MIN_TYPE_AWARE_TYPESCRIPT}"
+    if major < MIN_TYPE_AWARE_TYPESCRIPT:
+        return False, f"TypeScript {major} is older than the {MIN_TYPE_AWARE_TYPESCRIPT} that type-aware Oxlint needs"
+    return True, f"oxlint-tsgolint is declared and TypeScript {major} >= {MIN_TYPE_AWARE_TYPESCRIPT}"
+
+
+def _blocked_reason(foreign: tuple[str, ...]) -> str:
+    if foreign:
+        return "Rig rule policy is blocked because this repository uses " + ", ".join(foreign) + " but repository-local Oxlint is not declared."
+    return "Rig rule policy is blocked because no repository-local Oxlint dependency was detected."
+
+
+def inspect_linter_environment(repo_root: Path, *, anti_slop: bool = False) -> LinterEnvironment:
     """Return the reproducible Oxc readiness gate for one repository."""
-    manifest = _package_manifest(repo_root)
-    packages = _declared_packages(manifest)
+    facts = gather_facts(repo_root)
     # A PATH-global `oxlint` is intentionally NOT sufficient: the committed generated config and
     # package scripts have to work on a clean CI/developer checkout too.
-    oxlint_present = "oxlint" in packages
-    foreign_set = {label for pkg, label in _FOREIGN_LINTER_PACKAGES.items() if pkg in packages}
-    foreign_set.update(_foreign_from_files(repo_root))
-    foreign_set.update(_foreign_from_scripts(manifest))
-    foreign = tuple(sorted(foreign_set))
-    missing = tuple(pkg for pkg in _OXC_PACKAGES if pkg not in packages)
-
-    if oxlint_present:
-        return LinterEnvironment(
-            ready=True,
-            oxlint_present=True,
-            foreign_linters=foreign,
-            missing_oxc_packages=missing,
-            reason="Repository-local Oxlint is declared; Rig can apply the rule policy.",
-            agent_prompt=_prompt(foreign=foreign, missing=missing),
-        )
-
-    if foreign:
-        reason = (
-            "Rig rule policy is blocked because this repository uses "
-            + ", ".join(foreign)
-            + " but repository-local Oxlint is not declared."
-        )
-    else:
-        reason = (
-            "Rig rule policy is blocked because no repository-local Oxlint dependency was detected."
-        )
+    oxlint_present = "oxlint" in facts.packages
+    foreign = tuple(sorted(facts.foreign_linters))
+    type_aware, type_reason = _type_aware(facts)
+    # tsgolint is wanted as soon as the repo resolves TypeScript >= 7 (the only case type-aware rules can run)
+    wanted = facts.typescript_major is not None and facts.typescript_major >= MIN_TYPE_AWARE_TYPESCRIPT
+    required = required_oxc_packages(anti_slop=anti_slop, type_aware=wanted)
+    missing = tuple(pkg for pkg in required if pkg not in facts.packages)
+    reason = "Repository-local Oxlint is declared; Rig can apply the rule policy." if oxlint_present else _blocked_reason(foreign)
     return LinterEnvironment(
-        ready=False,
-        oxlint_present=False,
-        foreign_linters=foreign,
-        missing_oxc_packages=missing,
-        reason=reason,
-        agent_prompt=_prompt(foreign=foreign, missing=missing),
+        ready=oxlint_present, oxlint_present=oxlint_present, foreign_linters=foreign, missing_oxc_packages=missing,
+        reason=reason, agent_prompt=_prompt(foreign=foreign, required=required, missing=missing),
+        type_aware=type_aware, type_aware_reason=type_reason, config_files=facts.oxlint_configs,
     )

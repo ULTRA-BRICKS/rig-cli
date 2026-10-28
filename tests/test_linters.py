@@ -21,12 +21,8 @@ from pathlib import Path
 
 import pytest
 
-from riglib.actions.runner import (
-    LinterConfigResolution,
-    _do_provision_linter_config,
-    resolve_linter_config,
-    run_plan,
-)
+from riglib.actions.runner import _do_provision_linter_config, run_plan
+from riglib.actions.linter_config import LinterConfigResolution, resolve_linter_config
 from riglib.config import ConfigError, LoadedConfig, validate
 from riglib.drift import detect
 from riglib.plan import Action, InstallPlan, build
@@ -652,3 +648,103 @@ def test_full_roundtrip_is_idempotent(tmp_path, monkeypatch):
     assert all(r.status == "skipped" for r in report2.results)
     assert not list(repo.glob("*.rig-bak-*"))
     assert detect(plan).in_sync
+
+
+# ── Oxc rule-policy planning: package and type-aware gating (rig-cli#781) ───────────
+def _oxc_plan(repo: Path, rules: dict, *, package: dict | None, typescript: str | None = None) -> InstallPlan:
+    import json
+
+    from riglib.catalog import Catalog
+    from riglib.plan import _build_linters
+
+    if package is not None:
+        (repo / "package.json").write_text(json.dumps(package), encoding="utf-8")
+    if typescript is not None:
+        ts_dir = repo / "node_modules" / "typescript"
+        ts_dir.mkdir(parents=True)
+        (ts_dir / "package.json").write_text(json.dumps({"name": "typescript", "version": typescript}), encoding="utf-8")
+    loaded = LoadedConfig(data={"linters": {"rules": rules}}, repo_root=repo)
+    plan = InstallPlan()
+    _build_linters(loaded, Catalog(source=repo), plan)
+    return plan
+
+
+def _policy(plan: InstallPlan) -> Action | None:
+    return next((a for a in plan.actions if a.item == "rig-oxlint-policy"), None)
+
+
+_NO_SLOP = {"groups": {"anti-slop": False}}
+
+
+def test_policy_without_anti_slop_does_not_require_oxlint_plugins(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    plan = _oxc_plan(repo, _NO_SLOP, package={"devDependencies": {"oxlint": "1.90.0"}})
+    action = _policy(plan)
+    assert action is not None, [a.options.get("reason") for a in plan.actions]
+    assert not [a for a in plan.actions if a.kind == "lint_policy_blocked"]
+    assert "typeAware" not in action.options["content"]
+
+
+def test_anti_slop_policy_blocks_until_oxlint_plugins_is_declared(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    plan = _oxc_plan(repo, {}, package={"devDependencies": {"oxlint": "1.90.0"}})
+    blocked = [a for a in plan.actions if a.kind == "lint_policy_blocked"]
+    assert len(blocked) == 1 and "@oxlint/plugins" in blocked[0].options["reason"]
+    assert _policy(plan) is None
+
+
+def test_type_aware_requires_tsgolint_and_typescript_7(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    deps = {"devDependencies": {"oxlint": "1.90.0", "oxlint-tsgolint": "7.0.2005", "typescript": "7.0.2"}}
+    plan = _oxc_plan(repo, _NO_SLOP, package=deps, typescript="7.0.2")
+    action = _policy(plan)
+    assert action is not None
+    assert "options: { typeAware: true }" in action.options["content"]
+    assert '"typescript/no-unsafe-type-assertion"' in action.options["content"]
+
+
+def test_typescript_7_without_tsgolint_drops_only_the_type_aware_portion_with_a_note(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    deps = {"devDependencies": {"oxlint": "1.90.0", "typescript": "7.0.2"}}
+    plan = _oxc_plan(repo, _NO_SLOP, package=deps, typescript="7.0.2")
+    assert not [a for a in plan.actions if a.kind == "lint_policy_blocked"], "tsgolint is optional: the core policy applies"
+    action = _policy(plan)
+    assert action is not None and "typeAware" not in action.options["content"]
+    assert '"correctness": "error"' in action.options["content"] or 'correctness: "error"' in action.options["content"]
+    assert any("type-aware linting disabled" in n and "oxlint-tsgolint" in n for n in plan.notes)
+
+
+def test_typescript_7_with_tsgolint_has_no_type_aware_note(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    deps = {"devDependencies": {"oxlint": "1.90.0", "oxlint-tsgolint": "7.0.2005", "typescript": "7.0.2"}}
+    plan = _oxc_plan(repo, _NO_SLOP, package=deps, typescript="7.0.2")
+    assert not any("type-aware linting disabled" in n for n in plan.notes)
+
+
+def test_typescript_5_never_gets_type_aware_even_with_tsgolint(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    deps = {"devDependencies": {"oxlint": "1.90.0", "oxlint-tsgolint": "7.0.2005", "typescript": "5.9.3"}}
+    plan = _oxc_plan(repo, _NO_SLOP, package=deps, typescript="5.9.3")
+    action = _policy(plan)
+    assert action is not None
+    assert "typeAware" not in action.options["content"]
+    assert "--type-check" not in action.options["content"]
+
+
+def test_both_oxlint_flavors_present_block_the_policy_instead_of_writing_into_the_ambiguity(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    (repo / ".oxlintrc.json").write_text("{}\n", encoding="utf-8")
+    (repo / "oxlint.config.ts").write_text("export default {};\n", encoding="utf-8")
+    plan = _oxc_plan(repo, _NO_SLOP, package={"devDependencies": {"oxlint": "1.90.0"}})
+    blocked = [a for a in plan.actions if a.kind == "lint_policy_blocked"]
+    assert len(blocked) == 1 and ".oxlintrc.json" in blocked[0].options["reason"]
+    assert _policy(plan) is None
+
+
+def test_other_flavor_oxlint_config_blocks_the_rig_owned_ts_config(tmp_path):
+    repo = _git_repo(tmp_path / "repo")
+    (repo / ".oxlintrc.json").write_text("{}\n", encoding="utf-8")
+    plan = _oxc_plan(repo, _NO_SLOP, package={"devDependencies": {"oxlint": "1.90.0"}})
+    blocked = [a for a in plan.actions if a.kind == "lint_policy_blocked"]
+    assert len(blocked) == 1 and ".oxlintrc.json" in blocked[0].options["reason"]
+    assert _policy(plan) is None

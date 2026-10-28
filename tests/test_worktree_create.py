@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 from riglib import errors, worktree
-from riglib.actions.runner import reconcile_worktrees_exclude, worktrees_exclude_block_text
+from riglib.actions.worktrees_exclude import reconcile_worktrees_exclude, worktrees_exclude_block_text
 from riglib.cli import main
 from riglib.config import (
     WORKTREES_DIR_NAME,

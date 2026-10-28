@@ -20,8 +20,12 @@ from pathlib import Path
 import pytest
 
 from riglib import drift as driftmod
+from riglib import drift_env
 from riglib import tools
 from riglib.actions import runner
+from riglib.actions import tools_provision as tools_provision_mod
+import shutil
+import subprocess
 from riglib.config import ConfigError, validate
 from riglib.plan import Action
 
@@ -443,13 +447,13 @@ def test_mixed_outcomes_fold_to_error_but_report_each(tmp_path, monkeypatch):
 def test_install_timeout_parse_is_crash_safe(monkeypatch):
     """A junk RIG_TOOL_INSTALL_TIMEOUT_S must NOT crash — it falls back to the 300s default."""
     monkeypatch.setenv("RIG_TOOL_INSTALL_TIMEOUT_S", "not-a-number")
-    assert runner._tool_install_timeout_s() == 300
+    assert tools_provision_mod._tool_install_timeout_s() == 300
     monkeypatch.setenv("RIG_TOOL_INSTALL_TIMEOUT_S", "-5")
-    assert runner._tool_install_timeout_s() == 300  # non-positive ignored
+    assert tools_provision_mod._tool_install_timeout_s() == 300  # non-positive ignored
     monkeypatch.setenv("RIG_TOOL_INSTALL_TIMEOUT_S", "42")
-    assert runner._tool_install_timeout_s() == 42
+    assert tools_provision_mod._tool_install_timeout_s() == 42
     monkeypatch.delenv("RIG_TOOL_INSTALL_TIMEOUT_S", raising=False)
-    assert runner._tool_install_timeout_s() == 300
+    assert tools_provision_mod._tool_install_timeout_s() == 300
 
 
 def test_no_specs_is_skipped(tmp_path):
@@ -469,9 +473,9 @@ def test_brew_installed_snapshot_lists_formulae_from_one_brew_call(monkeypatch):
         calls.append(cmd)
         return subprocess.CompletedProcess(cmd, 0, stdout="forgejo-cli\nlefthook\n", stderr="")
 
-    monkeypatch.setattr(runner.shutil, "which", lambda name: "/opt/homebrew/bin/brew" if name == "brew" else None)
-    monkeypatch.setattr(runner.subprocess, "run", fake_run)
-    installed, brew = runner._brew_installed_snapshot()
+    monkeypatch.setattr(shutil, "which", lambda name: "/opt/homebrew/bin/brew" if name == "brew" else None)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    installed, brew = tools_provision_mod._brew_installed_snapshot()
     assert installed == frozenset({"forgejo-cli", "lefthook"})
     assert brew == "/opt/homebrew/bin/brew"
     # ONE call, no formula argument -- lists everything rather than probing per name.
@@ -479,44 +483,44 @@ def test_brew_installed_snapshot_lists_formulae_from_one_brew_call(monkeypatch):
 
 
 def test_brew_installed_snapshot_empty_when_brew_list_fails(monkeypatch):
-    monkeypatch.setattr(runner.shutil, "which", lambda name: "/opt/homebrew/bin/brew" if name == "brew" else None)
+    monkeypatch.setattr(shutil, "which", lambda name: "/opt/homebrew/bin/brew" if name == "brew" else None)
     monkeypatch.setattr(
-        runner.subprocess, "run",
+        subprocess, "run",
         lambda cmd, **kwargs: subprocess.CompletedProcess(cmd, 1, stdout="", stderr="Error: brew is broken"),
     )
-    installed, brew = runner._brew_installed_snapshot()
+    installed, brew = tools_provision_mod._brew_installed_snapshot()
     assert installed == frozenset()
     assert brew == "/opt/homebrew/bin/brew"  # brew IS present -- only the list call itself failed
 
 
 def test_brew_installed_snapshot_none_when_brew_not_on_path(monkeypatch):
-    monkeypatch.setattr(runner.shutil, "which", lambda name: None)
-    installed, brew = runner._brew_installed_snapshot()
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    installed, brew = tools_provision_mod._brew_installed_snapshot()
     assert installed == frozenset()
     assert brew is None
 
 
 def test_brew_installed_snapshot_empty_on_timeout(monkeypatch):
     """`brew list` hanging must not crash the probe -- fails toward 'nothing confirmed installed'."""
-    monkeypatch.setattr(runner.shutil, "which", lambda name: "/opt/homebrew/bin/brew" if name == "brew" else None)
+    monkeypatch.setattr(shutil, "which", lambda name: "/opt/homebrew/bin/brew" if name == "brew" else None)
 
     def raise_timeout(cmd, **kwargs):
-        raise runner.subprocess.TimeoutExpired(cmd, kwargs.get("timeout"))
+        raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout"))
 
-    monkeypatch.setattr(runner.subprocess, "run", raise_timeout)
-    installed, brew = runner._brew_installed_snapshot()
+    monkeypatch.setattr(subprocess, "run", raise_timeout)
+    installed, brew = tools_provision_mod._brew_installed_snapshot()
     assert installed == frozenset()
     assert brew == "/opt/homebrew/bin/brew"  # brew resolved; only the shell-out itself hung
 
 
 def test_brew_installed_snapshot_empty_on_oserror(monkeypatch):
-    monkeypatch.setattr(runner.shutil, "which", lambda name: "/opt/homebrew/bin/brew" if name == "brew" else None)
+    monkeypatch.setattr(shutil, "which", lambda name: "/opt/homebrew/bin/brew" if name == "brew" else None)
 
     def raise_oserror(cmd, **kwargs):
         raise OSError("no such file")
 
-    monkeypatch.setattr(runner.subprocess, "run", raise_oserror)
-    installed, brew = runner._brew_installed_snapshot()
+    monkeypatch.setattr(subprocess, "run", raise_oserror)
+    installed, brew = tools_provision_mod._brew_installed_snapshot()
     assert installed == frozenset()
     assert brew == "/opt/homebrew/bin/brew"
 
@@ -526,10 +530,10 @@ def test_ensure_brew_formulae_noop_when_none_declared(tmp_path, monkeypatch):
     spec = tools.ToolSpec(name="tg", repo=tmp_path / "tg-cli", bin_dir=tmp_path / "bin")
     probed = []
     monkeypatch.setattr(
-        runner, "_brew_installed_snapshot",
+        tools_provision_mod, "_brew_installed_snapshot",
         lambda: (probed.append(1) or frozenset(), "/opt/homebrew/bin/brew"),
     )
-    error, note, changed = runner._ensure_brew_formulae(spec, dry=False)
+    error, note, changed = tools_provision_mod._ensure_brew_formulae(spec, dry=False)
     assert (error, note, changed) == ("", "", False)
     assert probed == []
 
@@ -540,15 +544,15 @@ def test_ensure_brew_formulae_already_installed_skips_install(tmp_path, monkeypa
         name="fj", repo=tmp_path / "fj-cli", bin_dir=tmp_path / "bin", brew_formulae=("forgejo-cli",)
     )
     monkeypatch.setattr(
-        runner, "_brew_installed_snapshot",
+        tools_provision_mod, "_brew_installed_snapshot",
         lambda: (frozenset({"forgejo-cli"}), "/opt/homebrew/bin/brew"),
     )
     install_calls = []
     monkeypatch.setattr(
-        runner, "_run_brew_install",
+        tools_provision_mod, "_run_brew_install",
         lambda brew, formulae: install_calls.append((brew, formulae)) or (0, ""),
     )
-    error, note, changed = runner._ensure_brew_formulae(spec, dry=False)
+    error, note, changed = tools_provision_mod._ensure_brew_formulae(spec, dry=False)
     assert error == ""
     assert "forgejo-cli" in note and "already installed" in note
     assert changed is False
@@ -562,15 +566,15 @@ def test_ensure_brew_formulae_missing_invokes_install_with_right_formulae(tmp_pa
         brew_formulae=("forgejo-cli", "lefthook"),
     )
     monkeypatch.setattr(
-        runner, "_brew_installed_snapshot",
+        tools_provision_mod, "_brew_installed_snapshot",
         lambda: (frozenset(), "/opt/homebrew/bin/brew"),
     )
     install_calls = []
     monkeypatch.setattr(
-        runner, "_run_brew_install",
+        tools_provision_mod, "_run_brew_install",
         lambda brew, formulae: install_calls.append((brew, formulae)) or (0, ""),
     )
-    error, note, changed = runner._ensure_brew_formulae(spec, dry=False)
+    error, note, changed = tools_provision_mod._ensure_brew_formulae(spec, dry=False)
     assert error == ""
     # ONE batched call carrying BOTH missing formulae, not two separate calls.
     assert install_calls == [("/opt/homebrew/bin/brew", ["forgejo-cli", "lefthook"])]
@@ -582,13 +586,13 @@ def test_ensure_brew_formulae_dry_run_never_installs(tmp_path, monkeypatch):
     spec = tools.ToolSpec(
         name="fj", repo=tmp_path / "fj-cli", bin_dir=tmp_path / "bin", brew_formulae=("forgejo-cli",)
     )
-    monkeypatch.setattr(runner, "_brew_installed_snapshot", lambda: (frozenset(), "/opt/homebrew/bin/brew"))
+    monkeypatch.setattr(tools_provision_mod, "_brew_installed_snapshot", lambda: (frozenset(), "/opt/homebrew/bin/brew"))
     install_calls = []
     monkeypatch.setattr(
-        runner, "_run_brew_install",
+        tools_provision_mod, "_run_brew_install",
         lambda brew, formulae: install_calls.append(formulae) or (0, ""),
     )
-    error, note, changed = runner._ensure_brew_formulae(spec, dry=True)
+    error, note, changed = tools_provision_mod._ensure_brew_formulae(spec, dry=True)
     assert error == ""
     assert "would install forgejo-cli" in note
     assert changed is False
@@ -600,8 +604,8 @@ def test_ensure_brew_formulae_brew_unavailable_is_actionable_error(tmp_path, mon
     spec = tools.ToolSpec(
         name="fj", repo=tmp_path / "fj-cli", bin_dir=tmp_path / "bin", brew_formulae=("forgejo-cli",)
     )
-    monkeypatch.setattr(runner, "_brew_installed_snapshot", lambda: (frozenset(), None))
-    error, note, changed = runner._ensure_brew_formulae(spec, dry=False)
+    monkeypatch.setattr(tools_provision_mod, "_brew_installed_snapshot", lambda: (frozenset(), None))
+    error, note, changed = tools_provision_mod._ensure_brew_formulae(spec, dry=False)
     assert "fj" in error and "brew is not on PATH" in error and "forgejo-cli" in error
     assert "brew install forgejo-cli" in error  # the actionable remedy command
     assert note == ""
@@ -612,9 +616,9 @@ def test_ensure_brew_formulae_install_failure_is_an_error(tmp_path, monkeypatch)
     spec = tools.ToolSpec(
         name="fj", repo=tmp_path / "fj-cli", bin_dir=tmp_path / "bin", brew_formulae=("forgejo-cli",)
     )
-    monkeypatch.setattr(runner, "_brew_installed_snapshot", lambda: (frozenset(), "/opt/homebrew/bin/brew"))
-    monkeypatch.setattr(runner, "_run_brew_install", lambda brew, formulae: (1, "Error: no available formula"))
-    error, note, changed = runner._ensure_brew_formulae(spec, dry=False)
+    monkeypatch.setattr(tools_provision_mod, "_brew_installed_snapshot", lambda: (frozenset(), "/opt/homebrew/bin/brew"))
+    monkeypatch.setattr(tools_provision_mod, "_run_brew_install", lambda brew, formulae: (1, "Error: no available formula"))
+    error, note, changed = tools_provision_mod._ensure_brew_formulae(spec, dry=False)
     assert "brew install forgejo-cli exited 1" in error
     assert "no available formula" in error
     assert changed is False
@@ -627,18 +631,18 @@ def test_run_brew_install_batches_every_formula_in_one_call(monkeypatch):
         calls.append(cmd)
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    monkeypatch.setattr(runner.subprocess, "run", fake_run)
-    rc, out = runner._run_brew_install("/opt/homebrew/bin/brew", ["forgejo-cli", "lefthook"])
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    rc, out = tools_provision_mod._run_brew_install("/opt/homebrew/bin/brew", ["forgejo-cli", "lefthook"])
     assert rc == 0
     assert calls == [["/opt/homebrew/bin/brew", "install", "forgejo-cli", "lefthook"]]
 
 
 def test_run_brew_install_timeout_is_labeled_failure_not_a_crash(monkeypatch):
     def raise_timeout(cmd, **kwargs):
-        raise runner.subprocess.TimeoutExpired(cmd, kwargs.get("timeout"))
+        raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout"))
 
-    monkeypatch.setattr(runner.subprocess, "run", raise_timeout)
-    rc, out = runner._run_brew_install("/opt/homebrew/bin/brew", ["forgejo-cli"])
+    monkeypatch.setattr(subprocess, "run", raise_timeout)
+    rc, out = tools_provision_mod._run_brew_install("/opt/homebrew/bin/brew", ["forgejo-cli"])
     assert rc == 1
     assert "timed out" in out
 
@@ -647,8 +651,8 @@ def test_run_brew_install_oserror_is_labeled_failure_not_a_crash(monkeypatch):
     def raise_oserror(cmd, **kwargs):
         raise OSError("no such file or directory")
 
-    monkeypatch.setattr(runner.subprocess, "run", raise_oserror)
-    rc, out = runner._run_brew_install("/opt/homebrew/bin/brew", ["forgejo-cli"])
+    monkeypatch.setattr(subprocess, "run", raise_oserror)
+    rc, out = tools_provision_mod._run_brew_install("/opt/homebrew/bin/brew", ["forgejo-cli"])
     assert rc == 1
     assert "could not run brew install" in out
 
@@ -660,7 +664,7 @@ def test_provision_one_tool_short_circuits_on_brew_error_before_install_sh(tmp_p
         name=base.name, repo=base.repo, bin_dir=base.bin_dir, brew_formulae=("forgejo-cli",)
     )
     _isolate_blurb(monkeypatch, blurb)
-    monkeypatch.setattr(runner, "_brew_installed_snapshot", lambda: (frozenset(), None))
+    monkeypatch.setattr(tools_provision_mod, "_brew_installed_snapshot", lambda: (frozenset(), None))
     res = _run(spec, monkeypatch)
     assert res.status == "error", res.detail
     assert "brew is not on PATH" in res.detail
@@ -674,7 +678,7 @@ def test_provision_one_tool_installs_after_brew_formula_satisfied(tmp_path, monk
     )
     _isolate_blurb(monkeypatch, blurb)
     monkeypatch.setattr(
-        runner, "_brew_installed_snapshot",
+        tools_provision_mod, "_brew_installed_snapshot",
         lambda: (frozenset({"forgejo-cli"}), "/opt/homebrew/bin/brew"),
     )
     res = _run(spec, monkeypatch)
@@ -699,8 +703,8 @@ def test_provision_one_tool_reports_installed_when_brew_mutates_an_already_insta
     blurb.parent.mkdir(parents=True, exist_ok=True)
     blurb.write_text("blurb\n")
     # ...but the declared formula is missing, so brew install actually runs.
-    monkeypatch.setattr(runner, "_brew_installed_snapshot", lambda: (frozenset(), "/opt/homebrew/bin/brew"))
-    monkeypatch.setattr(runner, "_run_brew_install", lambda brew, formulae: (0, ""))
+    monkeypatch.setattr(tools_provision_mod, "_brew_installed_snapshot", lambda: (frozenset(), "/opt/homebrew/bin/brew"))
+    monkeypatch.setattr(tools_provision_mod, "_run_brew_install", lambda brew, formulae: (0, ""))
     res = _run(spec, monkeypatch)
     assert res.status == "created", res.detail  # NOT skipped: a real brew mutation happened
     assert "installed forgejo-cli" in res.detail
@@ -720,7 +724,7 @@ def test_provision_one_tool_stays_skipped_when_formula_already_satisfied_and_too
     blurb.parent.mkdir(parents=True, exist_ok=True)
     blurb.write_text("blurb\n")
     monkeypatch.setattr(
-        runner, "_brew_installed_snapshot",
+        tools_provision_mod, "_brew_installed_snapshot",
         lambda: (frozenset({"forgejo-cli"}), "/opt/homebrew/bin/brew"),
     )
     res = _run(spec, monkeypatch)
@@ -734,7 +738,7 @@ def test_tool_without_brew_declared_never_probes_homebrew(tmp_path, monkeypatch)
     _isolate_blurb(monkeypatch, blurb)
     probed = []
     monkeypatch.setattr(
-        runner, "_brew_installed_snapshot",
+        tools_provision_mod, "_brew_installed_snapshot",
         lambda: (probed.append(1) or frozenset(), "/opt/homebrew/bin/brew"),
     )
     res = _run(spec, monkeypatch)
@@ -798,7 +802,7 @@ def test_drift_flags_missing_brew_formula(tmp_path, monkeypatch):
     blurb.parent.mkdir(parents=True, exist_ok=True)
     blurb.write_text("blurb\n")
     monkeypatch.setattr(
-        driftmod, "_brew_installed_snapshot",
+        drift_env, "_brew_installed_snapshot",
         lambda: (frozenset(), "/opt/homebrew/bin/brew"),
     )
     report = driftmod.DriftReport()
@@ -821,7 +825,7 @@ def test_drift_missing_brew_formula_names_the_real_remedy_when_brew_absent(tmp_p
     (spec.bin_dir / spec.name).symlink_to(spec.repo / "entry")
     blurb.parent.mkdir(parents=True, exist_ok=True)
     blurb.write_text("blurb\n")
-    monkeypatch.setattr(driftmod, "_brew_installed_snapshot", lambda: (frozenset(), None))
+    monkeypatch.setattr(drift_env, "_brew_installed_snapshot", lambda: (frozenset(), None))
     report = driftmod.DriftReport()
     driftmod._check_tools(_drift_action(spec), report)
     assert len(report.items) == 1
@@ -840,7 +844,7 @@ def test_drift_clean_when_brew_formula_installed(tmp_path, monkeypatch):
     blurb.parent.mkdir(parents=True, exist_ok=True)
     blurb.write_text("blurb\n")
     monkeypatch.setattr(
-        driftmod, "_brew_installed_snapshot",
+        drift_env, "_brew_installed_snapshot",
         lambda: (frozenset({"forgejo-cli"}), "/opt/homebrew/bin/brew"),
     )
     report = driftmod.DriftReport()
@@ -859,7 +863,7 @@ def test_drift_skips_brew_probe_when_no_tool_declares_formulae(tmp_path, monkeyp
     blurb.write_text("blurb\n")
     probed = []
     monkeypatch.setattr(
-        driftmod, "_brew_installed_snapshot",
+        drift_env, "_brew_installed_snapshot",
         lambda: (probed.append(1) or frozenset(), "/opt/homebrew/bin/brew"),
     )
     report = driftmod.DriftReport()

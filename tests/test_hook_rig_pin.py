@@ -19,7 +19,7 @@ import pytest
 from conftest import _write
 
 from riglib.actions import run_plan
-from riglib.actions.runner import RIG_PIN_PLACEHOLDER, pinned_rig_path
+from riglib.actions.agent_hook_install import RIG_PIN_PLACEHOLDER, pinned_rig_path
 from riglib.catalog import Catalog
 from riglib.config import LoadedConfig
 from riglib.drift import detect

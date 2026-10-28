@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .actions.runner import ActionResult
+    from .actions.result import ActionResult
     from .plan import Action
 
 
@@ -120,7 +120,7 @@ class Resolution:
 
 def resolve(path: Path) -> Resolution:
     """Read-only convergence decision; all bytes outside managed regions are retained."""
-    from .actions.runner import _splice_managed_block
+    from .actions.managed_blocks import _splice_managed_block
 
     desired = block_text()
     try:
@@ -195,7 +195,7 @@ def _write_atomically(path: Path, result: Resolution) -> None:
 
 def apply(action: Action, on_conflict: str) -> ActionResult:
     """Create, append, or update only our block; preserve aliases and back up stale content."""
-    from .actions.runner import ActionResult
+    from .actions.result import ActionResult
     from .instruction_files import instruction_file_lock
 
     try:
@@ -208,7 +208,7 @@ def apply(action: Action, on_conflict: str) -> ActionResult:
 def _apply_locked(action: Action, on_conflict: str) -> ActionResult:
     """The complete read/reconcile/write transaction, under the shared target lock."""
     from .actions import fsutil
-    from .actions.runner import ActionResult
+    from .actions.result import ActionResult
 
     path = action.target
     result = resolve(path)

@@ -191,7 +191,7 @@ def resolve(path: Path | None = None) -> ResolveResult:
     - ``conflict``: unbalanced markers, a non-file, or a hand-written ``[install]``
       table missing either required key (a second ``[install]`` header would be invalid TOML).
     """
-    from .actions.runner import _splice_managed_block
+    from .actions.managed_blocks import _splice_managed_block
 
     target = path if path is not None else bunfig_path()
     desired = managed_block()

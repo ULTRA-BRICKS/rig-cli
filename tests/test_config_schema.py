@@ -352,10 +352,13 @@ def test_schema_pointer_none_for_unknown_top_block():
 
 # ── docs/config-schema.md is the human reference and stays in sync (every key documented) ──
 def _docs_text() -> str:
+    # The reference is split into an index plus topic parts (each file stays under the repo's
+    # file-line limit); together they are the human reference.
     from pathlib import Path
 
-    docs = Path(__file__).resolve().parent.parent / "docs" / "config-schema.md"
-    return docs.read_text(encoding="utf-8")
+    docs = Path(__file__).resolve().parent.parent / "docs"
+    parts = [docs / "config-schema.md", *sorted((docs / "config-schema").glob("*.md"))]
+    return "\n".join(part.read_text(encoding="utf-8") for part in parts)
 
 
 def test_every_top_level_block_has_a_doc_section():
@@ -390,3 +393,70 @@ def test_docs_cite_the_schema_file():
     text = _docs_text()
     assert config_schema.SCHEMA_REL_PATH in text  # the doc points editors at the JSON Schema file
     assert "rig schema" in text  # and documents the command
+
+
+# ── the split reference: every block heading lives in a part the index links, and every anchor
+# link anywhere in the repo resolves to a real heading or an explicit <a id> ──
+_REPO = __import__("pathlib").Path(__file__).resolve().parent.parent
+_DOCS = _REPO / "docs"
+_MD_LINK = re.compile(r"\]\(([^)\s#]*\.md)?#([^)\s]+)\)")
+_SCHEMA_LINK = re.compile(r"config-schema(?:/([\w-]+))?\.md#([\w-]+)")
+
+
+def _github_slug(heading: str) -> str:
+    """GitHub's heading anchor: lowercase, drop punctuation except `-`/`_`, spaces -> `-`."""
+    text = heading.replace("`", "").strip().lower()
+    return re.sub(r"[^\w\- ]", "", text).replace(" ", "-")
+
+
+def _anchors_in(path) -> set[str]:
+    """Heading slugs (outside code fences) plus explicit `<a id=...>` anchors of one markdown file."""
+    anchors: set[str] = set()
+    in_fence = False
+    content = path.read_text(encoding="utf-8")
+    for line in content.splitlines():
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence and line.startswith("#"):
+            anchors.add(_github_slug(line.lstrip("#")))
+    anchors.update(re.findall(r'<a id="([^"]+)"', content))
+    return anchors
+
+
+def _schema_doc_files() -> list:
+    return [_DOCS / "config-schema.md", *sorted((_DOCS / "config-schema").glob("*.md"))]
+
+
+def test_index_links_a_part_holding_each_block_heading():
+    index = (_DOCS / "config-schema.md").read_text(encoding="utf-8")
+    linked = {(_DOCS / target).resolve() for target in re.findall(r"\]\((config-schema/[\w-]+\.md)\)", index)}
+    assert linked, "the index links no part files"
+    linked_text = "\n".join(part.read_text(encoding="utf-8") for part in linked) + index
+    for name in config_schema.BLOCKS:
+        assert f"## `{name}`" in linked_text, f"no linked part documents `{name}`"
+
+
+def _broken_external_links() -> list[str]:
+    broken: list[str] = []
+    sources = [_REPO / "README.md", _REPO / "rig.yaml", *sorted((_REPO / "riglib").rglob("*.py"))]
+    for source in sources:
+        for part, anchor in _SCHEMA_LINK.findall(source.read_text(encoding="utf-8")):
+            target = _DOCS / "config-schema" / f"{part}.md" if part else _DOCS / "config-schema.md"
+            if anchor not in _anchors_in(target):
+                broken.append(f"{source.relative_to(_REPO)} -> {target.name}#{anchor}")
+    return broken
+
+
+def _broken_internal_links() -> list[str]:
+    broken: list[str] = []
+    for source in _schema_doc_files():
+        for rel, anchor in _MD_LINK.findall(source.read_text(encoding="utf-8")):
+            target = (source.parent / rel).resolve() if rel else source
+            if target.exists() and anchor not in _anchors_in(target):
+                broken.append(f"{source.relative_to(_REPO)} -> {target.name}#{anchor}")
+    return broken
+
+
+def test_every_config_schema_anchor_link_resolves():
+    broken = _broken_external_links() + _broken_internal_links()
+    assert not broken, f"unresolved config-schema anchors: {broken}"

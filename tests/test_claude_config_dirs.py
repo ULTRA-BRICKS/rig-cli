@@ -228,11 +228,19 @@ def test_apply_writes_every_config_dir_and_reapply_is_noop(home, repo, fake_agen
     assert changed == [], [(r.action.item, r.status, r.detail) for r in changed]
 
 
+def _all_hook_entries(hooks: dict) -> list[dict]:
+    return [hk for blocks in hooks.values() for b in blocks for hk in b["hooks"]]
+
+
+def _bridge_hooks(hooks: dict) -> list[dict]:
+    return [hk for hk in _all_hook_entries(hooks) if "cc_hook_bridge" in hk["command"]]
+
+
 def test_bridge_outer_timeout_fans_out_to_every_config_dir(home, repo, fake_agent_tools):
     # UB-25: the finite outer hook timeout must reach every claude-rotate account dir, not just
     # ~/.claude — a session under CLAUDE_CONFIG_DIR=account-N would otherwise keep the 600s
     # default and fail open on a long guard.
-    from riglib.actions.runner import HOOK_BRIDGE_TIMEOUT_S
+    from riglib.actions.hook_bridge import HOOK_BRIDGE_TIMEOUT_S
 
     cat = Catalog.scan(str(fake_agent_tools))
     plan = build(_config(home, repo, fake_agent_tools), cat, project_type="unknown")
@@ -242,19 +250,14 @@ def test_bridge_outer_timeout_fans_out_to_every_config_dir(home, repo, fake_agen
         home / ".claude-accounts" / name / "settings.json" for name in ("account-0", "account-1", "account-2")
     ]
     for path in targets:
-        hooks = json.loads(path.read_text())["hooks"]
-        managed = [
-            hk for blocks in hooks.values() for b in blocks for hk in b["hooks"] if "cc_hook_bridge" in hk["command"]
-        ]
+        managed = _bridge_hooks(json.loads(path.read_text())["hooks"])
         assert managed, path
         assert {hk.get("timeout") for hk in managed} == {HOOK_BRIDGE_TIMEOUT_S}, path
 
     acct1 = home / ".claude-accounts" / "account-1" / "settings.json"
     data = json.loads(acct1.read_text())
-    for blocks in data["hooks"].values():
-        for b in blocks:
-            for hk in b["hooks"]:
-                hk.pop("timeout", None)
+    for hk in _all_hook_entries(data["hooks"]):
+        hk.pop("timeout", None)
     acct1.write_text(json.dumps(data))
     drifted = [i for i in detect(plan).items if i.direction == "modified" and "timeout" in i.detail]
     assert drifted and {i.target for i in drifted} == {acct1}
@@ -403,7 +406,7 @@ def test_fan_out_keys_without_yaml_accept_any_indent_and_yaml11_booleans():
 
 
 def test_load_harness_fan_out_survives_invalid_utf8_without_pyyaml(tmp_path, monkeypatch):
-    from riglib import config as config_module
+    from riglib import config_yaml
 
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
@@ -417,7 +420,7 @@ def test_load_harness_fan_out_survives_invalid_utf8_without_pyyaml(tmp_path, mon
     def no_yaml(path):
         raise ImportError("No module named 'yaml'")
 
-    monkeypatch.setattr(config_module, "read_yaml_file", no_yaml)
+    monkeypatch.setattr(config_yaml, "read_yaml_file", no_yaml)
     assert load_harness_fan_out(repo) == {}  # UnicodeDecodeError → defaults, never a crash
 
 
@@ -545,7 +548,7 @@ def test_fan_out_keys_readable_without_pyyaml():
 
 
 def test_load_harness_fan_out_falls_back_when_pyyaml_is_missing(tmp_path, monkeypatch):
-    from riglib import config as config_module
+    from riglib import config_yaml
 
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
@@ -559,7 +562,7 @@ def test_load_harness_fan_out_falls_back_when_pyyaml_is_missing(tmp_path, monkey
     def no_yaml(path):
         raise ImportError("No module named 'yaml'")
 
-    monkeypatch.setattr(config_module, "read_yaml_file", no_yaml)
+    monkeypatch.setattr(config_yaml, "read_yaml_file", no_yaml)
     assert load_harness_fan_out(repo) == {"discover_config_dirs": False, "settings_paths": ["~/x/settings.json"]}
 
 

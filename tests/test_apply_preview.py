@@ -157,7 +157,7 @@ def test_apply_still_refuses_without_config(tmp_path, capsys, fake_agent_tools, 
 
 def test_notes_collapse_and_elevate_gap(tmp_path, capsys, fake_agent_tools, monkeypatch):
     """Informational notes collapse behind a count; a real-gap note is elevated to a ⚠ line."""
-    from riglib.cli import _print_notes
+    from riglib.cli_plan_print import _print_notes
 
     notes = [
         "autonomous mode: review/fix until 2026-01-01 (max 5 iterations)",
@@ -236,7 +236,7 @@ def test_apply_commit_verify_failure_downgrades_completion(tmp_path, capsys, fak
 
 def test_notes_expand_shows_all(tmp_path, capsys, fake_agent_tools, monkeypatch):
     """`--notes` expands the full list, informational notes included."""
-    from riglib.cli import _print_notes
+    from riglib.cli_plan_print import _print_notes
 
     notes = [
         "autonomous mode: escalation framework skill 'foo'",

@@ -11,10 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from riglib.actions.runner import (
-    _do_link_skill_harness,
-    _do_register_opencode_hook_bridge,
-)
+from riglib.actions.runner import _do_link_skill_harness
+from riglib.actions.hook_bridge_plugins import _do_register_opencode_hook_bridge
 from riglib.drift import DriftReport, _check_opencode_hook_bridge
 from riglib.plan import Action
 

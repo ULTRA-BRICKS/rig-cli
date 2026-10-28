@@ -60,14 +60,14 @@ def test_explicit_dry_run_flag_never_downloads(env, monkeypatch):
 
 def test_alternate_home_apply_installs_the_analyzer_under_that_home(tmp_path, monkeypatch, fake_agent_tools):
     """A HOME-override apply (bot worker, CI container) used to skip the install while status/lint demanded it."""
-    from riglib.actions import runner
+    from riglib.actions import live_env as live_env_mod
 
     alt = tmp_path / "alt-home"
     alt.mkdir()
     monkeypatch.setenv("HOME", str(alt))
     monkeypatch.delenv("XDG_DATA_HOME", raising=False)
     monkeypatch.delenv("RIG_CCCC_DRY_RUN", raising=False)
-    assert runner._home_is_sandboxed()  # this really is an alternate HOME, not the login home
+    assert live_env_mod._home_is_sandboxed()  # this really is an alternate HOME, not the login home
     repo = tmp_path / "repo"
     repo.mkdir()
     calls = pin_fake_release(monkeypatch)

@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from riglib.actions import run_plan
-from riglib.actions.runner import EXECPOLICY_BEGIN_MARKER, EXECPOLICY_END_MARKER
+from riglib.actions.managed_blocks import EXECPOLICY_BEGIN_MARKER, EXECPOLICY_END_MARKER
 from riglib.catalog import Catalog
 from riglib.config import LoadedConfig
 from riglib.drift import detect

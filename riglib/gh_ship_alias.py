@@ -11,7 +11,7 @@ command". rig now provisions it, idempotently, so it is reproducible and drift-s
 The expansion is a PORTABLE CONSTANT — no machine-specific absolute path is ever baked in (the
 delegator and the env file carry the machine specifics) — so a re-apply byte-compares equal and
 ``rig status`` is a no-op when in sync. This mirrors the delegator's own portability guarantee
-(see :func:`riglib.actions.runner.ship_delegator_content`).
+(see :func:`riglib.actions.ship_delegator.ship_delegator_content`).
 
 ``fj ship`` is the same command: the dispatch body (:func:`ship_dispatch_sh`) is shared with the
 ``fj`` wrapper rig's ``fj:`` block provisions (:func:`riglib.fj.fj_wrapper_sh`) — fj has no alias

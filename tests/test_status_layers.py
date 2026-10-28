@@ -192,7 +192,7 @@ def test_status_non_git_dir_still_flags_machine_env_file_drift(
     # …and with the env file UP TO DATE the area is "in sync" (apply manages the file from this
     # cwd too) — NOT "not configured", which the plan-drop of the repo-scoped action would
     # otherwise cause (the codex follow-up on the same P2).
-    from riglib.actions.runner import ship_env_file_content, ship_env_file_path
+    from riglib.actions.ship_delegator import ship_env_file_content, ship_env_file_path
 
     p = ship_env_file_path()
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -214,7 +214,7 @@ def test_apply_in_non_git_dir_writes_env_file_and_status_goes_clean(
     non-git `status` now reports is drift apply genuinely repairs — never an unfixable
     false-positive in `~`.
     """
-    from riglib.actions.runner import ship_env_file_content, ship_env_file_path
+    from riglib.actions.ship_delegator import ship_env_file_content, ship_env_file_path
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "no-global"))
     plain = tmp_path / "not-a-repo"

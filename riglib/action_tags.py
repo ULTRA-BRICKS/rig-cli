@@ -249,6 +249,12 @@ ACTION_TAGS: dict[str, ActionTag] = {
         "provision_linter_bundle", "creates_file", AUDIENCE_HUMAN,
         "Writes a bundle of related linter config files into the repo.",
     ),
+    "lint_bootstrap_step": _tag(
+        "lint_bootstrap_step", "edits_file", AUDIENCE_HUMAN,
+        "Runs the repo's package manager to add an exact-pinned Oxlint/Oxfmt (or Ruff) dev "
+        "dependency, rewriting package.json/pyproject.toml and the lockfile; only from a local "
+        "`rig lint` run, never in CI.",
+    ),
     "provision_project_tool": _tag(
         "provision_project_tool", "creates_file", AUDIENCE_BOTH,
         "Writes a repo-local project-tool carrier file, or runs a one-shot tool operation "

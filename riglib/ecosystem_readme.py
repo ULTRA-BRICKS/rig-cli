@@ -151,7 +151,7 @@ def has_unmarked_ecosystem_heading(text: str) -> bool:
     that already hand-copies an ``## Ecosystem`` section (rig-cli's own README before it adopted
     the markers is the canonical example). Splicing into a marker-less file with
     :func:`has_managed_block` false always takes the ``create``/append path in
-    :func:`riglib.actions.runner._splice_managed_block`: it appends the rendered block at the END
+    :func:`riglib.actions.managed_blocks._splice_managed_block`: it appends the rendered block at the END
     of the file, unconditionally. Without this check that would leave the stale hand-copied
     section exactly where it was (still drifting -- the bug #308 exists to fix) AND bolt on a
     second, misplaced ``## Ecosystem`` heading, invisible to `rig status` since the *managed*

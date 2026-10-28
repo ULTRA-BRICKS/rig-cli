@@ -13,9 +13,11 @@ from pathlib import Path
 import pytest
 
 from riglib import config as cfgmod
-from riglib import drift as driftmod
+from riglib import drift_services
 from riglib import schedule as sched
 from riglib.actions import runner
+from riglib.actions import schedule as schedule_mod
+from riglib.actions import service_ctl as service_ctl_mod
 from riglib.actions.runner import ApplyReport, run_plan
 from riglib.catalog import Catalog
 from riglib.config import ConfigError, LoadedConfig, validate
@@ -25,7 +27,7 @@ from riglib.plan import build
 
 # captured at import (before any monkeypatch runs) — the genuine handler.
 _REAL_PROVISION = runner._do_provision_schedule
-_REAL_TIMER_ACTIVE = runner.schedule_timer_active
+_REAL_TIMER_ACTIVE = schedule_mod.schedule_timer_active
 
 
 @pytest.fixture(autouse=True)
@@ -41,8 +43,8 @@ def _real_scheduler(monkeypatch, live_launchd_home):
     """
     monkeypatch.setattr(runner, "_do_provision_schedule", _REAL_PROVISION)
     monkeypatch.setitem(runner._HANDLERS, "provision_schedule", _REAL_PROVISION)
-    monkeypatch.setattr(runner, "schedule_timer_active", _REAL_TIMER_ACTIVE)
-    monkeypatch.setattr(driftmod, "schedule_timer_active", _REAL_TIMER_ACTIVE)
+    monkeypatch.setattr(schedule_mod, "schedule_timer_active", _REAL_TIMER_ACTIVE)
+    monkeypatch.setattr(drift_services, "schedule_timer_active", _REAL_TIMER_ACTIVE)
 
 
 # ── config validation ───────────────────────────────────────────────────────────────────
@@ -243,8 +245,8 @@ def test_launchd_install_then_idempotent(tmp_path, monkeypatch):
             loaded["v"] = False
         return 0
 
-    monkeypatch.setattr(runner, "_launchctl", fake_launchctl)
-    monkeypatch.setattr(runner, "_launchctl_loaded", lambda label: loaded["v"])
+    monkeypatch.setattr(service_ctl_mod, "_launchctl", fake_launchctl)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_loaded", lambda label: loaded["v"])
 
     action = _launchd_action(home)
     res1 = runner._do_provision_schedule(action, "backup")
@@ -264,13 +266,13 @@ def test_launchd_reinstall_when_unloaded(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    monkeypatch.setattr(runner, "_launchctl", lambda verb, arg: 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl", lambda verb, arg: 0)
     # plist exists & current, but launchd says NOT loaded → must reload (not skip)
     action = _launchd_action(home)
     plist = action.target
     plist.parent.mkdir(parents=True, exist_ok=True)
-    plist.write_text(runner.schedule_plan_from_action(action).plist_xml(), encoding="utf-8")
-    monkeypatch.setattr(runner, "_launchctl_loaded", lambda label: False)
+    plist.write_text(schedule_mod.schedule_plan_from_action(action).plist_xml(), encoding="utf-8")
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_loaded", lambda label: False)
     res = runner._do_provision_schedule(action, "backup")
     assert res.status in ("created", "updated")
 
@@ -287,15 +289,15 @@ def test_launchd_conflict_skip_does_not_touch_daemon(tmp_path, monkeypatch):
     home.mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     calls = []
-    monkeypatch.setattr(runner, "_launchctl", lambda verb, arg: calls.append((verb, arg)) or 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl", lambda verb, arg: calls.append((verb, arg)) or 0)
     # not loaded — so without the conflict-skip guard the code would proceed to (re)load.
-    monkeypatch.setattr(runner, "_launchctl_loaded", lambda label: False)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl_loaded", lambda label: False)
 
     action = _launchd_action(home)
     plist = action.target
     plist.parent.mkdir(parents=True, exist_ok=True)
     # an EXISTING plist that differs from desired (a stale, hand-edited schedule).
-    stale = runner.schedule_plan_from_action(action).plist_xml().replace("<integer>12</integer>", "<integer>6</integer>")
+    stale = schedule_mod.schedule_plan_from_action(action).plist_xml().replace("<integer>12</integer>", "<integer>6</integer>")
     plist.write_text(stale, encoding="utf-8")
 
     res = runner._do_provision_schedule(action, "skip")
@@ -345,9 +347,9 @@ def systemd_home(tmp_path, monkeypatch, live_launchd_home):
             return 0 if state["enabled"] else 1
         return 0
 
-    monkeypatch.setattr(runner, "_systemctl_user", fake_systemctl)
+    monkeypatch.setattr(service_ctl_mod, "_systemctl_user", fake_systemctl)
     monkeypatch.setattr(
-        runner, "_systemctl_user_output",
+        service_ctl_mod, "_systemctl_user_output",
         lambda *args: "yes" if args[-1] in state.get("stale", ()) else "no",
     )
     return home, state
@@ -402,7 +404,7 @@ def test_systemd_reloads_when_manager_holds_stale_units(systemd_home):
 
 def test_systemd_unreachable_manager_is_an_error(systemd_home, monkeypatch):
     home, _state = systemd_home
-    monkeypatch.setattr(runner, "_systemctl_user", lambda *args: 1)
+    monkeypatch.setattr(service_ctl_mod, "_systemctl_user", lambda *args: 1)
     res = runner._do_provision_schedule(_systemd_action(home), "backup")
     assert res.status == "error"
     assert "daemon-reload" in res.detail
@@ -417,13 +419,13 @@ def test_systemd_install_removes_legacy_crontab_pair(systemd_home, monkeypatch):
             "0 12 * * * python3 /checkout/lib/checker/model_freshness.py\n"
         )
     }
-    monkeypatch.setattr(runner, "_read_crontab", lambda: (True, store["content"]))
+    monkeypatch.setattr(schedule_mod, "_read_crontab", lambda: (True, store["content"]))
 
     def fake_write(contents):
         store["content"] = contents
         return 0
 
-    monkeypatch.setattr(runner, "_write_crontab", fake_write)
+    monkeypatch.setattr(schedule_mod, "_write_crontab", fake_write)
     res = runner._do_provision_schedule(_systemd_action(home), "backup")
     assert "removed legacy crontab line" in res.detail
     assert store["content"] == "0 3 * * * /usr/bin/backup.sh\n"  # user line kept, ours gone
@@ -432,8 +434,8 @@ def test_systemd_install_removes_legacy_crontab_pair(systemd_home, monkeypatch):
 def test_systemd_unreadable_crontab_is_not_an_error(systemd_home, monkeypatch):
     """The NoNewPrivs agent shell (rig-cli#721): `crontab -l` fails → install still succeeds."""
     home, _state = systemd_home
-    monkeypatch.setattr(runner, "_read_crontab", lambda: (False, ""))
-    monkeypatch.setattr(runner, "_write_crontab", lambda c: pytest.fail("crontab written"))
+    monkeypatch.setattr(schedule_mod, "_read_crontab", lambda: (False, ""))
+    monkeypatch.setattr(schedule_mod, "_write_crontab", lambda c: pytest.fail("crontab written"))
     res = runner._do_provision_schedule(_systemd_action(home), "backup")
     assert res.status == "created" and "crontab" not in res.detail
 
@@ -443,11 +445,11 @@ def test_systemd_retries_legacy_crontab_removal_when_already_installed(systemd_h
     already active must still remove the legacy line (else the checker runs twice daily)."""
     home, _state = systemd_home
     action = _systemd_action(home)
-    monkeypatch.setattr(runner, "_read_crontab", lambda: (False, ""))
+    monkeypatch.setattr(schedule_mod, "_read_crontab", lambda: (False, ""))
     assert runner._do_provision_schedule(action, "backup").status == "created"
     store = {"content": f"{sched.CRON_SENTINEL_PREFIX} {sched.DEFAULT_LABEL}\n0 12 * * * python3 x.py\n"}
-    monkeypatch.setattr(runner, "_read_crontab", lambda: (True, store["content"]))
-    monkeypatch.setattr(runner, "_write_crontab", lambda c: store.update(content=c) or 0)
+    monkeypatch.setattr(schedule_mod, "_read_crontab", lambda: (True, store["content"]))
+    monkeypatch.setattr(schedule_mod, "_write_crontab", lambda c: store.update(content=c) or 0)
     res = runner._do_provision_schedule(action, "backup")
     assert res.status == "updated" and "removed legacy crontab line" in res.detail
     assert store["content"] == ""
@@ -455,8 +457,8 @@ def test_systemd_retries_legacy_crontab_removal_when_already_installed(systemd_h
 
 def test_systemd_restart_failure_is_an_error(systemd_home, monkeypatch):
     home, state = systemd_home
-    real = runner._systemctl_user
-    monkeypatch.setattr(runner, "_systemctl_user", lambda *a: 1 if a[0] == "restart" else real(*a))
+    real = service_ctl_mod._systemctl_user
+    monkeypatch.setattr(service_ctl_mod, "_systemctl_user", lambda *a: 1 if a[0] == "restart" else real(*a))
     res = runner._do_provision_schedule(_systemd_action(home), "backup")
     assert res.status == "error" and "restart" in res.detail
 
@@ -468,7 +470,7 @@ def test_crontab_without_managed_strips_pair():
         "12 12 * * * python3 checker.py\n"
         "30 4 * * * other\n"
     )
-    out = runner._crontab_without_managed(content, sched.DEFAULT_LABEL)
+    out = schedule_mod._crontab_without_managed(content, sched.DEFAULT_LABEL)
     assert "backup" in "\n".join(out)
     assert "other" in "\n".join(out)
     assert sched.DEFAULT_LABEL not in "\n".join(out)
@@ -489,8 +491,8 @@ def test_drift_launchd_missing(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    # drift.py imports the helpers by name → patch the names in the drift namespace.
-    monkeypatch.setattr(driftmod, "_launchctl_loaded", lambda label: False)
+    # drift_services imports the helpers by name → patch the names in its namespace.
+    monkeypatch.setattr(drift_services, "_launchctl_loaded", lambda label: False)
     from riglib.plan import InstallPlan
 
     plan = InstallPlan(actions=[_launchd_action(home)])
@@ -503,10 +505,10 @@ def test_drift_launchd_in_sync(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    monkeypatch.setattr(driftmod, "_launchctl_loaded", lambda label: True)
+    monkeypatch.setattr(drift_services, "_launchctl_loaded", lambda label: True)
     action = _launchd_action(home)
     action.target.parent.mkdir(parents=True, exist_ok=True)
-    action.target.write_text(runner.schedule_plan_from_action(action).plist_xml(), encoding="utf-8")
+    action.target.write_text(schedule_mod.schedule_plan_from_action(action).plist_xml(), encoding="utf-8")
     from riglib.plan import InstallPlan
 
     report = detect(InstallPlan(actions=[action]))
@@ -563,7 +565,7 @@ def test_schedule_dry_run_skips_daemon_launchd(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     monkeypatch.setenv("RIG_SCHEDULE_DRY_RUN", "1")
     called = []
-    monkeypatch.setattr(runner, "_launchctl", lambda verb, arg: called.append(verb) or 0)
+    monkeypatch.setattr(service_ctl_mod, "_launchctl", lambda verb, arg: called.append(verb) or 0)
     res = runner._do_provision_schedule(_launchd_action(home), "backup")
     assert res.status in ("created", "updated")
     assert called == []  # the daemon was never touched
