@@ -114,7 +114,7 @@ def build_cache_policy(
     on TypeScript 7), so the first rendered policy already carries the type-aware portion.
     """
     from .catalog import CatalogError, rule_provider_carrier
-    from .lint_discovery_jsx import automatic_jsx_runtime
+    from .lint_discovery_jsx import jsx_scope_unneeded
     from .lint_policy import framework_plugins, render_oxlint_config
 
     if catalog_source is None:
@@ -126,7 +126,7 @@ def build_cache_policy(
             dict(cfg.linters_rules), flavor="json", type_aware=_type_aware(scope, discovery, incoming),
             plugins=framework_plugins(_frameworks(discovery, scope.rel)),
             plugin_specifier=f"{_PLACEHOLDER}/{BUNDLE_DIR}/index.ts",
-            automatic_jsx=automatic_jsx_runtime(discovery.root, scope.rel),
+            automatic_jsx=jsx_scope_unneeded(discovery.root, scope.rel, scope.frameworks),
         )
     except (CatalogError, OSError, ValueError) as exc:
         return f"the anti-slop policy cannot be built ({exc})"

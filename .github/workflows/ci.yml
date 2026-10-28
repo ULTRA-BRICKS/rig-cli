@@ -71,14 +71,16 @@ jobs:
         run: |
           python -c "from riglib import cccc_install; cccc_install.install()"
           mkdir -p "$RUNNER_TEMP/ts" && npm install --prefix "$RUNNER_TEMP/ts" --no-audit --no-fund typescript@6.0.3
-          echo "RIG_TEST_TYPESCRIPT_DIR=$RUNNER_TEMP/ts/node_modules/typescript" >> "$GITHUB_ENV"
-          echo "RIG_LINT_REQUIRE_REAL=1" >> "$GITHUB_ENV"
           # rig lint run: the real-binary integration tests (tests/test_lint_real_tools.py) run a bare
           # `rig lint run` against tmp fixture repos, so Rig itself bootstraps the PINNED tools into this
           # tool cache: Oxlint 1.90.0 / Oxfmt 0.75.0 (npm), Ruff 0.17.3 (private venv), ShellCheck 0.11.0 /
           # shfmt 3.14.1 / actionlint 1.7.12 (sha256-verified release binaries). npm and python3 -m venv
           # come with the runner; with RIG_LINT_REQUIRE_REAL=1 any tool that cannot be obtained FAILS.
-          echo "RIG_TEST_LINT_TOOL_CACHE=$RUNNER_TEMP/rig-lint-tools" >> "$GITHUB_ENV"
+          {
+            echo "RIG_TEST_TYPESCRIPT_DIR=$RUNNER_TEMP/ts/node_modules/typescript"
+            echo "RIG_LINT_REQUIRE_REAL=1"
+            echo "RIG_TEST_LINT_TOOL_CACHE=$RUNNER_TEMP/rig-lint-tools"
+          } >> "$GITHUB_ENV"
       - name: Unit suite
         run: python -m pytest -q
       # The JSON-schema validator tests (config schema + the committed schema file) skip without `jsonschema` (a `.[test]` dependency); a skip here would
@@ -94,6 +96,20 @@ jobs:
           fi
           grep -Eq "test_real_validator_flags_unknown_key_and_bad_enum PASSED" <<<"$out" \
             || { echo "::error title=schema validator test missing::the real-validator test did not appear as PASSED"; exit 1; }
+      # The wheel-packaging tests build the sdist/wheel with the `.[test]` setuptools (PEP 517, in-process) and install the
+      # wheel with `pip --no-index` into a stdlib venv, so they need no uv and no network. Fail on ANY skip and require
+      # the real-wheel checks to appear as PASSED, so a gate that quietly stopped building the wheel cannot pass green.
+      - name: Wheel-packaged schema tests (must RUN, not skip)
+        run: |
+          set -euo pipefail
+          out="$(python -m pytest tests/test_schema_wheel.py -v -rs 2>&1)" || { echo "$out"; exit 1; }
+          echo "$out"
+          if grep -Eq "[1-9][0-9]* skipped" <<<"$out"; then
+            echo "::error title=wheel schema tests SKIPPED::a wheel-packaging test skipped in CI"
+            exit 1
+          fi
+          [ "$(grep -c "test_schema_wheel.py::.* PASSED" <<<"$out")" -ge 10 ] \
+            || { echo "::error title=wheel schema tests missing::fewer than 10 wheel tests PASSED"; exit 1; }
       # The real-tool lint tests already ran inside the unit suite; this re-run (the tool cache is warm, so
       # it is seconds) prints each test's outcome and fails on ANY skip, so a gate that quietly stopped
       # exercising the real binaries cannot pass green. Collecting nothing (exit 5) fails too.

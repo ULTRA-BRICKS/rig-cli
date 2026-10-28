@@ -214,10 +214,19 @@ def test_every_generated_config_variant_passes_the_real_oxfmt_check(tmp_path, fl
     assert done.returncode == 0, done.stdout + done.stderr
 
 
-@pytest.mark.parametrize(("jsx", "passes"), [("react-jsx", True), ("react", False)])
-def test_bootstrapped_react_policy_follows_the_tsconfig_jsx_runtime(sandbox, real_oxlint, tmp_path, jsx, passes):
+@pytest.mark.parametrize(
+    ("deps", "jsx", "passes"),
+    [
+        ({"react": "18.3.1"}, "react-jsx", True),
+        ({"react": "18.3.1"}, "react", False),
+        ({"react": "18.3.1"}, "preserve", False),
+        ({"next": "15.0.0", "react": "18.3.1"}, "preserve", True),
+        ({"next": "15.0.0", "react": "18.3.1"}, "react", False),
+    ],
+)
+def test_bootstrapped_react_policy_follows_the_tsconfig_jsx_runtime(sandbox, real_oxlint, tmp_path, deps, jsx, passes):
     sandbox.install_managers("npm")
-    sandbox.package_json({"dependencies": {"react": "18.3.1"}})
+    sandbox.package_json({"dependencies": deps})
     sandbox.write("tsconfig.json", json.dumps({"compilerOptions": {"jsx": jsx}}))
     sandbox.write("src/App.tsx", "export const A = () => <div>hi</div>;\n")
     lines = _rendered_config(sandbox).splitlines()

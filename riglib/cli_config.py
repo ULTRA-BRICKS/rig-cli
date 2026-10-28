@@ -88,14 +88,16 @@ def cmd_schema(args: argparse.Namespace) -> int:
     from . import config_schema
 
     if args.write:
+        if not config_schema.is_source_checkout():
+            # An installed wheel has no committed schema to regenerate; never write into site-packages.
+            print(_err("error: cannot write the schema: this install has no rig-cli checkout"))
+            print(_dim("  run `rig schema --write` from a rig-cli checkout; print the schema with: rig schema"))
+            return 2
         try:
             path = config_schema.write_schema_file()
         except OSError as exc:
-            # a bare pip install puts the path under a (possibly read-only) site-packages; the
-            # canonical symlink install always writes fine. Fail clearly, don't crash.
             print(_err(f"error: cannot write {config_schema.schema_file_path()}: {exc}"))
-            print(_dim("  the schema file lives in the rig-cli checkout (symlink install); "
-                       "run from there, or redirect: rig schema > schema/rig.schema.json"))
+            print(_dim("  run from the rig-cli checkout, or redirect: rig schema > schema/rig.schema.json"))
             return 2
         print(_ok(f"wrote {path}"))
         return 0
@@ -104,7 +106,10 @@ def cmd_schema(args: argparse.Namespace) -> int:
             print(_ok(f"{config_schema.schema_file_path()} is in sync with the registry"))
             return 0
         print(_err(f"error: {config_schema.schema_file_path()} is missing or out of sync"))
-        print(_dim("  regenerate it with: rig schema --write"))
+        if config_schema.is_source_checkout():
+            print(_dim("  regenerate it with: rig schema --write"))
+        else:
+            print(_dim("  the packaged schema is damaged: reinstall rig"))
         return 2
     print(config_schema.render_schema_json(), end="")
     return 0

@@ -93,7 +93,7 @@ def _render_base(
     scope: ProjectScope, install: Install, discovery: Discovery, cfg: LintConfig, env: ToolEnv, notes: list[str]
 ) -> tuple[str, str] | None:
     """``(content, rel)`` of the base config, or ``None`` when the rules are invalid."""
-    from .lint_discovery_jsx import automatic_jsx_runtime
+    from .lint_discovery_jsx import jsx_scope_unneeded
     from .lint_policy import framework_plugins, render_oxlint_config
 
     declared = declared_names(discovery.root, scope, install.pm)
@@ -110,7 +110,7 @@ def _render_base(
     try:
         content = render_oxlint_config(
             dict(cfg.linters_rules), flavor=flavor, type_aware=type_aware(scope, declared, install.wanted),
-            plugins=plugins, automatic_jsx=automatic_jsx_runtime(discovery.root, scope.rel),
+            plugins=plugins, automatic_jsx=jsx_scope_unneeded(discovery.root, scope.rel, scope.frameworks),
         )
     except ValueError as exc:
         notes.append(f"Oxlint config not written: invalid linters.rules ({exc})")
@@ -164,7 +164,7 @@ def plan_cache_oxlint_config(scope: ProjectScope, discovery: Discovery, cfg: Lin
     green). The JSON flavor needs no Node-evaluated config and no local ``oxlint`` package. Not planned
     when the anti-slop policy is required: that policy is passed to Oxlint from the tool cache instead.
     """
-    from .lint_discovery_jsx import automatic_jsx_runtime
+    from .lint_discovery_jsx import jsx_scope_unneeded
     from .lint_policy import framework_plugins, render_oxlint_config
 
     if not cfg.linters_enabled or anti_slop_wanted(cfg):
@@ -177,7 +177,7 @@ def plan_cache_oxlint_config(scope: ProjectScope, discovery: Discovery, cfg: Lin
     try:
         content = render_oxlint_config(
             dict(cfg.linters_rules), flavor="json", plugins=framework_plugins(frameworks),
-            automatic_jsx=automatic_jsx_runtime(discovery.root, scope.rel),
+            automatic_jsx=jsx_scope_unneeded(discovery.root, scope.rel, scope.frameworks),
         )
     except ValueError as exc:
         notes.append(f"Oxlint config not written: invalid linters.rules ({exc})")

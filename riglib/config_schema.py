@@ -99,6 +99,8 @@ SCHEMA_ID = "https://git.hyperide.ai/ultrabricks/rig-cli/raw/branch/main/schema/
 # The relative path the generator writes to and the validator cites in errors. One constant so
 # the CLI, the docs, and the sync test name the same file.
 SCHEMA_REL_PATH = "schema/rig.schema.json"
+# The same file as package data inside the wheel (see ``schema_file_path``).
+PACKAGED_SCHEMA_NAME = "rig.schema.json"
 
 # ── the registry — every rig.yaml block, mirroring config.validate's accepted key set ──
 # Kept in lockstep with riglib/config.py's validators by tests/test_config_schema.py (which
@@ -262,17 +264,29 @@ def block_child_keys(block_path: str) -> set[str] | None:
     return block.child_keys()
 
 
-def schema_file_path() -> Path:
-    """Absolute path to the committed ``schema/rig.schema.json`` (a checked-in repo artifact).
+def is_source_checkout() -> bool:
+    """True iff rig runs from a rig-cli checkout (rig's own ``pyproject.toml`` beside ``riglib/``), not an installed wheel."""
+    try:
+        text = (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    return 'name = "hyper-rig"' in text
 
-    Resolved from THIS module's location (``riglib/config_schema.py`` → repo root → ``schema/``).
-    The canonical install is a SYMLINK to the checked-out repo (install.sh), where ``schema/`` always
-    sits next to ``riglib/`` — so the file is present and `--check`/`--write` work. NOT a per-repo
-    path: the schema is rig's own, generated once and committed in the rig-cli repo. (Runtime
-    ``config.validate`` is registry-based and never reads this file, so a packaging gap on a bare
-    ``pip install`` only affects ``rig schema --check/--write``, never validation/apply.)
+
+def schema_file_path() -> Path:
+    """Absolute path of the schema file ``rig schema --check`` verifies.
+
+    A rig-cli checkout (``pyproject.toml`` beside ``riglib/``; the canonical install is a SYMLINK to it)
+    uses the committed ``schema/rig.schema.json``. An installed wheel has no ``schema/`` directory; it
+    carries the SAME bytes as package data ``riglib/rig.schema.json`` (copied from the committed file by
+    ``setup.py`` at build time), so the check works wherever rig is installed.
+    A missing or altered file is drift: ``schema_file_in_sync`` is False. Runtime ``config.validate`` is
+    registry-based and never reads it.
     """
-    return Path(__file__).resolve().parent.parent / SCHEMA_REL_PATH
+    root = Path(__file__).resolve().parent.parent
+    if is_source_checkout():
+        return root / SCHEMA_REL_PATH
+    return Path(__file__).resolve().parent / PACKAGED_SCHEMA_NAME
 
 
 def render_schema_json() -> str:
@@ -286,7 +300,12 @@ def render_schema_json() -> str:
 
 
 def write_schema_file() -> Path:
-    """(Re)generate ``schema/rig.schema.json`` from the registry. Returns the written path."""
+    """(Re)generate the committed ``schema/rig.schema.json`` from the registry. Returns the written path.
+
+    Only a rig-cli checkout has a committed file; an installed wheel refuses (never writes into site-packages).
+    """
+    if not is_source_checkout():
+        raise OSError("this install has no rig-cli checkout; run `rig schema --write` from a checkout")
     path = schema_file_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_schema_json(), encoding="utf-8")
@@ -299,16 +318,19 @@ def schema_file_in_sync() -> bool:
     The drift guard: a registry change that forgets to regenerate the file (or a hand-edit to the
     file) makes this False, so ``rig schema --check`` and the sync test fail loudly.
     """
-    path = schema_file_path()
-    if not path.is_file():
+    try:
+        # CRLF from a core.autocrlf checkout is not drift; any other byte difference (incl. invalid UTF-8) is.
+        return schema_file_path().read_bytes().replace(b"\r\n", b"\n") == render_schema_json().encode("utf-8")
+    except OSError:
         return False
-    return path.read_text(encoding="utf-8") == render_schema_json()
 
 
 __all__ = [
     "SCHEMA_DIALECT",
     "SCHEMA_ID",
     "SCHEMA_REL_PATH",
+    "PACKAGED_SCHEMA_NAME",
+    "is_source_checkout",
     "Leaf",
     "Block",
     "GITIGNORE_ENTRY_JSON_PATTERN",

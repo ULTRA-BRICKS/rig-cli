@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.73.1
+
+### Fixed
+- The generated Oxlint React policy also turns `react/react-in-jsx-scope` off for a Next.js scope (declared `next` dependency) whose
+  tsconfig has `jsx: preserve`, because Next compiles JSX itself; a non-Next `preserve` scope and the classic runtime keep the rule,
+  and an explicit `linters.rules.severity` entry stays final (rig-cli#789).
+- `rig schema --check` on a non-editable install no longer reports a false "missing or out of sync": the wheel now carries the
+  committed schema as package data (`riglib/rig.schema.json`, copied from the canonical `schema/rig.schema.json` by `setup.py` at build time), and the check compares it with the registry. A missing or altered packaged file still exits 2; `rig schema --write` on an
+  install exits 2 and writes nothing (it only targets a rig-cli checkout) (rig-cli#793).
+
 ## 0.73.0
 
 ### Changed

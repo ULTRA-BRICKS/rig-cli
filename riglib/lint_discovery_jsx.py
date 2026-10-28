@@ -13,6 +13,7 @@ reads are size-capped and never follow symlinks.
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from pathlib import Path
 
 from .lint_discovery_io import MAX_MANIFEST_BYTES, parse_jsonc
@@ -76,13 +77,24 @@ def tsconfig_jsx(tsconfig: Path) -> str | None:
         return None
 
 
-def automatic_jsx_runtime(root: Path, scope_rel: str) -> bool:
-    """Whether the nearest ``tsconfig.json`` (scope directory up to ``root``) selects the automatic runtime."""
+def nearest_tsconfig_jsx(root: Path, scope_rel: str) -> str | None:
+    """Effective ``compilerOptions.jsx`` of the nearest ``tsconfig.json`` (scope directory up to ``root``)."""
     directory = root if scope_rel == "." else root / scope_rel
     while True:
         candidate = directory / "tsconfig.json"
         if candidate.is_file():
-            return tsconfig_jsx(candidate) in AUTOMATIC_JSX_VALUES
+            return tsconfig_jsx(candidate)
         if directory == root or directory == directory.parent:
-            return False
+            return None
         directory = directory.parent
+
+
+def jsx_scope_unneeded(root: Path, scope_rel: str, frameworks: Sequence[str]) -> bool:
+    """Whether JSX needs no ``React`` in scope: automatic runtime, or ``jsx=preserve`` in a Next.js scope.
+
+    Next compiles preserved JSX itself with the automatic runtime, so ``preserve`` is evidence only together
+    with a ``next`` dependency declared by the scope ITSELF (``ProjectScope.frameworks``, never a nested package's: one
+    config governs the whole subtree, and a nested Next app must not hide a missing import in its non-Next siblings); a non-Next ``preserve`` scope may hand JSX to a classic-runtime tool.
+    """
+    jsx = nearest_tsconfig_jsx(root, scope_rel)
+    return jsx in AUTOMATIC_JSX_VALUES or (jsx == "preserve" and "next" in frameworks)

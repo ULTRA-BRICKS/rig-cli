@@ -46,6 +46,8 @@ rich==15.0.0
     # via
     #   hyper-rig (pyproject.toml)
     #   textual
+setuptools==84.2.1
+    # via hyper-rig (pyproject.toml)
 textual==8.2.8
     # via hyper-rig (pyproject.toml)
 tomli==2.4.1 ; python_full_version < '3.11'

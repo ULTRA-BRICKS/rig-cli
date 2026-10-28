@@ -159,8 +159,11 @@ Oxlint config is never touched.
 
 The generated React policy adapts to the JSX runtime. When the nearest `tsconfig.json` (a relative `extends` chain is followed, at
 most 8 deep, read as JSON/JSONC only and never executed; malformed means no evidence) sets `compilerOptions.jsx` to `react-jsx` or
-`react-jsxdev`, the Rig-rendered policy turns `react/react-in-jsx-scope` off, so no unneeded `import React` is required. The classic
-runtime (`jsx: react`) or no evidence keeps the rule on, an existing Oxlint config is never altered, and
+`react-jsxdev`, the Rig-rendered policy turns `react/react-in-jsx-scope` off, so no unneeded `import React` is required. `jsx: preserve` counts too, but only in a scope that declares a `next`
+dependency (Next compiles preserved JSX itself). The evidence is the scope's own dependency, never a nested package's: one root config governs the
+whole subtree, so a nested Next app does not silence a missing import in its non-Next siblings (such a Next app should have its own scope/Oxlint
+config). The classic
+runtime (`jsx: react`), non-Next `preserve` or no evidence keeps the rule on, an existing Oxlint config is never altered, and
 `linters.rules.severity: {react/react-in-jsx-scope: error}` still wins. Other React rules such as `react/jsx-key` stay on.
 (Oxlint 1.90 has no `react/jsx-uses-react` rule, so only `react-in-jsx-scope` is adjusted.) The rendered policy is part of the
 policy cache key, so editing the tsconfig re-renders it.

@@ -260,7 +260,7 @@ def render_oxlint_config(
     automatically because setting ``plugins`` replaces them. ``plugin_specifier`` is
     the absolute path of an externally hosted bundle (the Rig tool cache): the config then lives outside
     the repository, so no repo-relative ignore of the bundle is needed or emitted.
-    ``automatic_jsx`` (explicit ``react-jsx``/``react-jsxdev`` tsconfig evidence) turns
+    ``automatic_jsx`` (``react-jsx``/``react-jsxdev`` tsconfig evidence, or ``preserve`` in a Next.js scope) turns
     ``react/react-in-jsx-scope`` off when the React plugin is on; an explicit ``linters.rules.severity`` entry
     for that rule is final under any runtime.
     """

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hyper-rig"
-version = "0.73.0"
+version = "0.73.1"
 description = "rig — the dev-environment umbrella driver: set up a repo from a committed rig.yaml by applying agent-tools content (skills, hooks, CI gates, MCP)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -32,7 +32,7 @@ authors = [{ name = "Alex Mextner" }]
 dependencies = ["pyyaml", "textual>=0.66", "rich>=13", "tomli>=2; python_version < '3.11'"]
 
 [project.optional-dependencies]
-test = ["pytest", "jsonschema", "tomli; python_version < '3.11'"]
+test = ["pytest", "jsonschema", "setuptools>=70.1", "tomli; python_version < '3.11'"]
 # NOTE — `rig config-web`'s lifecycle (run/start/stop/status/enable/disable + launchd/systemd
 # autostart) is delegated to the SHARED `agenttools-service` manager (an agent-tools nested lib,
 # which in turn needs `agenttools-daemon`). It is deliberately NOT declared as a dependency here:
@@ -53,6 +53,8 @@ Homepage = "https://git.hyperide.ai/ultrabricks/rig-cli"
 # pull stray top-level dirs into the wheel). actions/ and tui/ are SUBpackages of riglib.
 [tool.setuptools.packages.find]
 include = ["riglib*"]
+
+# The committed schema is copied into the wheel as `riglib/rig.schema.json` by setup.py's build_py hook.
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

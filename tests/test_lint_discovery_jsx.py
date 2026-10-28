@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from riglib.lint_discovery_jsx import MAX_EXTENDS_DEPTH, automatic_jsx_runtime, tsconfig_jsx
+from riglib.lint_discovery_jsx import MAX_EXTENDS_DEPTH, jsx_scope_unneeded, tsconfig_jsx
 from riglib.lint_policy import JSX_SCOPE_RULE, framework_plugins, render_oxlint_config, resolve_rule_severities
 
 REACT = framework_plugins(["react"])
@@ -62,10 +62,10 @@ def test_symlinked_tsconfig_is_not_followed(tmp_path):
 
 def test_nearest_tsconfig_wins_walking_up_from_the_scope(tmp_path):
     write(tmp_path / "tsconfig.json", '{"compilerOptions": {"jsx": "react-jsx"}}')
-    assert automatic_jsx_runtime(tmp_path, ".") and automatic_jsx_runtime(tmp_path, "pkg/web")
+    assert jsx_scope_unneeded(tmp_path, ".", ()) and jsx_scope_unneeded(tmp_path, "pkg/web", ())
     write(tmp_path / "pkg" / "tsconfig.json", '{"compilerOptions": {"jsx": "react"}}')
-    assert not automatic_jsx_runtime(tmp_path, "pkg/web")
-    assert not automatic_jsx_runtime(tmp_path / "empty", ".")
+    assert not jsx_scope_unneeded(tmp_path, "pkg/web", ())
+    assert not jsx_scope_unneeded(tmp_path / "empty", ".", ())
 
 
 def rules_of(automatic, plugins=REACT, rules_config=None):
@@ -106,9 +106,9 @@ def run_real(tmp_path, jsx, source, rules_config=None):
     from riglib.lint_discovery_jsx import AUTOMATIC_JSX_VALUES
 
     config = render_oxlint_config(
-        {"groups": {"anti-slop": False}, **(rules_config or {})}, flavor="json", plugins=REACT, automatic_jsx=automatic_jsx_runtime(tmp_path, ".")
+        {"groups": {"anti-slop": False}, **(rules_config or {})}, flavor="json", plugins=REACT, automatic_jsx=jsx_scope_unneeded(tmp_path, ".", ())
     )
-    assert (jsx in AUTOMATIC_JSX_VALUES) == automatic_jsx_runtime(tmp_path, ".")
+    assert (jsx in AUTOMATIC_JSX_VALUES) == jsx_scope_unneeded(tmp_path, ".", ())
     write(tmp_path / ".oxlintrc.json", config)
     return subprocess.run([real, "-c", ".oxlintrc.json", "a.tsx"], cwd=tmp_path, capture_output=True, text=True, check=False)
 

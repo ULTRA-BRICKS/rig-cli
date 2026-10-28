@@ -58,7 +58,9 @@ This document is the human-readable reference; the machine-readable schema is
   wrong, *why* (with the **schema path**, e.g. `harness.auto_mode`, and a pointer into
   `schema/rig.schema.json`), and *how to fix it* — and exits `2`.
 - **`rig schema`** prints the schema; **`rig schema --check`** fails if the committed file drifted
-  from the registry (a CI-usable gate); **`rig schema --write`** regenerates it. A test
+  from the registry (a CI-usable gate); **`rig schema --write`** regenerates it in a rig-cli checkout. An installed wheel carries the same file as package data
+  (`riglib/rig.schema.json`, copied from the committed file at build time); `--check` verifies it (missing/altered → exit `2`) and `--write`
+  refuses (exit `2`, nothing written). A test
   (`tests/test_config_schema.py`) keeps the file, the registry, and `config.validate`'s key set in
   lockstep, so the three never disagree.
 
